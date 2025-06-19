@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luyện từ vựng</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h2>📖 Chọn từ vựng để học</h2>
+
+        <label>Chọn chủ đề:</label>
+        <select id="topicSelect">
+            <option value="">--Chọn chủ đề--</option>
+        </select>
+
+        <label>Chọn unit:</label>
+        <select id="unitSelect">
+            <option value="">--Chọn unit--</option>
+        </select>
+
+        <label>Nhập danh sách từ vựng:</label>
+        <input type="text" id="wordListInput" placeholder="Nhập từ vựng, cách nhau bằng dấu , . ; :">
+
+        <h3>🔎 Danh sách từ vựng cần học</h3>
+        <div id="wordDisplay"></div>
+        <button onclick="loadWords()">OK</button>
+
+
+        <button onclick="startExercises()" id="exerciseButton" style="display:none;">Bắt đầu bài tập</button>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

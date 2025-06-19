@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trò Chơi Ô Chữ</title>
+  <style>
+    /* Style chung */
+    body {
+      background-color: #222;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+
+    p {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+
+    /* Container hiển thị các ô (card) */
+    .game-board {
+      width: 90%;
+      max-width: 800px;
+      margin: 20px auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    /* Mỗi ô (card) cho 1 chữ cái */
+    .card {
+      background-color: #e91e63;
+      color: white;
+      font-size: 24px;
+      padding: 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s;
+      width: 60px;
+      text-align: center;
+      user-select: none;
+    }
+
+    .card:hover {
+      background-color: #ad1457;
+    }
+
+    /* Khi được chọn: chuyển sang màu vàng */
+    .card.selected {
+      background-color: yellow;
+      color: #222;
+    }
+
+    /* Khi tìm đúng từ, đổi sang màu xanh lá */
+    .card.matched-green {
+      background-color: green;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>Trò Chơi Ô Chữ</h1>
+  <!-- Các phần khác của HTML -->
+  <h2>Hãy chọn các chữ cái để tạo thành từ!</h2>
+  <div id="hintDisplay" style="margin-top:10px; font-size:18px; color:#fff;"></div>
+  <div id="matchedWordsDisplay" style="margin-top:20px; font-size:18px; color:#fff;"></div>
+  <!-- Phần game board -->
+  <div class="game-board" id="gameBoard"></div>
+
+  
+
+  <!-- Phần chứa các card (mỗi card thể hiện 1 ký tự) -->
+  <div class="game-board" id="gameBoard"></div>
+
+  <!-- Nhúng file JS cho Word Puzzle -->
+  <script type="module" src="word-puzzle.js"></script>
+</body>
+</html>

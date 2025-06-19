@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chọn bài tập</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h2>🎯 Chọn loại bài tập</h2>
+        <p>Từ vựng bạn đang học: <span id="wordList"></span></p>
+        <button onclick="startExercise('overview.html')">📖 Tổng quan</button>
+        <button onclick="startExercise('repeat.html')">🔄 Repeat</button>
+        <button onclick="startExercise('qna.html')">❓ Q&A</button>
+        <button onclick="startExercise('game.html')">🎮 Trò chơi</button>
+        <button onclick="startExercise('listening.html')">🎧 Bài tập nghe</button>
+        <button onclick="startExercise('image.html')">🖼 Bài tập hình ảnh</button>
+    </div>
+    <script>
+        let words = JSON.parse(localStorage.getItem("wordBank")) || [];
+        document.getElementById("wordList").textContent = words.join(", ");
+
+        function startExercise(page) {
+            window.location.href = `exercises/${page}`;
+        }
+    </script>
+</body>
+</html>

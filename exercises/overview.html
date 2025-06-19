@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bài tập tổng quan - Học từ vựng cho trẻ</title>
+  <style>
+    /* Không đặt background cũ cho body - ảnh nền sẽ được quản lý bởi background.js */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      color: #333;
+      background: none;
+    }
+    /* Container chính cho bài tập - nền trong suốt để background hiển thị rõ */
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      text-align: center;
+      background: transparent; /* Không có nền phủ */
+      display: none;
+    }
+    h2 {
+      font-size: 32px;
+      color: #FF69B4;
+      margin-bottom: 10px;
+    }
+    h3 {
+      font-size: 24px;
+      color: #FF4500;
+      margin-bottom: 10px;
+    }
+    #currentWord {
+      font-size: 20px;
+      font-weight: bold;
+      color: #333;
+    }
+    #wordList {
+      font-style: italic;
+      font-size: 18px;
+      color: #555;
+    }
+    /* Phần nội dung bài tập: chữ màu cam, cỡ lớn */
+    #exerciseContainer {
+      margin-top: 20px;
+      font-size: 28px;
+      color: #FF8C00;
+      font-weight: bold;
+      line-height: 1.6;
+    }
+    /* Input nhập câu trả lời giảm xuống 1/3 chiều ngang (20% hiện tại so với 60% ban đầu) */
+    input[type="text"] {
+      width: 20%;
+      height: 30px;
+      padding: 5px;
+      font-size: 20px;
+      border: 2px solid #FF69B4;
+      border-radius: 5px;
+      margin: 10px 0;
+      outline: none;
+    }
+    /* Các nút: loại bỏ nền màu hồng, thay bằng nền trong suốt và chỉnh kích cỡ nhỏ hơn nếu cần */
+    button {
+      cursor: pointer;
+      background: transparent; /* Nền trong suốt */
+      border: none;
+      color: #FF69B4; /* Giữ màu chữ hồng */
+      font-size: 20px;
+      padding: 12px 20px;
+      border-radius: 5px;
+      margin: 5px;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background: rgba(255,105,180,0.2); /* Nhẹ nhàng tạo hiệu ứng hover nếu cần */
+    }
+    /* Container thống kê */
+    #statsContainer {
+      margin-top: 20px;
+      font-size: 20px;
+      color: #333;
+      font-weight: bold;
+    }
+    /* Modal lựa chọn phương án học */
+    .mode-selection {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: #fff;
+    }
+    .mode-selection button {
+      font-size: 20px;
+      padding: 10px 20px;
+      margin: 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      background: #FF69B4;
+      color: #fff;
+      transition: background 0.3s ease;
+    }
+    .mode-selection button:hover {
+      background: #FF1493;
+    }
+    /* Phần hiển thị câu hỏi được đặt trong khung màu trắng để nổi bật, tự đổi kích cỡ theo nội dung */
+    .question-box {
+      background-color: white;
+      padding: 10px;
+      border-radius: 5px;
+      display: inline-block;
+      max-width: 90%;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Modal chọn phương án học -->
+  <div class="mode-selection" id="modeSelection">
+    <h2>Chọn phương án học</h2>
+    <p>Vui lòng chọn cách học của bạn:</p>
+    <button id="modeWord">Học theo từng từ</button>
+    <button id="modeExercise">Học theo dạng bài</button>
+  </div>
+
+  <!-- Container chính -->
+  <div class="container" id="mainContainer">
+    <h2>📖 Bài tập tổng quan</h2>
+
+    <div>
+      <strong>Danh sách từ vựng cần học:</strong>
+      <span id="wordList"></span>
+    </div>
+
+    <h3>Từ vựng đang làm: <span id="currentWord"></span></h3>
+
+    <div id="exerciseContainer"></div>
+
+    <div class="buttons">
+      <button id="btnShowAnswer">🔍 Xem đáp án</button>
+      <button id="btnPrev">⬅ Quay lại</button>
+      <button id="btnNext">➡ Tiếp tục</button>
+    </div>
+
+    <div id="statsContainer"></div>
+  </div>
+
+  <!-- Nhúng các tập tin JS -->
+  <script src="overview.js" type="module"></script>
+  <script src="displayBackground.js" type="module"></script>
+</body>
+</html>

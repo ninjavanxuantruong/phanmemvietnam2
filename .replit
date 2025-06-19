@@ -1,8 +1,9 @@
-entrypoint = "main.py"
+entrypoint = "python -m http.server 8080"
 modules = ["python-3.11"]
 
 [nix]
 channel = "stable-24_05"
+packages = ["lsof"]
 
 [unitTest]
 language = "python3"
@@ -11,5 +12,13 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["python3", "main.py"]
+run = ["python3", "-m", "http.server", "8080"]
 deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 8000
+externalPort = 8000
+
+[[ports]]
+localPort = 8080
+externalPort = 80
