@@ -3,42 +3,88 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lớp học thầy Tình</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Lớp học Pokémon của thầy Tình</title>
   <style>
-    /* Style cơ bản cho giao diện */
-    .container {
-      max-width: 500px;
-      margin: 100px auto;
-      text-align: center;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #3b4cca, #ffcc00);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
-    h1 {
-      font-size: 32px;
+
+    .container {
+      text-align: center;
+      background-color: rgba(0, 0, 0, 0.4);
+      padding: 40px 30px;
+      border-radius: 16px;
+      max-width: 500px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    .pokeballs {
       margin-bottom: 20px;
     }
-    button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      font-size: 20px;
-      cursor: pointer;
-      border: none;
-      border-radius: 5px;
-      background: #FF69B4;
-      color: #fff;
-      transition: background 0.3s ease;
+
+    .pokeballs img {
+      height: 40px;
+      margin: 0 6px;
     }
-    button:hover {
-      background: #FF1493;
+
+    h1 {
+      font-size: 30px;
+      margin-bottom: 30px;
+      color: #ffeb3b;
+      text-shadow: 2px 2px 6px #000;
+    }
+
+    .start-button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+      padding: 20px;
+      font-size: 20px;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(to right, #ffcc00, #f6c23e);
+      color: #2e2e2e;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      transition: transform 0.2s, background-color 0.3s;
+      width: 100%;
+    }
+
+    .start-button:hover {
+      transform: scale(1.05);
+      background: linear-gradient(to right, #f4b619, #ffdb4d);
+    }
+
+    .start-button img {
+      height: 130px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Chào mừng đến với Lớp học thầy Tình</h1>
-    <button onclick="location.href='dataEntry.html'">Bắt đầu học từ vựng</button>
+    <div class="pokeballs">
+      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="Pokéball">
+      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png" alt="Great Ball">
+      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png" alt="Ultra Ball">
+    </div>
+
+    <h1>Chào mừng đến với Lớp học Pokémon của thầy Tình</h1>
+
+    <button class="start-button" onclick="location.href='dataEntry.html'">
+      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png" alt="Pikachu">
+      Bắt đầu hành trình
+    </button>
   </div>
 </body>
 </html>
