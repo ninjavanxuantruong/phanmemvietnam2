@@ -7,5 +7,5 @@ document.getElementById("game2").addEventListener("click", function() {
 });
 
 document.getElementById("game3").addEventListener("click", function() {
-  window.location.href = "game-image-word.html"; 
+   window.location.href = "pokeword.html";
 });
