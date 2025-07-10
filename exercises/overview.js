@@ -1,4 +1,9 @@
 import { getRandomResponse, speakResponse } from './library.js';
+import { showCatchEffect } from './pokeball-effect.js';
+function triggerVictoryEffect() {
+  console.log("✅ Người chơi đã hoàn tất Overview!");
+  showCatchEffect(); // ✨ Beam sáng + Pokémon
+}
 
 console.log("Overview module loaded");
 
@@ -166,42 +171,52 @@ function loadExercise() {
       container.innerHTML = `<h3>🏆 Hoàn thành tất cả bài tập!</h3>
                              <p>✅ ${correctCount} | ❌ ${wrongCount} | 📊 Tổng câu: ${correctCount + wrongCount}</p>`;
       currentWordElem.textContent = "";
+      triggerVictoryEffect(); // 🟠 Gọi hiệu ứng beam + Pokémon
       return;
     }
+
     const ex = exercises[currentExerciseIndex];
     currentWordElem.textContent = ex.word;
+
     if (exerciseTaskIndex >= ex.tasks.length) {
       currentExerciseIndex++;
       exerciseTaskIndex = 0;
       loadExercise();
       return;
     }
+
     const task = ex.tasks[exerciseTaskIndex];
     container.innerHTML = `
       <h3>${task.type}</h3>
-      <div style="background-color: white; padding: 10px; border-radius: 5px; display: inline-block; max-width: 90%; margin-bottom: 10px;">
+      <div class="question-box">
          ${task.question ? task.question : "❌ Không có bài tập"}
       </div>
       <input type="text" id="userAnswer" placeholder="Nhập câu trả lời" style="font-size: 20px; width: 60%;">
     `;
-  } else if (studyMode === "exercise") {
+  }
+
+  else if (studyMode === "exercise") {
     if (currentExerciseIndex >= groupedExercises.length) {
       container.innerHTML = `<h3>🏆 Hoàn thành tất cả bài tập!</h3>
                              <p>✅ ${correctCount} | ❌ ${wrongCount} | 📊 Tổng câu: ${correctCount + wrongCount}</p>`;
       currentWordElem.textContent = "";
+      triggerVictoryEffect(); // 🟠 Gọi hiệu ứng beam + Pokémon
       return;
     }
+
     const task = groupedExercises[currentExerciseIndex];
     currentWordElem.textContent = task.word;
+
     container.innerHTML = `
       <h3>${task.type}</h3>
-      <div style="background-color: white; padding: 10px; border-radius: 5px; display: inline-block; max-width: 90%; margin-bottom: 10px;">
+      <div class="question-box">
          ${task.question ? task.question : "❌ Không có bài tập"}
       </div>
       <input type="text" id="userAnswer" placeholder="Nhập câu trả lời" style="font-size: 20px; width: 60%;">
     `;
   }
 }
+
 
 // ── HÀM KIỂM TRA ĐÁP ÁN ──
 function showAnswer() {
@@ -302,3 +317,4 @@ document.getElementById("btnNext")?.addEventListener("click", nextExercise);
 document.getElementById("btnPrev")?.addEventListener("click", previousExercise);
 
 export {};
+
