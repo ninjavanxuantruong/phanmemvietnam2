@@ -1,29 +1,127 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chọn bài tập</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🎮 PokéWord - Chọn nhiệm vụ</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #3b4cca, #ffcc00);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      text-align: center;
+      background-color: rgba(0, 0, 0, 0.4);
+      padding: 30px;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 440px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    h2 {
+      font-size: 30px;
+      margin-bottom: 12px;
+      text-shadow: 2px 2px 6px #000;
+    }
+
+    p {
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+
+    #exercise-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 12px;
+    }
+
+    #exercise-buttons button {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      padding: 14px;
+      font-size: 18px;
+      font-weight: bold;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(to right, #ffcc00, #f6c23e);
+      color: #2e2e2e;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      transition: transform 0.2s, background-color 0.3s;
+    }
+
+    #exercise-buttons button:hover {
+      transform: scale(1.05);
+      background: linear-gradient(to right, #f4b619, #ffdb4d);
+    }
+
+    #exercise-buttons button img {
+      height: 48px;
+      width: 48px;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h2>🎯 Chọn loại bài tập</h2>
-        <p>Từ vựng bạn đang học: <span id="wordList"></span></p>
-        <button onclick="startExercise('overview.html')">📖 Tổng quan</button>
-        <button onclick="startExercise('repeat.html')">🔄 Repeat</button>
-        <button onclick="startExercise('qna.html')">❓ Q&A</button>
-        <button onclick="startExercise('game.html')">🎮 Trò chơi</button>
-        <button onclick="startExercise('listening.html')">🎧 Bài tập nghe</button>
-        <button onclick="startExercise('image.html')">🖼 Bài tập hình ảnh</button>
-    </div>
-    <script>
-        let words = JSON.parse(localStorage.getItem("wordBank")) || [];
-        document.getElementById("wordList").textContent = words.join(", ");
+  <div class="container">
+    <h2>🎯 Chọn nhiệm vụ PokéWord</h2>
+    <p>Từ vựng bạn đang học: <span id="wordList"></span></p>
 
-        function startExercise(page) {
-            window.location.href = `exercises/${page}`;
-        }
-    </script>
+    <div id="exercise-buttons">
+      <button onclick="startExercise('vocabulary.html')">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/65.png" alt="Alakazam">
+        Từ vựng
+      </button>
+
+      <button onclick="startExercise('overview.html')">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/137.png" alt="Porygon">
+        Tổng quan
+      </button>
+
+      <button onclick="startExercise('game.html')">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png" alt="Pikachu">
+        Trò chơi
+      </button>
+
+      <button onclick="startExercise('repeat.html')">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/132.png" alt="Ditto">
+        Repeat
+      </button>
+
+      <button onclick="startExercise('qna.html')">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/52.png" alt="Meowth">
+        Q&A
+      </button>
+
+      <button onclick="startExercise('listening.html')">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/39.png" alt="Jigglypuff">
+        Bài tập nghe
+      </button>
+
+      <button onclick="startExercise('image.html')">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/235.png" alt="Smeargle">
+        Bài tập hình ảnh
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const words = JSON.parse(localStorage.getItem("wordBank")) || [];
+    document.getElementById("wordList").textContent = words.join(", ");
+    function startExercise(page) {
+      window.location.href = `exercises/${page}`;
+    }
+  </script>
 </body>
 </html>
