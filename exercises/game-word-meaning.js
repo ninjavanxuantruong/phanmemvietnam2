@@ -1,3 +1,4 @@
+console.log("📣 Bản đã được xoá thật sự");
 console.log("game-word-meaning.js đã được load");
 
 import { ASSETS } from "./library.js"; // Import library.js để lấy nhạc nền
@@ -30,10 +31,9 @@ function cleanWord(word) {
 }
 
 
-
 // Hàm fetch từ Google Sheet (cột C: từ, cột Y: nghĩa)
 async function fetchWords() {
-  // 🆕 Lấy danh sách từ đã chọn từ localStorage
+  // Lấy danh sách từ đã chốt từ localStorage
   let chosenWords = JSON.parse(localStorage.getItem("wordBank")) || [];
 
   if (chosenWords.length === 0) {
@@ -42,33 +42,49 @@ async function fetchWords() {
   }
 
   const url = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+
   try {
     const response = await fetch(url);
     const text = await response.text();
     const jsonData = JSON.parse(text.substring(47).slice(0, -2));
     const rows = jsonData.table.rows;
 
-    // 🆕 Chỉ lấy các từ đã chốt từ danh sách trong localStorage
-    const rawWords = rows.map(row => {
-      let rowData = row.c; 
+    // Làm sạch và lọc dữ liệu phù hợp với danh sách đã chọn
+    const filteredWords = rows.map(row => {
+      let rowData = row.c;
       return {
-        word: cleanWord(rowData[2]?.v || "").toUpperCase(),  
+        word: cleanWord(rowData[2]?.v || ""),
         meaning: rowData[24]?.v?.trim().toUpperCase() || ""
       };
-    }).filter(item => chosenWords.map(w => cleanWord(w).toUpperCase()).includes(item.word));
+    }).filter(item =>
+      chosenWords.some(chosen => cleanWord(chosen) === item.word)
+    );
 
-    console.log("Danh sách từ sau khi lọc:", rawWords);
+    console.log("🔎 Tổng số dòng trùng khớp:", filteredWords.length);
 
-    // 🆕 Lưu tổng số từ đã fetch vào localStorage
-    localStorage.setItem("totalWords", rawWords.length);
-    console.log("🔍 Đã lưu tổng số từ vào localStorage:", localStorage.getItem("totalWords"));
+    // Loại bỏ các bản ghi trùng từ — giữ bản ghi đầu tiên
+    const uniqueMap = new Map();
+    for (let item of filteredWords) {
+      const key = item.word;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, item); // giữ dòng đầu tiên
+      }
+    }
 
-    return rawWords;
+    const uniqueWords = [...uniqueMap.values()];
+    console.log("✅ Danh sách từ sau khi loại trùng:", uniqueWords);
+
+    // Lưu tổng số từ vào localStorage để kiểm tra chiến thắng
+    localStorage.setItem("totalWords", uniqueWords.length);
+    console.log("📦 Đã lưu số từ cần ghép:", uniqueWords.length);
+
+    return uniqueWords;
   } catch (error) {
-    console.error("Lỗi khi fetch:", error);
+    console.error("❌ Lỗi khi fetch dữ liệu:", error);
     return [];
   }
 }
+
 
 
 
@@ -190,46 +206,28 @@ function showStarAndSpeak() {
 }
 
 // 🆕 Hàm kiểm tra chiến thắng và hiển thị pháo hoa
+
+
+import { showCatchEffect } from './pokeball-effect.js';
+
 function checkVictory() {
-    const totalPairs = parseInt(localStorage.getItem("victoryTotalWords")) || 0;  // 🆕 Tổng số cặp cần ghép
-    const matchedPairs = matchedWords.length / 2;  // 🆕 Số cặp đã ghép đúng
+  const totalPairs = parseInt(localStorage.getItem("totalWords")) || 0;
+  const matchedPairs = matchedWords.length / 2;
 
-    console.log("🔍 Kiểm tra số cặp phục vụ victory:", totalPairs);
-    console.log("🔍 Số cặp đã ghép đúng:", matchedPairs);
+  console.log("🔍 Kiểm tra số cặp phục vụ victory:", totalPairs);
+  console.log("🔍 Số cặp đã ghép đúng:", matchedPairs);
 
-    if (totalPairs > 0 && matchedPairs === totalPairs) {  
-        console.log("✅ Người chơi đã hoàn thành trò chơi!");
+  if (totalPairs > 0 && matchedPairs === totalPairs) {
+    console.log("✅ Người chơi đã hoàn thành trò chơi!");
+    console.log("🚨 Hiệu ứng triệu hồi Pokémon đã được gọi!");
 
-        const victoryMessage = document.createElement("div");
-        victoryMessage.id = "victoryMessage";
-        victoryMessage.style.position = "fixed";
-        victoryMessage.style.top = "50%";
-        victoryMessage.style.left = "50%";
-        victoryMessage.style.transform = "translate(-50%, -50%)";
-        victoryMessage.style.fontSize = "28px";
-        victoryMessage.style.color = "#fff";
-        victoryMessage.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
-        victoryMessage.style.padding = "20px";
-        victoryMessage.style.borderRadius = "10px";
-        victoryMessage.style.textAlign = "center";
-        victoryMessage.innerText = "🎉 CHÚC MỪNG! BẠN ĐÃ HOÀN THÀNH TRÒ CHƠI! 🎉";
-
-        document.body.appendChild(victoryMessage);
-
-        setTimeout(() => {
-            victoryMessage.remove();
-        }, 7000);
-    }
+    showCatchEffect(); // 🎉 Triệu hồi Pokémon thay cho thông báo
+  }
 }
-
-
-
-
-
 
 
 // 🆕 Sự kiện khi trang tải xong, khởi động game
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("DOMContentLoaded đã được kích hoạt");
+  console.log("✅ DOMContentLoaded đã được kích hoạt");
   setupGame();
 });
