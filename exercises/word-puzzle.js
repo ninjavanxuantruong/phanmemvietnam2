@@ -44,38 +44,55 @@ function cleanWord(word) {
 
 // Hàm fetch từ Google Sheet (cột C: từ, cột Y: nghĩa)
 async function fetchWords() {
-  // 🆕 Lấy danh sách từ đã chọn từ localStorage (được lưu trước đó)
   let chosenWords = JSON.parse(localStorage.getItem("wordBank")) || [];
 
-  // Nếu danh sách rỗng, báo lỗi và không lấy dữ liệu từ Google Sheet
   if (chosenWords.length === 0) {
     console.warn("Không có danh sách từ vựng đã chốt!");
     return [];
   }
 
   const url = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+
   try {
     const response = await fetch(url);
     const text = await response.text();
     const jsonData = JSON.parse(text.substring(47).slice(0, -2));
     const rows = jsonData.table.rows;
 
-    // 🆕 Chỉ lấy các từ đã chốt từ danh sách trong localStorage
+    // Tạo danh sách ban đầu từ Google Sheet
     const rawWords = rows.map(row => {
-      let rowData = row.c; 
+      let rowData = row.c;
       return {
-        word: cleanWord(rowData[2]?.v || "").toLowerCase(), // Cột C: Từ vựng (làm sạch, chữ thường)
-        meaning: rowData[24]?.v || ""                       // Cột Y: Nghĩa
+        word: cleanWord(rowData[2]?.v || ""),
+        meaning: rowData[24]?.v || ""
       };
-    }).filter(item => chosenWords.map(w => w.toLowerCase()).includes(item.word)); // 🆕 Lọc theo danh sách từ đã chốt
+    })
+    // Lọc những từ trùng khớp với danh sách đã chọn
+    .filter(item =>
+      chosenWords.some(chosen => cleanWord(chosen) === item.word)
+    );
 
-    console.log("Danh sách từ sau khi lọc:", rawWords);
-    return rawWords;
+    console.log("Tổng số dòng trùng khớp:", rawWords.length);
+
+    // 🧠 Loại bỏ từ trùng lặp, chỉ lấy bản ghi đầu tiên
+    const uniqueWords = [];
+    const seen = new Set();
+
+    for (let item of rawWords) {
+      if (!seen.has(item.word)) {
+        uniqueWords.push(item);
+        seen.add(item.word);
+      }
+    }
+
+    console.log("Danh sách từ đã lọc và loại trùng:", uniqueWords);
+    return uniqueWords;
   } catch (error) {
     console.error("Lỗi khi fetch:", error);
     return [];
   }
 }
+
 
 
 
@@ -274,39 +291,22 @@ function updateMatchedWordsDisplay() {
     .join(" | ");
 }
 
+import { showCatchEffect } from './pokeball-effect.js';  // Gọi hiệu ứng Pokémon
+
 function checkVictory() {
-    console.log("Hàm checkVictory đã chạy!");
-    const totalWords = vocabWords.length;  // 🆕 Tổng số từ cần ghép
-    const completedWords = matchedWords.length;  // 🆕 Số từ đã ghép đúng
+  console.log("Hàm checkVictory đã chạy!");
 
-    console.log("🔍 Tổng số từ cần hoàn thành:", totalWords);
-    console.log("🔍 Số từ đã ghép đúng:", completedWords);
+  const totalWords = vocabWords.length;      // Tổng số từ cần ghép
+  const completedWords = matchedWords.length; // Số từ đã ghép đúng
 
-    if (completedWords === totalWords) {  
-        console.log("✅ Người chơi đã hoàn thành trò chơi!");
+  console.log("🔍 Tổng số từ cần hoàn thành:", totalWords);
+  console.log("🔍 Số từ đã ghép đúng:", completedWords);
 
-        const victoryMessage = document.createElement("div");
-        victoryMessage.id = "victoryMessage";
-        victoryMessage.style.position = "fixed";
-        victoryMessage.style.top = "50%";
-        victoryMessage.style.left = "50%";
-        victoryMessage.style.transform = "translate(-50%, -50%)";
-        victoryMessage.style.fontSize = "28px";
-        victoryMessage.style.color = "#fff";
-        victoryMessage.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
-        victoryMessage.style.padding = "20px";
-        victoryMessage.style.borderRadius = "10px";
-        victoryMessage.style.textAlign = "center";
-        victoryMessage.innerText = "🎉 CHÚC MỪNG! BẠN ĐÃ HOÀN THÀNH TRÒ CHƠI! 🎉";
-
-        document.body.appendChild(victoryMessage);
-
-        setTimeout(() => {
-            victoryMessage.remove();
-        }, 7000);
-    }
+  if (completedWords === totalWords) {
+    console.log("✅ Người chơi đã hoàn thành trò chơi!");
+    showCatchEffect();  // ✨ Hiệu ứng triệu hồi Pokémon thay vì thông báo chữ
+  }
 }
 
-
-
+// Khởi động game khi trang tải xong
 document.addEventListener("DOMContentLoaded", setupGame);
