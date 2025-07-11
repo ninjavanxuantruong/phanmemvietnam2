@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>📘 PokéVocabulary</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      background: linear-gradient(to bottom, #232526, #414345);
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding: 30px;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 6px #000;
+    }
+
+    h2 {
+      font-size: 20px;
+      margin-bottom: 20px;
+    }
+
+    .vocab-card {
+      background: linear-gradient(to right, #fceabb, #f8b500);
+      padding: 24px;
+      border-radius: 24px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      max-width: 860px;
+      margin: auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 20px;
+    }
+
+    .image-frame {
+      position: relative;
+      background: #f5f5f5;
+      border: 12px solid #cfd8dc;
+      border-radius: 32px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      overflow: visible;
+      width: 300px;
+      height: auto;
+      box-sizing: border-box;
+    }
+
+    .image-frame img#vocabImage {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: cover;
+      border-radius: 20px;
+    }
+
+    .corner {
+      position: absolute;
+      width: 36px;
+      height: 36px;
+      z-index: 100;
+    }
+
+    .top-left     { top: -18px; left: -18px; }
+    .top-right    { top: -18px; right: -18px; }
+    .bottom-left  { bottom: -18px; left: -18px; }
+    .bottom-right { bottom: -18px; right: -18px; }
+
+    .info-box {
+      flex: 1;
+      min-width: 240px;
+      text-align: left;
+    }
+
+    #vocabWord {
+      font-size: 28px;
+      margin-bottom: 12px;
+    }
+
+    #vocabPhonetic {
+      font-size: 18px;
+      color: #222;
+      background: #fff9c4;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      display: inline-block;
+    }
+
+    #vocabMeaning {
+      font-size: 18px;
+      color: #222;
+      background: #fff9c4;
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    #playSound {
+      background: none;
+      border: none;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+
+    #playSound img {
+      width: 80px;
+      transition: transform 0.2s;
+    }
+
+    #nextBtn {
+      margin-top: 30px;
+      padding: 12px 24px;
+      font-size: 18px;
+      background-color: #f44336;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    #nextBtn:hover {
+      background-color: #d32f2f;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(10deg); }
+      50% { transform: rotate(-10deg); }
+      75% { transform: rotate(10deg); }
+    }
+
+    @media (max-width: 600px) {
+      .vocab-card {
+        flex-direction: column;
+        align-items: center;
+        padding: 16px;
+      }
+
+      .image-frame {
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+      }
+
+      .info-box {
+        width: 100%;
+        text-align: center;
+      }
+
+      #vocabPhonetic,
+      #vocabMeaning {
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>📘 PokéVocabulary</h1>
+  <h2>Trainer hãy học từ vựng theo phong cách Legendary!</h2>
+
+  <div class="vocab-card">
+    <div class="image-frame">
+      <img id="vocabImage" src="" alt="Ảnh minh họa từ" />
+      <img class="corner top-left" src="https://cdn-icons-png.flaticon.com/512/361/361998.png" />
+      <img class="corner top-right" src="https://cdn-icons-png.flaticon.com/512/361/361998.png" />
+      <img class="corner bottom-left" src="https://cdn-icons-png.flaticon.com/512/361/361998.png" />
+      <img class="corner bottom-right" src="https://cdn-icons-png.flaticon.com/512/361/361998.png" />
+    </div>
+
+    <div class="info-box">
+      <h2 id="vocabWord">Loading...</h2>
+      <p id="vocabPhonetic">...</p>
+      <p id="vocabMeaning">...</p>
+
+      <button id="playSound">
+        <img src="https://cdn-icons-png.flaticon.com/512/361/361998.png" alt="Phát âm từ" />
+      </button>
+    </div>
+  </div>
+
+  <button id="nextBtn">⏭️ Xem từ tiếp theo</button>
+
+  <script type="module" src="vocabulary.js"></script>
+</body>
+</html>
