@@ -32,6 +32,10 @@ let vocabWords = [];     // Danh sách từ đúng (đã làm sạch) có kèm n
 let selectedCells = [];  // Danh sách các ô người chơi đã chọn (theo thứ tự)
 let displayCells = [];   // Mảng chứa tất cả các ô hiển thị (bao gồm từ đúng và ký tự ngẫu nhiên)
 let matchedWords = [];   // Danh sách các từ ghép đúng (có nghĩa)
+let totalTime = 0;
+let countdown = 0;
+let totalTimer;
+let timerExpired = false;
 
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -140,6 +144,11 @@ async function setupGame() {
   }
 
   shuffleArray(vocabWords);
+  
+  totalTime = vocabWords.length * 15;
+  countdown = totalTime;
+  startTotalTimer();
+
 
   displayCells = [];
 
@@ -264,6 +273,21 @@ function checkSelectedWord() {
   }
 }
 
+function startTotalTimer() {
+  const timeDisplay = document.getElementById("globalTimerBox");
+  timeDisplay.textContent = `🕒 Còn lại: ${countdown}s`;
+
+  totalTimer = setInterval(() => {
+    countdown--;
+    timeDisplay.textContent = `🕒 Còn lại: ${countdown}s`;
+
+    if (countdown <= 0) {
+      clearInterval(totalTimer);
+      timerExpired = true;
+      timeDisplay.textContent = "⏱️ Hết giờ! Bạn vẫn có thể hoàn thành.";
+    }
+  }, 1000);
+}
 
 
 
@@ -296,17 +320,24 @@ import { showCatchEffect } from './pokeball-effect.js';  // Gọi hiệu ứng P
 function checkVictory() {
   console.log("Hàm checkVictory đã chạy!");
 
-  const totalWords = vocabWords.length;      // Tổng số từ cần ghép
-  const completedWords = matchedWords.length; // Số từ đã ghép đúng
+  const totalWords = vocabWords.length;
+  const completedWords = matchedWords.length;
 
   console.log("🔍 Tổng số từ cần hoàn thành:", totalWords);
   console.log("🔍 Số từ đã ghép đúng:", completedWords);
 
   if (completedWords === totalWords) {
     console.log("✅ Người chơi đã hoàn thành trò chơi!");
-    showCatchEffect();  // ✨ Hiệu ứng triệu hồi Pokémon thay vì thông báo chữ
-  }
-}
 
-// Khởi động game khi trang tải xong
+    if (!timerExpired) {
+      showCatchEffect(); // ✅ Triệu hồi Pokémon nếu trong thời gian
+    } else {
+      let msg = `🚫 Bạn hoàn thành muộn quá! Hãy hoàn tất trong ${totalTime}s để bắt được Pokémon lần sau.`;
+      let hintBox = document.getElementById("hintDisplay");
+      if (hintBox) hintBox.textContent = msg;
+      else alert(msg);
+    }
+  }
+} // 🛠 Đây là dấu bạn đang thiếu!
+
 document.addEventListener("DOMContentLoaded", setupGame);
