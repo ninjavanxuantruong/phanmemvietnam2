@@ -119,10 +119,12 @@ function renderWord(wordObj) {
 
 function startTimer() {
   let sec = timeLimit;
-  countdownEl.textContent = sec;
+  timerBox.textContent = `Thời gian: ${sec}s`;
+
   timer = setInterval(() => {
     sec--;
-    countdownEl.textContent = sec;
+    timerBox.textContent = `Thời gian: ${sec}s`;
+
     if (sec <= 0) {
       clearInterval(timer);
       timerExpired = true;
@@ -130,6 +132,7 @@ function startTimer() {
     }
   }, 1000);
 }
+
 
 function checkAnswer() {
   const wordObj = vocabWords[currentIndex];
@@ -146,7 +149,7 @@ function checkAnswer() {
 
   if (guess === expected) {
     if (!timerExpired) {
-      score += expected.length;
+      score += 1;
       scoreBox.textContent = `Điểm: ${score}`;
     }
     updateMatchedWordsDisplay(wordObj);
@@ -161,8 +164,16 @@ function checkAnswer() {
   if (currentIndex < vocabWords.length) {
     setTimeout(() => renderWord(vocabWords[currentIndex]), 1000);
   } else {
-    triggerVictoryEffect(); // 🟠 Hiệu ứng Pokémon khi hoàn tất
+    const totalWords = vocabWords.length;
+    const passThreshold = Math.floor(totalWords / 2); // 👈 Ngưỡng 50%
+
+    if (score >= passThreshold) {
+      triggerVictoryEffect(); // ✅ Triệu hồi Pokémon
+    } else {
+      hintBox.textContent = `🚫 Bạn chưa bắt được Pokémon nào! Hãy luyện thêm để đạt tối thiểu 50% từ đúng nhé`;
+    }
   }
+
 }
 
 submitBtn.onclick = () => {
