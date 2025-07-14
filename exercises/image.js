@@ -1,6 +1,14 @@
 const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
+const uniqueWords = [...new Set(wordBank)];
+
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 const PEXELS_API_KEY = "DsgAHtqZS5lQtujZcSdZsOHIhoa9NtT6GVMQ3Xn7DQiyDJ9FKDhgo2GQ"; // Trainer gán key Pexels
+
+if (!localStorage.getItem("isSessionStarted")) {
+  ["score1", "score2", "score3", "total1", "total2", "total3"].forEach(k => localStorage.removeItem(k));
+  localStorage.setItem("isSessionStarted", "true");
+}
+
 
 let vocabData = [];
 let currentIndex = 0;
@@ -28,7 +36,8 @@ async function fetchWords() {
     meaning: row.c[24]?.v?.trim() || ""
   }));
 
-  const selected = all.filter(item => wordBank.includes(item.word));
+  const selected = all.filter(item => uniqueWords.includes(item.word));
+
   return shuffle(selected);
 }
 
