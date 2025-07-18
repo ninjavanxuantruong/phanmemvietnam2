@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pokémon Speaking Gym</title>
+  <style>
+    body {
+      font-family: 'Verdana', sans-serif;
+      background: linear-gradient(to bottom right, #fceabb, #f8b500);
+      margin: 0;
+      padding: 20px;
+    }
+
+    #speakingApp {
+      max-width: 640px;
+      margin: auto;
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.2);
+    }
+
+    h2 {
+      text-align: center;
+      color: #d32f2f;
+      margin-bottom: 24px;
+    }
+
+    .modeBtn {
+      padding: 12px 18px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background-color: #eeeeee;
+      transition: 0.3s;
+      flex: 1;
+      margin: 0 6px;
+    }
+
+    .modeBtn:hover {
+      background-color: #ffd54f;
+    }
+
+    #modeSelector {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 20px;
+    }
+
+    #speakingArea {
+      border: 2px dashed #ccc;
+      padding: 20px;
+      border-radius: 12px;
+      background: #f9f9f9;
+      min-height: 180px;
+    }
+
+    button {
+      margin-top: 12px;
+      margin-right: 8px;
+      padding: 10px 14px;
+      font-size: 15px;
+      border-radius: 6px;
+      border: none;
+      background-color: #90caf9;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #64b5f6;
+    }
+
+    #speechResult {
+      margin-top: 16px;
+      font-size: 16px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div id="speakingApp">
+    <h2>🗣️ Pokémon Speaking Gym</h2>
+
+    <div id="modeSelector">
+      <button class="modeBtn" onclick="startSpeakingChunks()">🟢 Cụm từ</button>
+      <button class="modeBtn" onclick="startSpeakingSentence()">🔵 Câu đầy đủ</button>
+      <button class="modeBtn" onclick="startSpeakingParagraph()">🟣 Đoạn văn</button>
+    </div>
+
+    <div id="speakingArea">
+      <div style="font-size:18px;">🎮 Chọn chế độ luyện nói để bắt đầu hành trình huấn luyện!</div>
+    </div>
+  </div>
+
+  <script src="speaking.js"></script>
+</body>
+</html>
