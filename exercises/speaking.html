@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Pokémon Speaking Gym</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🎤 Trạm luyện nói PokéGym</title>
+
   <style>
     body {
       font-family: 'Verdana', sans-serif;
@@ -12,87 +14,100 @@
     }
 
     #speakingApp {
-      max-width: 640px;
+      max-width: 500px;
       margin: auto;
       background: #fff;
-      border-radius: 16px;
+      border-radius: 18px;
       padding: 24px;
-      box-shadow: 0 0 12px rgba(0,0,0,0.2);
+      box-shadow: 0 0 16px rgba(0,0,0,0.2);
+      text-align: center;
     }
 
     h2 {
-      text-align: center;
+      font-size: 26px;
       color: #d32f2f;
       margin-bottom: 24px;
+      text-shadow: 1px 1px #fff;
     }
 
     .modeBtn {
-      padding: 12px 18px;
-      font-size: 16px;
-      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      background-color: #fff3e0;
       border: none;
+      border-radius: 12px;
+      margin: 16px 0;
+      padding: 16px 20px;
+      font-size: 20px;
       cursor: pointer;
-      background-color: #eeeeee;
-      transition: 0.3s;
-      flex: 1;
-      margin: 0 6px;
+      transition: background 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      text-align: left;
     }
 
     .modeBtn:hover {
-      background-color: #ffd54f;
+      background-color: #ffe082;
     }
 
-    #modeSelector {
-      display: flex;
-      justify-content: space-around;
-      margin-bottom: 20px;
+    .modeBtn img {
+      width: 52px;
+      margin-right: 18px;
+      flex-shrink: 0;
     }
 
-    #speakingArea {
-      border: 2px dashed #ccc;
-      padding: 20px;
-      border-radius: 12px;
-      background: #f9f9f9;
-      min-height: 180px;
+    .labelText {
+      flex: 1;
     }
 
-    button {
-      margin-top: 12px;
-      margin-right: 8px;
-      padding: 10px 14px;
-      font-size: 15px;
-      border-radius: 6px;
-      border: none;
-      background-color: #90caf9;
-      cursor: pointer;
-    }
+    @media (max-width: 600px) {
+      #speakingApp {
+        width: 90%;
+        padding: 20px;
+      }
 
-    button:hover {
-      background-color: #64b5f6;
-    }
+      h2 {
+        font-size: 22px;
+      }
 
-    #speechResult {
-      margin-top: 16px;
-      font-size: 16px;
-      color: #333;
+      .modeBtn {
+        font-size: 18px;
+        padding: 14px;
+      }
+
+      .modeBtn img {
+        width: 40px;
+        margin-right: 12px;
+      }
     }
   </style>
 </head>
 <body>
+
   <div id="speakingApp">
-    <h2>🗣️ Pokémon Speaking Gym</h2>
+    <h2>🎤 Trạm luyện nói PokéGym</h2>
 
-    <div id="modeSelector">
-      <button class="modeBtn" onclick="startSpeakingChunks()">🟢 Cụm từ</button>
-      <button class="modeBtn" onclick="startSpeakingSentence()">🔵 Câu đầy đủ</button>
-      <button class="modeBtn" onclick="startSpeakingParagraph()">🟣 Đoạn văn</button>
-    </div>
+    <button class="modeBtn" onclick="goToMode('chunks')">
+      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10.png" alt="Caterpie">
+      <div class="labelText">Luyện cụm từ — tăng phản xạ nhanh</div>
+    </button>
 
-    <div id="speakingArea">
-      <div style="font-size:18px;">🎮 Chọn chế độ luyện nói để bắt đầu hành trình huấn luyện!</div>
-    </div>
+    <button class="modeBtn" onclick="goToMode('sentence')">
+      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png" alt="Pikachu">
+      <div class="labelText">Luyện câu đầy đủ — nói mượt như tia chớp</div>
+    </button>
+
+    <button class="modeBtn" onclick="goToMode('paragraph')">
+      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png" alt="Charizard">
+      <div class="labelText">Luyện đoạn văn — bung chiêu mạnh Legendary</div>
+    </button>
   </div>
 
-  <script src="speaking.js"></script>
+  <script>
+    function goToMode(mode) {
+      alert(`🚀 Bạn đã chọn chế độ luyện: ${mode}`);
+      // Trainer gắn logic chuyển trang hoặc khởi động tại đây
+    }
+  </script>
+
 </body>
 </html>
