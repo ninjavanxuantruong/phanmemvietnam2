@@ -95,7 +95,28 @@
         padding: 12px;
       }
     }
+
+    /* 🔧 Glow bổ sung để căn giữa trên desktop */
+    @media (min-width: 800px) {
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+      }
+
+      #main {
+        flex: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 48px;
+        box-sizing: border-box;
+        min-height: calc(100vh - 100px); /* header height approx */
+      }
+    }
   </style>
+
 </head>
 
 <body>
