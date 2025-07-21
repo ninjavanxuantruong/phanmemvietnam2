@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🎙️ Legendary Trainer Speaking Gym</title>
+
+  <!-- Compromise -->
+  <script src="https://unpkg.com/compromise"></script>
+
+  <!-- Styles -->
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(#f0f9ff, #d0e7ff);
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background: #ffcc00;
+      color: #333;
+      padding: 16px;
+      text-align: center;
+      font-size: 28px;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px #fff;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    #main {
+      display: flex;
+      justify-content: space-between;
+      padding: 24px;
+      flex-wrap: wrap;
+    }
+
+    #speakingArea {
+      flex: 1;
+      background: #fff;
+      padding: 20px;
+      margin-right: 24px;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.1);
+      font-size: 18px;
+      min-width: 280px;
+    }
+
+    #duckZone {
+      width: 280px;
+      text-align: center;
+      font-size: 16px;
+      color: #555;
+    }
+
+    .goDuck {
+      width: 180px;
+      border-radius: 12px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.2);
+    }
+
+    .mouth {
+      font-size: 28px;
+      margin-top: 8px;
+      color: #cc3333;
+      transition: opacity 0.3s ease;
+    }
+
+    .mouth.speak {
+      opacity: 1;
+    }
+
+    .mouth.sleep {
+      opacity: 0.3;
+    }
+
+    @media (max-width: 600px) {
+      #main {
+        flex-direction: column;
+        padding: 12px;
+      }
+
+      #speakingArea {
+        margin-right: 0;
+        margin-bottom: 16px;
+        font-size: 16px;
+      }
+
+      #duckZone {
+        width: 100%;
+      }
+
+      header {
+        font-size: 22px;
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>🎙️ Legendary Trainer Speaking Gym</header>
+
+  <div id="main">
+    <div id="speakingArea">
+      <div style="font-size:20px;">📭 Hệ thống đang khởi động…</div>
+    </div>
+
+    <div id="duckZone">
+      <img src="https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/goduck.gif" alt="Go Duck mascot" class="goDuck" id="goDuck" />
+      
+    </div>
+  </div>
+
+  <!-- PokéBall Effect -->
+  <script type="module">
+    export function showCatchEffect(container) {
+      const ball = document.createElement("div");
+      ball.textContent = "🟠 PokéBall!";
+      ball.style.position = "absolute";
+      ball.style.fontSize = "32px";
+      ball.style.animation = "pop 1s ease-in";
+      ball.style.top = "50%";
+      ball.style.left = "50%";
+      ball.style.transform = "translate(-50%, -50%)";
+      container.appendChild(ball);
+      setTimeout(() => container.removeChild(ball), 1000);
+    }
+  </script>
+
+  <!-- Script luyện nói -->
+  <script type="module" src="./speaking-chunks.js"></script>
+
+  <!-- Lipsync simulation -->
+  <script>
+    const mouth = document.getElementById("duckMouth");
+
+    function lipsync(active) {
+      if (active) {
+        mouth.classList.add("speak");
+        mouth.classList.remove("sleep");
+        mouth.textContent = "🦆 Quack Quack!";
+      } else {
+        mouth.classList.remove("speak");
+        mouth.classList.add("sleep");
+        mouth.textContent = "😴 ...";
+      }
+    }
+
+    window.addEventListener("speechstart", () => lipsync(true));
+    window.addEventListener("speechend", () => lipsync(false));
+  </script>
+</body>
+</html>
