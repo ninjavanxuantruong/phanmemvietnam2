@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🔥 PokéGym luyện đoạn văn — Hệ Lửa</title>
+
+  <!-- Compromise nếu cần -->
+  <script src="https://unpkg.com/compromise"></script>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-image: url('https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/mua5.gif');
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-position: center;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+      padding-top: 80px;
+    }
+
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(255, 87, 34, 0.85);
+      color: #fff;
+      padding: 20px;
+      text-align: center;
+      font-size: 28px;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px #000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 10;
+      border-bottom: 2px solid #ff5722;
+    }
+
+    #main {
+      flex: 1;
+      max-width: 780px;
+      width: 95%;
+      margin: 32px auto;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 0 18px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      
+    }
+
+
+    .charizard {
+      margin-bottom: 24px;
+    }
+
+    .charizard img {
+      width: 200px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(255,87,34,0.8);
+    }
+
+    #paragraphArea {
+      font-size: 20px;
+      margin-bottom: 28px;
+      text-align: center;
+      color: #333;
+      line-height: 1.6;
+      padding: 16px;
+      border-radius: 12px;
+      background-color: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+      width: 100%;
+      border: 2px solid #ff7043; /* viền đỏ cam quanh khung nội dung nói */
+    }
+
+
+
+
+    .controls {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    button {
+      font-size: 18px;
+      padding: 12px 20px;
+      background: #ffccbc;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: background 0.2s ease;
+    }
+
+    button:hover {
+      background: #ffab91;
+    }
+
+    #speechResult {
+      font-size: 18px;
+      color: #333;
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      header {
+        font-size: 24px;
+        padding: 16px;
+      }
+
+      #main {
+        padding: 20px;
+        margin: 24px 0;
+      }
+
+      .charizard img {
+        width: 140px;
+      }
+
+      button {
+        font-size: 16px;
+        padding: 10px 14px;
+      }
+
+      #paragraphArea {
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>🔥 PokéGym luyện đoạn văn — Hệ Lửa</header>
+
+  <div id="main">
+    <div class="charizard">
+      <img src="https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/charizard.gif" alt="Charizard luyện đoạn văn" />
+    </div>
+
+    <div id="paragraphArea">📭 Đang khởi động nội dung luyện đoạn văn…</div>
+
+    
+  </div>
+
+  <!-- Script luyện nói -->
+  <script type="module" src="./speaking-paragraph.js"></script>
+</body>
+</html>
