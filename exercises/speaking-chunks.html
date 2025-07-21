@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>💧 PokéGym luyện cụm từ — Hệ Nước</title>
+  <title>💧 Legendary Trainer Speaking Gym</title>
 
   <!-- Compromise -->
   <script src="https://unpkg.com/compromise"></script>
@@ -11,146 +11,134 @@
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      background-image: url('https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/mua3.gif');
+      background-image: url('https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/mua4.gif');
       background-size: cover;
       background-repeat: no-repeat;
       background-position: center;
       margin: 0;
       padding: 0;
       display: flex;
-      flex-direction: column;
-      align-items: center;
+      justify-content: center;
+      padding-top: 80px;
       min-height: 100vh;
       box-sizing: border-box;
     }
 
     header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
       background: rgba(0, 150, 255, 0.8);
       color: #fff;
-      padding: 20px;
+      padding: 16px;
       text-align: center;
       font-size: 28px;
       font-weight: bold;
-      width: 100%;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       text-shadow: 1px 1px 2px #004080;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      z-index: 10;
       border-bottom: 2px solid #00bcd4;
     }
 
     #main {
-      flex: 1;
-      max-width: 780px;
-      width: 95%;
-      background: rgba(255, 255, 255, 0.85);
-      margin: 32px auto;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 0 18px rgba(0,0,0,0.15);
       display: flex;
-      flex-direction: column;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      padding: 24px;
+      box-sizing: border-box;
+      max-width: 960px;
+      width: 100%;
       align-items: center;
     }
 
-    .goDuck {
-      margin-bottom: 24px;
+    #speakingArea {
+      flex: 1;
+      background-color: rgba(255, 255, 255, 0.85);
+      padding: 16px;
+      margin-right: 16px;
+      border-radius: 14px;
+      border: 2px solid #00bcd4;
+      box-shadow: 0 0 16px rgba(0,0,0,0.15);
+      font-size: 17px;
+      min-width: 260px;
+      max-width: 100%;
     }
 
-    .goDuck img {
+
+    #duckZone {
+      width: 280px;
+      text-align: center;
+      font-size: 16px;
+      color: #555;
+    }
+
+    .goDuck {
       width: 180px;
       border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,150,255,0.6);
-    }
-
-    #chunkArea {
-      font-size: 24px;
-      margin-bottom: 28px;
-      text-align: center;
-      color: #333;
-      line-height: 1.5;
-      border: 2px solid #00bcd4;
-      border-radius: 12px;
-      padding: 16px;
-      background-color: rgba(230, 245, 255, 0.9);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
-    }
-
-    .controls {
-      display: flex;
-      gap: 14px;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin-bottom: 24px;
-    }
-
-    button {
-      font-size: 18px;
-      padding: 12px 20px;
-      background: #b3e5fc;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      transition: background 0.2s ease;
-    }
-
-    button:hover {
-      background: #81d4fa;
-    }
-
-    #speechResult {
-      font-size: 18px;
-      color: #333;
-      margin-top: 12px;
-      text-align: center;
+      box-shadow: 0 0 8px rgba(0,0,0,0.2);
     }
 
     @media (max-width: 600px) {
-      header {
-        font-size: 24px;
-        padding: 16px;
-      }
-
       #main {
-        padding: 20px;
-        margin: 24px 0;
+        flex-direction: column;
+        padding: 12px;
       }
 
-      .goDuck img {
-        width: 140px;
-      }
-
-      button {
+      #speakingArea {
+        padding: 12px;
+        margin-bottom: 16px;
         font-size: 16px;
-        padding: 10px 14px;
       }
 
-      #chunkArea {
-        font-size: 20px;
+
+      #duckZone {
+        width: 100%;
+      }
+
+      header {
+        font-size: 22px;
+        padding: 12px;
+      }
+
+      .goDuck {
+        width: 140px;
       }
     }
   </style>
 </head>
-
 <body>
-  <header>💧 Legendary Speaking Gym — Hệ Nước</header>
+
+  <header>💧 Legendary Trainer Speaking Gym</header>
 
   <div id="main">
-    <div class="goDuck">
-      <img src="https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/goduck.gif" alt="Go Duck luyện cụm từ" />
+    <div id="speakingArea">
+      <div style="font-size:20px;">📭 Hệ thống đang khởi động…</div>
     </div>
 
-    <div id="chunkArea">📭 Đang khởi động nội dung luyện cụm từ…</div>
-
-    <div class="controls">
-      <button id="playBtn">🔊 Nghe lại</button>
-      <button id="recordBtn">💧 Nói thử</button>
-      <button id="nextBtn">⏩ Tiếp theo</button>
+    <div id="duckZone">
+      <img src="https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/goduck.gif" alt="Go Duck mascot" class="goDuck" id="goDuck" />
     </div>
-
-    <div id="speechResult"></div>
   </div>
+
+  <!-- PokéBall Effect -->
+  <script type="module">
+    export function showCatchEffect(container) {
+      const ball = document.createElement("div");
+      ball.textContent = "🟠 PokéBall!";
+      ball.style.position = "absolute";
+      ball.style.fontSize = "32px";
+      ball.style.animation = "pop 1s ease-in";
+      ball.style.top = "50%";
+      ball.style.left = "50%";
+      ball.style.transform = "translate(-50%, -50%)";
+      container.appendChild(ball);
+      setTimeout(() => container.removeChild(ball), 1000);
+    }
+  </script>
 
   <!-- Script luyện nói -->
   <script type="module" src="./speaking-chunks.js"></script>
+
 </body>
 </html>
