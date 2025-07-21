@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>🎤 Trạm luyện nói PokéGym</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
     body {
       font-family: 'Verdana', sans-serif;
@@ -24,9 +23,9 @@
     }
 
     h2 {
-      font-size: 26px;
+      font-size: 28px;
       color: #d32f2f;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       text-shadow: 1px 1px #fff;
     }
 
@@ -43,6 +42,7 @@
       transition: background 0.3s ease;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
       text-align: left;
+      width: 100%;
     }
 
     .modeBtn:hover {
@@ -59,6 +59,12 @@
       flex: 1;
     }
 
+    #modeMessage {
+      margin-top: 16px;
+      font-size: 18px;
+      color: #cc3333;
+    }
+
     @media (max-width: 600px) {
       #speakingApp {
         width: 90%;
@@ -66,7 +72,7 @@
       }
 
       h2 {
-        font-size: 22px;
+        font-size: 24px;
       }
 
       .modeBtn {
@@ -88,26 +94,22 @@
 
     <button class="modeBtn" onclick="goToMode('chunks')">
       <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/10.png" alt="Caterpie">
-      <div class="labelText">Luyện cụm từ — tăng phản xạ nhanh</div>
+      <div class="labelText"> Luyện cụm từ — tăng phản xạ nhanh</div>
     </button>
 
     <button class="modeBtn" onclick="goToMode('sentence')">
       <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png" alt="Pikachu">
-      <div class="labelText">Luyện câu đầy đủ — nói mượt như tia chớp</div>
+      <div class="labelText"> Luyện câu đầy đủ — nói mượt như tia chớp</div>
     </button>
 
     <button class="modeBtn" onclick="goToMode('paragraph')">
       <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png" alt="Charizard">
-      <div class="labelText">Luyện đoạn văn — bung chiêu mạnh Legendary</div>
+      <div class="labelText"> Luyện đoạn văn — bung chiêu mạnh Legendary</div>
     </button>
+
+    <div id="modeMessage"></div>
   </div>
 
-  <script>
-    function goToMode(mode) {
-      alert(`🚀 Bạn đã chọn chế độ luyện: ${mode}`);
-      // Trainer gắn logic chuyển trang hoặc khởi động tại đây
-    }
-  </script>
-
+  <script src="speaking.js"></script>
 </body>
 </html>
