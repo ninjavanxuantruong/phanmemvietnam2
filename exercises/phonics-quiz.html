@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>🎮 PokéGym Phonics – Hệ Tâm Linh</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: 'Segoe UI', sans-serif;
+      background: url('https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/mua6.gif') bottom center / cover no-repeat fixed;
+
+      color: #fff;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 12px;
+      text-shadow: 2px 2px 6px #000;
+    }
+
+    #modeSelector {
+      margin-bottom: 24px;
+    }
+
+    .mode-btn {
+      padding: 10px 16px;
+      margin: 0 6px;
+      font-size: 16px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      background: #fdd835;
+      color: #000;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    .mode-btn.active {
+      background: #8e24aa;
+      color: #fff;
+    }
+
+    .quiz-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: rgba(255, 248, 194, 0.9);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 0 8px #ffc107;
+      text-align: center;
+    }
+
+    .quiz-word {
+      font-size: 24px;
+      font-weight: bold;
+      color: #d43f00;
+      margin-bottom: 12px;
+    }
+
+    .sound-btn {
+      margin-bottom: 18px;
+      background: #ffcb05;
+      border: none;
+      padding: 10px 20px;
+      font-size: 18px;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .sound-btn:hover {
+      background: #fff29c;
+      box-shadow: 0 0 8px #ffe95a;
+    }
+
+    .option-btn {
+      display: inline-block;
+      margin: 8px;
+      padding: 10px 18px;
+      background: #ffe27a;
+      border-radius: 12px;
+      font-size: 18px;
+      cursor: pointer;
+      border: 2px solid #f4ca4d;
+      box-shadow: 1px 1px 5px rgba(0,0,0,0.1);
+      transition: transform 0.2s ease;
+    }
+
+    .option-btn:hover {
+      background: #fff29c;
+      transform: scale(1.05);
+    }
+
+    #result {
+      margin-top: 20px;
+      font-size: 18px;
+      color: hotpink;
+      font-weight: bold;
+    }
+
+    @media (max-width: 600px) {
+      .mode-btn {
+        display: block;
+        margin: 8px auto;
+        width: 90%;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      .quiz-word {
+        font-size: 22px;
+      }
+
+      .option-btn {
+        font-size: 17px;
+      }
+    }
+  </style>
+  
+</head>
+<body>
+
+<h1>🎮 PokéGym Quiz – Hệ Tâm Linh</h1>
+
+<div id="modeSelector">
+  <button class="mode-btn active" data-mode="1">Dạng 1: Từ → chọn âm IPA</button>
+  <button class="mode-btn" data-mode="2">Dạng 2: Nghe → chọn từ</button>
+  <button class="mode-btn" data-mode="3">Dạng 3: Kéo âm → gắn từ</button>
+  <button class="mode-btn" data-mode="4">Dạng 4: Điền tổ hợp âm</button>
+  <button class="mode-btn" data-mode="5">Dạng 5: Âm → chọn từ đúng</button>
+</div>
+
+<div class="quiz-container">
+  <div class="quiz-word" id="quizWord">light</div>
+  <button class="sound-btn" onclick="speakWord()">🔈 Nghe từ</button>
+
+  <div id="options">
+    <!-- Button options sẽ được render từ phonics-engine.js -->
+  </div>
+
+  <div id="result"></div>
+</div>
+
+<script src="phonics-bank.js"></script>
+<script src="phonics-engine.js"></script>
+
+</body>
+</html>
