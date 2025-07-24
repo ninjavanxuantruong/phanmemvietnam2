@@ -3,11 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <title>PokéGym – Lý thuyết luyện âm</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      background: #fdf6ea;
-      padding: 30px;
+      background: radial-gradient(circle at top left, #e3f2fd, #b2ebf2);
+
+      margin: 0;
+      padding: 20px;
     }
 
     h2 {
@@ -15,44 +18,62 @@
       color: #333;
       margin-top: 40px;
       font-size: 22px;
+      text-shadow: 1px 1px #f5cf58;
     }
 
     .section {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 14px;
+      gap: 16px;
       margin-top: 20px;
     }
 
     .sound-btn {
-      width: 130px;
-      height: 90px;
-      background: #ffe27a;
-      border-radius: 10px;
+      flex: 0 0 calc(50% - 20px);
+      max-width: 200px;
+      height: 100px;
+      background: linear-gradient(145deg, #ffec85, #fff6c0);
+      border-radius: 14px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
       text-align: center;
-      font-size: 16px;
-      box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
-      cursor: pointer;
+      font-size: 18px;
+      font-weight: bold;
+      color: #222;
       padding: 10px;
-      line-height: 1.3;
-      transition: transform 0.2s ease;
+      cursor: pointer;
+      line-height: 1.4;
+      transition: all 0.25s ease;
+      border: 2px solid #f4ca4d;
     }
 
     .sound-btn:hover {
-      background: #fff2ad;
+      background: #fff29c;
       transform: scale(1.05);
+      box-shadow: 0 0 10px #ffe95a;
     }
 
     .example {
+      font-weight: normal;
       font-style: italic;
-      color: #555;
       display: block;
       margin-top: 6px;
+      color: #555;
+    }
+
+    @media (max-width: 600px) {
+      .sound-btn {
+        flex: 0 0 100%;
+        font-size: 20px;
+        height: 90px;
+      }
     }
   </style>
 </head>
 <body>
+
+<h1 style="text-align:center; font-size:26px; color:#d43f00; text-shadow:1px 1px #ffd95a;">⚡ PokéGym Luyện Âm ⚡</h1>
+
 
 <h2>Nguyên âm ngắn</h2>
 <div class="section">
@@ -116,10 +137,14 @@
     <div class="sound-btn">p - /p/<br><span class="example">(pen)</span></div>
     <div class="sound-btn">t - /t/<br><span class="example">(top)</span></div>
     <div class="sound-btn">k - /k/<br><span class="example">(kick)</span></div>
+    <div class="sound-btn">c - /c/<br><span class="example">(cat)</span></div>
     <div class="sound-btn">f - /f/<br><span class="example">(fish)</span></div>
     <div class="sound-btn">th - /θ/<br><span class="example">(thin)</span></div>
     <div class="sound-btn">s - /s/<br><span class="example">(sun)</span></div>
     <div class="sound-btn">h - /h/<br><span class="example">(hat)</span></div>
+    <div class="sound-btn">sh - /ʃ/<br><span class="example">(shop)</span></div>
+    <div class="sound-btn">ch - /ʧ/<br><span class="example">(chin)</span></div>
+
   </div>
 
   <h2>Phụ âm hữu thanh</h2>
@@ -132,6 +157,7 @@
     <div class="sound-btn">z - /z/<br><span class="example">(zoo)</span></div>
     <div class="sound-btn">zh - /ʒ/<br><span class="example">(vision)</span></div>
     <div class="sound-btn">j - /ʤ/<br><span class="example">(jam)</span></div>
+    <div class="sound-btn">ge - /ʤ/<br><span class="example">(orange)</span></div>
     <div class="sound-btn">m - /m/<br><span class="example">(man)</span></div>
     <div class="sound-btn">n - /n/<br><span class="example">(net)</span></div>
     <div class="sound-btn">ng - /ŋ/<br><span class="example">(ring)</span></div>
