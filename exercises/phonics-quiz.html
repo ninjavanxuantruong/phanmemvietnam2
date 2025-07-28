@@ -10,7 +10,6 @@
       padding: 24px;
       font-family: 'Segoe UI', sans-serif;
       background: url('https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/mua6.gif') bottom center / cover no-repeat fixed;
-
       color: #fff;
       text-align: center;
     }
@@ -43,7 +42,7 @@
     }
 
     .quiz-container {
-      max-width: 600px;
+      max-width: 800px;
       margin: 0 auto;
       background: rgba(255, 248, 194, 0.9);
       padding: 20px;
@@ -52,35 +51,58 @@
       text-align: center;
     }
 
-    .quiz-word {
-      font-size: 24px;
+    #quizWord {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 30px;
       font-weight: bold;
+      height: 80px;
       color: #d43f00;
       margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
     }
 
-    .sound-btn {
-      margin-bottom: 18px;
-      background: #ffcb05;
-      border: none;
-      padding: 10px 20px;
-      font-size: 18px;
-      font-weight: bold;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s ease;
+    #options {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-top: 20px;
     }
 
-    .sound-btn:hover {
-      background: #fff29c;
-      box-shadow: 0 0 8px #ffe95a;
+    .column {
+      flex: 1;
+      min-width: 240px;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
-    .option-btn {
-      display: inline-block;
+    .box-word {
+      background: #fff9c4;
+      border: 3px solid #ffb74d;
+    }
+
+    .box-ipa {
+      background: #e3f2fd;
+      border: 3px solid #64b5f6;
+    }
+
+    .column h3 {
+      margin-bottom: 12px;
+      font-size: 20px;
+      color: #333;
+    }
+
+    .card, .option-btn {
+      background: #ffe27a;
       margin: 8px;
       padding: 10px 18px;
-      background: #ffe27a;
       border-radius: 12px;
       font-size: 18px;
       cursor: pointer;
@@ -89,9 +111,13 @@
       transition: transform 0.2s ease;
     }
 
-    .option-btn:hover {
+    .card:hover, .option-btn:hover {
       background: #fff29c;
       transform: scale(1.05);
+    }
+
+    .card[data-type="ipa"], .option-btn {
+      color: red;
     }
 
     #result {
@@ -99,6 +125,12 @@
       font-size: 18px;
       color: hotpink;
       font-weight: bold;
+    }
+
+    #finalBox {
+      font-size: 22px;
+      margin-top: 24px;
+      color: gold;
     }
 
     @media (max-width: 600px) {
@@ -112,42 +144,46 @@
         font-size: 24px;
       }
 
-      .quiz-word {
-        font-size: 22px;
+      #quizWord {
+        font-size: 24px;
       }
 
-      .option-btn {
-        font-size: 17px;
+      #options {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .column {
+        width: 100%;
       }
     }
   </style>
-  
 </head>
 <body>
 
-<h1>🎮 PokéGym Quiz – Hệ Tâm Linh</h1>
+  <h1>🎮 PokéGym Quiz – Huấn luyện phiên âm IPA</h1>
 
-<div id="modeSelector">
-  <button class="mode-btn active" data-mode="1">Dạng 1: Từ → chọn âm IPA</button>
-  <button class="mode-btn" data-mode="2">Dạng 2: Nghe → chọn từ</button>
-  <button class="mode-btn" data-mode="3">Dạng 3: Kéo âm → gắn từ</button>
-  <button class="mode-btn" data-mode="4">Dạng 4: Điền tổ hợp âm</button>
-  <button class="mode-btn" data-mode="5">Dạng 5: Âm → chọn từ đúng</button>
-</div>
-
-<div class="quiz-container">
-  <div class="quiz-word" id="quizWord">light</div>
-  <button class="sound-btn" onclick="speakWord()">🔈 Nghe từ</button>
-
-  <div id="options">
-    <!-- Button options sẽ được render từ phonics-engine.js -->
+  <div id="modeSelector">
+    <button class="mode-btn active" data-mode="1">Dạng 1: Từ → chọn âm IPA</button>
+    <button class="mode-btn" data-mode="2">Dạng 2: Nối từ và âm IPA</button>
   </div>
 
-  <div id="result"></div>
-</div>
+  <div class="quiz-container">
+    <div id="quizWord">light</div>
 
-<script src="phonics-bank.js"></script>
-<script src="phonics-engine.js"></script>
+    <div id="options">
+      <!-- Với dạng 1: render IPA vào đây -->
+      <!-- Với dạng 2: tạo khối wordColumn + ipaColumn vào đây -->
+    </div>
+
+    <div id="result"></div>
+    <div id="finalBox"></div>
+  </div>
+
+  <script src="phonics-bank.js"></script>
+  <script src="phonics-engine.js"></script>
+  <script type="module" src="pokeball-effect.js"></script>
+
 
 </body>
 </html>
