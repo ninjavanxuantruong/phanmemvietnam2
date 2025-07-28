@@ -33,8 +33,8 @@ const phonicsBank = [
   { unit: "unit4", key: "oa", ipa: "/oʊ/", word: "boat" },
   { unit: "unit4", key: "ow", ipa: "/oʊ/", word: "snow" },
   { unit: "unit4", key: "u-e", ipa: "/juː/", word: "cube" },
-  { unit: "unit4", key: "ue", ipa: "/juː/", word: "blue" },
   { unit: "unit4", key: "ew", ipa: "/juː/", word: "new" },
+  { unit: "unit4", key: "ue", ipa: "/uː/", word: "blue" },
   { unit: "unit4", key: "ui", ipa: "/uː/", word: "fruit" },
   { unit: "unit4", key: "oo", ipa: "/uː/", word: "moon" },
 
@@ -110,3 +110,5 @@ phonicsBank.push(
   { unit: "unit11", key: "-ous", ipa: "/əs/", word: "famous" },
   { unit: "unit11", key: "-age", ipa: "/ɪʤ/", word: "village" }
 );
+
+
