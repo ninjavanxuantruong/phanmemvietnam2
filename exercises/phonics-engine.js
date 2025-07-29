@@ -1,3 +1,7 @@
+// ✅ Import hiệu ứng PokéBall từ module
+import { showCatchEffect } from './pokeball-effect.js';
+import { phonicsBank } from './phonics-bank.js';
+
 let filteredBank = [];
 let currentQuestion = {};
 let currentMode = null;
@@ -68,8 +72,13 @@ function showIPA1() {
   currentQuestion = next;
   usedKeys.add(currentQuestion.key);
 
-  document.getElementById("quizWord").textContent = currentQuestion.word;
+  // ✨ Hiển thị từ + nút nghe
+  document.getElementById("quizWord").innerHTML = `
+    <span>${currentQuestion.word}</span>
+    <button class="play-audio-btn" data-word="${currentQuestion.word}" style="margin-left:10px;">🔊</button>
+  `;
   document.getElementById("result").textContent = "";
+
   speakWord();
 
   const correctIPA = currentQuestion.ipa;
@@ -101,6 +110,18 @@ function showIPA1() {
     };
     optionArea.appendChild(btn);
   });
+
+  // 🗣️ Gắn sự kiện nút nghe lại
+  const audioBtn = document.querySelector('.play-audio-btn');
+  if (audioBtn) {
+    audioBtn.addEventListener('click', event => {
+      event.stopPropagation();
+      const word = audioBtn.getAttribute('data-word');
+      const utter = new SpeechSynthesisUtterance(word);
+      utter.lang = "en-US";
+      speechSynthesis.speak(utter);
+    });
+  }
 }
 
 function speakWord() {
@@ -238,63 +259,10 @@ function checkTotalScore() {
     `;
 
     if (totalScore >= maxScore / 2) {
-      const id = Math.floor(Math.random() * 151) + 1;
-      const img = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
-      setTimeout(() => showCatchEffect("Pokémon #" + id, img), 1000);
+      showCatchEffect(container); // 🎉 Gọi hiệu ứng từ module
     }
   }
 }
-
-function showCatchEffect(name, img) {
-  const container = document.createElement("div");
-  container.style.position = "fixed";
-  container.style.top = "50%";
-  container.style.left = "50%";
-  container.style.transform = "translate(-50%, -50%)";
-  container.style.zIndex = 9999;
-  container.style.textAlign = "center";
-
-  container.innerHTML = `
-    <div style="
-      width: 120px;
-      height: 120px;
-      margin: auto;
-      border-radius: 50%;
-      background: radial-gradient(circle at center, #fff 60%, #f44336 100%);
-      border: 6px solid black;
-      animation: shake 0.8s ease-in-out infinite;
-      position: relative;">
-      <div style="
-        width: 20px;
-        height: 20px;
-        background: white;
-        border: 3px solid black;
-        border-radius: 50%;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-      "></div>
-    </div>
-
-    <img src="${img}" style="margin-top: 16px;" />
-    <p style="color:#000; font-weight:bold; font-size:18px;">🎉 Bạn đã bắt được ${name}!</p>
-
-    <style>
-      @keyframes shake {
-        0% { transform: rotate(0deg); }
-        25% { transform: rotate(10deg); }
-        50% { transform: rotate(-10deg); }
-        75% { transform: rotate(10deg); }
-        100% { transform: rotate(0deg); }
-      }
-    </style>
-  `;
-
-  document.body.appendChild(container);
-  setTimeout(() => container.remove(), 4000);
-}
-
 
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
