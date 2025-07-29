@@ -1,14 +1,22 @@
+// ✅ Import hiệu ứng PokéBall từ module
+import { showCatchEffect } from './pokeball-effect.js';
+
 const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
 const uniqueWords = [...new Set(wordBank)];
 
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-const PEXELS_API_KEY = "DsgAHtqZS5lQtujZcSdZsOHIhoa9NtT6GVMQ3Xn7DQiyDJ9FKDhgo2GQ"; // Trainer gán key Pexels
+const PEXELS_API_KEY = "DsgAHtqZS5lQtujZcSdZsOHIhoa9NtT6GVMQ3Xn7DQiyDJ9FKDhgo2GQ";
+
+// ✅ Reset điểm nếu mở lại trang
+["score1", "score2", "score3", "total1", "total2", "total3", "isSessionStarted"].forEach(k => {
+  localStorage.removeItem(k);
+});
+
 
 if (!localStorage.getItem("isSessionStarted")) {
   ["score1", "score2", "score3", "total1", "total2", "total3"].forEach(k => localStorage.removeItem(k));
   localStorage.setItem("isSessionStarted", "true");
 }
-
 
 let vocabData = [];
 let currentIndex = 0;
@@ -36,9 +44,7 @@ async function fetchWords() {
     meaning: row.c[24]?.v?.trim() || ""
   }));
 
-  const selected = all.filter(item => uniqueWords.includes(item.word));
-
-  return shuffle(selected);
+  return shuffle(all.filter(item => uniqueWords.includes(item.word)));
 }
 
 async function getImage(word) {
@@ -60,10 +66,16 @@ function updateScoreBoard() {
   let t1 = +localStorage.getItem("total1") || 0;
   let t2 = +localStorage.getItem("total2") || 0;
   let t3 = +localStorage.getItem("total3") || 0;
-  document.getElementById("scoreBoard").textContent = `🎯 Tổng điểm: ${s1 + s2 + s3}/${t1 + t2 + t3}`;
+
+  document.getElementById("scoreBoard").innerHTML = `
+    <p>🧠 Dạng 1: ${s1}/${t1}</p>
+    <p>🖼️ Dạng 2: ${s2}/${t2}</p>
+    <p>🎨 Dạng 3: ${s3}/${t3}</p>
+    <hr>
+    <p><strong>🎯 Tổng: ${s1 + s2 + s3}/${t1 + t2 + t3}</strong></p>
+  `;
 }
 
-// Chuyển mode
 document.querySelectorAll(".mode-btn").forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
@@ -73,7 +85,6 @@ document.querySelectorAll(".mode-btn").forEach(btn => {
   };
 });
 
-// Bắt đầu mỗi dạng
 function startMode(m) {
   currentIndex = 0;
   score = 0;
@@ -85,10 +96,17 @@ function startMode(m) {
     vocabData = data;
     if (vocabData.length > 0) {
       if (m === 1) showD1();
-      if (m === 2) showD2(); // Phần 2 sẽ xử lý
-      if (m === 3) showD3(); // Phần 2 sẽ xử lý
+      if (m === 2) showD2();
+      if (m === 3) showD3();
     }
   });
+}
+
+function showCompletedMessageImage(mode, score, total) {
+  const box = document.getElementById("finalBox");
+  const color = mode === 1 ? "green" : mode === 2 ? "blue" : "purple";
+  box.innerHTML = `<p style="color:${color};">🎉 Đã hoàn tất dạng ${mode}. Điểm: ${score}/${total}</p>`;
+  document.querySelector(`[data-mode='${mode}']`).disabled = true;
 }
 
 // ------------------ DẠNG 1 ------------------
@@ -146,6 +164,7 @@ function handleD1(selected) {
       localStorage.setItem("score1", score);
       localStorage.setItem("total1", vocabData.length);
       updateScoreBoard();
+      showCompletedMessageImage(1, score, vocabData.length);
       checkGameEnd();
     }
   }, 1200);
@@ -207,6 +226,7 @@ function handleD2(selected) {
       localStorage.setItem("score2", score);
       localStorage.setItem("total2", vocabData.length);
       updateScoreBoard();
+      showCompletedMessageImage(2, score, vocabData.length);
       checkGameEnd();
     }
   }, 1400);
@@ -260,53 +280,35 @@ function handleD3(current) {
       localStorage.setItem("score3", score);
       localStorage.setItem("total3", vocabData.length);
       updateScoreBoard();
+      showCompletedMessageImage(3, score, vocabData.length);
       checkGameEnd();
     }
   }, 2000);
 }
 
-// ------------------ TỔNG KẾT ------------------
+// ------------------ TỔNG KẾT & HIỆU ỨNG ------------------
 function checkGameEnd() {
-  let playedAll =
-    localStorage.getItem("score1") &&
-    localStorage.getItem("score2") &&
-    localStorage.getItem("score3");
+  const s1 = +localStorage.getItem("score1") || 0;
+  const s2 = +localStorage.getItem("score2") || 0;
+  const s3 = +localStorage.getItem("score3") || 0;
+  const t1 = +localStorage.getItem("total1") || 0;
+  const t2 = +localStorage.getItem("total2") || 0;
+  const t3 = +localStorage.getItem("total3") || 0;
 
+  const playedAll = t1 && t2 && t3;
   if (playedAll) {
-    const s1 = +localStorage.getItem("score1");
-    const s2 = +localStorage.getItem("score2");
-    const s3 = +localStorage.getItem("score3");
-    const t1 = +localStorage.getItem("total1");
-    const t2 = +localStorage.getItem("total2");
-    const t3 = +localStorage.getItem("total3");
-
     const totalScore = s1 + s2 + s3;
     const totalMax = t1 + t2 + t3;
 
-    const box = document.getElementById("finalBox");
-    box.innerHTML = `🎯 Tổng điểm cả 3 dạng: ${totalScore}/${totalMax}`;
+    const container = document.querySelector(".quiz-container");
+    container.innerHTML = `
+      <h2 style="color:hotpink;">🎯 Đã hoàn tất cả 3 dạng!</h2>
+      <p style="color:hotpink;">Tổng điểm: ${totalScore} / ${totalMax}</p>
+      <div style="font-size: 60px; color:hotpink;">✨ Sẵn sàng bắt Pokémon ✨</div>
+    `;
 
     if (totalScore >= totalMax / 2) {
-      const id = Math.floor(Math.random() * 151) + 1;
-      const img = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
-      setTimeout(() => showCatchEffect("Pokémon #" + id, img), 1000);
+      showCatchEffect(container);
     }
   }
-}
-
-// ------------------ HIỆU ỨNG BẮT ------------------
-function showCatchEffect(name, img) {
-  const box = document.createElement("div");
-  box.style.position = "fixed";
-  box.style.top = "50%";
-  box.style.left = "50%";
-  box.style.transform = "translate(-50%, -50%)";
-  box.style.background = "#fff";
-  box.style.border = "4px solid #f44336";
-  box.style.borderRadius = "16px";
-  box.style.padding = "20px";
-  box.style.boxShadow = "0 4px 12px rgba(0,0,0,0.5)";
-  box.innerHTML = `<img src="${img}" /><p style="color:#000;">🎉 Bạn đã bắt được ${name}!</p>`;
-  document.body.appendChild(box);
-  setTimeout(() => box.remove(), 4000);
 }
