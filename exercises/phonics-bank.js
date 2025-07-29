@@ -1,6 +1,6 @@
 // PokéGym – Dữ liệu luyện âm Units 1–6 (Nguyên âm)
 
-const phonicsBank = [
+export const phonicsBank = [
   // 🔴 Unit 1: Nguyên âm ngắn
   { unit: "unit1", key: "a", ipa: "/æ/", word: "at" },
   { unit: "unit1", key: "e", ipa: "/ɛ/", word: "bed" },
