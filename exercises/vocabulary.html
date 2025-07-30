@@ -162,7 +162,23 @@
 </head>
 <body>
   <h1>📘 PokéVocabulary</h1>
-  <h2>Trainer hãy học từ vựng theo phong cách Legendary!</h2>
+  
+
+  <!-- ✅ Nút thay thế dòng giới thiệu -->
+  <button id="completeBtn" disabled style="
+    font-size: 18px;
+    padding: 10px 20px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    margin-bottom: 20px;
+    cursor: not-allowed;
+  ">
+  ✅ Hoàn thành nhiệm vụ
+  </button>
+
 
   <div class="vocab-card">
     <div class="image-frame">
@@ -181,10 +197,11 @@
       <button id="playSound">
         <img src="https://cdn-icons-png.flaticon.com/512/361/361998.png" alt="Phát âm từ" />
       </button>
+      <button id="nextBtn" style="margin-top: 20px;">⏭️ Next</button>
     </div>
   </div>
 
-  <button id="nextBtn">⏭️ Xem từ tiếp theo</button>
+  
 
   <script type="module" src="vocabulary.js"></script>
 </body>
