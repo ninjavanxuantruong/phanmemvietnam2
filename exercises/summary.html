@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bảng tổng kết PokéWord 📊</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #3b4cca, #ffcc00);
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 40px;
+    }
+
+    .summary-container {
+      background-color: rgba(255,255,255,0.95);
+      padding: 32px;
+      border-radius: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      width: 100%;
+      max-width: 960px;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #3b4cca;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      border: 1px solid #999;
+      padding: 12px;
+      text-align: center;
+    }
+
+    th {
+      background-color: #f4f4f4;
+    }
+
+    tfoot td {
+      font-weight: bold;
+      background-color: #ffcc00;
+    }
+
+    .rating {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="summary-container">
+    <h2>📘 Tổng kết kết quả học tập của <span id="studentInfo"></span></h2>
+    <table id="summaryTable">
+      <thead>
+        <tr>
+          <th>📚 Tên phần</th>
+          <th>🎯 Điểm</th>
+          <th>🎯 Tổng</th>
+          <th>📊 % Đúng</th>
+          <th>⭐ Đánh giá</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+      <tfoot>
+        <tr>
+          <td>Tổng cộng</td>
+          <td id="totalScore">0</td>
+          <td id="totalMax">0</td>
+          <td id="totalPercent">0%</td>
+          <td id="totalRating">📝 ...</td>
+        </tr>
+      </tfoot>
+    </table>
+    <div style="margin-top: 20px; text-align: center;">
+      <p><strong>Mã tổng kết:</strong> <span id="resultCode" style="color:#3b4cca; font-weight:bold;"></span></p>
+      <button onclick="copyResultCode()">📋 Sao chép mã kết quả</button>
+    </div>
+
+  </div>
+
+  <script src="summary.js"></script>
+</body>
+</html>
