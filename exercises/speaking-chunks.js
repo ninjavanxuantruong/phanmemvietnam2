@@ -143,8 +143,19 @@ function renderChunk(autoSpeak = true, target = "", meaning = "") {
 function showFinalResult() {
   const area = document.getElementById("speakingArea");
   area.innerHTML = `<div style="font-size:24px;">🏁 Bạn đã luyện hết toàn bộ nội dung!</div>`;
-  const percent = Math.round((totalScore / totalChunks) * 100);
 
+  const percent = totalChunks > 0
+    ? Math.round((totalScore / totalChunks) * 100)
+    : 0;
+
+  // ✅ Ghi lại kết quả vào localStorage
+  const result = {
+    score: totalScore,
+    total: totalChunks
+  };
+  localStorage.setItem("result_speaking-chunks", JSON.stringify(result));
+
+  // ✅ Hiển thị kết quả
   area.innerHTML += `
     <div style="margin-top:16px;">
       📊 Tổng điểm: <b>${totalScore}/${totalChunks}</b> → <b>${percent}%</b>
@@ -158,6 +169,7 @@ function showFinalResult() {
     area.innerHTML += `<br>🚫 Bạn chưa bắt được Pokémon nào! Hãy luyện thêm để đạt tối thiểu 50%.`;
   }
 }
+
 
 function startSentence() {
   const { text, target, meaning } = sentences[sentenceIndex];
