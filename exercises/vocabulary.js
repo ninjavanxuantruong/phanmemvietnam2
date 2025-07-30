@@ -1,10 +1,26 @@
-const PEXELS_API_KEY = "DsgAHtqZS5lQtujZcSdZsOHIhoa9NtT6GVMQ3Xn7DQiyDJ9FKDhgo2GQ"; // 👈 Gán key Pexels vào đây
+import { showCatchEffect } from './pokeball-effect.js'; // 🥎 Import hiệu ứng từ file
+
+const PEXELS_API_KEY = "DsgAHtqZS5lQtujZcSdZsOHIhoa9NtT6GVMQ3Xn7DQiyDJ9FKDhgo2GQ";
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
 const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
 let currentIndex = 0;
+let roundCount = 0;
+let vocabVoice = null;
 
-// 🎯 Lấy từ + nghĩa tiếng Việt từ Google Sheet
+function getVocabVoice() {
+  return new Promise(resolve => {
+    const voices = speechSynthesis.getVoices();
+    if (voices.length) return resolve(voices);
+    speechSynthesis.onvoiceschanged = () => resolve(speechSynthesis.getVoices());
+  });
+}
+
+getVocabVoice().then(voices => {
+  vocabVoice = voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("zira"))
+             || voices.find(v => v.lang === "en-US");
+});
+
 async function fetchVocabularyData() {
   const response = await fetch(SHEET_URL);
   const text = await response.text();
@@ -12,21 +28,31 @@ async function fetchVocabularyData() {
   const rows = json.table.rows;
 
   const allWords = rows.map(row => {
-    const word = row.c[2]?.v?.trim() || "";      // Cột C: từ
-    const meaning = row.c[24]?.v?.trim() || "";  // Cột Y: nghĩa tiếng Việt
+    const word = row.c[2]?.v?.trim() || "";
+    const meaning = row.c[24]?.v?.trim() || "";
     return { word, meaning };
   });
 
-  return allWords.filter(item => wordBank.includes(item.word));
+  const filtered = allWords.filter(item => wordBank.includes(item.word));
+  const uniqueByWord = [];
+  const seen = new Set();
+
+  for (let item of filtered) {
+    const key = item.word.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueByWord.push(item);
+    }
+  }
+
+  return uniqueByWord;
 }
 
-// 📘 Lấy phiên âm từ Dictionary API
 async function getPhonetic(word) {
-  // Tách từ nếu là cụm
   const parts = word.toLowerCase().split(" ");
-  let phonetics = [];
+  const phonetics = [];
 
-  for (let part of parts) {
+  for (const part of parts) {
     try {
       const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${part}`);
       const data = await res.json();
@@ -40,8 +66,6 @@ async function getPhonetic(word) {
   return phonetics.join(" ").trim() || "";
 }
 
-
-// 🖼️ Lấy ảnh minh hoạ từ Pexels
 async function getImage(word) {
   try {
     const res = await fetch(`https://api.pexels.com/v1/search?query=${word}&per_page=1`, {
@@ -54,7 +78,6 @@ async function getImage(word) {
   }
 }
 
-// 🚀 Hiển thị từ lên giao diện
 async function displayWord(wordObj) {
   const word = wordObj.word.toUpperCase();
   document.getElementById("vocabWord").textContent = word;
@@ -67,11 +90,10 @@ async function displayWord(wordObj) {
   document.getElementById("vocabImage").src = imageUrl;
 }
 
-// 🔊 Phát âm + rung PokéBall
 document.getElementById("playSound").onclick = () => {
   const word = document.getElementById("vocabWord").textContent;
   const utter = new SpeechSynthesisUtterance(word);
-  utter.lang = "en-US";
+  utter.voice = vocabVoice || speechSynthesis.getVoices()[0];
   speechSynthesis.speak(utter);
 
   const img = document.querySelector("#playSound img");
@@ -81,13 +103,32 @@ document.getElementById("playSound").onclick = () => {
   }, 700);
 };
 
-// ⏭️ Hiện từ tiếp theo
 document.getElementById("nextBtn").onclick = async () => {
-  currentIndex = (currentIndex + 1) % vocabData.length;
+  currentIndex++;
+
+  if (currentIndex >= vocabData.length) {
+    currentIndex = 0;
+    roundCount++;
+  }
+
   await displayWord(vocabData[currentIndex]);
+
+  if (roundCount >= 2) {
+    const completeBtn = document.getElementById("completeBtn");
+    completeBtn.disabled = false;
+    completeBtn.style.cursor = "pointer";
+    completeBtn.style.backgroundColor = "#2196f3";
+    completeBtn.textContent = "🌟 Hoàn thành nhiệm vụ!";
+  }
 };
 
-// 🔧 Khởi động
+// 🟢 Gọi hiệu ứng Pokéball khi hoàn thành
+document.getElementById("completeBtn").onclick = () => {
+  if (roundCount >= 2) {
+    showCatchEffect(); // 🎉 Bùm! Hiệu ứng được kích hoạt
+  }
+};
+
 let vocabData = [];
 fetchVocabularyData().then(data => {
   vocabData = data;
