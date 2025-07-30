@@ -251,6 +251,12 @@ function checkTotalScore() {
     const totalScore = scoreIPA1 + scoreIPA2;
     const maxScore = filteredBank.length * 2;
 
+    // ✅ Ghi kết quả tổng vào localStorage
+    localStorage.setItem("result_phonics", JSON.stringify({
+      score: totalScore,
+      total: maxScore
+    }));
+
     const container = document.querySelector(".quiz-container");
     container.innerHTML = `
       <h2 style="color:hotpink;">🎯 Hoàn thành cả hai chế độ!</h2>
@@ -263,6 +269,7 @@ function checkTotalScore() {
     }
   }
 }
+
 
 function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
