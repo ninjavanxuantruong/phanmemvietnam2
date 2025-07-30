@@ -288,27 +288,37 @@ function handleD3(current) {
 
 // ------------------ TỔNG KẾT & HIỆU ỨNG ------------------
 function checkGameEnd() {
-  const s1 = +localStorage.getItem("score1") || 0;
-  const s2 = +localStorage.getItem("score2") || 0;
-  const s3 = +localStorage.getItem("score3") || 0;
-  const t1 = +localStorage.getItem("total1") || 0;
-  const t2 = +localStorage.getItem("total2") || 0;
-  const t3 = +localStorage.getItem("total3") || 0;
+  const s1 = Number(localStorage.getItem("score1")) || 0;
+  const s2 = Number(localStorage.getItem("score2")) || 0;
+  const s3 = Number(localStorage.getItem("score3")) || 0;
 
-  const playedAll = t1 && t2 && t3;
-  if (playedAll) {
-    const totalScore = s1 + s2 + s3;
-    const totalMax = t1 + t2 + t3;
+  const t1 = Number(localStorage.getItem("total1")) || 0;
+  const t2 = Number(localStorage.getItem("total2")) || 0;
+  const t3 = Number(localStorage.getItem("total3")) || 0;
 
-    const container = document.querySelector(".quiz-container");
-    container.innerHTML = `
-      <h2 style="color:hotpink;">🎯 Đã hoàn tất cả 3 dạng!</h2>
-      <p style="color:hotpink;">Tổng điểm: ${totalScore} / ${totalMax}</p>
-      <div style="font-size: 60px; color:hotpink;">✨ Sẵn sàng bắt Pokémon ✨</div>
-    `;
+  const totalScore = s1 + s2 + s3;
+  const totalMax = t1 + t2 + t3;
 
-    if (totalScore >= totalMax / 2) {
-      showCatchEffect(container);
-    }
+  // ✅ Ghi lại vào localStorage theo chuẩn summary.js
+  localStorage.setItem("result_image", JSON.stringify({
+    score: totalScore,
+    total: totalMax
+  }));
+
+  // 👉 Nếu chưa làm hết 3 dạng thì không hiển thị gì
+  if (t1 === 0 || t2 === 0 || t3 === 0) return;
+
+  // ✅ UI hiển thị kết quả
+  const container = document.querySelector(".quiz-container");
+  container.innerHTML = `
+    <h2 style="color:hotpink;">🎯 Đã hoàn tất cả 3 dạng!</h2>
+    <p style="color:hotpink;">Tổng điểm: ${totalScore} / ${totalMax}</p>
+    <div style="font-size: 60px; color:hotpink;">✨ Sẵn sàng bắt Pokémon ✨</div>
+  `;
+
+  // ✅ Gọi hiệu ứng nếu đạt từ 50%
+  if (totalMax > 0 && totalScore >= totalMax / 2) {
+    showCatchEffect(container);
   }
 }
+
