@@ -222,6 +222,12 @@ function checkVictory() {
     console.log("🚨 Hiệu ứng triệu hồi Pokémon đã được gọi!");
 
     showCatchEffect(); // 🎉 Triệu hồi Pokémon thay cho thông báo
+
+    // ✅ Ghi điểm vào localStorage để summary đọc được
+    localStorage.setItem("result_game-word-meaning", JSON.stringify({
+      score: matchedPairs,
+      total: totalPairs
+    }));
   }
 }
 
