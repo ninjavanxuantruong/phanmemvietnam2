@@ -1,4 +1,11 @@
 import { showCatchEffect } from './pokeball-effect.js';
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
 
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
@@ -111,7 +118,7 @@ function nextListening1() {
       score++;
       resultBox.textContent = "✅ Chính xác!";
     } else {
-      resultBox.textContent = `❌ Sai rồi. Đáp án là: ${item.target}`;
+      resultBox.textContent = `❌ Sai rồi. Đáp án là: ${correct}`;
     }
 
     speak(correct, voiceFemale);
@@ -173,6 +180,9 @@ getVoices().then(voices => {
 
   fetchListeningData().then(res => {
     listeningData = res;
+
+    shuffleArray(listeningData); // ✅ Thêm dòng này để xáo dữ liệu Phase 1
+
     if (listeningData.length) {
       startListeningMode1();
     } else {
