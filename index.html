@@ -18,28 +18,51 @@
     }
 
     .container {
-      text-align: center;
       background-color: rgba(0, 0, 0, 0.4);
-      padding: 40px 30px;
+      padding: 30px;
       border-radius: 16px;
-      max-width: 500px;
+      max-width: 520px;
+      width: 90%;
       box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     }
 
-    .pokeballs {
-      margin-bottom: 20px;
-    }
-
-    .pokeballs img {
-      height: 40px;
-      margin: 0 6px;
-    }
-
     h1 {
+      text-align: center;
       font-size: 30px;
       margin-bottom: 30px;
       color: #ffeb3b;
       text-shadow: 2px 2px 6px #000;
+    }
+
+    .entry-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .entry-group img {
+      height: 48px;
+    }
+
+    .input-wrapper {
+      flex: 1;
+    }
+
+    .input-wrapper input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .error {
+      color: #ff5252;
+      font-size: 14px;
+      text-align: center;
+      margin-top: 4px;
     }
 
     .start-button {
@@ -70,18 +93,36 @@
       height: 130px;
     }
   </style>
+  <script defer src="index.js"></script>
 </head>
 <body>
   <div class="container">
-    <div class="pokeballs">
-      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="Pokéball">
-      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png" alt="Great Ball">
-      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png" alt="Ultra Ball">
-    </div>
-
     <h1>Chào mừng đến với Lớp học Pokémon của thầy Tình</h1>
 
-    <button class="start-button" onclick="location.href='dataEntry.html'">
+    <div class="entry-group">
+      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="Pokéball">
+      <div class="input-wrapper">
+        <input type="text" id="studentName" placeholder="Tên của bạn">
+      </div>
+    </div>
+
+    <div class="entry-group">
+      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png" alt="Great Ball">
+      <div class="input-wrapper">
+        <input type="text" id="studentClass" placeholder="Lớp">
+      </div>
+    </div>
+
+    <div class="entry-group">
+      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png" alt="Ultra Ball">
+      <div class="input-wrapper">
+        <input type="password" id="studentPassword" placeholder="Mật khẩu">
+      </div>
+    </div>
+
+    <p id="errorMessage" class="error"></p>
+
+    <button class="start-button" onclick="startApp()">
       <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png" alt="Pikachu">
       Bắt đầu hành trình
     </button>
