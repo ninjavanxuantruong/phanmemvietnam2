@@ -3,7 +3,14 @@ import { showCatchEffect } from './pokeball-effect.js';
 function triggerVictoryEffect() {
   console.log("✅ Người chơi đã hoàn tất Overview!");
   showCatchEffect(); // ✨ Beam sáng + Pokémon
+
+  // ✅ Ghi điểm tổng kết vào localStorage
+  localStorage.setItem("result_overview", JSON.stringify({
+    score: correctCount,
+    total: correctCount + wrongCount
+  }));
 }
+
 
 console.log("Overview module loaded");
 
