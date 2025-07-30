@@ -83,13 +83,22 @@ function checkAccuracy(userText, referenceText) {
 
 function showFinalResult() {
   const area = document.getElementById("paragraphArea");
-  const percent = Math.round((totalScore / paragraphs.length) * 100);
+  const percent = paragraphs.length > 0
+    ? Math.round((totalScore / paragraphs.length) * 100)
+    : 0;
 
+  // ✅ Ghi điểm tổng vào localStorage
+  localStorage.setItem("result_speaking-paragraph", JSON.stringify({
+    score: totalScore,
+    total: paragraphs.length
+  }));
+
+  // ✅ Hiển thị kết quả UI
   area.innerHTML = `
     <div style="font-size:24px;">🏁 Bạn đã luyện hết toàn bộ đoạn văn!</div>
     <div style="margin-top:16px;">
       📊 Tổng điểm: <b>${totalScore}/${paragraphs.length}</b> → <b>${percent}%</b>
-  </div>
+    </div>
   `;
 
   if (percent >= 50) {
@@ -99,6 +108,7 @@ function showFinalResult() {
     area.innerHTML += `<br>🚫 Bạn chưa bắt được Pokémon nào! Luyện thêm để đạt tối thiểu 50%.`;
   }
 }
+
 
 function speak(text) {
   const utter = new SpeechSynthesisUtterance(text);
