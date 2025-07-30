@@ -145,6 +145,12 @@ function showSummary() {
   const passed = score >= Math.ceil(total / 2);
   const area = document.getElementById("exerciseArea");
 
+  // ✅ Ghi điểm vào localStorage
+  localStorage.setItem("result_listening", JSON.stringify({
+    score: score,
+    total: total
+  }));
+
   let html = `
     <div class="dialogue-text">
       🏁 Bạn đã luyện xong ${total} câu
@@ -154,7 +160,7 @@ function showSummary() {
   if (passed) {
     html += `<br>🎉 Chuẩn Legendary! Bạn đã bắt được Pokémon!`;
     area.innerHTML = html + `</div>`;
-    showCatchEffect(area); // Hiệu ứng beam Pokémon
+    showCatchEffect(area);
   } else {
     html += `<br>🚫 Bạn chưa bắt được Pokémon nào! Hãy luyện thêm để đạt tối thiểu 50%.`;
     area.innerHTML = html + `</div>`;
@@ -162,6 +168,7 @@ function showSummary() {
 
   document.getElementById("resultBox").textContent = "";
 }
+
 
 function startListeningMode1() {
   currentIndex = 0;
