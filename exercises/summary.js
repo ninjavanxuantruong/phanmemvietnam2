@@ -87,4 +87,3 @@ function copyResultCode() {
     alert("✅ Đã sao chép mã kết quả!");
   });
 }
-
