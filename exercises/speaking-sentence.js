@@ -87,7 +87,17 @@ function checkAccuracy(userText) {
 
 function showFinalResult() {
   const area = document.getElementById("sentenceArea");
-  const percent = Math.round((totalScore / sentences.length) * 100);
+  const percent = sentences.length > 0
+    ? Math.round((totalScore / sentences.length) * 100)
+    : 0;
+
+  // ✅ Ghi điểm tổng vào localStorage
+  localStorage.setItem("result_speaking-sentence", JSON.stringify({
+    score: totalScore,
+    total: sentences.length
+  }));
+
+  // ✅ Hiển thị kết quả UI
   area.innerHTML = `
     <div style="font-size:24px;">🏁 Bạn đã luyện hết toàn bộ nội dung!</div>
     <div style="margin-top:16px;">
@@ -102,6 +112,7 @@ function showFinalResult() {
     area.innerHTML += `<br>🚫 Bạn chưa bắt được Pokémon nào! Hãy luyện thêm để đạt tối thiểu 50%.`;
   }
 }
+
 
 function speak(text) {
   const utter = new SpeechSynthesisUtterance(text);
