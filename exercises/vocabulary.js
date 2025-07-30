@@ -119,15 +119,21 @@ document.getElementById("nextBtn").onclick = async () => {
     completeBtn.style.cursor = "pointer";
     completeBtn.style.backgroundColor = "#2196f3";
     completeBtn.textContent = "🌟 Hoàn thành nhiệm vụ!";
-  }
+  }document.getElementById
 };
 
 // 🟢 Gọi hiệu ứng Pokéball khi hoàn thành
 document.getElementById("completeBtn").onclick = () => {
   if (roundCount >= 2) {
     showCatchEffect(); // 🎉 Bùm! Hiệu ứng được kích hoạt
+
+    // 📝 Ghi kết quả vào localStorage
+    const score = vocabData.length > 0 ? 10 : 0;
+    const total = 10;
+    localStorage.setItem("result_vocabulary", JSON.stringify({score, total}));
   }
 };
+
 
 let vocabData = [];
 fetchVocabularyData().then(data => {
