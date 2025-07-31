@@ -125,21 +125,29 @@ async function fetchExercises() {
         });
       }
     });
+    // Loại bỏ những bài tập không có bất kỳ câu hỏi nào
+    exercises = exercises.filter(ex => 
+      ex.tasks.some(t => t.question && t.question.trim() !== "")
+    );
+
 
     // Nếu mode "exercise", nhóm bài tập theo dạng
     if (studyMode === "exercise") {
       groupedExercises = [];
-      for (let taskIndex = 0; taskIndex < 8; taskIndex++){
+      for (let taskIndex = 0; taskIndex < 8; taskIndex++) {
         exercises.forEach(ex => {
           let task = ex.tasks[taskIndex];
-          groupedExercises.push({
-            word: ex.word,
-            type: task.type,
-            question: task.question,
-            answer: task.answer
-          });
+          if (task.question && task.question.trim() !== "") {
+            groupedExercises.push({
+              word: ex.word,
+              type: task.type,
+              question: task.question,
+              answer: task.answer
+            });
+          }
         });
       }
+
     }
 
     loadExercise();
@@ -193,13 +201,19 @@ function loadExercise() {
     }
 
     const task = ex.tasks[exerciseTaskIndex];
-    container.innerHTML = `
-      <h3>${task.type}</h3>
-      <div class="question-box">
-         ${task.question ? task.question : "❌ Không có bài tập"}
-      </div>
-      <input type="text" id="userAnswer" placeholder="Nhập câu trả lời" style="font-size: 20px; width: 60%;">
-    `;
+    if (task.question && task.question.trim() !== "") {
+      container.innerHTML = `
+        <h3>${task.type}</h3>
+        <div class="question-box">${task.question}</div>
+        <input type="text" id="userAnswer" placeholder="Nhập câu trả lời" style="font-size: 20px; width: 60%;">
+      `;
+    } else {
+      // Nếu không có nội dung, skip đến task tiếp theo
+      exerciseTaskIndex++;
+      loadExercise();
+      return;
+    }
+
   }
 
   else if (studyMode === "exercise") {
@@ -214,13 +228,19 @@ function loadExercise() {
     const task = groupedExercises[currentExerciseIndex];
     currentWordElem.textContent = task.word;
 
-    container.innerHTML = `
-      <h3>${task.type}</h3>
-      <div class="question-box">
-         ${task.question ? task.question : "❌ Không có bài tập"}
-      </div>
-      <input type="text" id="userAnswer" placeholder="Nhập câu trả lời" style="font-size: 20px; width: 60%;">
-    `;
+    if (task.question && task.question.trim() !== "") {
+      container.innerHTML = `
+        <h3>${task.type}</h3>
+        <div class="question-box">${task.question}</div>
+        <input type="text" id="userAnswer" placeholder="Nhập câu trả lời" style="font-size: 20px; width: 60%;">
+      `;
+    } else {
+      // Nếu không có câu hỏi thì chuyển qua bài tiếp theo
+      currentExerciseIndex++;
+      loadExercise();
+      return;
+    }
+
   }
 }
 
