@@ -329,8 +329,14 @@ function checkVictory() {
   if (completedWords === totalWords) {
     console.log("✅ Người chơi đã hoàn thành trò chơi!");
 
+    // ✅ Ghi điểm vào localStorage để summary đọc được
+    localStorage.setItem("result_word-puzzle", JSON.stringify({
+      score: completedWords,
+      total: totalWords
+    }));
+
     if (!timerExpired) {
-      showCatchEffect(); // ✅ Triệu hồi Pokémon nếu trong thời gian
+      showCatchEffect(); // ✅ Triệu hồi Pokémon nếu hoàn thành đúng thời gian
     } else {
       let msg = `🚫 Bạn hoàn thành muộn quá! Hãy hoàn tất trong ${totalTime}s để bắt được Pokémon lần sau.`;
       let hintBox = document.getElementById("hintDisplay");
@@ -338,6 +344,7 @@ function checkVictory() {
       else alert(msg);
     }
   }
-} // 🛠 Đây là dấu bạn đang thiếu!
+}
+
 
 document.addEventListener("DOMContentLoaded", setupGame);
