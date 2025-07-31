@@ -44,7 +44,19 @@ async function fetchWords() {
     meaning: row.c[24]?.v?.trim() || ""
   }));
 
-  return shuffle(all.filter(item => uniqueWords.includes(item.word)));
+  // 🔧 Lọc từ trùng dựa trên 'word' duy nhất
+  const filtered = [];
+  const seen = new Set();
+  for (let item of all) {
+    const w = item.word.toLowerCase(); // Nếu muốn bỏ qua hoa/thường
+    if (!seen.has(w)) {
+      seen.add(w);
+      filtered.push(item);
+    }
+  }
+
+  return shuffle(filtered.filter(item => uniqueWords.includes(item.word)));
+
 }
 
 async function getImage(word) {
