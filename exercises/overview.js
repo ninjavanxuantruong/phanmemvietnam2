@@ -2,14 +2,14 @@ import { getRandomResponse, speakResponse } from './library.js';
 import { showCatchEffect } from './pokeball-effect.js';
 function triggerVictoryEffect() {
   console.log("✅ Người chơi đã hoàn tất Overview!");
-  showCatchEffect(); // ✨ Beam sáng + Pokémon
+  showCatchEffect();
 
-  // ✅ Ghi điểm tổng kết vào localStorage
   localStorage.setItem("result_overview", JSON.stringify({
     score: correctCount,
-    total: correctCount + wrongCount
+    total: answeredQuestions.size
   }));
 }
+
 
 
 console.log("Overview module loaded");
@@ -168,12 +168,33 @@ function showWordList() {
 function updateStats() {
   const statsContainer = document.getElementById("statsContainer");
   if (statsContainer) {
-    let total = correctCount + wrongCount;
-    statsContainer.innerHTML = `<p>✅ ${correctCount} | ❌ ${wrongCount} | 📊 Tổng câu: ${total}</p>`;
-  } else {
-    console.log("Số câu đúng:", correctCount, "| Số câu sai:", wrongCount, "| Tổng câu:", correctCount + wrongCount);
+    const totalDone = answeredQuestions.size;
+    statsContainer.innerHTML = `<p>✅ ${correctCount} | ❌ ${wrongCount} | 📊 Tổng câu đã làm: ${totalDone}</p>`;
   }
 }
+
+function checkVictoryCondition() {
+  const totalQuestions = studyMode === "word"
+    ? exercises.reduce((acc, ex) => acc + ex.tasks.filter(t => t.question?.trim()).length, 0)
+    : groupedExercises.length;
+
+  const scorePercent = (correctCount / totalQuestions) * 100;
+  const container = document.getElementById("exerciseContainer");
+  const currentWordElem = document.getElementById("currentWord");
+  currentWordElem.textContent = "";
+
+  if (answeredQuestions.size >= totalQuestions) {
+    if (scorePercent >= 50) {
+      container.innerHTML = `<h3>🏆 Chúc mừng! Bạn đã bắt được Pokemon!</h3>
+                             <p>✅ ${correctCount} | ❌ ${wrongCount} | 📊 Tổng câu đã làm: ${answeredQuestions.size}</p>`;
+      triggerVictoryEffect();
+    } else {
+      container.innerHTML = `<h3>😢 Bạn chưa bắt được Pokemon. Cố gắng lần sau nhé!</h3>
+                             <p>✅ ${correctCount} | ❌ ${wrongCount} | 📊 Tổng câu đã làm: ${answeredQuestions.size}</p>`;
+    }
+  }
+}
+
 
 // ── HÀM LOAD BÀI TẬP HIỆN TẠI ──
 // Lưu ý: Không phát sự kiện cập nhật background tại đây, để background chỉ đổi khi chuyển câu.
@@ -181,26 +202,35 @@ function loadExercise() {
   const container = document.getElementById("exerciseContainer");
   const currentWordElem = document.getElementById("currentWord");
 
+  const totalQuestions = studyMode === "word"
+    ? exercises.reduce((acc, ex) => acc + ex.tasks.length, 0)
+    : groupedExercises.length;
+
+  
+
+
   if (studyMode === "word") {
     if (currentExerciseIndex >= exercises.length) {
-      container.innerHTML = `<h3>🏆 Hoàn thành tất cả bài tập!</h3>
-                             <p>✅ ${correctCount} | ❌ ${wrongCount} | 📊 Tổng câu: ${correctCount + wrongCount}</p>`;
-      currentWordElem.textContent = "";
-      triggerVictoryEffect(); // 🟠 Gọi hiệu ứng beam + Pokémon
-      return;
+      currentExerciseIndex = 0;
+      exerciseTaskIndex = 0;
     }
 
     const ex = exercises[currentExerciseIndex];
-    currentWordElem.textContent = ex.word;
+    const key = `${currentExerciseIndex}-${exerciseTaskIndex}`;
 
-    if (exerciseTaskIndex >= ex.tasks.length) {
-      currentExerciseIndex++;
-      exerciseTaskIndex = 0;
+    if (answeredQuestions.has(key)) {
+      exerciseTaskIndex++;
+      if (exerciseTaskIndex >= ex.tasks.length) {
+        currentExerciseIndex++;
+        exerciseTaskIndex = 0;
+      }
       loadExercise();
       return;
     }
 
+    currentWordElem.textContent = ex.word;
     const task = ex.tasks[exerciseTaskIndex];
+
     if (task.question && task.question.trim() !== "") {
       container.innerHTML = `
         <h3>${task.type}</h3>
@@ -208,24 +238,25 @@ function loadExercise() {
         <input type="text" id="userAnswer" placeholder="Nhập câu trả lời" style="font-size: 20px; width: 60%;">
       `;
     } else {
-      // Nếu không có nội dung, skip đến task tiếp theo
       exerciseTaskIndex++;
       loadExercise();
-      return;
     }
-
   }
 
   else if (studyMode === "exercise") {
     if (currentExerciseIndex >= groupedExercises.length) {
-      container.innerHTML = `<h3>🏆 Hoàn thành tất cả bài tập!</h3>
-                             <p>✅ ${correctCount} | ❌ ${wrongCount} | 📊 Tổng câu: ${correctCount + wrongCount}</p>`;
-      currentWordElem.textContent = "";
-      triggerVictoryEffect(); // 🟠 Gọi hiệu ứng beam + Pokémon
+      currentExerciseIndex = 0;
+    }
+
+    const key = `${currentExerciseIndex}`;
+    const task = groupedExercises[currentExerciseIndex];
+
+    if (answeredQuestions.has(key)) {
+      currentExerciseIndex++;
+      loadExercise();
       return;
     }
 
-    const task = groupedExercises[currentExerciseIndex];
     currentWordElem.textContent = task.word;
 
     if (task.question && task.question.trim() !== "") {
@@ -235,12 +266,9 @@ function loadExercise() {
         <input type="text" id="userAnswer" placeholder="Nhập câu trả lời" style="font-size: 20px; width: 60%;">
       `;
     } else {
-      // Nếu không có câu hỏi thì chuyển qua bài tiếp theo
       currentExerciseIndex++;
       loadExercise();
-      return;
     }
-
   }
 }
 
@@ -248,18 +276,19 @@ function loadExercise() {
 // ── HÀM KIỂM TRA ĐÁP ÁN ──
 function showAnswer() {
   const container = document.getElementById("exerciseContainer");
-  let correctAnswer = "";
   const userAnswerElem = document.getElementById("userAnswer");
   const userInput = (userAnswerElem?.value || "").trim();
+  let correctAnswer = "";
   let resultHTML = "";
   let key = "";
   let isCorrect = false;
 
   if (studyMode === "word") {
     if (currentExerciseIndex >= exercises.length) return;
+
     const ex = exercises[currentExerciseIndex];
     const task = ex.tasks[exerciseTaskIndex];
-    correctAnswer = task.answer ? task.answer.trim() : "";
+    correctAnswer = task.answer?.trim() || "";
     key = `${currentExerciseIndex}-${exerciseTaskIndex}`;
 
     if (!answeredQuestions.has(key)) {
@@ -276,11 +305,14 @@ function showAnswer() {
     } else {
       resultHTML = `<p>📌 Bạn đã làm câu này rồi, kết quả không thay đổi.</p>`;
     }
+
   } else if (studyMode === "exercise") {
     if (currentExerciseIndex >= groupedExercises.length) return;
+
     const task = groupedExercises[currentExerciseIndex];
-    correctAnswer = task.answer ? task.answer.trim() : "";
+    correctAnswer = task.answer?.trim() || "";
     key = `${currentExerciseIndex}`;
+
     if (!answeredQuestions.has(key)) {
       answeredQuestions.add(key);
       if (isAnswerCorrect(userInput, correctAnswer)) {
@@ -300,7 +332,9 @@ function showAnswer() {
   speakResponse(isCorrect);
   container.innerHTML += resultHTML;
   updateStats();
+  checkVictoryCondition(); // 👈 Gọi để hiển thị thông báo thắng/thua sau mỗi lượt
 }
+
 
 // ── HÀM CHUYỂN BÀI TẬP ──
 function nextExercise() {
