@@ -206,6 +206,12 @@ function updateMatchedWordsDisplay(obj) {
 function triggerVictoryEffect() {
   console.log("✅ Người chơi đã hoàn tất PokéWord!");
   showCatchEffect(); // ✨ Triệu hồi Pokémon
+
+  // ✅ Ghi điểm vào localStorage để summary đọc được
+  localStorage.setItem("result_pokeword", JSON.stringify({
+    score: score,
+    total: vocabWords.length
+  }));
 }
 
 hintBtn.onclick = () => {
