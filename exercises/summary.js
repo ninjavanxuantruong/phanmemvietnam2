@@ -1,5 +1,7 @@
 const studentName = localStorage.getItem("trainerName") || "Không tên";
 const studentClass = localStorage.getItem("trainerClass") || "Chưa có lớp";
+const selectedLesson = localStorage.getItem("selectedLesson") || "Chưa chọn bài học";
+
 
 document.getElementById("studentInfo").textContent = `${studentName} (${studentClass})`;
 
@@ -15,7 +17,8 @@ const parts = [
   { key: "speaking-sentence",  label: "Nói câu đầy đủ" },
   { key: "speaking-paragraph", label: "Nói đoạn văn" },
   { key: "phonics",            label: "Phonics" },
-  { key: "overview",           label: "Tổng quan" }
+  { key: "overview",           label: "Tổng quan" },
+  { key: "communication",      label: "Chatbot học bài" } // ✅ thêm phần mới
 ];
 
 let totalScore = 0;
@@ -78,7 +81,8 @@ const completedParts = parts.filter(({key}) => {
   return parsed?.total > 0;
 }).length;
 
-const code = `${studentName}-${studentClass}-${dateCode}-${totalScore}/${totalMax}-${completedParts}/11-${finalRating}`;
+const code = `${studentName}-${studentClass}-${selectedLesson}-${dateCode}-${totalScore}/${totalMax}-${completedParts}/${parts.length}-${finalRating}`;
+
 document.getElementById("resultCode").textContent = code;
 
 // 📋 Sao chép mã
