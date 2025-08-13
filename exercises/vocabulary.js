@@ -123,16 +123,25 @@ document.getElementById("nextBtn").onclick = async () => {
 };
 
 // 🟢 Gọi hiệu ứng Pokéball khi hoàn thành
+let hasCaught = false; // ✅ Biến cờ kiểm tra đã bắt chưa
+
 document.getElementById("completeBtn").onclick = () => {
-  if (roundCount >= 2) {
+  if (roundCount >= 2 && !hasCaught) {
     showCatchEffect(); // 🎉 Bùm! Hiệu ứng được kích hoạt
 
     // 📝 Ghi kết quả vào localStorage
     const score = vocabData.length > 0 ? 10 : 0;
     const total = 10;
     localStorage.setItem("result_vocabulary", JSON.stringify({score, total}));
+
+    hasCaught = true; // ✅ Đánh dấu đã bắt
+    document.getElementById("completeBtn").textContent = "✅ Đã hoàn thành!";
+    document.getElementById("completeBtn").disabled = true;
+    document.getElementById("completeBtn").style.opacity = "0.6";
+    document.getElementById("completeBtn").style.cursor = "default";
   }
 };
+
 
 
 let vocabData = [];
