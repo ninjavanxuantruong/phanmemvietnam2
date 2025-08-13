@@ -82,14 +82,21 @@ function shuffleArray(array) {
 }
 
 // 📌 Hàm chuyển sang phần bài tập
+// 📌 Hàm chuyển sang phần bài tập
 function startExercises() {
-     localStorage.setItem("wordBank", JSON.stringify(wordBank));
-     localStorage.setItem("victoryTotalWords", wordBank.length);  // 🆕 Biến RIÊNG cho checkVictory
-     console.log("🔍 Số từ phục vụ kiểm tra chiến thắng:", localStorage.getItem("victoryTotalWords"));
+    localStorage.setItem("wordBank", JSON.stringify(wordBank));
+    localStorage.setItem("victoryTotalWords", wordBank.length);  // 🆕 Biến RIÊNG cho checkVictory
+    console.log("🔍 Số từ phục vụ kiểm tra chiến thắng:", localStorage.getItem("victoryTotalWords"));
 
-     window.location.href = "exercise.html";
+    // ✅ Lưu bài học đã chọn
+    const selectedTopic = document.getElementById("topicSelect").value;
+    const selectedUnit = document.getElementById("unitSelect").value;
+    const selectedLesson = `${selectedUnit} ${selectedTopic}`.trim();
+    localStorage.setItem("selectedLesson", selectedLesson);
 
+    window.location.href = "exercise.html";
 }
+
 
 // 🚀 Khởi chạy khi tải trang
 document.addEventListener("DOMContentLoaded", fetchGoogleSheetsData);
