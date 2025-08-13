@@ -2,6 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bảng tổng kết PokéWord 📊</title>
   <style>
     body {
@@ -21,23 +22,27 @@
       box-shadow: 0 8px 24px rgba(0,0,0,0.3);
       width: 100%;
       max-width: 960px;
+      overflow-x: auto;
     }
 
     h2 {
       text-align: center;
       margin-bottom: 20px;
       color: #3b4cca;
+      font-size: 24px;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
+      min-width: 600px;
     }
 
     th, td {
       border: 1px solid #999;
       padding: 12px;
       text-align: center;
+      font-size: 16px;
     }
 
     th {
@@ -51,6 +56,46 @@
 
     .rating {
       font-weight: bold;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(to right, #ffcc00, #f6c23e);
+      color: #2e2e2e;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      transition: transform 0.2s;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 20px;
+      }
+
+      .summary-container {
+        padding: 20px;
+      }
+
+      h2 {
+        font-size: 20px;
+      }
+
+      th, td {
+        padding: 8px;
+        font-size: 14px;
+      }
+
+      button {
+        font-size: 15px;
+        padding: 8px 16px;
+      }
     }
   </style>
 </head>
@@ -71,7 +116,7 @@
       <tbody id="tableBody"></tbody>
       <tfoot>
         <tr>
-          <td></td> <!-- Ô STT để trống -->
+          <td></td>
           <td>Tổng cộng</td>
           <td id="totalScore">0</td>
           <td id="totalMax">0</td>
@@ -84,7 +129,6 @@
       <p><strong>Mã tổng kết:</strong> <span id="resultCode" style="color:#3b4cca; font-weight:bold;"></span></p>
       <button onclick="copyResultCode()">📋 Sao chép mã kết quả</button>
     </div>
-
   </div>
 
   <script src="summary.js"></script>
