@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>🎓 Chọn bài học Pokémon</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #f8b500, #fceabb);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      background-color: rgba(255, 255, 255, 0.95);
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+
+    h2 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: #d32f2f;
+    }
+
+    select {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 2px solid #ffcc00;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(to right, #ffcc00, #f6c23e);
+      color: #2e2e2e;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      transition: transform 0.2s, background-color 0.3s;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+      background: linear-gradient(to right, #f4b619, #ffdb4d);
+    }
+
+    @media (max-width: 480px) {
+      h2 {
+        font-size: 20px;
+      }
+
+      button {
+        font-size: 15px;
+        padding: 10px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>📘 Chọn bài học để bắt đầu</h2>
+    <select id="lessonSelect">
+      <option value="">-- Chọn bài học --</option>
+    </select>
+    <button id="confirmBtn">OK</button>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const sheetUrl = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+
+      fetch(sheetUrl)
+        .then(response => response.text())
+        .then(text => {
+          const jsonString = text.substring(47).slice(0, -2);
+          const data = JSON.parse(jsonString);
+          const rows = data.table.rows;
+
+          let allUnits = [];
+          rows.forEach(row => {
+            if (row.c && row.c[1] && row.c[1].v) { // cột B: unit
+              const unit = row.c[1].v.trim();
+              if (unit !== "") {
+                allUnits.push(unit);
+              }
+            }
+          });
+
+          const uniqueUnits = allUnits.filter((unit, index, arr) => {
+            return index === arr.findIndex(item => item.toLowerCase() === unit.toLowerCase());
+          });
+
+          const lessonSelect = document.getElementById("lessonSelect");
+          uniqueUnits.forEach(unit => {
+            const option = document.createElement("option");
+            option.value = unit;
+            option.textContent = unit;
+            lessonSelect.appendChild(option);
+          });
+        });
+
+      document.getElementById("confirmBtn").addEventListener("click", function() {
+        const selectedLesson = document.getElementById("lessonSelect").value;
+        if (selectedLesson) {
+          localStorage.setItem("selectedLesson", selectedLesson);
+          window.location.href = "communication2.html";
+        } else {
+          alert("Vui lòng chọn một bài học.");
+        }
+      });
+    });
+  </script>
+</body>
+</html>
