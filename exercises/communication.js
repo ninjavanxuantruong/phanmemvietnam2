@@ -1,5 +1,9 @@
 document.addEventListener("DOMContentLoaded", function () {
   const selectedUnit = localStorage.getItem("selectedLesson"); // ví dụ "3-06-2 My house"
+  const startUnit = localStorage.getItem("startLesson");
+  const endUnit = localStorage.getItem("endLesson");
+
+  
   const sheetUrl = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
   const chatContainer = document.getElementById("chatContainer");
@@ -22,9 +26,11 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   getVocabVoice().then(voices => {
-    vocabVoice = voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("zira"))
+    const preferredVoiceName = localStorage.getItem("selectedVoice");
+    vocabVoice = voices.find(v => v.name === preferredVoiceName)
                || voices.find(v => v.lang === "en-US");
   });
+
 
   function speak(text) {
     if (!vocabVoice) return;
@@ -92,8 +98,9 @@ document.addEventListener("DOMContentLoaded", function () {
       const data = JSON.parse(jsonString);
       const rows = data.table.rows;
 
-      const selectedCode = extractUnitCode(selectedUnit);
-      const startCode = "3-01";
+      const startCode = extractUnitCode(startUnit);
+      const endCode = extractUnitCode(endUnit);
+
 
       let rawQuestions = [];
       const unitsSeen = new Set();
@@ -112,12 +119,13 @@ document.addEventListener("DOMContentLoaded", function () {
           const suggestion = row.c[11]?.v?.trim() || "";
 
           // ✅ Chỉ lấy 1 câu hỏi duy nhất cho mỗi unit
-          if (unitCode >= startCode && unitCode <= selectedCode) {
+          if (unitCode >= startCode && unitCode <= endCode) {
             if (!unitsSeen.has(unitCode)) {
               rawQuestions.push({ unit: fullUnit, question, answer, suggestion });
               unitsSeen.add(unitCode);
             }
           }
+
 
           // ✅ Gom các câu hỏi & câu trả lời để nhận diện linh hoạt
           const userQuestion = row.c[8]?.v?.trim();
@@ -136,7 +144,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       questionPool = rawQuestions;
 
-      addMessage("Bot", `welcome to the lesson "${selectedUnit}" `);
+      addMessage("Bot", `welcome to the lesson`);
       askNextQuestion();
     });
 
