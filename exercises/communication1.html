@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>🎓 Chọn bài học Pokémon</title>
+  <title>🎓 Chọn phạm vi bài học Pokémon</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
@@ -30,6 +30,13 @@
       font-size: 24px;
       margin-bottom: 20px;
       color: #d32f2f;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 6px;
+      text-align: left;
     }
 
     select {
@@ -73,10 +80,18 @@
 </head>
 <body>
   <div class="container">
-    <h2>📘 Chọn bài học để bắt đầu</h2>
-    <select id="lessonSelect">
-      <option value="">-- Chọn bài học --</option>
+    <h2>📘 Chọn phạm vi bài học</h2>
+
+    <label for="startLessonSelect">🔰 Bài bắt đầu:</label>
+    <select id="startLessonSelect">
+      <option value="">-- Chọn bài bắt đầu --</option>
     </select>
+
+    <label for="endLessonSelect">🏁 Bài kết thúc:</label>
+    <select id="endLessonSelect">
+      <option value="">-- Chọn bài kết thúc --</option>
+    </select>
+
     <button id="confirmBtn">OK</button>
   </div>
 
@@ -105,23 +120,36 @@
             return index === arr.findIndex(item => item.toLowerCase() === unit.toLowerCase());
           });
 
-          const lessonSelect = document.getElementById("lessonSelect");
+          const startSelect = document.getElementById("startLessonSelect");
+          const endSelect = document.getElementById("endLessonSelect");
+
           uniqueUnits.forEach(unit => {
-            const option = document.createElement("option");
-            option.value = unit;
-            option.textContent = unit;
-            lessonSelect.appendChild(option);
+            const option1 = document.createElement("option");
+            option1.value = unit;
+            option1.textContent = unit;
+            startSelect.appendChild(option1);
+
+            const option2 = document.createElement("option");
+            option2.value = unit;
+            option2.textContent = unit;
+            endSelect.appendChild(option2);
           });
         });
 
       document.getElementById("confirmBtn").addEventListener("click", function() {
-        const selectedLesson = document.getElementById("lessonSelect").value;
-        if (selectedLesson) {
-          localStorage.setItem("selectedLesson", selectedLesson);
-          window.location.href = "communication2.html";
-        } else {
-          alert("Vui lòng chọn một bài học.");
+        const startLesson = document.getElementById("startLessonSelect").value;
+        const endLesson = document.getElementById("endLessonSelect").value;
+
+        if (!startLesson || !endLesson) {
+          alert("Vui lòng chọn đầy đủ bài bắt đầu và bài kết thúc.");
+          return;
         }
+
+        localStorage.setItem("startLesson", startLesson);
+        localStorage.setItem("endLesson", endLesson);
+        localStorage.setItem("selectedLesson", `${startLesson} → ${endLesson}`);
+
+        window.location.href = "communication2.html";
       });
     });
   </script>
