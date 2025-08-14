@@ -10,29 +10,27 @@ async function fetchGoogleSheetsData() {
         let jsonData = JSON.parse(text.substring(47).slice(0, -2));
 
         let rows = jsonData.table.rows;
-        let topicSet = new Set();
         let unitSet = new Set();
 
         rows.forEach(row => {
-            if (row.c[0]?.v) topicSet.add(row.c[0].v);
             if (row.c[1]?.v) unitSet.add(row.c[1].v);
         });
 
-        let topicSelect = document.getElementById("topicSelect");
-        let unitSelect = document.getElementById("unitSelect");
-
-        topicSet.forEach(topic => {
-            let option = document.createElement("option");
-            option.value = topic;
-            option.textContent = topic;
-            topicSelect.appendChild(option);
-        });
+        let unitList = document.getElementById("unitList");
+        unitList.innerHTML = ""; // Xóa nội dung cũ nếu có
 
         unitSet.forEach(unit => {
-            let option = document.createElement("option");
-            option.value = unit;
-            option.textContent = unit;
-            unitSelect.appendChild(option);
+            let label = document.createElement("label");
+            label.style.display = "block";
+            label.style.marginBottom = "8px";
+
+            let checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = unit;
+
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(" " + unit));
+            unitList.appendChild(label);
         });
 
     } catch (error) {
@@ -42,9 +40,13 @@ async function fetchGoogleSheetsData() {
 
 // 📌 Hàm lấy danh sách từ vựng theo lựa chọn của người dùng
 function loadWords() {
-    let selectedTopic = document.getElementById("topicSelect").value;
-    let selectedUnit = document.getElementById("unitSelect").value;
-    let userWords = document.getElementById("wordListInput").value.split(/[,.;:\s]+/).filter(word => word.trim() !== "");
+    let selectedUnits = Array.from(document.querySelectorAll('#unitList input[type="checkbox"]:checked'))
+                             .map(cb => cb.value);
+
+    if (selectedUnits.length === 0) {
+        alert("Vui lòng chọn ít nhất một bài học.");
+        return;
+    }
 
     wordBank = [];
 
@@ -53,16 +55,12 @@ function loadWords() {
         let rows = jsonData.table.rows;
 
         rows.forEach(row => {
-            let topic = row.c[0]?.v || "";
             let unit = row.c[1]?.v || "";
             let word = row.c[2]?.v || "";
 
-            if ((selectedTopic && topic === selectedTopic) || 
-                (selectedUnit && unit.toString() === selectedUnit) || 
-                (userWords.includes(word))) {
+            if (selectedUnits.includes(unit)) {
                 wordBank.push(word);
             }
-
         });
 
         wordBank = shuffleArray(wordBank);
@@ -82,21 +80,27 @@ function shuffleArray(array) {
 }
 
 // 📌 Hàm chuyển sang phần bài tập
-// 📌 Hàm chuyển sang phần bài tập
 function startExercises() {
     localStorage.setItem("wordBank", JSON.stringify(wordBank));
     localStorage.setItem("victoryTotalWords", wordBank.length);  // 🆕 Biến RIÊNG cho checkVictory
     console.log("🔍 Số từ phục vụ kiểm tra chiến thắng:", localStorage.getItem("victoryTotalWords"));
 
     // ✅ Lưu bài học đã chọn
-    const selectedTopic = document.getElementById("topicSelect").value;
-    const selectedUnit = document.getElementById("unitSelect").value;
-    const selectedLesson = `${selectedUnit} ${selectedTopic}`.trim();
+    const selectedUnits = Array.from(document.querySelectorAll('#unitList input[type="checkbox"]:checked'))
+                               .map(cb => cb.value);
+    const selectedLesson = selectedUnits.join(", ");
     localStorage.setItem("selectedLesson", selectedLesson);
 
     window.location.href = "exercise.html";
 }
 
-
 // 🚀 Khởi chạy khi tải trang
-document.addEventListener("DOMContentLoaded", fetchGoogleSheetsData);
+document.addEventListener("DOMContentLoaded", function () {
+    const unitList = document.getElementById("unitList");
+    if (!unitList) {
+        console.error("❌ Không tìm thấy phần tử unitList trong DOM.");
+        return;
+    }
+
+    fetchGoogleSheetsData();
+});
