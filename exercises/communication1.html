@@ -92,11 +92,19 @@
       <option value="">-- Chọn bài kết thúc --</option>
     </select>
 
+    <label for="voiceSelect">🗣️ Chọn giọng nói:</label>
+    <select id="voiceSelect">
+      <option value="">-- Đang tải danh sách giọng... --</option>
+    </select>
+
+
     <button id="confirmBtn">OK</button>
   </div>
 
   <script>
     document.addEventListener("DOMContentLoaded", function() {
+      populateVoiceList(); // ✅ Gọi để nạp giọng
+
       const sheetUrl = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
       fetch(sheetUrl)
@@ -108,7 +116,7 @@
 
           let allUnits = [];
           rows.forEach(row => {
-            if (row.c && row.c[1] && row.c[1].v) { // cột B: unit
+            if (row.c && row.c[1] && row.c[1].v) {
               const unit = row.c[1].v.trim();
               if (unit !== "") {
                 allUnits.push(unit);
@@ -149,9 +157,48 @@
         localStorage.setItem("endLesson", endLesson);
         localStorage.setItem("selectedLesson", `${startLesson} → ${endLesson}`);
 
+        const selectedVoice = document.getElementById("voiceSelect").value;
+        localStorage.setItem("selectedVoice", selectedVoice);
+
         window.location.href = "communication2.html";
       });
     });
+
+    // ✅ Hàm lấy danh sách giọng nói
+    function getVocabVoice() {
+      return new Promise(resolve => {
+        const voices = speechSynthesis.getVoices();
+        if (voices.length) return resolve(voices);
+        speechSynthesis.onvoiceschanged = () => resolve(speechSynthesis.getVoices());
+      });
+    }
+
+    // ✅ Hàm nạp giọng vào dropdown
+    function populateVoiceList() {
+      const voiceSelect = document.getElementById("voiceSelect");
+      if (!voiceSelect) return;
+
+      voiceSelect.innerHTML = "";
+
+      getVocabVoice().then(voices => {
+        voices.forEach(voice => {
+          const option = document.createElement("option");
+          option.value = voice.name;
+          option.textContent = `${voice.name} (${voice.lang})`;
+          voiceSelect.appendChild(option);
+        });
+
+        const savedVoice = localStorage.getItem("selectedVoice");
+        if (savedVoice) {
+          voiceSelect.value = savedVoice;
+        }
+
+        voiceSelect.onchange = () => {
+          localStorage.setItem("selectedVoice", voiceSelect.value);
+        };
+      });
+    }
   </script>
+
 </body>
 </html>
