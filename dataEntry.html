@@ -54,7 +54,7 @@
       flex: 1;
     }
 
-    select, input {
+    select {
       width: 100%;
       padding: 10px;
       border-radius: 8px;
@@ -99,38 +99,21 @@
 </head>
 <body>
   <div class="container">
-    <h2>📖 Chọn từ vựng để học</h2>
-
-    <div class="entry-group">
-      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png" alt="Bulbasaur">
-      <div class="input-wrapper">
-        <label>Chọn chủ đề:</label>
-        <select id="topicSelect">
-          <option value="">--Chọn chủ đề--</option>
-        </select>
-      </div>
-    </div>
+    <h2>📖 Chọn bài học để luyện từ vựng</h2>
 
     <div class="entry-group">
       <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png" alt="Charmander">
       <div class="input-wrapper">
-        <label>Chọn unit:</label>
-        <select id="unitSelect">
-          <option value="">--Chọn unit--</option>
-        </select>
-      </div>
-    </div>
+        <label>📘 Chọn bài học (có thể chọn nhiều):</label>
+        <div id="unitList">
+          <!-- Các checkbox sẽ được nạp bằng JS -->
+        </div>
 
-    <div class="entry-group">
-      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png" alt="Squirtle">
-      <div class="input-wrapper">
-        <label>Nhập danh sách từ vựng:</label>
-        <input type="text" id="wordListInput" placeholder="Nhập từ vựng, cách nhau bằng dấu , . ; :">
       </div>
     </div>
 
     <h3>🔎 Danh sách từ vựng cần học</h3>
-    <div id="wordDisplay"></div>
+    <div id="wordDisplay">Chưa có từ nào...</div>
 
     <button onclick="loadWords()">OK</button>
     <button onclick="startExercises()" id="exerciseButton" style="display:none;">Bắt đầu bài tập</button>
