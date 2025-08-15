@@ -1,21 +1,18 @@
 document.addEventListener("DOMContentLoaded", function () {
-  const selectedUnit = localStorage.getItem("selectedLesson"); // ví dụ "3-06-2 My house"
+  const selectedUnit = localStorage.getItem("selectedLesson");
   const startUnit = localStorage.getItem("startLesson");
   const endUnit = localStorage.getItem("endLesson");
 
-  
   const sheetUrl = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-
   const chatContainer = document.getElementById("chatContainer");
-  
 
   let questionPool = [];
   let askedQuestions = [];
   let currentQuestion = null;
-  let questionAnswerMap = {}; // lưu các câu hỏi từ cột J và các câu trả lời từ cột L
+  let questionAnswerMap = {};
   let vocabVoice = null;
   let totalPoints = 0;
-
+  let waitingAfterCorrection = false;
 
   function getVocabVoice() {
     return new Promise(resolve => {
@@ -31,7 +28,6 @@ document.addEventListener("DOMContentLoaded", function () {
                || voices.find(v => v.lang === "en-US");
   });
 
-
   function speak(text) {
     if (!vocabVoice) return;
     const utter = new SpeechSynthesisUtterance(text);
@@ -46,49 +42,40 @@ document.addEventListener("DOMContentLoaded", function () {
     msg.textContent = `${sender}: ${text}`;
     chatContainer.appendChild(msg);
     chatContainer.scrollTop = chatContainer.scrollHeight;
-
-    if (sender === "Bot") {
-      speak(text);
-    }
+    if (sender === "Bot") speak(text);
   }
 
   function askNextQuestion() {
     const remaining = questionPool.filter(q => !askedQuestions.includes(q.question));
     if (remaining.length === 0) {
       addMessage("Bot", `Congratulations. You have ${totalPoints} points!`);
-
-      // ✅ Lưu kết quả vào localStorage
       localStorage.setItem("result_communication", JSON.stringify({
         score: totalPoints,
         total: totalPoints
       }));
-
-
-      // ✅ Hiệu ứng bắt Pokémon
       setTimeout(() => {
         if (typeof showCatchEffect === "function") {
           showCatchEffect(chatContainer);
         }
       }, 600);
-
       return;
     }
-
-
-
     const next = remaining[Math.floor(Math.random() * remaining.length)];
     askedQuestions.push(next.question);
     currentQuestion = next;
     addMessage("Bot", next.question);
   }
 
-
   function extractUnitCode(text) {
-    return text.split(" ")[0].trim(); // "3-06-2 My house" → "3-06-2"
+    return text.split(" ")[0].trim();
   }
 
   function normalize(text) {
     return text.trim().replace(/\?$/, "").toLowerCase();
+  }
+
+  function cleanWord(word) {
+    return word.replace(/[.,!?]/g, "").toLowerCase();
   }
 
   fetch(sheetUrl)
@@ -101,24 +88,17 @@ document.addEventListener("DOMContentLoaded", function () {
       const startCode = extractUnitCode(startUnit);
       const endCode = extractUnitCode(endUnit);
 
-
       let rawQuestions = [];
       const unitsSeen = new Set();
 
       rows.forEach(row => {
-        if (
-          row.c &&
-          row.c[1]?.v &&
-          row.c[9]?.v &&
-          row.c[10]?.v
-        ) {
+        if (row.c && row.c[1]?.v && row.c[9]?.v && row.c[10]?.v) {
           const fullUnit = row.c[1].v.trim();
           const unitCode = extractUnitCode(fullUnit);
           const question = row.c[9].v.trim();
           const answer = row.c[10].v.trim();
           const suggestion = row.c[11]?.v?.trim() || "";
 
-          // ✅ Chỉ lấy 1 câu hỏi duy nhất cho mỗi unit
           if (unitCode >= startCode && unitCode <= endCode) {
             if (!unitsSeen.has(unitCode)) {
               rawQuestions.push({ unit: fullUnit, question, answer, suggestion });
@@ -126,11 +106,8 @@ document.addEventListener("DOMContentLoaded", function () {
             }
           }
 
-
-          // ✅ Gom các câu hỏi & câu trả lời để nhận diện linh hoạt
           const userQuestion = row.c[8]?.v?.trim();
           const botAnswer = row.c[11]?.v?.trim();
-
           if (userQuestion && botAnswer) {
             const key = normalize(userQuestion);
             if (!questionAnswerMap[key]) {
@@ -141,43 +118,51 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       });
 
-
       questionPool = rawQuestions;
-
-      addMessage("Bot", `welcome to the lesson`);
+      addMessage("Bot", `Hello my friend`);
       askNextQuestion();
     });
 
   const positiveFeedback = [
-    "Great job!",
-    "Well done!",
-    "That's correct!",
-    "Nice work!",
-    "Exactly!",
-    "Perfect!",
-    "You got it!",
-    "That's right!",
-    "Awesome!",
-    "Spot on!"
+    "Great job!", "Well done!", "That's correct!", "Nice work!",
+    "Exactly!", "Perfect!", "You got it!", "That's right!",
+    "Awesome!", "Spot on!"
   ];
-
-  function removeDiacritics(str) {
-    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  }
-
-  function normalize(text) {
-    return text.trim().replace(/\?$/, "").toLowerCase();
-  }
-
-  function cleanWord(word) {
-    return word.replace(/[.,!?]/g, "").toLowerCase();
-  }
 
   function handleUserInput(input) {
     const studentName = localStorage.getItem("trainerName") || "You";
     addMessage(studentName, input);
-
     const normalizedInput = normalize(input);
+
+    if (waitingAfterCorrection) {
+      waitingAfterCorrection = false;
+
+      const normalizedInput = normalize(input);
+      const inputWords = normalizedInput.split(" ").map(cleanWord);
+
+      // Dùng lại logic xác định câu hỏi
+      const matchedQuestions = [];
+
+      questionPool.forEach(item => {
+        const normJ = normalize(item.question);
+        const questionWords = normJ.split(" ").map(cleanWord);
+        const allWordsPresent = questionWords.every(word => inputWords.includes(word));
+        if (allWordsPresent) {
+          matchedQuestions.push(item.suggestion);
+        }
+      });
+
+      if (matchedQuestions.length > 0) {
+        const reply = matchedQuestions[Math.floor(Math.random() * matchedQuestions.length)];
+        addMessage("Bot", reply);
+      }
+
+      // Dù là câu hỏi hay câu trả lời → đều hỏi tiếp câu mới
+      askNextQuestion();
+      return;
+    }
+
+
 
     const matchedQuestions = [];
 
@@ -185,9 +170,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const normJ = normalize(item.question);
       const questionWords = normJ.split(" ").map(cleanWord);
       const inputWords = normalizedInput.split(" ").map(cleanWord);
-
       const allWordsPresent = questionWords.every(word => inputWords.includes(word));
-
       if (allWordsPresent) {
         matchedQuestions.push(item.suggestion);
       }
@@ -213,33 +196,24 @@ document.addEventListener("DOMContentLoaded", function () {
       if (isCorrect) {
         const feedback = positiveFeedback[Math.floor(Math.random() * positiveFeedback.length)];
         addMessage("Bot", feedback);
+        askNextQuestion();
       } else {
-        const fallbackSuggestions = [];
+        const fallbackSuggestions = questionPool
+          .filter(item => normalize(item.question) === normalize(currentQuestion.question))
+          .map(item => item.suggestion);
 
-        questionPool.forEach(item => {
-          const normJ = normalize(item.question);
-          const normK = normalize(item.answer);
+        const suggestion = fallbackSuggestions.length > 0
+          ? fallbackSuggestions[Math.floor(Math.random() * fallbackSuggestions.length)]
+          : currentQuestion.suggestion;
 
-          if (normJ === normalize(currentQuestion.question)) {
-            fallbackSuggestions.push(item.suggestion);
-          }
-        });
-
-        if (fallbackSuggestions.length > 0) {
-          const randomSuggestion = fallbackSuggestions[Math.floor(Math.random() * fallbackSuggestions.length)];
-          addMessage("Bot", `You can say: ${randomSuggestion}`);
-        } else {
-          addMessage("Bot", `You can say: ${currentQuestion.suggestion}`);
-        }
+        addMessage("Bot", `You can say: ${suggestion}`);
+        waitingAfterCorrection = true;
       }
+    } else {
+      askNextQuestion();
     }
-
-    askNextQuestion();
   }
 
-  
-
-  // ✅ Bổ sung phần ghi âm bằng PokéBall
   const recordBtn = document.getElementById("recordBtn");
   const speechResult = document.getElementById("speechResult");
 
@@ -258,10 +232,9 @@ document.addEventListener("DOMContentLoaded", function () {
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript.toLowerCase().trim();
       speechResult.textContent = "";
-      totalPoints += 3; // ✅ cộng điểm mỗi lần nói
+      totalPoints += 3;
       handleUserInput(transcript);
     };
-
 
     recognition.onerror = (event) => {
       speechResult.innerText = `❌ Error: ${event.error}`;
