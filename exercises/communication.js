@@ -16,17 +16,31 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function getVocabVoice() {
     return new Promise(resolve => {
-      const voices = speechSynthesis.getVoices();
+      let voices = speechSynthesis.getVoices();
       if (voices.length) return resolve(voices);
-      speechSynthesis.onvoiceschanged = () => resolve(speechSynthesis.getVoices());
+
+      // Trên điện thoại, đôi khi cần chờ thêm để giọng nói sẵn sàng
+      let attempts = 0;
+      const maxAttempts = 20;
+      const interval = setInterval(() => {
+        voices = speechSynthesis.getVoices();
+        if (voices.length || attempts >= maxAttempts) {
+          clearInterval(interval);
+          resolve(voices);
+        }
+        attempts++;
+      }, 100);
     });
   }
+
 
   getVocabVoice().then(voices => {
     const preferredVoiceName = localStorage.getItem("selectedVoice");
     vocabVoice = voices.find(v => v.name === preferredVoiceName)
-               || voices.find(v => v.lang === "en-US");
+               || voices.find(v => v.lang === "en-US")
+               || voices[0]; // fallback nếu không có gì khớp
   });
+
 
   function speak(text) {
     if (!vocabVoice) return;
