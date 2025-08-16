@@ -43,11 +43,6 @@ function loadWords() {
     let selectedUnits = Array.from(document.querySelectorAll('#unitList input[type="checkbox"]:checked'))
                              .map(cb => cb.value);
 
-    if (selectedUnits.length === 0) {
-        alert("Vui lòng chọn ít nhất một bài học.");
-        return;
-    }
-
     wordBank = [];
 
     fetch(url).then(response => response.text()).then(text => {
@@ -65,10 +60,16 @@ function loadWords() {
 
         wordBank = shuffleArray(wordBank);
 
-        document.getElementById("wordDisplay").innerHTML = `<p>${wordBank.join(", ")}</p>`;
+        // Hiển thị từ vựng (dù có thể rỗng)
+        document.getElementById("wordDisplay").innerHTML = wordBank.length > 0
+            ? `<p>${wordBank.join(", ")}</p>`
+            : `<p><i>Không có từ nào được chọn.</i></p>`;
+
         document.getElementById("exerciseButton").style.display = "block";
     });
 }
+
+
 
 // 📌 Hàm xáo trộn từ vựng
 function shuffleArray(array) {
