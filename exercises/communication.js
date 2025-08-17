@@ -114,11 +114,9 @@ document.addEventListener("DOMContentLoaded", function () {
           const suggestion = row.c[11]?.v?.trim() || "";
 
           if (unitCode >= startCode && unitCode <= endCode) {
-            if (!unitsSeen.has(unitCode)) {
-              rawQuestions.push({ unit: fullUnit, question, answer, suggestion });
-              unitsSeen.add(unitCode);
-            }
-          }
+  rawQuestions.push({ unit: fullUnit, question, answer, suggestion });
+}
+
 
           const userQuestion = row.c[8]?.v?.trim();
           const botAnswer = row.c[11]?.v?.trim();
