@@ -130,7 +130,23 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       });
 
-      questionPool = rawQuestions;
+      // Gom câu hỏi theo từng unit
+      const unitMap = new Map();
+      rawQuestions.forEach(item => {
+        const unit = item.unit;
+        if (!unitMap.has(unit)) {
+          unitMap.set(unit, []);
+        }
+        unitMap.get(unit).push(item);
+      });
+
+      // Chọn 1 câu random từ mỗi unit
+      questionPool = [];
+      for (const [unit, questions] of unitMap.entries()) {
+        const randomIndex = Math.floor(Math.random() * questions.length);
+        questionPool.push(questions[randomIndex]);
+      }
+
       addMessage("Bot", `Hello my friend`);
       askNextQuestion();
     });
