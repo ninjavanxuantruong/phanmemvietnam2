@@ -19,8 +19,9 @@ let correctCount = 0;
 let wrongCount = 0;
 
 function normalize(text) {
-  return text?.trim().toLowerCase();
+  return text?.trim().toLowerCase().replace(/[:.,]/g, "");
 }
+
 
 function shuffleArray(array) {
   return array
@@ -83,8 +84,8 @@ async function loadExercise() {
       { letter: "C", text: row.c[38]?.v || "" }, // AM
       { letter: "D", text: row.c[39]?.v || "" }, // AN
     ];
-    const correctLetter = normalize(row.c[40]?.v || ""); // AO
-    const correctText = rawAnswers.find(a => normalize(a.letter) === correctLetter)?.text || "";
+    const correctText = normalize(row.c[40]?.v || "");
+
 
     const shuffledAnswers = shuffleArray(rawAnswers);
 
@@ -108,10 +109,10 @@ async function loadExercise() {
     input.placeholder = "Nhập đáp án ...";
     input.onblur = () => {
       const userAnswer = normalize(input.value);
-      const selectedText = shuffledAnswers.find((_, i) => String.fromCharCode(65 + i).toLowerCase() === userAnswer)?.text;
+      const correctText = normalize(row.c[40]?.v || "");
 
       totalQuestions++;
-      if (normalize(selectedText) === normalize(correctText)) {
+      if (userAnswer === correctText) {
         input.classList.add("correct");
         totalScore++;
         correctCount++;
@@ -123,6 +124,7 @@ async function loadExercise() {
       input.disabled = true;
       updateStats();
     };
+
 
     block.appendChild(input);
     container.appendChild(block);
