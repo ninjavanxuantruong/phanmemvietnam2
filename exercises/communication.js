@@ -13,6 +13,9 @@ document.addEventListener("DOMContentLoaded", function () {
   let vocabVoice = null;
   let totalPoints = 0;
   let waitingAfterCorrection = false;
+  let currentBotResponse = [];
+
+  
 
   function getVocabVoice() {
     return new Promise(resolve => {
@@ -78,6 +81,8 @@ document.addEventListener("DOMContentLoaded", function () {
     askedQuestions.push(next.question);
     currentQuestion = next;
     addMessage("Bot", next.question);
+    currentBotResponse = [next.question]; // ✅ thêm dòng này
+
   }
 
   function extractUnitCode(text) {
@@ -183,6 +188,8 @@ document.addEventListener("DOMContentLoaded", function () {
       if (matchedQuestions.length > 0) {
         const reply = matchedQuestions[Math.floor(Math.random() * matchedQuestions.length)];
         addMessage("Bot", reply);
+        currentBotResponse = [reply]; // ✅ thêm dòng này
+
       }
 
       // Dù là câu hỏi hay câu trả lời → đều hỏi tiếp câu mới
@@ -235,6 +242,8 @@ document.addEventListener("DOMContentLoaded", function () {
           : currentQuestion.suggestion;
 
         addMessage("Bot", `You can say: ${suggestion}`);
+        currentBotResponse = [`You can say: ${suggestion}`]; // ✅ thêm dòng này
+
         waitingAfterCorrection = true;
       }
     } else {
@@ -242,10 +251,12 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+
+  
   const recordBtn = document.getElementById("recordBtn");
   const speechResult = document.getElementById("speechResult");
 
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SpeechRecognition && recordBtn) {
     const recognition = new SpeechRecognition();
     recognition.lang = "en-US";
@@ -266,6 +277,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
     recognition.onerror = (event) => {
       speechResult.innerText = `❌ Error: ${event.error}`;
+    };
+  }
+
+  // ✅ Đặt ngay dưới đoạn này:
+  const repeatBtn = document.getElementById("repeatBtn");
+  if (repeatBtn) {
+    repeatBtn.onclick = () => {
+      if (currentBotResponse.length > 0) {
+        const fullText = currentBotResponse.join(" ");
+        speak(fullText);
+      } else {
+        alert("Chưa có nội dung để đọc lại.");
+      }
     };
   }
 });
