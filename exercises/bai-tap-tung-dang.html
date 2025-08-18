@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bài Tập Từng Dạng</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto&display=swap">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: #f0f4f8;
+      padding: 20px;
+      margin: 0;
+      color: #2c3e50;
+    }
+
+    h1 {
+      text-align: center;
+      color: #34495e;
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    select, button {
+      width: 100%;
+      font-size: 1rem;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    .question-block {
+      background: #fff;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 15px 0;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .answers {
+      margin-top: 10px;
+      padding-left: 20px;
+    }
+
+    .answers li {
+      margin-bottom: 5px;
+      line-height: 1.5;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      font-size: 1rem;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    .correct {
+      border-color: #2ecc71;
+      background-color: #eafaf1;
+    }
+
+    .wrong {
+      border-color: #e74c3c;
+      background-color: #fdecea;
+    }
+
+    #score {
+      font-size: 1.2rem;
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    @media (min-width: 600px) {
+      body {
+        max-width: 800px;
+        margin: auto;
+        padding: 30px;
+      }
+
+      select, button {
+        width: 300px;
+      }
+
+      label {
+        margin-top: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Bài Tập Từng Dạng</h1>
+
+  <label for="exerciseType">Chọn dạng bài:</label>
+  <select id="exerciseType">
+    <option value="pronunciation">Phát âm</option>
+    <option value="verb">Chia động từ</option>
+    <option value="article">Mạo từ</option>
+    <option value="preposition">Giới từ</option>
+    <option value="pronoun">Đại từ / Chủ ngữ / Sở hữu</option>
+    <option value="connector">Từ nối</option>
+    <option value="rewrite">Viết lại câu</option>
+    <option value="plural">Số ít / Số nhiều</option>
+    <option value="wordform">Dạng đúng của từ</option>
+    <option value="vocabulary">Trắc nghiệm từ vựng</option>
+  </select>
+
+  <label for="questionCount">Số lượng câu hỏi:</label>
+  <select id="questionCount">
+    <option value="10">10</option>
+    <option value="20">20</option>
+    <option value="30">30</option>
+    <option value="40">40</option>
+    <option value="50">50</option>
+  </select>
+
+  <button onclick="loadExercise()">Bắt đầu</button>
+
+  <div id="score">Điểm: 0</div>
+  <div id="quizContainer"></div>
+
+  <script src="bai-tap-tung-dang.js"></script>
+</body>
+</html>
