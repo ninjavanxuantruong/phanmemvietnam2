@@ -127,20 +127,36 @@ let hasCaught = false; // ✅ Biến cờ kiểm tra đã bắt chưa
 
 document.getElementById("completeBtn").onclick = () => {
   if (roundCount >= 2 && !hasCaught) {
-    showCatchEffect(); // 🎉 Bùm! Hiệu ứng được kích hoạt
-
-    // 📝 Ghi kết quả vào localStorage
+    showCatchEffect();
     const score = vocabData.length > 0 ? 10 : 0;
-    const total = 10;
-    localStorage.setItem("result_vocabulary", JSON.stringify({score, total}));
+    localStorage.setItem("result_vocabulary", JSON.stringify({score, total: 10}));
+    hasCaught = true;
 
-    hasCaught = true; // ✅ Đánh dấu đã bắt
     document.getElementById("completeBtn").textContent = "✅ Đã hoàn thành!";
     document.getElementById("completeBtn").disabled = true;
     document.getElementById("completeBtn").style.opacity = "0.6";
-    document.getElementById("completeBtn").style.cursor = "default";
+
+    // ⏳ Sau 5s hiện nút chuyển
+    setTimeout(() => {
+      const nextStageBtn = document.createElement("button");
+      nextStageBtn.textContent = "🎮 Vào khu huấn luyện";
+      nextStageBtn.style.marginTop = "20px";
+      nextStageBtn.style.padding = "12px 20px";
+      nextStageBtn.style.fontSize = "1rem";
+      nextStageBtn.style.borderRadius = "8px";
+      nextStageBtn.style.backgroundColor = "#e17055";
+      nextStageBtn.style.color = "#fff";
+      nextStageBtn.style.cursor = "pointer";
+
+      nextStageBtn.onclick = () => {
+        window.location.href = "vocabulary2.html";
+      };
+
+      document.body.appendChild(nextStageBtn);
+    }, 5000);
   }
 };
+
 
 
 
