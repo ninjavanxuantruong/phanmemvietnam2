@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>PokéFlashcard</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f9f9f9;
+      text-align: center;
+      padding: 30px;
+    }
+
+    .poke-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 40px;
+    }
+
+    .pokeball {
+      width: 80px;
+      height: 80px;
+      background-image: url('https://cdn-icons-png.flaticon.com/512/361/361998.png');
+      background-size: cover;
+      cursor: pointer;
+      transition: transform 0.3s ease;
+    }
+
+
+    .pokeball:hover {
+      transform: scale(1.1);
+    }
+
+    .flashcard {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+      padding: 20px;
+      width: 300px;
+      z-index: 999;
+    }
+
+    .flashcard img {
+      max-width: 100%;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+
+    .flashcard .meaning {
+      font-size: 20px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎓 PokéFlashcard</h1>
+
+  <!-- Vùng chứa Pokéballs -->
+  <div class="poke-container" id="pokeContainer"></div>
+
+  <!-- Flashcard hiển thị nghĩa + ảnh -->
+  <div class="flashcard" id="flashcard">
+    <div class="meaning" id="flashMeaning"></div>
+    <img id="flashImage" src="" alt="Minh họa" />
+  </div>
+
+  <script type="module" src="vocabulary2.js"></script>
+</body>
+</html>
