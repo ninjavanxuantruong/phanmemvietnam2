@@ -4,15 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bài Tập Từng Dạng</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto&display=swap">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500&family=Roboto&display=swap" rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
     }
 
     body {
-      font-family: 'Roboto', sans-serif;
-      background: #f0f4f8;
+      font-family: 'Poppins', 'Roboto', sans-serif;
+      background: linear-gradient(to bottom right, #fceabb, #f8b500);
       padding: 20px;
       margin: 0;
       color: #2c3e50;
@@ -20,15 +20,25 @@
 
     h1 {
       text-align: center;
-      color: #34495e;
-      font-size: 2rem;
+      color: #d63031;
+      font-size: 2.5rem;
       margin-bottom: 20px;
+      position: relative;
+    }
+
+    h1::after {
+      content: "⚪";
+      position: absolute;
+      right: 10px;
+      top: 0;
+      font-size: 1.5rem;
     }
 
     label {
       display: block;
       margin-top: 15px;
       font-weight: bold;
+      color: #2d3436;
     }
 
     select, button {
@@ -36,28 +46,32 @@
       font-size: 1rem;
       padding: 10px;
       margin-top: 5px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
+      border-radius: 8px;
+      border: 2px solid #dfe6e9;
+      background-color: #fff;
+      transition: all 0.3s ease;
     }
 
     button {
-      background-color: #3498db;
+      background-color: #0984e3;
       color: white;
+      font-weight: bold;
       border: none;
-      cursor: pointer;
-      transition: background 0.3s ease;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
 
     button:hover {
-      background-color: #2980b9;
+      background-color: #74b9ff;
+      transform: scale(1.05);
     }
 
     .question-block {
       background: #fff;
-      border-radius: 8px;
+      border-radius: 12px;
       padding: 15px;
-      margin: 15px 0;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      margin: 20px 0;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      border: 2px solid #fab1a0;
     }
 
     .answers {
@@ -66,8 +80,9 @@
     }
 
     .answers li {
-      margin-bottom: 5px;
-      line-height: 1.5;
+      margin-bottom: 8px;
+      line-height: 1.6;
+      list-style-type: "🔹 ";
     }
 
     input {
@@ -75,24 +90,29 @@
       padding: 10px;
       font-size: 1rem;
       margin-top: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
+      border: 2px solid #ccc;
+      border-radius: 8px;
     }
 
     .correct {
-      border-color: #2ecc71;
-      background-color: #eafaf1;
+      border-color: #00b894;
+      background-color: #dff9fb;
     }
 
     .wrong {
-      border-color: #e74c3c;
-      background-color: #fdecea;
+      border-color: #d63031;
+      background-color: #ffeaa7;
     }
 
     #score {
-      font-size: 1.2rem;
-      margin-top: 20px;
+      font-size: 1.3rem;
+      margin-top: 25px;
       text-align: center;
+      color: #2d3436;
+      background-color: #ffeaa7;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
 
     @media (min-width: 600px) {
@@ -109,13 +129,26 @@
       label {
         margin-top: 20px;
       }
+
+      .passage {
+        text-align: justify;
+        font-size: 1.2rem;
+        line-height: 1.8;
+        margin-bottom: 20px;
+        background-color: #fffbe6;
+        padding: 15px;
+        border-radius: 10px;
+        border: 2px solid #ffeaa7;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      }
+
     }
   </style>
 </head>
 <body>
   <h1>Bài Tập Từng Dạng</h1>
 
-  <label for="exerciseType">Chọn dạng bài:</label>
+  <label for="exerciseType">🎯 Chọn dạng bài:</label>
   <select id="exerciseType">
     <option value="pronunciation">Phát âm</option>
     <option value="verb">Chia động từ</option>
@@ -130,7 +163,7 @@
     <option value="reading">Đọc hiểu</option>
   </select>
 
-  <label for="questionCount">Số lượng câu hỏi:</label>
+  <label for="questionCount">📦 Số lượng câu hỏi:</label>
   <select id="questionCount">
     <option value="10">10</option>
     <option value="20">20</option>
@@ -139,13 +172,12 @@
     <option value="50">50</option>
   </select>
 
-  <button onclick="loadExercise()">Bắt đầu</button>
+  <button onclick="loadExercise()">🚀 Bắt đầu</button>
 
   <div id="score">Điểm: 0</div>
   <div id="quizContainer"></div>
 
   <script src="bai-tap-tung-dang.js"></script>
   <script src="reading.js"></script>
-
 </body>
 </html>
