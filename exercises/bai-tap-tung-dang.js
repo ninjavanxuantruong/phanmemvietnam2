@@ -47,20 +47,29 @@ async function fetchSheetData() {
 }
 
 async function loadExercise() {
-  // Reset thống kê
+  const type = document.getElementById("exerciseType").value;
+
+  // Nếu là dạng reading → gọi file reading.js xử lý
+  if (type === "reading") {
+    if (typeof loadReadingExercise === "function") {
+      loadReadingExercise(); // gọi hàm bên reading.js
+    } else {
+      console.error("Không tìm thấy hàm loadReadingExercise trong reading.js");
+    }
+    return;
+  }
+
+  // Các phần còn lại giữ nguyên như anh đang dùng
   totalScore = 0;
   totalQuestions = 0;
   correctCount = 0;
   wrongCount = 0;
   updateStats();
 
-  // Lấy loại bài và số lượng câu hỏi
-  const type = document.getElementById("exerciseType").value;
   const questionLimit = parseInt(document.getElementById("questionCount").value, 10);
   const [start, end] = ranges[type];
   const rows = await fetchSheetData();
 
-  // Lọc các dòng có câu hỏi hợp lệ
   const validRows = [];
   for (let i = start - 1; i < end; i++) {
     const row = rows[i];
@@ -70,23 +79,19 @@ async function loadExercise() {
     }
   }
 
-  // Trộn và giới hạn số lượng câu hỏi
   const shuffledQuestions = shuffleArray(validRows).slice(0, questionLimit);
   const container = document.getElementById("quizContainer");
   container.innerHTML = "";
 
-  // Hiển thị từng câu hỏi
   shuffledQuestions.forEach((row, index) => {
-    const question = row.c[35]?.v || ""; // AJ
+    const question = row.c[35]?.v || "";
     const rawAnswers = [
-      { letter: "A", text: row.c[36]?.v || "" }, // AK
-      { letter: "B", text: row.c[37]?.v || "" }, // AL
-      { letter: "C", text: row.c[38]?.v || "" }, // AM
-      { letter: "D", text: row.c[39]?.v || "" }, // AN
+      { letter: "A", text: row.c[36]?.v || "" },
+      { letter: "B", text: row.c[37]?.v || "" },
+      { letter: "C", text: row.c[38]?.v || "" },
+      { letter: "D", text: row.c[39]?.v || "" },
     ];
     const correctText = normalize(row.c[40]?.v || "");
-
-
     const shuffledAnswers = shuffleArray(rawAnswers);
 
     const block = document.createElement("div");
@@ -124,7 +129,6 @@ async function loadExercise() {
       input.disabled = true;
       updateStats();
     };
-
 
     block.appendChild(input);
     container.appendChild(block);
