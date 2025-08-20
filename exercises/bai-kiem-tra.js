@@ -77,6 +77,11 @@ async function startTest() {
   const container = document.getElementById("quizContainer");
   container.innerHTML = "";
 
+  const readingPassageContainer = document.getElementById("readingPassageContainer");
+  const readingQuestionsContainer = document.getElementById("readingQuestionsContainer");
+  readingPassageContainer.innerHTML = "";
+  readingQuestionsContainer.innerHTML = "";
+
   const rows = await fetchSheetData();
 
   for (const type in config) {
@@ -150,6 +155,7 @@ async function startTest() {
     });
   }
 
+  // ✅ Phần Reading: tách riêng đoạn văn và câu hỏi
   const readingRows = await fetchReadingData();
   const lessonNumbers = [...new Set(readingRows.map(r => r.c[0]?.v).filter(v => v !== undefined))];
   const selectedLesson = lessonNumbers[Math.floor(Math.random() * lessonNumbers.length)];
@@ -173,7 +179,7 @@ async function startTest() {
   const passageBlock = document.createElement("div");
   passageBlock.className = "passage";
   passageBlock.innerHTML = `<strong>📘 Bài đọc:</strong><br>${passage}`;
-  container.appendChild(passageBlock);
+  readingPassageContainer.appendChild(passageBlock);
 
   questions.forEach((q, index) => {
     const block = document.createElement("div");
@@ -217,6 +223,6 @@ async function startTest() {
     };
 
     block.appendChild(input);
-    container.appendChild(block);
+    readingQuestionsContainer.appendChild(block);
   });
 }
