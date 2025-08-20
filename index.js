@@ -1,4 +1,5 @@
 function startApp() {
+  localStorage.clear();
   const name = document.getElementById("studentName").value.trim();
   const className = document.getElementById("studentClass").value.trim();
   const password = document.getElementById("studentPassword").value.trim();
@@ -26,4 +27,3 @@ function startApp() {
   // 🚀 Tiến vào hành trình
   window.location.href = "dataEntry.html";
 }
-
