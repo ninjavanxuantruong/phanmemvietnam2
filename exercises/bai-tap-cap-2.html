@@ -2,93 +2,55 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <title>Bài Tập Từng Dạng</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto&display=swap">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bài Tập Cấp 2</title>
   <style>
     body {
-      font-family: 'Roboto', sans-serif;
+      font-family: Arial, sans-serif;
       background: #f0f4f8;
-      padding: 30px;
-      max-width: 800px;
-      margin: auto;
+      margin: 0;
+      padding: 40px;
+      text-align: center;
     }
     h1 {
-      text-align: center;
-      color: #34495e;
-    }
-    select, button {
-      font-size: 18px;
-      padding: 10px;
-      margin: 10px 0;
-    }
-    .question-block {
-      background: #fff;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .answers {
-      margin-top: 10px;
-      padding-left: 20px;
-    }
-    .answers li {
-      margin-bottom: 5px;
-    }
-    input {
-      width: 100%;
-      padding: 10px;
-      font-size: 16px;
-      margin-top: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-    .correct {
-      border-color: #2ecc71;
-      background-color: #eafaf1;
-    }
-    .wrong {
-      border-color: #e74c3c;
-      background-color: #fdecea;
-    }
-    #score {
-      font-size: 20px;
-      margin-top: 20px;
       color: #2c3e50;
+    }
+    .button-container {
+      margin-top: 40px;
+    }
+    .btn {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      margin: 20px;
+      font-size: 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    .btn:hover {
+      background-color: #2980b9;
     }
   </style>
 </head>
 <body>
-  <h1>Bài Tập Từng Dạng</h1>
+  <h1>Bài Tập Cấp 2</h1>
+  <p>Chọn kiểu bài tập bạn muốn làm:</p>
 
-  <label for="exerciseType">Chọn dạng bài:</label>
-  <select id="exerciseType">
-    <option value="pronunciation">Phát âm</option>
-    <option value="verb">Chia động từ</option>
-    <option value="article">Mạo từ</option>
-    <option value="preposition">Giới từ</option>
-    <option value="pronoun">Đại từ / Chủ ngữ / Sở hữu</option>
-    <option value="connector">Từ nối</option>
-    <option value="rewrite">Viết lại câu</option>
-    <option value="plural">Số ít / Số nhiều</option>
-    <option value="wordform">Dạng đúng của từ</option>
-    <option value="vocabulary">Trắc nghiệm từ vựng</option>
-  </select>
+  <div class="button-container">
+    <button class="btn" onclick="goToPractice()">📝 Bài tập từng dạng</button>
+    <button class="btn" onclick="goToTest()">🧪 Bài kiểm tra</button>
+  </div>
 
-  <label for="questionCount">Số lượng câu hỏi:</label>
-  <select id="questionCount">
-    <option value="10">10</option>
-    <option value="20">20</option>
-    <option value="30">30</option>
-    <option value="40">40</option>
-    <option value="50">50</option>
-  </select>
+  <script>
+    function goToPractice() {
+      window.location.href = "bai-tap-tung-dang.html";
+    }
 
-
-  <button onclick="loadExercise()">Bắt đầu</button>
-  <div id="score">Điểm: 0</div>
-  <div id="quizContainer"></div>
-
-  <script src="bai-tap-tung-dang.js"></script>
+    function goToTest() {
+      window.location.href = "bai-kiem-tra.html";
+    }
+  </script>
 </body>
 </html>
