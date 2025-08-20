@@ -6,10 +6,16 @@
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      background-color: #f9f9f9;
+      background-image: url("https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/2979584.gif");
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-attachment: fixed;
       text-align: center;
       padding: 30px;
     }
+    
+
 
     .poke-container {
       display: flex;
@@ -20,13 +26,13 @@
     }
 
     .pokeball {
-      width: 80px;
-      height: 80px;
+      position: absolute;
       background-image: url('https://cdn-icons-png.flaticon.com/512/361/361998.png');
       background-size: cover;
       cursor: pointer;
       transition: transform 0.3s ease;
     }
+
 
 
     .pokeball:hover {
@@ -63,6 +69,10 @@
 
   <h1>🎓 PokéFlashcard</h1>
 
+  <!-- Hiển thị số Pokéball còn lại -->
+  <p id="ballCounter" style="font-weight: bold; margin-bottom: 10px; color: red;">Còn lại: ... Pokéball</p>
+
+
   <!-- Vùng chứa Pokéballs -->
   <div class="poke-container" id="pokeContainer"></div>
 
@@ -71,6 +81,8 @@
     <div class="meaning" id="flashMeaning"></div>
     <img id="flashImage" src="" alt="Minh họa" />
   </div>
+  <div id="speechResult" style="margin-top:12px; text-align:center;"></div>
+
 
   <script type="module" src="vocabulary2.js"></script>
 </body>
