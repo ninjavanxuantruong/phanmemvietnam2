@@ -1,4 +1,4 @@
-const readingSheetUrl = "https://docs.google.com/spreadsheets/d/17JUJya5fIL3BfH4-Ysfm1MKbfFFtOmgYQ9C6aiCo5S0/gviz/tq?tqx=out:json";
+const readingSheetUrl2 = "https://docs.google.com/spreadsheets/d/17JUJya5fIL3BfH4-Ysfm1MKbfFFtOmgYQ9C6aiCo5S0/gviz/tq?tqx=out:json";
 
 async function fetchReadingData() {
   const res = await fetch(readingSheetUrl);
@@ -25,6 +25,19 @@ function updateStats() {
     <strong>Đúng:</strong> ${correctCount} |
     <strong>Sai:</strong> ${wrongCount}
   `;
+}
+
+// ✅ Hàm lưu điểm vào localStorage cho phần reading
+function saveReadingScore() {
+  const key = "score_reading_grade8";
+  const saved = JSON.parse(localStorage.getItem(key) || "{}");
+
+  const newData = {
+    correct: (saved.correct || 0) + correctCount,
+    total: (saved.total || 0) + totalQuestions
+  };
+
+  localStorage.setItem(key, JSON.stringify(newData));
 }
 
 async function loadReadingExercise() {
@@ -102,6 +115,11 @@ async function loadReadingExercise() {
 
       input.disabled = true;
       updateStats();
+
+      // ✅ Nếu đã làm hết số câu → lưu điểm
+      if (totalQuestions === questions.length) {
+        saveReadingScore();
+      }
     };
 
     block.appendChild(input);
