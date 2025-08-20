@@ -22,7 +22,6 @@ function normalize(text) {
   return text?.trim().toLowerCase().replace(/[:.,]/g, "");
 }
 
-
 function shuffleArray(array) {
   return array
     .map(value => ({ value, sort: Math.random() }))
@@ -37,6 +36,19 @@ function updateStats() {
     <strong>Đúng:</strong> ${correctCount} |
     <strong>Sai:</strong> ${wrongCount}
   `;
+}
+
+// ✅ Hàm lưu điểm vào localStorage theo loại bài
+function saveScoreToLocal(type) {
+  const key = `score_${type}_grade8`;
+  const saved = JSON.parse(localStorage.getItem(key) || "{}");
+
+  const newData = {
+    correct: (saved.correct || 0) + correctCount,
+    total: (saved.total || 0) + totalQuestions
+  };
+
+  localStorage.setItem(key, JSON.stringify(newData));
 }
 
 async function fetchSheetData() {
@@ -128,6 +140,11 @@ async function loadExercise() {
 
       input.disabled = true;
       updateStats();
+
+      // ✅ Nếu đã làm hết số câu → lưu điểm
+      if (totalQuestions === shuffledQuestions.length) {
+        saveScoreToLocal(type);
+      }
     };
 
     block.appendChild(input);
