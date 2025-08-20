@@ -103,16 +103,20 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
 
-    .passage {
-      text-align: justify;
-      font-size: 1.2rem;
-      line-height: 1.8;
-      margin-bottom: 20px;
+    /* ✅ Phần bài đọc cố định */
+    #readingPassageContainer {
+      position: sticky;
+      top: 0;
       background-color: #fffbe6;
       padding: 15px;
       border-radius: 10px;
       border: 2px solid #ffeaa7;
       box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      z-index: 100;
+    }
+
+    #readingQuestionsContainer {
+      margin-top: 20px;
     }
 
     @media (min-width: 600px) {
@@ -129,7 +133,13 @@
   <button onclick="startTest()">🔥 Bắt đầu kiểm tra</button>
 
   <div id="score">Điểm: 0</div>
+
+  <!-- ✅ Container cho các dạng bài khác -->
   <div id="quizContainer"></div>
+
+  <!-- ✅ Container riêng cho phần bài đọc -->
+  <div id="readingPassageContainer"></div>
+  <div id="readingQuestionsContainer"></div>
 
   <script src="bai-kiem-tra.js"></script>
   <script src="reading.js"></script>
