@@ -95,7 +95,7 @@ async function startTest() {
 
     const selected = shuffleArray(validRows).slice(0, config[type]);
 
-    selected.forEach((row, index) => {
+    selected.forEach((row) => {
       const question = row.c[35]?.v || "";
       const rawAnswers = [
         { letter: "A", text: row.c[36]?.v || "" },
@@ -137,6 +137,12 @@ async function startTest() {
         }
         input.disabled = true;
         updateStats();
+
+        const kiemtraData = {
+          correct: correctCount,
+          total: totalQuestions
+        };
+        localStorage.setItem("score_kiemtra_grade8", JSON.stringify(kiemtraData));
       };
 
       block.appendChild(input);
@@ -144,7 +150,6 @@ async function startTest() {
     });
   }
 
-  // Xử lý phần Reading
   const readingRows = await fetchReadingData();
   const lessonNumbers = [...new Set(readingRows.map(r => r.c[0]?.v).filter(v => v !== undefined))];
   const selectedLesson = lessonNumbers[Math.floor(Math.random() * lessonNumbers.length)];
@@ -203,6 +208,12 @@ async function startTest() {
       }
       input.disabled = true;
       updateStats();
+
+      const kiemtraData = {
+        correct: correctCount,
+        total: totalQuestions
+      };
+      localStorage.setItem("score_kiemtra_grade8", JSON.stringify(kiemtraData));
     };
 
     block.appendChild(input);
