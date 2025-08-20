@@ -1,7 +1,7 @@
 const readingSheetUrl2 = "https://docs.google.com/spreadsheets/d/17JUJya5fIL3BfH4-Ysfm1MKbfFFtOmgYQ9C6aiCo5S0/gviz/tq?tqx=out:json";
 
 async function fetchReadingData() {
-  const res = await fetch(readingSheetUrl);
+  const res = await fetch(readingSheetUrl2);
   const text = await res.text();
   const json = JSON.parse(text.substring(47).slice(0, -2));
   return json.table.rows;
@@ -27,7 +27,6 @@ function updateStats() {
   `;
 }
 
-// ✅ Hàm lưu điểm vào localStorage cho phần reading
 function saveReadingScore() {
   const key = "score_reading_grade8";
   const saved = JSON.parse(localStorage.getItem(key) || "{}");
@@ -49,20 +48,12 @@ async function loadReadingExercise() {
 
   const rows = await fetchReadingData();
 
-  // Bước 1: Lấy danh sách số bài duy nhất từ cột A
   const lessonNumbers = [...new Set(rows.map(r => r.c[0]?.v).filter(v => v !== undefined))];
-
-  // Bước 2: Random một bài
   const selectedLesson = lessonNumbers[Math.floor(Math.random() * lessonNumbers.length)];
-
-  // Bước 3: Lọc các hàng thuộc bài đó
   const lessonRows = rows.filter(r => r.c[0]?.v === selectedLesson);
-
-  // Bước 4: Tìm đoạn văn (cột B)
   const passageRow = lessonRows.find(r => r.c[1]?.v?.trim());
   const passage = passageRow?.c[1]?.v || "";
 
-  // Bước 5: Lấy các câu hỏi
   const questions = lessonRows
     .filter(r => r.c[2]?.v?.trim())
     .map(r => ({
@@ -76,8 +67,12 @@ async function loadReadingExercise() {
       correct: normalize(r.c[7]?.v || "")
     }));
 
-  const container = document.getElementById("quizContainer");
-  container.innerHTML = `<div class="passage"><strong>📘 Bài đọc:</strong><br>${passage}</div>`;
+  // ✅ Tách vùng hiển thị
+  const passageContainer = document.getElementById("readingPassageContainer");
+  const questionsContainer = document.getElementById("readingQuestionsContainer");
+
+  passageContainer.innerHTML = `<div class="passage"><strong>📘 Bài đọc:</strong><br>${passage}</div>`;
+  questionsContainer.innerHTML = "";
 
   questions.forEach((q, index) => {
     const block = document.createElement("div");
@@ -116,13 +111,12 @@ async function loadReadingExercise() {
       input.disabled = true;
       updateStats();
 
-      // ✅ Nếu đã làm hết số câu → lưu điểm
       if (totalQuestions === questions.length) {
         saveReadingScore();
       }
     };
 
     block.appendChild(input);
-    container.appendChild(block);
+    questionsContainer.appendChild(block);
   });
 }
