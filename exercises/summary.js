@@ -24,6 +24,7 @@ const parts = [
 let totalScore = 0;
 let totalMax = 0;
 
+
 parts.forEach(({key, label}, index) => {
   const result = JSON.parse(localStorage.getItem(`result_${key}`));
   const score = result?.score || 0;
@@ -74,16 +75,33 @@ const month = String(dateStr.getMonth() + 1).padStart(2, '0');
 const year = String(dateStr.getFullYear()).slice(-2);
 const dateCode = `${day}${month}${year}`;
 
-const completedParts = parts.filter(({key}) => {
-  const result = localStorage.getItem(`result_${key}`);
-  if (!result) return false;
-  const parsed = JSON.parse(result);
-  return parsed?.total > 0;
-}).length;
+// ✅ Tính số phần đã làm và phần chưa làm
+const completedParts = [];
+const zeroParts = [];
 
-const code = `${studentName}-${studentClass}-${selectedLesson}-${dateCode}-${totalScore}/${totalMax}-${completedParts}/${parts.length}-${finalRating}`;
+parts.forEach(({ key, label }) => {
+  const result = localStorage.getItem(`result_${key}`);
+  if (!result) {
+    zeroParts.push(label);
+    return;
+  }
+
+  const parsed = JSON.parse(result);
+  if (parsed?.total > 0) {
+    completedParts.push(label);
+  } else {
+    zeroParts.push(label);
+  }
+});
+
+const completedCount = completedParts.length;
+
+// ✅ Tạo mã tổng kết có thêm phần 0 điểm
+const code = `${studentName}-${studentClass}-${selectedLesson}-${dateCode}-${totalScore}/${totalMax}-${completedCount}/${parts.length}-${finalRating}` +
+             (zeroParts.length > 0 ? ` (Các phần 0 điểm: ${zeroParts.join(", ")})` : "");
 
 document.getElementById("resultCode").textContent = code;
+
 
 // 📋 Sao chép mã
 function copyResultCode() {
