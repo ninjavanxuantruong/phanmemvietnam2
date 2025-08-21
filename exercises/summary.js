@@ -96,15 +96,16 @@ parts.forEach(({ key, label }) => {
 
   if (group1.includes(key)) {
     if (hasData) group1Done = true;
-    else group1Zero.push(label);
+    else if (!group1Done) group1Zero.push(label); // ✅ chỉ đẩy nếu cả nhóm chưa làm
     return;
   }
 
   if (group2.includes(key)) {
     if (hasData) group2Done = true;
-    else group2Zero.push(label);
+    else if (!group2Done) group2Zero.push(label);
     return;
   }
+
 
   if (hasData) completedParts.push(label);
   else zeroParts.push(label);
@@ -115,14 +116,17 @@ if (group1Done) {
   completedParts.push("Trò chơi từ & nghĩa / ô chữ / điền chữ cái");
 } else {
   zeroParts.push("Trò chơi");
+  // Nếu muốn liệt kê chi tiết các trò chưa làm:
+  // zeroParts.push(...group1Zero);
 }
 
-// ✅ Gom nhóm phần nói
 if (group2Done) {
   completedParts.push("Nói cụm / câu / đoạn văn");
 } else {
   zeroParts.push("Phần nói");
+  // zeroParts.push(...group2Zero);
 }
+
 
 const completedCount = completedParts.length;
 
