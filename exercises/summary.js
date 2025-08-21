@@ -23,7 +23,7 @@ const parts = [
 let totalScore = 0;
 let totalMax = 0;
 
-parts.forEach(({key, label}, index) => {
+parts.forEach(({ key, label }, index) => {
   const result = JSON.parse(localStorage.getItem(`result_${key}`));
   const score = result?.score || 0;
   const total = result?.total || 0;
@@ -37,6 +37,11 @@ parts.forEach(({key, label}, index) => {
 
   totalScore += score;
   totalMax += total;
+
+  // ⏱ Lưu thời gian bắt đầu nếu chưa có
+  if (total === 0 && !localStorage.getItem(`startTime_${key}`)) {
+    localStorage.setItem(`startTime_${key}`, Date.now());
+  }
 
   const row = `
     <tr>
@@ -121,15 +126,36 @@ if (group2Done) {
 
 const completedCount = completedParts.length;
 
-// ✅ Mã tổng kết cuối cùng
-const code = `${studentName}-${studentClass}-${selectedLesson}-${dateCode}-${totalScore}/${totalMax}-${completedCount}/${parts.length}-${finalRating}` +
-             (zeroParts.length > 0 ? ` (Các phần 0 điểm: ${zeroParts.join(", ")})` : "");
+// ✅ Tính tổng thời gian làm bài
+let totalMinutes = 0;
+
+parts.forEach(({ key }) => {
+  const result = JSON.parse(localStorage.getItem(`result_${key}`));
+  const total = result?.total || 0;
+
+  if (total > 0) {
+    const startTime = localStorage.getItem(`startTime_${key}`);
+    if (startTime) {
+      const durationMs = Date.now() - parseInt(startTime);
+      const minutes = Math.floor(durationMs / 60000);
+      totalMinutes += minutes;
+    }
+  }
+});
+
+// ✅ Tạo mã tổng kết đầy đủ
+const zeroText = zeroParts.length > 0 ? ` (Các phần 0 điểm: ${zeroParts.join(", ")})` : "";
+const timeText = totalMinutes > 0 ? ` [ ${totalMinutes} phút]` : "";
+
+const code = `${studentName}-${studentClass}-${selectedLesson}-${dateCode}-${totalScore}/${totalMax}-${completedCount}/${parts.length}-${finalRating}${zeroText}${timeText}`;
 
 document.getElementById("resultCode").textContent = code;
+
+
 
 // 📋 Sao chép mã
 function copyResultCode() {
   navigator.clipboard.writeText(code).then(() => {
-    alert("✅ Đã sao chép mã kết quả!");
+    alert("✅ Đã sao chép mã kết quả kèm thời gian!");
   });
 }
