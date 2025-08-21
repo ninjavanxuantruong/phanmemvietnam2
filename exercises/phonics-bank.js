@@ -100,13 +100,13 @@ phonicsBank.push(
   { unit: "unit10", key: "mb", ipa: "/m/", word: "lamb" },
 
   // 🔵 Unit 11: Đuôi từ đặc biệt
-  { unit: "unit11", key: "-tion", ipa: "/ʃən/", word: "station" },
-  { unit: "unit11", key: "-sion", ipa: "/ʒən/", word: "television" },
-  { unit: "unit11", key: "-cian", ipa: "/ʃən/", word: "musician" },
+  { unit: "unit11", key: "-tion", ipa: "/ʃn/", word: "station" },
+  { unit: "unit11", key: "-sion", ipa: "/ʒn/", word: "television" },
+  { unit: "unit11", key: "-cian", ipa: "/ʃn/", word: "musician" },
   { unit: "unit11", key: "-ture", ipa: "/ʧə/", word: "picture" },
   { unit: "unit11", key: "-sure", ipa: "/ʒə/", word: "measure" },
-  { unit: "unit11", key: "-cial", ipa: "/ʃəl/", word: "social" },
-  { unit: "unit11", key: "-tial", ipa: "/ʃəl/", word: "initial" },
+  { unit: "unit11", key: "-cial", ipa: "/ʃl/", word: "social" },
+  { unit: "unit11", key: "-tial", ipa: "/ʃl/", word: "initial" },
   { unit: "unit11", key: "-ous", ipa: "/əs/", word: "famous" },
   { unit: "unit11", key: "-age", ipa: "/ɪʤ/", word: "village" }
 );
