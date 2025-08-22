@@ -30,7 +30,10 @@ async function fetchVocabularyData() {
   const allWords = rows.map(row => {
     const word = row.c[2]?.v?.trim() || "";
     const meaning = row.c[24]?.v?.trim() || "";
-    return { word, meaning };
+    const image1 = row.c[29]?.v?.trim() || "";
+    const extraNote = row.c[30]?.v?.trim() || "";
+    const image2 = row.c[32]?.v?.trim() || "";
+    return { word, meaning, image1, extraNote, image2 };
   });
 
   const filtered = allWords.filter(item => wordBank.includes(item.word));
@@ -88,6 +91,10 @@ async function displayWord(wordObj) {
 
   const imageUrl = await getImage(wordObj.word);
   document.getElementById("vocabImage").src = imageUrl;
+
+  // Ẩn phần thú vị nếu đang mở
+  document.getElementById("funContent").innerHTML = "";
+  document.getElementById("closeFunBtn").style.display = "none";
 }
 
 document.getElementById("playSound").onclick = () => {
@@ -119,11 +126,11 @@ document.getElementById("nextBtn").onclick = async () => {
     completeBtn.style.cursor = "pointer";
     completeBtn.style.backgroundColor = "#2196f3";
     completeBtn.textContent = "🌟 Hoàn thành nhiệm vụ!";
-  }document.getElementById
+  }
 };
 
 // 🟢 Gọi hiệu ứng Pokéball khi hoàn thành
-let hasCaught = false; // ✅ Biến cờ kiểm tra đã bắt chưa
+let hasCaught = false;
 
 document.getElementById("completeBtn").onclick = () => {
   if (roundCount >= 2 && !hasCaught) {
@@ -136,7 +143,6 @@ document.getElementById("completeBtn").onclick = () => {
     document.getElementById("completeBtn").disabled = true;
     document.getElementById("completeBtn").style.opacity = "0.6";
 
-    // ⏳ Sau 5s hiện nút chuyển
     setTimeout(() => {
       const nextStageBtn = document.createElement("button");
       nextStageBtn.textContent = "🎮 Vào khu huấn luyện";
@@ -157,9 +163,6 @@ document.getElementById("completeBtn").onclick = () => {
   }
 };
 
-
-
-
 let vocabData = [];
 fetchVocabularyData().then(data => {
   vocabData = data;
@@ -170,3 +173,60 @@ fetchVocabularyData().then(data => {
     document.getElementById("vocabMeaning").textContent = "Danh sách wordBank trống hoặc không khớp với dữ liệu Google Sheet.";
   }
 });
+
+// 🎉 Xử lý nút Thú vị và Đóng
+async function getImage1(keyword) {
+  try {
+    const res = await fetch(`https://api.pexels.com/v1/search?query=${keyword}&per_page=1`, {
+      headers: { Authorization: PEXELS_API_KEY }
+    });
+    const data = await res.json();
+    return data.photos[0]?.src.medium || "fallback.jpg";
+  } catch {
+    return "fallback.jpg";
+  }
+}
+
+async function getImage2(keyword) {
+  try {
+    const res = await fetch(`https://api.pexels.com/v1/search?query=${keyword}&per_page=1`, {
+      headers: { Authorization: PEXELS_API_KEY }
+    });
+    const data = await res.json();
+    return data.photos[0]?.src.medium || "fallback.jpg";
+  } catch {
+    return "fallback.jpg";
+  }
+}
+
+
+document.getElementById("funBtn").onclick = async () => {
+  const wordObj = vocabData[currentIndex];
+  const container = document.getElementById("funContent");
+  const closeBtn = document.getElementById("closeFunBtn");
+
+  const note = wordObj.extraNote || "Không có gì";
+  const img1 = await getImage1(wordObj.image1 || wordObj.word);
+  const img2 = await getImage2(wordObj.image2 || wordObj.word);
+
+
+  container.innerHTML = `
+    <div style="padding:10px; border:2px dashed #ccc; border-radius:10px;">
+      <h3>📌 Ghi chú thú vị:</h3>
+      <p>${note}</p>
+      <div class="fun-wrapper">
+        <img src="${img1}" alt="Ảnh 1">
+        <img src="${img2}" alt="Ảnh 2">
+      </div>
+    </div>
+  `;
+
+
+  closeBtn.style.display = "inline-block";
+};
+
+
+document.getElementById("closeFunBtn").onclick = () => {
+  document.getElementById("funContent").innerHTML = "";
+  document.getElementById("closeFunBtn").style.display = "none";
+};
