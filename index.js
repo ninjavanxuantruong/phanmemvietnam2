@@ -24,6 +24,9 @@ function startApp() {
   localStorage.setItem("trainerName", name);
   localStorage.setItem("trainerClass", className);
 
+  localStorage.setItem("startTime_global", Date.now());
+
+
   // 🚀 Tiến vào hành trình
   window.location.href = "dataEntry.html";
 }
