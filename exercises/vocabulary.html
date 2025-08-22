@@ -128,6 +128,51 @@
       background-color: #d32f2f;
     }
 
+    #funBtn, #closeFunBtn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    #funBtn {
+      background-color: #ff9800;
+      color: white;
+      margin-right: 10px;
+    }
+
+    #closeFunBtn {
+      background-color: #9e9e9e;
+      color: white;
+      display: none;
+    }
+
+    #funContent .fun-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 10px;
+    }
+
+    #funContent .fun-wrapper img {
+      width: 240px;
+      height: 180px;
+      object-fit: cover;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    @media (max-width: 600px) {
+      #funContent .fun-wrapper img {
+        width: 100%;
+        height: auto;
+      }
+    }
+
+
     @keyframes shake {
       0%, 100% { transform: rotate(0deg); }
       25% { transform: rotate(10deg); }
@@ -162,9 +207,7 @@
 </head>
 <body>
   <h1>📘 PokéVocabulary</h1>
-  
 
-  <!-- ✅ Nút thay thế dòng giới thiệu -->
   <button id="completeBtn" disabled style="
     font-size: 18px;
     padding: 10px 20px;
@@ -178,7 +221,6 @@
   ">
   ✅ Hoàn thành nhiệm vụ
   </button>
-
 
   <div class="vocab-card">
     <div class="image-frame">
@@ -197,11 +239,14 @@
       <button id="playSound">
         <img src="https://cdn-icons-png.flaticon.com/512/361/361998.png" alt="Phát âm từ" />
       </button>
-      <button id="nextBtn" style="margin-top: 20px;">⏭️ Next</button>
+      <button id="nextBtn">⏭️ Next</button>
+
+      <button id="funBtn">🎉 Thú vị</button>
+      <button id="closeFunBtn">❌ Đóng</button>
     </div>
   </div>
 
-  
+  <div id="funContent"></div>
 
   <script type="module" src="vocabulary.js"></script>
 </body>
