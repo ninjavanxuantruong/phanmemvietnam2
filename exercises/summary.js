@@ -131,21 +131,15 @@ if (group2Done) {
 const completedCount = completedParts.length;
 
 // ✅ Tính tổng thời gian làm bài
+// ✅ Tính thời gian toàn phiên học
 let totalMinutes = 0;
+const startTimeGlobal = localStorage.getItem("startTime_global");
 
-parts.forEach(({ key }) => {
-  const result = JSON.parse(localStorage.getItem(`result_${key}`));
-  const total = result?.total || 0;
+if (startTimeGlobal) {
+  const durationMs = Date.now() - parseInt(startTimeGlobal);
+  totalMinutes = Math.max(1, Math.floor(durationMs / 60000)); // luôn ≥ 1 phút
+}
 
-  if (total > 0) {
-    const startTime = localStorage.getItem(`startTime_${key}`);
-    if (startTime) {
-      const durationMs = Date.now() - parseInt(startTime);
-      const minutes = Math.floor(durationMs / 60000);
-      totalMinutes += minutes;
-    }
-  }
-});
 
 // ✅ Tạo mã tổng kết đầy đủ
 const zeroText = zeroParts.length > 0 ? ` (Các phần 0 điểm: ${zeroParts.join(", ")})` : "";
@@ -160,6 +154,6 @@ document.getElementById("resultCode").textContent = code;
 // 📋 Sao chép mã
 function copyResultCode() {
   navigator.clipboard.writeText(code).then(() => {
-    alert("✅ Đã sao chép mã kết quả kèm thời gian!");
+    alert("✅ Đã sao chép mã kết quả - Hãy dán vào Zalo thầy Tình!");
   });
 }
