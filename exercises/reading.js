@@ -40,6 +40,8 @@ function saveReadingScore() {
 }
 
 async function loadReadingExercise() {
+  // ✅ Ghi lại thời điểm bắt đầu làm bài đọc
+  localStorage.setItem("startTime_grade8", Date.now());
   totalScore = 0;
   totalQuestions = 0;
   correctCount = 0;
