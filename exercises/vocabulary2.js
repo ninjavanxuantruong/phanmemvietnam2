@@ -6,6 +6,7 @@ const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tD
 const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
 let vocabData = [];
 let caughtCount = 0;
+let isFlashcardActive = false;
 
 
 async function fetchVocabularyData() {
@@ -48,15 +49,16 @@ async function getImage(word) {
 }
 
 async function showFlashcard(item, ballElement) {
+  if (isFlashcardActive) return; // ✅ Đang xử lý từ khác, bỏ qua
+  isFlashcardActive = true;
+
   const flashcard = document.getElementById("flashcard");
   const flashMeaning = document.getElementById("flashMeaning");
   const flashImage = document.getElementById("flashImage");
 
-  // flashMeaning.textContent = item.meaning || "Không có nghĩa";
   flashImage.src = await getImage(item.word);
   flashcard.style.display = "block";
 
-  // 👉 Thêm Pokéball luyện nói
   const speakBall = document.createElement("img");
   speakBall.src = "https://cdn-icons-png.flaticon.com/512/361/361998.png";
   speakBall.style.width = "64px";
@@ -64,11 +66,13 @@ async function showFlashcard(item, ballElement) {
   speakBall.title = "🎤 Bấm để luyện nói";
   flashcard.appendChild(speakBall);
 
-  speakBall.onclick = () => {
-    startSpeakingPractice(item.word, () => {
+  // ✅ Tự động đóng sau 10 giây nếu không ghi âm
+  const timeout = setTimeout(() => {
+    if (isFlashcardActive) {
       flashcard.style.display = "none";
       ballElement.remove();
       speakBall.remove();
+      isFlashcardActive = false;
 
       caughtCount++;
       const remaining = vocabData.length - caughtCount;
@@ -77,17 +81,14 @@ async function showFlashcard(item, ballElement) {
       if (caughtCount === vocabData.length) {
         showCatchEffect();
 
-        // 👉 Tính điểm luyện nói
         const speakingScore = parseInt(localStorage.getItem("speaking_score") || "0");
-        const speakingTotal = vocabData.length * 2; // mỗi từ tối đa 2 điểm
+        const speakingTotal = vocabData.length * 2;
 
-        // 👉 Lưu điểm phần 2 riêng nếu muốn theo dõi
         localStorage.setItem("vocabulary2_score", JSON.stringify({
           score: speakingScore,
           total: speakingTotal
         }));
 
-        // 👉 Gộp điểm với phần 1 (luôn là 10 điểm)
         const combinedScore = speakingScore + 10;
         const combinedTotal = speakingTotal + 10;
 
@@ -96,14 +97,49 @@ async function showFlashcard(item, ballElement) {
           total: combinedTotal
         }));
 
-        // 👉 Xóa điểm tạm
         localStorage.removeItem("speaking_score");
-
       }
+    }
+  }, 10000); // 10 giây
 
+  speakBall.onclick = () => {
+    clearTimeout(timeout); // ✅ Hủy timeout nếu đã ghi âm
+
+    startSpeakingPractice(item.word, () => {
+      flashcard.style.display = "none";
+      ballElement.remove();
+      speakBall.remove();
+      isFlashcardActive = false;
+
+      caughtCount++;
+      const remaining = vocabData.length - caughtCount;
+      document.getElementById("ballCounter").textContent = `Còn lại: ${remaining} Pokéball`;
+
+      if (caughtCount === vocabData.length) {
+        showCatchEffect();
+
+        const speakingScore = parseInt(localStorage.getItem("speaking_score") || "0");
+        const speakingTotal = vocabData.length * 2;
+
+        localStorage.setItem("vocabulary2_score", JSON.stringify({
+          score: speakingScore,
+          total: speakingTotal
+        }));
+
+        const combinedScore = speakingScore + 10;
+        const combinedTotal = speakingTotal + 10;
+
+        localStorage.setItem("result_vocabulary", JSON.stringify({
+          score: combinedScore,
+          total: combinedTotal
+        }));
+
+        localStorage.removeItem("speaking_score");
+      }
     });
   };
 }
+
 
 function startSpeakingPractice(targetWord, callback) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -126,21 +162,22 @@ function startSpeakingPractice(targetWord, callback) {
     const cleanTarget = targetWord.toLowerCase().replace(/[^a-z0-9'\s]/g, "");
     const cleanUser = transcript.toLowerCase().replace(/[^a-z0-9'\s]/g, "");
 
-    const score = cleanUser === cleanTarget ? 2 : 0;
+    // ✅ Chỉ cần chứa từ là được
+    const score = cleanUser.includes(cleanTarget) ? 2 : 0;
     resultArea.innerHTML = `🗣️ Bạn nói: "<i>${transcript}</i>"<br>🎯 Kết quả: ${score} điểm`;
 
-    // 👉 Lưu điểm nếu cần
     const prevScore = parseInt(localStorage.getItem("speaking_score") || "0");
     localStorage.setItem("speaking_score", prevScore + score);
 
-    callback(); // 👉 Gọi lại để ẩn flashcard và tiếp tục
+    callback();
   };
 
   recognition.onerror = (event) => {
     resultArea.innerText = `❌ Lỗi: ${event.error}`;
-    callback(); // Vẫn tiếp tục
+    callback();
   };
 }
+
 
 function movePokeball(ball) {
   const size = parseInt(ball.style.width); // giữ nguyên kích thước hiện tại
