@@ -82,8 +82,22 @@ function generateResultCode() {
     .filter(Boolean)
     .join(" - ");
 
-  return `${studentName}-${studentClass} - ${resultParts}`;
+  // ✅ Tính thời gian làm bài
+  const startTime = parseInt(localStorage.getItem("startTime_grade8") || "0");
+  let durationText = "Không xác định";
+
+  if (startTime > 0) {
+    const durationMs = Date.now() - startTime;
+    const minutes = Math.floor(durationMs / 60000);
+    const seconds = Math.floor((durationMs % 60000) / 1000);
+    durationText = `${minutes} phút ${seconds} giây`;
+  }
+
+  // ✅ Gộp thời gian vào chuỗi mã
+  const resultCode = `${studentName}-${studentClass} - ${resultParts} - Thời gian: ${durationText}`;
+  return resultCode;
 }
+
 
 // ✅ Hiển thị mã kết quả và nút sao chép
 function renderResultCode() {
@@ -95,10 +109,22 @@ function renderResultCode() {
   const dateStr = now.toLocaleDateString("vi-VN");
   const timeStr = now.toLocaleTimeString("vi-VN");
 
+  // ✅ Tính thời gian làm bài
+  const startTime = parseInt(localStorage.getItem("startTime_grade8") || "0");
+  let durationText = "Không xác định";
+
+  if (startTime > 0) {
+    const durationMs = Date.now() - startTime;
+    const minutes = Math.floor(durationMs / 60000);
+    const seconds = Math.floor((durationMs % 60000) / 1000);
+    durationText = `${minutes} phút ${seconds} giây`;
+  }
+
   const resultCodeEl = document.createElement("p");
   resultCodeEl.innerHTML = `
     <strong>Mã kết quả:</strong> ${resultCode}
     <br><em>Thời gian tạo: ${dateStr} ${timeStr}</em>
+    <br><em>Thời gian làm bài: ${durationText}</em>
   `;
 
   const copyBtn = document.createElement("button");
@@ -114,8 +140,32 @@ function renderResultCode() {
   resultSection.appendChild(copyBtn);
 }
 
+
 // ✅ Khởi chạy khi trang tải xong
+// ✅ Gắn sự kiện khi người dùng ấn nút
 document.addEventListener("DOMContentLoaded", () => {
-  renderScoreTable();
-  renderResultCode();
+  const showBtn = document.getElementById("showResultBtn");
+  const section = document.getElementById("resultSection");
+
+  if (showBtn && section) {
+    showBtn.addEventListener("click", () => {
+      console.log("Đã ấn nút Xem kết quả");
+
+      section.style.display = "block";
+      section.querySelector(".summary").innerHTML = "";
+      section.querySelector("#tableBody").innerHTML = "";
+
+      renderScoreTable();
+      renderResultCode();
+
+      showBtn.style.display = "none";
+    });
+  } else {
+    console.warn("Không tìm thấy nút hoặc vùng kết quả");
+  }
 });
+
+
+
+
+
