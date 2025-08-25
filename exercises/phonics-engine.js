@@ -13,6 +13,12 @@ let scoreIPA2 = 0;
 let doneIPA1 = false;
 let doneIPA2 = false;
 
+let scoreIPA3 = 0;
+let doneIPA3 = false;
+let usedWordsIPA3 = new Set();
+
+
+
 window.addEventListener("DOMContentLoaded", () => {
   const params = new URLSearchParams(window.location.search);
   const selectedUnits = (params.get("units") || "").split(",");
@@ -34,7 +40,12 @@ window.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".mode-btn").forEach(btn => {
     btn.onclick = () => {
       const mode = parseInt(btn.dataset.mode);
-      if ((mode === 1 && doneIPA1) || (mode === 2 && doneIPA2)) return;
+      if (
+        (mode === 1 && doneIPA1) ||
+        (mode === 2 && doneIPA2) ||
+        (mode === 3 && doneIPA3)
+      ) return;
+
       document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       startMode(mode);
@@ -54,6 +65,8 @@ function startMode(mode) {
 
   if (mode === 1) showIPA1();
   if (mode === 2) showIPA2();
+  if (mode === 3) showIPA3();
+
 }
 
 function showIPA1() {
@@ -130,6 +143,7 @@ function speakWord() {
   utter.lang = "en-US";
   speechSynthesis.speak(utter);
 }
+
 function showIPA2() {
   const quizArea = document.getElementById("quizWord");
   const optionsArea = document.getElementById("options");
@@ -228,6 +242,80 @@ function handleMatchClick(card) {
   }
 }
 
+function showIPA3() {
+  const quizArea = document.getElementById("quizWord");
+  const optionsArea = document.getElementById("options");
+  const resultBox = document.getElementById("result");
+
+  quizArea.textContent = "";
+  resultBox.textContent = "";
+  optionsArea.innerHTML = "";
+
+  const availableWords = filteredBank.filter(item => !usedWordsIPA3.has(item.word));
+
+  if (availableWords.length === 0) {
+    doneIPA3 = true;
+    showCompletedMessage(3);
+    checkTotalScore();
+    return;
+  }
+
+  let attempt = 0;
+  let correctWord, distractors;
+
+  while (attempt < 10) {
+    correctWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+    const targetIPA = correctWord.ipa;
+
+    distractors = filteredBank.filter(item =>
+      item.unit === correctWord.unit &&
+      item.word !== correctWord.word &&
+      item.ipa !== targetIPA
+    );
+
+    if (distractors.length >= 3) break;
+    attempt++;
+  }
+
+  if (!correctWord || distractors.length < 3) {
+    usedWordsIPA3.add(correctWord.word); // đánh dấu đã dùng dù không đủ
+    showIPA3(); // thử lại với từ khác
+    return;
+  }
+
+  usedWordsIPA3.add(correctWord.word); // ✅ đánh dấu đã dùng
+
+  shuffleArray(distractors);
+  const wrongWords = distractors.slice(0, 3);
+  const allOptions = [correctWord, ...wrongWords];
+  shuffleArray(allOptions);
+
+  playIPAFromText(`/${correctWord.ipa}/`); // ✅ phát âm IPA
+
+  quizArea.innerHTML = `<strong>🔊 Nghe âm và chọn từ có âm đó:</strong> <span style="font-weight:bold;">/${correctWord.ipa}/</span>`;
+
+  allOptions.forEach(item => {
+    const btn = document.createElement("div");
+    btn.className = "option-btn";
+    btn.textContent = item.word;
+    btn.style.color = "blue";
+    btn.onclick = () => {
+      speakWordCustom(item.word); // ✅ phát âm từ vừa chọn
+
+      if (item.word === correctWord.word) {
+        scoreIPA3++;
+        resultBox.textContent = "✅ Chính xác!";
+      } else {
+        resultBox.textContent = `❌ Sai rồi! Đáp án là: ${correctWord.word}`;
+      }
+
+      setTimeout(showIPA3, 1500);
+    };
+    optionsArea.appendChild(btn);
+  });
+}
+
+
 function speakWordCustom(word) {
   const utter = new SpeechSynthesisUtterance(word);
   utter.lang = "en-US";
@@ -244,12 +332,18 @@ function showCompletedMessage(mode) {
     finalBox.innerHTML = `<p style="color:blue;">🎉 Đã hoàn tất dạng 2 (Ghép IPA). Điểm: ${scoreIPA2}</p>`;
     document.querySelector("[data-mode='2']").disabled = true;
   }
+  if (mode === 3) {
+    finalBox.innerHTML = `<p style="color:purple;">🎉 Đã hoàn tất dạng 3 (Nghe âm → chọn từ). Điểm: ${scoreIPA3}</p>`;
+    document.querySelector("[data-mode='3']").disabled = true;
+  }
+
 }
 
 function checkTotalScore() {
-  if (doneIPA1 && doneIPA2) {
-    const totalScore = scoreIPA1 + scoreIPA2;
-    const maxScore = filteredBank.length * 2;
+  if (doneIPA1 && doneIPA2 && doneIPA3) {
+    const totalScore = scoreIPA1 + scoreIPA2 + scoreIPA3;
+    const maxScore = filteredBank.length * 3;
+
 
     // ✅ Ghi kết quả tổng vào localStorage
     localStorage.setItem("result_phonics", JSON.stringify({
@@ -275,5 +369,17 @@ function shuffleArray(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+function playIPAFromText(text) {
+  const match = text.match(/\/([^/]+)\//); // lấy phần giữa dấu gạch chéo
+  const ipa = match?.[1];
+
+  if (ipa) {
+    const url = `https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/${encodeURIComponent(ipa)}.mp3`;
+    const audio = new Audio(url);
+    audio.play();
+  } else {
+    console.warn("Không tìm thấy IPA trong chuỗi:", text);
   }
 }
