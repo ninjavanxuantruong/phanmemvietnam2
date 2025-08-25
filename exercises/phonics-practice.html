@@ -89,6 +89,14 @@
 <div class="unit-selector">
   <h2>Trainer chọn Unit để luyện:</h2>
   <form id="unitForm">
+    <!-- ✅ 5 nhóm luyện âm theo nguyên âm -->
+    <label><input type="checkbox" value="groupA"> Nhóm A: a, ai, ay, a-e, ar, are, air, al, au, aw</label>
+    <label><input type="checkbox" value="groupE"> Nhóm E: e, ee, ea, e-e, ey, ear, eer, ere, ew</label>
+    <label><input type="checkbox" value="groupI"> Nhóm I: i, i-e, ie, igh, y</label>
+    <label><input type="checkbox" value="groupO"> Nhóm O: o, oa, o-e, ou, ow, oo, our</label>
+    <label><input type="checkbox" value="groupU"> Nhóm U: u, u-e, ue, ui, ure</label>
+
+    <!-- ✅ Các Unit gốc giữ nguyên -->
     <label><input type="checkbox" value="unit1"> Unit 1: Nguyên âm ngắn (a, e, i, o, u)</label>
     <label><input type="checkbox" value="unit2"> Unit 2: Nguyên âm + r (ar, or, ir, ur, er)</label>
     <label><input type="checkbox" value="unit3"> Unit 3: Nguyên âm đôi dài I (ai, a-e, ay, ee, ea, e-e, ey, i-e, ie, igh, y)</label>
@@ -105,23 +113,22 @@
   </form>
 </div>
 
-  <script>
-    document.getElementById("unitForm").addEventListener("submit", function(e) {
-      e.preventDefault();
+<script>
+  document.getElementById("unitForm").addEventListener("submit", function(e) {
+    e.preventDefault();
 
-      const selectedUnits = Array.from(document.querySelectorAll("input[type=checkbox]:checked"))
-        .map(cb => cb.value);
+    const selectedUnits = Array.from(document.querySelectorAll("input[type=checkbox]:checked"))
+      .map(cb => cb.value);
 
-      if (selectedUnits.length === 0) {
-        alert("Trainer hãy chọn ít nhất một Unit để luyện nhé! ⚡");
-        return;
-      }
+    if (selectedUnits.length === 0) {
+      alert("Trainer hãy chọn ít nhất một Unit để luyện nhé! ⚡");
+      return;
+    }
 
-      const unitQuery = selectedUnits.join(",");
-      window.location.href = `phonics-quiz.html?units=${unitQuery}`;
-    });
-  </script>
-
+    const unitQuery = selectedUnits.join(",");
+    window.location.href = `phonics-quiz.html?units=${unitQuery}`;
+  });
+</script>
 
 </body>
 </html>
