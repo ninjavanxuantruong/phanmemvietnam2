@@ -1,6 +1,52 @@
 // PokéGym – Dữ liệu luyện âm Units 1–6 (Nguyên âm)
 
 export const phonicsBank = [
+  // 🔰 groupA: Tổ hợp bắt đầu bằng A
+  { unit: "groupA", key: "a", ipa: "/æ/", word: "apple" },
+  { unit: "groupA", key: "ai", ipa: "/eɪ/", word: "rain" },
+  { unit: "groupA", key: "ay", ipa: "/eɪ/", word: "day" },
+  { unit: "groupA", key: "a-e", ipa: "/eɪ/", word: "cake" },
+  { unit: "groupA", key: "ar", ipa: "/ɑː/", word: "car" },
+  { unit: "groupA", key: "are", ipa: "/eə/", word: "care" },
+  { unit: "groupA", key: "air", ipa: "/eə/", word: "chair" },
+  { unit: "groupA", key: "al", ipa: "/ɔː/", word: "talk" },
+  { unit: "groupA", key: "au", ipa: "/ɔː/", word: "sauce" },
+  { unit: "groupA", key: "aw", ipa: "/ɔː/", word: "saw" },
+
+  // 🔰 groupE: Tổ hợp bắt đầu bằng E
+  { unit: "groupE", key: "e", ipa: "/ɛ/", word: "elbow" },
+  { unit: "groupE", key: "ee", ipa: "/iː/", word: "tree" },
+  { unit: "groupE", key: "ea", ipa: "/iː/", word: "eat" },
+  { unit: "groupE", key: "e-e", ipa: "/iː/", word: "these" },
+  { unit: "groupE", key: "ey", ipa: "/iː/", word: "key" },
+  { unit: "groupE", key: "ear", ipa: "/ɪə/", word: "hear" },
+  { unit: "groupE", key: "eer", ipa: "/ɪə/", word: "cheer" },
+  { unit: "groupE", key: "ere", ipa: "/ɪə/", word: "here" },
+  { unit: "groupE", key: "ew", ipa: "/juː/", word: "new" },
+
+  // 🔰 groupI: Tổ hợp bắt đầu bằng I (bao gồm Y)
+  { unit: "groupI", key: "i", ipa: "/ɪ/", word: "insect" },
+  { unit: "groupI", key: "i-e", ipa: "/aɪ/", word: "bike" },
+  { unit: "groupI", key: "ie", ipa: "/aɪ/", word: "pie" },
+  { unit: "groupI", key: "igh", ipa: "/aɪ/", word: "light" },
+  { unit: "groupI", key: "y", ipa: "/aɪ/", word: "fly" },
+
+  // 🔰 groupO: Tổ hợp bắt đầu bằng O
+  { unit: "groupO", key: "o", ipa: "/ɒ/", word: "ostrich" },
+  { unit: "groupO", key: "oa", ipa: "/oʊ/", word: "boat" },
+  { unit: "groupO", key: "o-e", ipa: "/oʊ/", word: "home" },
+  { unit: "groupO", key: "ou", ipa: "/aʊ/", word: "out" },
+  { unit: "groupO", key: "ow", ipa: "/oʊ/", word: "snow" },
+  { unit: "groupO", key: "oo", ipa: "/uː/", word: "moon" },
+  { unit: "groupO", key: "our", ipa: "/ʊə/", word: "four" },
+
+  // 🔰 groupU: Tổ hợp bắt đầu bằng U
+  { unit: "groupU", key: "u", ipa: "/ʌ/", word: "uncle" },
+  { unit: "groupU", key: "u-e", ipa: "/juː/", word: "cube" },
+  { unit: "groupU", key: "ue", ipa: "/uː/", word: "blue" },
+  { unit: "groupU", key: "ui", ipa: "/uː/", word: "fruit" },
+  { unit: "groupU", key: "ure", ipa: "/ʊə/", word: "pure" },
+
   // 🔴 Unit 1: Nguyên âm ngắn
   { unit: "unit1", key: "a", ipa: "/æ/", word: "at" },
   { unit: "unit1", key: "e", ipa: "/ɛ/", word: "bed" },
@@ -98,6 +144,7 @@ phonicsBank.push(
   { unit: "unit10", key: "kn", ipa: "/n/", word: "knee" },
   { unit: "unit10", key: "wr", ipa: "/r/", word: "write" },
   { unit: "unit10", key: "mb", ipa: "/m/", word: "lamb" },
+  { unit: "unit10", key: "ce", ipa: "/s/", word: "nice" },
 
   // 🔵 Unit 11: Đuôi từ đặc biệt
   { unit: "unit11", key: "-tion", ipa: "/ʃn/", word: "station" },
