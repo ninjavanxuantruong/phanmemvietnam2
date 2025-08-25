@@ -60,6 +60,9 @@ async function fetchSheetData() {
 
 async function loadExercise() {
   const type = document.getElementById("exerciseType").value;
+  // ✅ Ghi lại thời điểm bắt đầu làm bài
+  localStorage.setItem("startTime_grade8", Date.now());
+
 
   // Nếu là dạng reading → gọi file reading.js xử lý
   if (type === "reading") {
@@ -144,7 +147,11 @@ async function loadExercise() {
       // ✅ Nếu đã làm hết số câu → lưu điểm
       if (totalQuestions === shuffledQuestions.length) {
         saveScoreToLocal(type);
+
+       
       }
+
+
     };
 
     block.appendChild(input);
