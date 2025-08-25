@@ -68,6 +68,8 @@ async function fetchReadingData() {
 }
 
 async function startTest() {
+  localStorage.setItem("startTime_grade8", Date.now());
+
   totalScore = 0;
   totalQuestions = 0;
   correctCount = 0;
