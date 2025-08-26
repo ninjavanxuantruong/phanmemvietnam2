@@ -18,7 +18,9 @@ async function fetchVocabularyData() {
   const allWords = rows.map(row => {
     const word = row.c[2]?.v?.trim() || "";
     const meaning = row.c[24]?.v?.trim() || "";
-    return { word, meaning };
+    const question = row.c[9]?.v?.trim() || "";
+    return { word, meaning, question };
+
   });
 
   const filtered = allWords.filter(item => wordBank.includes(item.word));
@@ -58,6 +60,14 @@ async function showFlashcard(item, ballElement) {
 
   flashImage.src = await getImage(item.word);
   flashcard.style.display = "block";
+
+  // ✅ Phát âm câu hỏi từ cột J
+  if (item.question) {
+    const utter = new SpeechSynthesisUtterance(item.question);
+    utter.lang = "en-US";
+    speechSynthesis.speak(utter);
+  }
+
 
   const speakBall = document.createElement("img");
   speakBall.src = "https://cdn-icons-png.flaticon.com/512/361/361998.png";
