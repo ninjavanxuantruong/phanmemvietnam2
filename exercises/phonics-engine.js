@@ -292,7 +292,22 @@ function showIPA3() {
 
   playIPAFromText(`/${correctWord.ipa}/`); // ✅ phát âm IPA
 
-  quizArea.innerHTML = `<strong>🔊 Nghe âm và chọn từ có âm đó:</strong> <span style="font-weight:bold;">/${correctWord.ipa}/</span>`;
+  quizArea.innerHTML = `
+    <strong>Nghe âm và chọn từ có âm đó:</strong>
+    <button class="play-ipa-btn" data-ipa="${correctWord.ipa}" style="margin-left:10px;">🔊 Nghe lại</button>
+  `;
+
+
+  const ipaBtn = document.querySelector('.play-ipa-btn');
+  if (ipaBtn) {
+    ipaBtn.addEventListener('click', event => {
+      event.stopPropagation();
+      const ipa = ipaBtn.getAttribute('data-ipa');
+      playIPAFromText(`/${ipa}/`);
+    });
+  }
+
+
 
   allOptions.forEach(item => {
     const btn = document.createElement("div");
