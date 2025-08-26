@@ -30,6 +30,7 @@ export const phonicsBank = [
   { unit: "groupI", key: "ie", ipa: "/aɪ/", word: "pie" },
   { unit: "groupI", key: "igh", ipa: "/aɪ/", word: "light" },
   { unit: "groupI", key: "y", ipa: "/aɪ/", word: "fly" },
+  { unit: "unit2", key: "ir", ipa: "/ɜː/", word: "bird" },
 
   // 🔰 groupO: Tổ hợp bắt đầu bằng O
   { unit: "groupO", key: "o", ipa: "/ɒ/", word: "ostrich" },
