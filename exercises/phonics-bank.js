@@ -38,7 +38,7 @@ export const phonicsBank = [
   { unit: "groupO", key: "ou", ipa: "/aʊ/", word: "out" },
   { unit: "groupO", key: "ow", ipa: "/oʊ/", word: "snow" },
   { unit: "groupO", key: "oo", ipa: "/uː/", word: "moon" },
-  { unit: "groupO", key: "our", ipa: "/ʊə/", word: "four" },
+  { unit: "groupO", key: "our", ipa: "/ʊə/", word: "tour" },
 
   // 🔰 groupU: Tổ hợp bắt đầu bằng U
   { unit: "groupU", key: "u", ipa: "/ʌ/", word: "uncle" },
