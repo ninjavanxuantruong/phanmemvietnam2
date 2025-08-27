@@ -1,3 +1,16 @@
+// ✅ RESET DỮ LIỆU SAU 12 TIẾNG
+const startTimeGlobal = localStorage.getItem("startTime_global");
+const now = Date.now();
+
+if (startTimeGlobal && now - parseInt(startTimeGlobal) > 12 * 60 * 60 * 1000) {
+  const keysToReset = Object.keys(localStorage).filter(k =>
+    k.startsWith("result_") || k.startsWith("startTime_")
+  );
+  keysToReset.forEach(k => localStorage.removeItem(k));
+  localStorage.removeItem("startTime_global");
+}
+
+// ✅ THÔNG TIN HỌC SINH
 const studentName = localStorage.getItem("trainerName") || "Không tên";
 const studentClass = localStorage.getItem("trainerClass") || "Chưa có lớp";
 const selectedLesson = localStorage.getItem("selectedLesson") || "Chưa chọn bài học";
@@ -38,7 +51,6 @@ parts.forEach(({ key, label }, index) => {
   totalScore += score;
   totalMax += total;
 
-  // ⏱ Lưu thời gian bắt đầu nếu chưa có
   if (total === 0 && !localStorage.getItem(`startTime_${key}`)) {
     localStorage.setItem(`startTime_${key}`, Date.now());
   }
@@ -96,7 +108,7 @@ parts.forEach(({ key, label }) => {
 
   if (group1.includes(key)) {
     if (hasData) group1Done = true;
-    else if (!group1Done) group1Zero.push(label); // ✅ chỉ đẩy nếu cả nhóm chưa làm
+    else if (!group1Done) group1Zero.push(label);
     return;
   }
 
@@ -106,54 +118,79 @@ parts.forEach(({ key, label }) => {
     return;
   }
 
-
   if (hasData) completedParts.push(label);
   else zeroParts.push(label);
 });
 
-// ✅ Gom nhóm trò chơi
 if (group1Done) {
   completedParts.push("Trò chơi từ & nghĩa / ô chữ / điền chữ cái");
 } else {
   zeroParts.push("Trò chơi");
-  // Nếu muốn liệt kê chi tiết các trò chưa làm:
-  // zeroParts.push(...group1Zero);
 }
 
 if (group2Done) {
   completedParts.push("Nói cụm / câu / đoạn văn");
 } else {
   zeroParts.push("Phần nói");
-  // zeroParts.push(...group2Zero);
 }
-
 
 const completedCount = completedParts.length;
 
 // ✅ Tính tổng thời gian làm bài
-// ✅ Tính thời gian toàn phiên học
 let totalMinutes = 0;
-const startTimeGlobal = localStorage.getItem("startTime_global");
-
 if (startTimeGlobal) {
   const durationMs = Date.now() - parseInt(startTimeGlobal);
-  totalMinutes = Math.max(1, Math.floor(durationMs / 60000)); // luôn ≥ 1 phút
+  totalMinutes = Math.max(1, Math.floor(durationMs / 60000));
 }
 
-
-// ✅ Tạo mã tổng kết đầy đủ
 const zeroText = zeroParts.length > 0 ? ` (Các phần 0 điểm: ${zeroParts.join(", ")})` : "";
 const timeText = totalMinutes > 0 ? ` [ ${totalMinutes} phút]` : "";
 
 const code = `${studentName}-${studentClass}-${selectedLesson}-${dateCode}-${totalScore}/${totalMax}-${completedCount}/${parts.length}-${finalRating}${zeroText}${timeText}`;
-
 document.getElementById("resultCode").textContent = code;
-
-
 
 // 📋 Sao chép mã
 function copyResultCode() {
   navigator.clipboard.writeText(code).then(() => {
     alert("✅ Đã sao chép mã kết quả - Hãy dán vào Zalo thầy Tình!");
   });
+}
+
+// ✅ LƯU KẾT QUẢ HỌC SINH CHÍNH THỨC (GHI ĐÈ 1 LẦN MỖI NGÀY)
+const isVerified = localStorage.getItem("isVerifiedStudent") === "true";
+
+if (isVerified) {
+  const historyKey = `history_${studentName}_${studentClass}`;
+  const history = JSON.parse(localStorage.getItem(historyKey)) || [];
+
+  const newEntry = {
+    name: studentName,
+    class: studentClass,
+    score: totalScore,
+    max: totalMax,
+    doneParts: completedCount,
+    rating: finalRating,
+    date: dateCode
+  };
+
+  const existingIndex = history.findIndex(entry => entry.date === dateCode);
+  if (existingIndex >= 0) {
+    history[existingIndex] = newEntry;
+  } else {
+    history.push(newEntry);
+  }
+
+  localStorage.setItem(historyKey, JSON.stringify(history));
+  // ✅ Ghi dữ liệu lên Firebase Firestore nếu hàm đã được gắn từ HTML
+  console.log("📤 Gọi hàm ghi Firebase với:", newEntry);
+
+  if (window.saveStudentResultToFirebase) {
+    window.saveStudentResultToFirebase(newEntry).then(() => {
+      console.log("📥 Đã gọi xong hàm ghi Firebase.");
+    }).catch(err => {
+      console.error("❌ Lỗi khi gọi hàm ghi Firebase:", err.message);
+    });
+  }
+
+
 }
