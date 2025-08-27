@@ -178,7 +178,7 @@ window.renderStudentSummary = async function () {
     <th>STT</th>
     <th>Họ tên – lớp</th>
     ${recentDates.map(d => `<th>${formatDate(d)}</th>`).join("")}
-    <th>Đánh giá chung</th>
+    <th>Đánh giá cả tuần</th>
     <th>Hiệu quả</th>
     <th>Chăm chỉ</th>
     <th>Tổng hợp</th>
