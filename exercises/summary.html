@@ -127,12 +127,52 @@
     </table>
     <div style="margin-top: 20px; text-align: center;">
       <p><strong>Mã tổng kết:</strong> <span id="resultCode" style="color:#3b4cca; font-weight:bold;"></span></p>
-      
       <button onclick="copyResultCode()">📋 Sao chép mã kết quả</button>
     </div>
-
   </div>
 
+  <!-- ✅ Firebase SDK + Ghi dữ liệu -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBQ1pPmSdBV8M8YdVbpKhw_DOetmzIMwXU",
+      authDomain: "lop-hoc-thay-tinh.firebaseapp.com",
+      projectId: "lop-hoc-thay-tinh",
+      storageBucket: "lop-hoc-thay-tinh.firebasestorage.app",
+      messagingSenderId: "391812475288",
+      appId: "1:391812475288:web:ca4c275ac776d69deb23ed"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // ✅ Ghi dữ liệu thực tế từ localStorage
+    const studentName = localStorage.getItem("trainerName") || "Không tên";
+    const studentClass = localStorage.getItem("trainerClass") || "Chưa có lớp";
+    const historyKey = `history_${studentName}_${studentClass}`;
+    const history = JSON.parse(localStorage.getItem(historyKey)) || [];
+    const latestEntry = history[history.length - 1];
+
+    if (latestEntry) {
+      const docId = `${studentName}_${studentClass}_${latestEntry.date}`;
+      const docRef = doc(db, "hocsinh", docId);
+
+      setDoc(docRef, latestEntry)
+        .then(() => {
+          console.log("📤 Ghi Firebase với:", latestEntry);
+          console.log("✅ Ghi dữ liệu lên Firestore thành công! ID:", docId);
+        })
+        .catch(error => {
+          console.error("❌ Lỗi khi ghi dữ liệu:", error.message);
+        });
+    } else {
+      console.warn("⚠️ Không tìm thấy dữ liệu để ghi.");
+    }
+  </script>
+
+  <!-- ✅ Gọi xử lý tổng kết -->
   <script src="summary.js"></script>
 </body>
 </html>
