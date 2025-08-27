@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>📊 Thống kê kết quả học sinh</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+
+    h2 {
+      color: #2c3e50;
+      margin-bottom: 20px;
+    }
+
+    select, button {
+      padding: 8px;
+      margin-right: 10px;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: #3b4cca;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #2c3e90;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background-color: #fff;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    th {
+      background-color: #ecf0f1;
+    }
+
+    .rating {
+      font-weight: bold;
+    }
+
+    @media (max-width: 768px) {
+      table, th, td {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📊 Thống kê kết quả học sinh theo 8 ngày gần nhất</h2>
+
+  <label for="classFilter">Lọc theo lớp:</label>
+  <select id="classFilter">
+    <option value="">-- Tất cả lớp --</option>
+    <option value="2">Lớp 2</option>
+    <option value="3">Lớp 3</option>
+    <option value="4">Lớp 4</option>
+    <option value="5">Lớp 5</option>
+    <option value="6">Lớp 6</option>
+  </select>
+
+  <label for="rankingType">Xếp hạng theo:</label>
+  <select id="rankingType">
+    <option value="tonghop">Tổng hợp</option>
+    <option value="hieuqua">Hiệu quả học tập</option>
+    <option value="chamchi">Chăm chỉ</option>
+  </select>
+
+  <button onclick="renderStudentSummary()">Xem thống kê</button>
+
+  <table id="rankingTable" style="display:none;">
+    <tbody id="studentTableBody"></tbody>
+  </table>
+
+  <script type="module" src="student.js"></script>
+</body>
+</html>
