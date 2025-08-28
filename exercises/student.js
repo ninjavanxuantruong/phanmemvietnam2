@@ -178,7 +178,7 @@ window.renderStudentSummary = async function () {
     <th>STT</th>
     <th>Họ tên – lớp</th>
     ${recentDates.map(d => `<th>${formatDate(d)}</th>`).join("")}
-    <th>Đánh giá cả tuần</th>
+    <th>Đánh giá chung</th>
     <th>Hiệu quả</th>
     <th>Chăm chỉ</th>
     <th>Tổng hợp</th>
@@ -202,7 +202,9 @@ window.renderStudentSummary = async function () {
         totalMax += entry.max;
         totalParts += entry.doneParts;
         daysDone++;
-        return `<td>${entry.score}/${entry.max} – ${entry.doneParts} phần – ${entry.rating}</td>`;
+        const durationText = entry.duration ? `${entry.duration} phút` : "–";
+        return `<td>${entry.score}/${entry.max} – ${entry.doneParts} phần – ${durationText} – ${entry.rating}</td>`;
+
       } else {
         return `<td>–</td>`;
       }
