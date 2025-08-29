@@ -2,6 +2,10 @@ if (sessionStorage.getItem("authenticated") !== "true") {
   alert("Bạn chưa đăng nhập. Đang chuyển về trang đăng nhập...");
   window.location.href = "student-login.html";
 }
+function normalize(str) {
+  return str.trim().toLowerCase();
+}
+
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
 import {
@@ -95,7 +99,8 @@ window.renderRanking = async function () {
   snapshot.forEach(docSnap => {
     const entry = docSnap.data();
     if (!selectedClass || entry.class === selectedClass) {
-      const key = `${entry.name}_${entry.class}`;
+      const key = `${normalize(entry.name)}_${normalize(entry.class)}`;
+
       if (!studentMap[key]) studentMap[key] = [];
       studentMap[key].push(entry);
     }
@@ -115,7 +120,17 @@ window.renderRanking = async function () {
     });
   }
 
-  rankingList.sort((a, b) => b[`${rankingType}Score`] - a[`${rankingType}Score`]);
+  const keyMap = {
+    tonghop: "tongHopScore",
+    hieuqua: "hieuQuaScore",
+    chamchi: "chamChiScore"
+  };
+
+  const sortKey = keyMap[rankingType] || "tongHopScore";
+  
+  console.log("📊 Thống kê theo:", sortKey, "| Lớp:", selectedClass);
+  rankingList.sort((a, b) => b[sortKey] - a[sortKey]);
+
 
   const headerRow = `<tr>
     <th>STT</th>
@@ -149,11 +164,11 @@ window.renderRanking = async function () {
 };
 // ✅ Hiển thị bảng theo từng ngày
 window.renderStudentSummary = async function () {
-  
-
+  console.log("✅ Hàm renderStudentSummary đã được gọi");
   document.getElementById("rankingTable").style.display = "table";
 
   const selectedClass = document.getElementById("classFilter").value;
+  const rankingType = document.getElementById("rankingType").value;
   const tableBody = document.getElementById("studentTableBody");
   tableBody.innerHTML = "";
 
@@ -164,7 +179,7 @@ window.renderStudentSummary = async function () {
   snapshot.forEach(docSnap => {
     const entry = docSnap.data();
     if (!selectedClass || entry.class === selectedClass) {
-      const key = `${entry.name}_${entry.class}`;
+      const key = `${normalize(entry.name)}_${normalize(entry.class)}`;
       if (!studentMap[key]) studentMap[key] = [];
       studentMap[key].push(entry);
       allDates.push(entry.date);
@@ -174,18 +189,15 @@ window.renderStudentSummary = async function () {
   const recentDates = [...new Set(allDates)].sort((a, b) => b - a).slice(0, 8);
   const formatDate = code => `${code.slice(0,2)}-${code.slice(2,4)}-${code.slice(4)}`;
 
-  const headerRow = `<tr>
-    <th>STT</th>
-    <th>Họ tên – lớp</th>
-    ${recentDates.map(d => `<th>${formatDate(d)}</th>`).join("")}
-    <th>Đánh giá chung</th>
-    <th>Hiệu quả</th>
-    <th>Chăm chỉ</th>
-    <th>Tổng hợp</th>
-  </tr>`;
-  tableBody.innerHTML = headerRow;
+  const keyMap = {
+    tonghop: "tongHopScore",
+    hieuqua: "hieuQuaScore",
+    chamchi: "chamChiScore"
+  };
+  const sortKey = keyMap[rankingType] || "tongHopScore";
 
-  let rowCount = 0;
+  const rankingList = [];
+
   for (const key in studentMap) {
     const [name, className] = key.split("_");
     const entries = studentMap[key];
@@ -204,20 +216,11 @@ window.renderStudentSummary = async function () {
         daysDone++;
         const durationText = entry.duration ? `${entry.duration} phút` : "–";
         return `<td>${entry.score}/${entry.max} – ${entry.doneParts} phần – ${durationText} – ${entry.rating}</td>`;
-
       } else {
         return `<td>–</td>`;
       }
     });
 
-    // ✅ Đánh giá chung theo số ngày làm
-    let summaryRating = "–";
-    if (daysDone >= 7) summaryRating = "Tuyệt vời";
-    else if (daysDone >= 5) summaryRating = "Chăm";
-    else if (daysDone >= 3) summaryRating = "Hơi lười";
-    else summaryRating = "Lười quá";
-
-    // ✅ Tính điểm hiệu quả, chăm chỉ, tổng hợp
     const scorePercent = totalMax > 0 ? (totalScore / totalMax) * 100 : 0;
     const avgParts = daysDone > 0 ? totalParts / daysDone : 0;
 
@@ -225,20 +228,50 @@ window.renderStudentSummary = async function () {
     const chamChiScore = totalScore + avgParts * 10 + daysDone * 20;
     const tongHopScore = chamChiScore * 1.2 + hieuQuaScore * 0.8;
 
-    const row = `<tr>
-      <td>${++rowCount}</td>
-      <td>${name} – lớp ${className}</td>
-      ${dayCells.join("")}
-      <td>${summaryRating}</td>
-      <td>${Math.round(hieuQuaScore)}</td>
-      <td>${Math.round(chamChiScore)}</td>
-      <td><strong>${Math.round(tongHopScore)}</strong></td>
-    </tr>`;
+    let summaryRating = "–";
+    if (daysDone >= 7) summaryRating = "Tuyệt vời";
+    else if (daysDone >= 5) summaryRating = "Chăm";
+    else if (daysDone >= 3) summaryRating = "Hơi lười";
+    else summaryRating = "Lười quá";
 
-    tableBody.innerHTML += row;
+    rankingList.push({
+      name,
+      className,
+      dayCells,
+      summaryRating,
+      hieuQuaScore: Math.round(hieuQuaScore),
+      chamChiScore: Math.round(chamChiScore),
+      tongHopScore: Math.round(tongHopScore)
+    });
   }
 
-  if (rowCount === 0) {
+  rankingList.sort((a, b) => b[sortKey] - a[sortKey]);
+
+  const headerRow = `<tr>
+    <th>STT</th>
+    <th>Họ tên – lớp</th>
+    ${recentDates.map(d => `<th>${formatDate(d)}</th>`).join("")}
+    <th>Đánh giá chung</th>
+    <th>Hiệu quả</th>
+    <th>Chăm chỉ</th>
+    <th>Tổng hợp</th>
+  </tr>`;
+  tableBody.innerHTML = headerRow;
+
+  rankingList.forEach((student, index) => {
+    const row = `<tr>
+      <td>${index + 1}</td>
+      <td>${student.name} – lớp ${student.className}</td>
+      ${student.dayCells.join("")}
+      <td>${student.summaryRating}</td>
+      <td>${student.hieuQuaScore}</td>
+      <td>${student.chamChiScore}</td>
+      <td><strong>${student.tongHopScore}</strong></td>
+    </tr>`;
+    tableBody.innerHTML += row;
+  });
+
+  if (rankingList.length === 0) {
     tableBody.innerHTML += `<tr><td colspan="${2 + recentDates.length + 4}">Không có dữ liệu cho lớp đã chọn.</td></tr>`;
   }
 };
