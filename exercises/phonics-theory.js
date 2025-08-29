@@ -31,7 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const text = btn.textContent.trim();
       playIPAFromText(text);
 
-      // ✅ Tính điểm mỗi lần bấm: +0.5
+      // ✅ Tính điểm mỗi lần bấm: 
       const currentRaw = parseFloat(localStorage.getItem("phonicsTheoryScore") || "0");
       const updatedRaw = currentRaw + 0.25;
       const roundedScore = Math.ceil(updatedRaw);
