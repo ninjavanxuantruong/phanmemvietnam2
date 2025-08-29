@@ -129,7 +129,26 @@
       <p><strong>Mã tổng kết:</strong> <span id="resultCode" style="color:#3b4cca; font-weight:bold;"></span></p>
       <button onclick="copyResultCode()">📋 Sao chép mã kết quả</button>
     </div>
+
+    <button id="weeklySummaryBtn" class="copy-btn">📅 Xem kết quả tuần</button>
+    <div id="weeklySummarySection" style="display:none; margin-top:20px;">
+      <h3>📅 Kết quả tuần của bạn</h3>
+      <table id="weeklySummaryTable">
+        <thead>
+          <tr>
+            <th>Ngày</th>
+            <th>Điểm</th>
+            <th>Tổng</th>
+            <th>Phần</th>
+            <th>Đánh giá</th>
+          </tr>
+        </thead>
+        <tbody id="weeklySummaryBody"></tbody>
+      </table>
+    </div>
+
   </div>
+
 
   <!-- ✅ Firebase SDK + Ghi dữ liệu -->
   <script type="module">
@@ -173,6 +192,7 @@
   </script>
 
   <!-- ✅ Gọi xử lý tổng kết -->
-  <script src="summary.js"></script>
+  <script type="module" src="summary.js"></script>
+
 </body>
 </html>
