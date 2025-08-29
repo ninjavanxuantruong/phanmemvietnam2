@@ -1,6 +1,5 @@
-// Hàm phát âm từ file mp3 trên GitHub
+// ✅ Hàm phát âm từ file mp3 trên GitHub
 function playIPAFromText(text) {
-  // Tìm từ trong ngoặc: ví dụ "🔊 /aɪ/ (fly)" → lấy "aɪ"
   const match = text.match(/\/([^/]+)\//); // lấy phần giữa dấu gạch chéo
   const ipa = match?.[1];
 
@@ -13,11 +12,38 @@ function playIPAFromText(text) {
   }
 }
 
-// Gắn sự kiện click cho các nút âm thanh
+// ✅ Hàm cập nhật điểm hiển thị
+function updatePhonicsScoreDisplay() {
+  const scoreDisplay = document.getElementById("scoreValue");
+  const rounded = localStorage.getItem("phonicsTheoryRounded") || "0";
+  scoreDisplay.textContent = rounded;
+}
+
+// ✅ Gắn sự kiện click cho các nút âm thanh
 document.addEventListener("DOMContentLoaded", () => {
+  console.log("📦 Phonics lý thuyết đã sẵn sàng");
+
+  // Cập nhật điểm khi trang tải
+  updatePhonicsScoreDisplay();
+
   document.querySelectorAll(".sound-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      playIPAFromText(btn.textContent.trim());
+      const text = btn.textContent.trim();
+      playIPAFromText(text);
+
+      // ✅ Tính điểm mỗi lần bấm: +0.5
+      const currentRaw = parseFloat(localStorage.getItem("phonicsTheoryScore") || "0");
+      const updatedRaw = currentRaw + 0.25;
+      const roundedScore = Math.ceil(updatedRaw);
+
+      // ✅ Lưu lại điểm
+      localStorage.setItem("phonicsTheoryScore", updatedRaw.toFixed(1));
+      localStorage.setItem("phonicsTheoryRounded", roundedScore);
+
+      // ✅ Cập nhật giao diện
+      updatePhonicsScoreDisplay();
+
+      console.log(`📚 Điểm lý thuyết Phonics: ${updatedRaw.toFixed(1)} → Làm tròn: ${roundedScore}`);
     });
   });
 });
