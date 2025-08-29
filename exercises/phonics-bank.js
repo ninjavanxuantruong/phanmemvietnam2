@@ -31,6 +31,8 @@ export const phonicsBank = [
   { unit: "groupI", key: "igh", ipa: "/aɪ/", word: "light" },
   { unit: "groupI", key: "y", ipa: "/aɪ/", word: "fly" },
   { unit: "groupI", key: "ir", ipa: "/ɜː/", word: "bird" },
+  { unit: "groupI", key: "ire", ipa: "/aɪə/", word: "fire" },
+  
 
   // 🔰 groupO: Tổ hợp bắt đầu bằng O
   { unit: "groupO", key: "o", ipa: "/ɒ/", word: "ostrich" },
@@ -104,6 +106,8 @@ export const phonicsBank = [
   { unit: "unit6", key: "are", ipa: "/eə/", word: "care" },
   { unit: "unit6", key: "ure", ipa: "/ʊə/", word: "pure" },
   { unit: "unit6", key: "our", ipa: "/ʊə/", word: "tour" },
+  { unit: "unit6", key: "ire", ipa: "/aɪə/", word: "hire" },
+  
 ];
 // PokéGym – Dữ liệu luyện âm Units 7–11 (Phụ âm + Đuôi từ)
 
