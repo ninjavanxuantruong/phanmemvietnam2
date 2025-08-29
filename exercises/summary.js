@@ -13,6 +13,14 @@ if (startTimeGlobal && now - parseInt(startTimeGlobal) > 12 * 60 * 60 * 1000) {
 // ✅ THÔNG TIN HỌC SINH
 const studentName = localStorage.getItem("trainerName") || "Không tên";
 const studentClass = localStorage.getItem("trainerClass") || "Chưa có lớp";
+
+function normalize(str) {
+  return str.trim().toLowerCase();
+}
+
+const normalizedName = normalize(studentName);
+const normalizedClass = normalize(studentClass);
+
 const selectedLesson = localStorage.getItem("selectedLesson") || "Chưa chọn bài học";
 
 document.getElementById("studentInfo").textContent = `${studentName} (${studentClass})`;
@@ -235,16 +243,16 @@ if (isVerified) {
   const history = JSON.parse(localStorage.getItem(historyKey)) || [];
 
   const newEntry = {
-    name: studentName,
-    class: studentClass,
+    name: normalizedName,
+    class: normalizedClass,
     score: totalScore,
     max: totalMax,
     doneParts: completedCount,
     rating: finalRating,
     date: dateCode,
     duration: totalMinutes
-
   };
+
 
   const existingIndex = history.findIndex(entry => entry.date === dateCode);
   if (existingIndex >= 0) {
