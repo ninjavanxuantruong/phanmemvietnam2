@@ -355,29 +355,45 @@ function showCompletedMessage(mode) {
 }
 
 function checkTotalScore() {
-  if (doneIPA1 && doneIPA2 && doneIPA3) {
-    const totalScore = scoreIPA1 + scoreIPA2 + scoreIPA3;
-    const maxScore = filteredBank.length * 3;
+  // ✅ Tính điểm thực hành từ 3 phần
+  const totalScore = scoreIPA1 + scoreIPA2 + scoreIPA3;
 
+  // ✅ Tính điểm tối đa phần thực hành
+  const maxScore = filteredBank.length * 3;
 
-    // ✅ Ghi kết quả tổng vào localStorage
-    localStorage.setItem("result_phonics", JSON.stringify({
-      score: totalScore,
-      total: maxScore
-    }));
+  // ✅ Lưu điểm thực hành riêng
+  localStorage.setItem("result_quizphonics", totalScore);
 
-    const container = document.querySelector(".quiz-container");
-    container.innerHTML = `
-      <h2 style="color:hotpink;">🎯 Hoàn thành cả hai chế độ!</h2>
-      <p style="color:hotpink;">Tổng điểm: ${totalScore} / ${maxScore}</p>
-      <div style="font-size: 60px; color:hotpink;">✨ Sẵn sàng bắt Pokémon ✨</div>
-    `;
+  // ✅ Lấy điểm lý thuyết đã làm tròn
+  const theoryScore = parseInt(localStorage.getItem("phonicsTheoryRounded") || "0");
 
-    if (totalScore >= maxScore / 2) {
-      showCatchEffect(container); // 🎉 Gọi hiệu ứng từ module
-    }
+  // ✅ Tính điểm tổng
+  const finalScore = totalScore + theoryScore;
+
+  // ✅ Lưu điểm tổng vào result_phonics
+  localStorage.setItem("result_phonics", JSON.stringify({
+    score: finalScore,
+    quiz: totalScore,
+    theory: theoryScore,
+    total: maxScore + theoryScore
+  }));
+
+  // ✅ Hiển thị kết quả
+  const container = document.querySelector(".quiz-container");
+  container.innerHTML = `
+    <h2 style="color:hotpink;">🎯 Kết quả luyện âm</h2>
+    <p style="color:hotpink;">📘 Lý thuyết: ${theoryScore} điểm</p>
+    <p style="color:hotpink;">🧪 Thực hành: ${totalScore} / ${maxScore}</p>
+    <p style="color:hotpink;">🌟 Tổng điểm: ${finalScore} / ${maxScore + theoryScore}</p>
+    <div style="font-size: 60px; color:hotpink;">✨ Sẵn sàng bắt Pokémon ✨</div>
+  `;
+
+  // ✅ Gọi hiệu ứng nếu điểm thực hành đạt 50%
+  if (totalScore >= maxScore / 2) {
+    showCatchEffect(container);
   }
 }
+
 
 
 function shuffleArray(arr) {
