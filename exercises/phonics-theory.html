@@ -73,7 +73,9 @@
 <body>
 
 <h1 style="text-align:center; font-size:26px; color:#d43f00; text-shadow:1px 1px #ffd95a;">⚡ PokéGym Luyện Âm ⚡</h1>
-
+<div id="phonicsScoreDisplay" style="text-align:center; margin-top:30px; font-size:18px; color:#333;">
+    📈 Điểm luyện âm: <span id="scoreValue">0</span>
+</div>
 
 <h2>Nguyên âm ngắn</h2>
 <div class="section">
@@ -110,7 +112,7 @@
   <div class="sound-btn">oa - /oʊ/<br><span class="example">(boat)</span></div>
   <div class="sound-btn">ow - /oʊ/<br><span class="example">(snow)</span></div>
   <div class="sound-btn">u-e - /juː/<br><span class="example">(cube)</span></div>
-  
+
   <div class="sound-btn">ew - /juː/<br><span class="example">(new)</span></div>
   <div class="sound-btn">ue - /uː/<br><span class="example">(blue)</span></div>
   <div class="sound-btn">ui - /uː/<br><span class="example">(fruit)</span></div>
@@ -195,8 +197,7 @@
 
   <script>
     function playIPAFromText(text) {
-      // Tìm IPA trong định dạng: "key - /IPA/" hoặc "-tion - /ʃən/"
-      const match = text.match(/\/([^/]+)\//); // lấy phần giữa dấu gạch chéo
+      const match = text.match(/\/([^/]+)\//);
       const ipa = match?.[1];
 
       if (ipa) {
@@ -208,14 +209,36 @@
       }
     }
 
+    // ✅ Thêm hàm cập nhật điểm hiển thị
+    function updatePhonicsScoreDisplay() {
+      const scoreDisplay = document.getElementById("scoreValue");
+      const rounded = localStorage.getItem("phonicsTheoryRounded") || "0";
+      scoreDisplay.textContent = rounded;
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
+      updatePhonicsScoreDisplay(); // ✅ Gọi khi trang tải
+
       document.querySelectorAll(".sound-btn").forEach(btn => {
         btn.addEventListener("click", () => {
-          playIPAFromText(btn.textContent.trim());
+          const text = btn.textContent.trim();
+          playIPAFromText(text);
+
+          const currentRaw = parseFloat(localStorage.getItem("phonicsTheoryScore") || "0");
+          const updatedRaw = currentRaw + 0.5;
+          const roundedScore = Math.ceil(updatedRaw);
+
+          localStorage.setItem("phonicsTheoryScore", updatedRaw.toFixed(1));
+          localStorage.setItem("phonicsTheoryRounded", roundedScore);
+
+          updatePhonicsScoreDisplay(); // ✅ Gọi sau khi cộng điểm
+
+          console.log(`📚 Điểm lý thuyết Phonics: ${updatedRaw.toFixed(1)} → Làm tròn: ${roundedScore}`);
         });
       });
     });
   </script>
+
 
 
   </body>
