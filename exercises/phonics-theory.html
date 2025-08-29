@@ -225,7 +225,7 @@
           playIPAFromText(text);
 
           const currentRaw = parseFloat(localStorage.getItem("phonicsTheoryScore") || "0");
-          const updatedRaw = currentRaw + 0.5;
+          const updatedRaw = currentRaw + 0.25;
           const roundedScore = Math.ceil(updatedRaw);
 
           localStorage.setItem("phonicsTheoryScore", updatedRaw.toFixed(1));
