@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>📚 Chọn bài học hôm nay</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f8ff;
+      padding: 24px;
+      text-align: center;
+      color: #333;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 16px;
+    }
+
+    .suggestion-box {
+      background: #fffbe6;
+      border-left: 6px solid #ffc107;
+      padding: 20px;
+      margin-bottom: 24px;
+      border-radius: 12px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    }
+
+    .button-group {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .button-group button {
+      padding: 12px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #4caf50;
+      color: white;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+      transition: background 0.3s ease;
+    }
+
+    .button-group button:hover {
+      background: #388e3c;
+    }
+
+    #btnChooseOther {
+      background: #2196f3;
+    }
+
+    #btnChooseOther:hover {
+      background: #1976d2;
+    }
+
+    #btnClassCompetition {
+      background: #9c27b0;
+    }
+
+    #btnClassCompetition:hover {
+      background: #7b1fa2;
+    }
+
+    #statusMessage {
+      margin-top: 20px;
+      font-style: italic;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>📚 Chọn bài học hôm nay</h1>
+
+  <div id="lessonSuggestionBox" class="suggestion-box">
+    <h3>📅 Bài học đề xuất hôm nay: <span id="suggestedLesson">Đang tải...</span></h3>
+
+    <div class="button-group">
+      <button id="btnLearnSuggested">🎯 Học bài đề xuất</button>
+      <button id="btnChooseOther">📚 Chọn bài khác</button>
+      <button id="btnClassCompetition">🏆 Cuộc thi cả lớp</button>
+    </div>
+
+    <div id="statusMessage"></div>
+  </div>
+
+  <script type="module" src="choice.js"></script>
+
+</body>
+</html>
