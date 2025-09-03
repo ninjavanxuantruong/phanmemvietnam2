@@ -78,7 +78,11 @@
   <h1>📚 Chọn bài học hôm nay</h1>
 
   <div id="lessonSuggestionBox" class="suggestion-box">
-    <h3>📅 Bài học đề xuất hôm nay: <span id="suggestedLesson">Đang tải...</span></h3>
+    <h3>📅 Các bài học đề xuất hôm nay:</h3>
+    <div id="lessonList" class="suggestion-box">
+      <p>Đang tải danh sách bài học...</p>
+    </div>
+
 
     <div class="button-group">
       <button id="btnLearnSuggested">🎯 Học bài đề xuất</button>
@@ -89,7 +93,53 @@
     <div id="statusMessage"></div>
   </div>
 
+  <div id="scheduleBox" class="suggestion-box">
+    <h3>📅 Lịch học từ hôm nay trở đi:</h3>
+    <table id="scheduleTable" border="1" cellpadding="8" style="width:100%; margin-top:16px; border-collapse: collapse;">
+      <thead>
+        <tr style="background:#e0f7fa;">
+          <th>STT</th>
+          <th>Ngày</th>
+          <th>Bài học</th>
+          <th>Dạng</th>
+          <th>Liên quan đến</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+
+  <!-- ✅ Firebase SDK: Khởi tạo và gắn vào window để JS chính dùng được -->
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBQ1pPmSdBV8M8YdVbpKhw_DOetmzIMwXU",
+    authDomain: "lop-hoc-thay-tinh.firebaseapp.com",
+    projectId: "lop-hoc-thay-tinh",
+    storageBucket: "lop-hoc-thay-tinh.firebasestorage.app",
+    messagingSenderId: "391812475288",
+    appId: "1:391812475288:web:ca4c275ac776d69deb23ed"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // ✅ Gắn vào window để JS chính dùng được
+  window.db = db;
+  window.doc = doc;
+  window.setDoc = setDoc;
+  window.getDoc = getDoc; // ✅ Đây là dòng Anh đang hỏi
+</script>
+
+
+  <!-- ✅ Các file chức năng -->
   <script type="module" src="choice.js"></script>
+  <script type="module" src="choice1.js"></script>
+  <script type="module" src="choice2.js"></script>
+  <script type="module" src="choice3.js"></script>
 
 </body>
 </html>
