@@ -93,6 +93,8 @@ document.getElementById("btnLearnSuggested").addEventListener("click", () => {
 
   localStorage.setItem("selectedCodes", JSON.stringify(selectedCodes));
   localStorage.setItem("selectedTitles", JSON.stringify(selectedTitles));
+  localStorage.setItem("selectedLesson", selectedTitles.join(", "));
+
 
   fetchVocabularyFromSelectedCodes(selectedCodes);
 });
