@@ -228,7 +228,8 @@ async function autoFillOldLessons(className, currentSchedule) {
       return lb - la || b.localeCompare(a);
     });
 
-  const finalUnits = sortedOldUnits.filter(code => !excluded.has(code));
+  // ✅ Loại trừ bài đã học và loại trùng
+  const finalUnits = [...new Set(sortedOldUnits.filter(code => !excluded.has(code)))];
   console.log("✅ Bài được chọn để bổ sung:", finalUnits);
 
   // ✅ Tìm các ngày trống từ hôm nay trở đi
@@ -255,9 +256,11 @@ async function autoFillOldLessons(className, currentSchedule) {
     }
   }
 
-  // ✅ Gán bài bổ sung vào lịch và bosung mới
+  // ✅ Gán bài bổ sung vào lịch và bosung mới — mỗi ngày 1 bài khác nhau
   const bosungSchedule = {};
-  for (let i = 0; i < emptyDates.length && i < finalUnits.length; i++) {
+  const limit = Math.min(emptyDates.length, finalUnits.length);
+
+  for (let i = 0; i < limit; i++) {
     const date = emptyDates[i];
     const code = finalUnits[i];
     const entry = {
@@ -273,10 +276,11 @@ async function autoFillOldLessons(className, currentSchedule) {
     console.log(`📅 Gán bài ${code} vào ngày ${date}`);
   }
 
-  // ✅ Nếu không còn bài nào để bổ sung → reset bosung
+  // ✅ Ghi lịch mới vào Firebase
   const docRef = window.doc(window.db, "lich", className);
   await window.setDoc(docRef, currentSchedule);
 
+  // ✅ Gộp dữ liệu cũ + mới → ghi vào bosung
   const finalBosung = Object.keys(bosungSchedule).length === 0
     ? {} // ✅ reset nếu hết bài
     : { ...preserved, ...bosungSchedule };
