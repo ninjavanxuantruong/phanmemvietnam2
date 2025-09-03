@@ -48,7 +48,7 @@ async function startApp() {
   console.log("Đã xác thực:", localStorage.getItem("isVerifiedStudent"));
   console.log("Đã lưu mật khẩu:", localStorage.getItem("studentPassword"));
 
-  window.location.href = "dataEntry.html";
+  window.location.href = "choice.html";
 }
 
 window.addEventListener("DOMContentLoaded", () => {
