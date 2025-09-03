@@ -74,10 +74,15 @@
     <option value="6">Lớp 6</option>
   </select>
 
-  <button onclick="fetchSuggestedLesson(getSelectedClass())">📤 Tạo lịch học hôm nay</button>
+  <!-- ✅ Nút mới -->
+  <button onclick="generateFullScheduleFromSheet(getSelectedClass())">📤 Tạo lại toàn bộ lịch học</button>
+
   <button id="btnLearnSuggested" disabled>🎯 Học bài đề xuất</button>
 
+  
+  <h3>Bài học hôm nay</h3>
   <div id="lessonList"></div>
+
 
   <table id="scheduleTable">
     <thead>
@@ -128,9 +133,12 @@
       const selected = getSelectedClass();
       if (!selected) return;
 
-      showTodayLessonFromFirebase(selected);
-      renderFullScheduleFromFirebase(selected);
+      showTodayLessonFromFirebase(selected); // ✅ hiển thị bài học hôm nay
+      renderFullScheduleFromFirebase(selected); // ✅ hiển thị lịch đã có
     }
+
+
+
 
     document.getElementById("btnLearnSuggested").addEventListener("click", () => {
       const checked = Array.from(document.querySelectorAll("#lessonList input[type='checkbox']:checked"));
