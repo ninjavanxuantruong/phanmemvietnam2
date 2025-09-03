@@ -3,9 +3,9 @@ const SCHEDULE_URL = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZ
 const VOCAB_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
 // ✅ Biến toàn cục
+let wordBank = [];
 let suggestedUnitRaw = "";
 let normalizedUnitCode = "";
-let wordBank = [];
 
 const spacedConfig = {
   "2": [4, 11, 25],
@@ -15,103 +15,59 @@ const spacedConfig = {
   "6": [4, 11, 25]
 };
 
-// ✅ Hàm tiện ích
+// ✅ Chuẩn hóa mã bài
 function normalizeUnit(str) {
   if (!str || typeof str !== "string") return "";
   return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^0-9]/g, "").trim();
 }
 
-function getTodayAsNumber() {
-  const now = new Date();
-  return parseInt(`${now.getDate()}${now.getMonth() + 1}${now.getFullYear()}`);
-}
+async function resolveTitlesFromSheet2(codeList) {
+  const res = await fetch(VOCAB_URL);
+  const text = await res.text();
+  const json = JSON.parse(text.substring(47).slice(0, -2));
+  const rows = json.table.rows;
 
-function shuffleArray(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-  return array;
-}
+  const titleMap = {};
 
-// ✅ Lấy tên bài học từ Sheet 2
-async function resolveLessonNameFromSheet2(unitCode) {
-  try {
-    const res = await fetch(VOCAB_URL);
-    const text = await res.text();
-    const json = JSON.parse(text.substring(47).slice(0, -2));
-    const rows = json.table.rows;
-
-    for (let row of rows) {
-      const unitRaw = row.c[1]?.v?.toString().trim();
-      if (normalizeUnit(unitRaw) === unitCode) {
-        suggestedUnitRaw = unitRaw;
-        return;
-      }
+  for (let row of rows) {
+    const rawTitle = row.c[1]?.v?.toString().trim(); // cột B
+    const normalized = normalizeUnit(rawTitle);
+    if (codeList.includes(normalized)) {
+      titleMap[normalized] = rawTitle;
     }
-  } catch (err) {
-    console.error("❌ Lỗi khi dò tên bài học:", err);
   }
+
+  return titleMap;
 }
 
-// ✅ Lấy bài học hôm nay từ Sheet 1
-async function fetchSuggestedLesson(className) {
-  const todayNum = getTodayAsNumber();
 
-  try {
-    const res = await fetch(SCHEDULE_URL);
-    const text = await res.text();
-    const json = JSON.parse(text.substring(47).slice(0, -2));
-    const rows = json.table.rows;
+// ✅ Chuyển ngày dạng "dd/mm/yyyy" → "yyyy-mm-dd"
+function convertSheetDateToISO(dateStr) {
+  if (!dateStr || typeof dateStr !== "string") return "";
+  const parts = dateStr.split("/").map(p => p.trim());
+  if (parts.length !== 3) return "";
 
-    for (let row of rows) {
-      const sheetClass = row.c[0]?.v?.toString().trim().toLowerCase();
-      const sheetDateRaw = row.c[1]?.v?.toString().trim();
-      const sheetDateNum = parseInt(sheetDateRaw.replaceAll("/", "").replaceAll("-", ""));
-      const sheetLesson = row.c[2]?.v?.toString().trim();
-      const relatedRaw = row.c[3]?.v?.toString().trim();
+  let [dd, mm, yyyy] = parts;
+  if (dd.length === 1) dd = "0" + dd;
+  if (mm.length === 1) mm = "0" + mm;
 
-      if (sheetClass === className && sheetDateNum === todayNum) {
-        suggestedUnitRaw = sheetLesson;
-        normalizedUnitCode = normalizeUnit(sheetLesson);
-        await resolveLessonNameFromSheet2(normalizedUnitCode);
-
-        const relatedCodes = relatedRaw
-          ? relatedRaw.split(",").map(code => normalizeUnit(code.trim())).filter(Boolean)
-          : [];
-
-        const res2 = await fetch(VOCAB_URL);
-        const text2 = await res2.text();
-        const json2 = JSON.parse(text2.substring(47).slice(0, -2));
-        const rows2 = json2.table.rows;
-
-        const relatedTitles = relatedCodes.map(code => {
-          const found = rows2.find(row => normalizeUnit(row.c[1]?.v) === code);
-          return found ? { code, title: found.c[1]?.v } : { code, title: code };
-        });
-
-        const baseDateStr = new Date().toISOString().split("T")[0];
-        const reviewOffsets = spacedConfig[className] || [4, 11, 25];
-        const scheduleArray = generateLessonSchedule(normalizedUnitCode, relatedCodes, baseDateStr, reviewOffsets);
-
-        mergeScheduleWithFirebase(scheduleArray, relatedTitles, suggestedUnitRaw, className);
-        return;
-      }
-    }
-
-    document.getElementById("lessonList").innerHTML = "<p>Không có bài học đề xuất hôm nay.</p>";
-    document.getElementById("btnLearnSuggested").disabled = true;
-  } catch (err) {
-    console.error("❌ Lỗi khi lấy dữ liệu lịch học:", err);
+  const isoStr = `${yyyy}-${mm}-${dd}`;
+  const testDate = new Date(isoStr);
+  if (isNaN(testDate.getTime())) {
+    console.warn("⚠️ Ngày không hợp lệ:", dateStr);
+    return "";
   }
+
+  return isoStr;
 }
 
-// ✅ Tính toán lịch học theo ngày ISO
+// ✅ Tạo lịch học từ ngày gốc
 function generateLessonSchedule(mainCode, relatedCodes, baseDateStr, reviewOffsets) {
   const baseDate = new Date(baseDateStr);
   const schedule = [];
 
-  schedule.push({ date: baseDateStr, code: mainCode, type: "new", relatedTo: "" });
+  schedule.push({ date: baseDateStr, code: mainCode, type: "new", relatedTo: mainCode }); // ✅ gắn chính nó
+
 
   for (let offset of reviewOffsets) {
     const d = new Date(baseDate);
@@ -133,76 +89,186 @@ function generateLessonSchedule(mainCode, relatedCodes, baseDateStr, reviewOffse
     relatedIndex++;
   }
 
+  console.log(`📅 Lịch học tạo từ ngày ${baseDateStr} cho bài ${mainCode}:`, schedule);
   return schedule;
 }
 
-// ✅ Gộp và ghi lịch học vào Firebase
-async function mergeScheduleWithFirebase(scheduleArray, relatedTitles, mainTitle, className) {
-  const docRef = window.doc(window.db, "lich", className);
-
+// ✅ Tạo lại toàn bộ lịch học từ Sheet theo lớp
+async function generateFullScheduleFromSheet(className) {
   try {
-    const snapshot = await window.getDoc(docRef);
-    const existingData = snapshot.exists() ? snapshot.data() : {};
-    const merged = { ...existingData };
-
-    const todayISO = new Date().toISOString().split("T")[0];
-    const todayMainCode = scheduleArray.find(i => i.date === todayISO && i.type === "new")?.code;
-    const normalizedTodayMainCode = normalizeUnit(todayMainCode || "");
-
-    for (let date in merged) {
-      merged[date] = merged[date].filter(e =>
-        !(normalizeUnit(e.relatedTo) !== normalizedTodayMainCode && (e.type === "related" || e.type === "review"))
-      );
-    }
-
-    scheduleArray.forEach(item => {
-      const title = getTitleFromCode(item.code, relatedTitles, mainTitle);
-      const entry = { code: item.code, title, type: item.type, relatedTo: item.relatedTo || "" };
-
-      if (!merged[item.date]) merged[item.date] = [];
-      const exists = merged[item.date].some(e =>
-        normalizeUnit(e.code) === normalizeUnit(entry.code) && e.type === entry.type
-      );
-      if (!exists) merged[item.date].push(entry);
-    });
-
-    await window.setDoc(docRef, merged);
-    console.log("📤 Đã ghi lịch học vào Firebase:", merged);
-  } catch (err) {
-    console.error("❌ Lỗi khi ghi lịch học:", err.message);
-  }
-}
-
-// ✅ Hiển thị bài học hôm nay từ Firebase
-async function showTodayLessonFromFirebase(className) {
-  const todayISO = new Date().toISOString().split("T")[0];
-  const docRef = window.doc(window.db, "lich", className);
-
-  try {
-    const snapshot = await window.getDoc(docRef);
-    if (!snapshot.exists()) return;
-
-    const data = snapshot.data();
-    const todayLessons = data[todayISO] || [];
-    if (todayLessons.length === 0) return;
-
-    const res = await fetch(VOCAB_URL);
+    const res = await fetch(SCHEDULE_URL);
     const text = await res.text();
     const json = JSON.parse(text.substring(47).slice(0, -2));
     const rows = json.table.rows;
 
-    const updatedLessons = todayLessons.map(item => {
-      const found = rows.find(row => normalizeUnit(row.c[1]?.v) === item.code);
-      const title = found?.c[1]?.v || item.title || item.code;
-      return { ...item, title };
-    });
+    const finalSchedule = {};
 
-    renderLessonChecklist(updatedLessons);
-    document.getElementById("btnLearnSuggested").disabled = false;
+    for (let i = 0; i < rows.length; i++) {
+
+      const row = rows[i];
+      if (!row || !row.c || !row.c[0] || !row.c[1] || !row.c[2]) {
+        console.warn(`⚠️ Bỏ qua dòng ${i + 1} vì thiếu dữ liệu`);
+        continue;
+      }
+
+      const sheetClass = row.c[0].v.toString().trim().toLowerCase();
+      if (!sheetClass.includes(className)) {
+        console.warn(`⚠️ Bỏ qua dòng ${i + 1} vì lớp không khớp: lớp trong Sheet = ${sheetClass}, lớp đã chọn = ${className}`);
+        continue;
+      }
+
+      const rawDate = row.c[1].v.toString().trim();
+      const baseDateStr = convertSheetDateToISO(rawDate);
+      if (!baseDateStr) {
+        console.warn(`⚠️ Bỏ qua dòng ${i + 1} vì ngày không hợp lệ: ${rawDate}`);
+        continue;
+      }
+
+      const mainRaw = row.c[2].v.toString().trim();
+      const relatedRaw = row.c[3]?.v?.toString().trim() || "";
+
+      const mainCode = normalizeUnit(mainRaw);
+      const relatedCodes = relatedRaw
+        ? relatedRaw.split(",").map(code => normalizeUnit(code.trim())).filter(Boolean)
+        : [];
+
+      console.log(`🔍 Dòng ${i + 1}: lớp=${sheetClass}, ngày=${baseDateStr}, bài=${mainCode}, liên quan=[${relatedCodes.join(", ")}]`);
+
+      const reviewOffsets = spacedConfig[className] || [4, 11, 25];
+      const scheduleArray = generateLessonSchedule(mainCode, relatedCodes, baseDateStr, reviewOffsets);
+
+      scheduleArray.forEach(item => {
+        if (!finalSchedule[item.date]) finalSchedule[item.date] = [];
+        finalSchedule[item.date].push({
+          code: item.code,
+          title: "", // ✅ để trống, sẽ gắn sau khi tra
+          type: item.type,
+          relatedTo: item.relatedTo || ""
+        });
+
+      });
+    }
+
+    // ✅ Lấy toàn bộ mã bài đã dùng
+    const allCodes = Object.values(finalSchedule).flat().map(item => item.code);
+    const uniqueCodes = [...new Set(allCodes)];
+
+    // ✅ Tra tên bài học từ Sheet 2
+    const titleMap = await resolveTitlesFromSheet2(uniqueCodes);
+
+    // ✅ Gắn lại title cho từng bài
+    for (let date in finalSchedule) {
+      finalSchedule[date] = finalSchedule[date].map(item => ({
+        ...item,
+        title: titleMap[item.code] || item.code
+      }));
+    }
+
+
+    const docRef = window.doc(window.db, "lich", className);
+    await window.setDoc(docRef, finalSchedule);
+    console.log("✅ Đã ghi toàn bộ lịch mới vào Firebase cho lớp:", className);
+    console.log("📤 Nội dung đã ghi:", finalSchedule);
+
+    await autoFillOldLessons(className, finalSchedule);
+
+
+    renderFullScheduleFromFirebase(className);
+    showTodayLessonFromFirebase(className); // dùng hàm mới thay vì chỉ hôm nay
   } catch (err) {
-    console.error("❌ Lỗi khi hiển thị bài học hôm nay:", err.message);
+    console.error("❌ Lỗi khi tạo lại lịch học:", err.message);
   }
 }
+
+async function autoFillOldLessons(className, currentSchedule) {
+  console.log("📌 Bắt đầu bổ sung bài cũ cho lớp:", className);
+
+  const today = new Date();
+  const todayISO = today.toISOString().split("T")[0];
+  const bosungRef = window.doc(window.db, "bosung", className);
+
+  let learnedCodes = [];
+  const learnedSnap = await window.getDoc(bosungRef);
+  if (learnedSnap.exists()) {
+    learnedCodes = learnedSnap.data().codes || [];
+  }
+
+  const usedCodes = Object.values(currentSchedule).flat().map(item => normalizeUnit(item.code));
+  console.log("🚫 Bài đã có trong lịch:", usedCodes);
+  console.log("🚫 Bài đã học trước đó:", learnedCodes);
+
+  const allDates = Object.keys(currentSchedule).sort((a, b) => new Date(a) - new Date(b));
+  const maxDate = new Date(allDates[allDates.length - 1]);
+
+  const emptyDates = [];
+  const d = new Date(today);
+  while (d <= maxDate) {
+    const iso = d.toISOString().split("T")[0];
+    if (!currentSchedule[iso]) emptyDates.push(iso);
+    d.setDate(d.getDate() + 1);
+  }
+  console.log("📅 Ngày trống cần bổ sung:", emptyDates);
+
+  const newCodes = Object.values(currentSchedule).flat()
+    .filter(item => item.type === "new")
+    .map(item => normalizeUnit(item.code));
+
+  const highestCode = newCodes.sort().reverse()[0];
+  console.log("📚 Bài mốc là:", highestCode);
+
+  const res = await fetch(VOCAB_URL);
+  const text = await res.text();
+  const json = JSON.parse(text.substring(47).slice(0, -2));
+  const rows = json.table.rows;
+
+  const allUnits = rows.map(row => {
+    const raw = row.c[1]?.v?.toString().trim();
+    return normalizeUnit(raw);
+  }).filter(Boolean);
+
+  const sortedOldUnits = allUnits
+    .filter(code => code < highestCode)
+    .sort((a, b) => {
+      const [la, lb] = [parseInt(a[0]), parseInt(b[0])];
+      return lb - la || b.localeCompare(a);
+    });
+
+  const excluded = new Set([...usedCodes, ...learnedCodes]);
+  const finalUnits = sortedOldUnits.filter(code => !excluded.has(code));
+  console.log("✅ Bài được chọn để bổ sung:", finalUnits);
+
+  // ✅ Tra title từ Sheet 2
+  const titleMap = {};
+  for (let row of rows) {
+    const rawTitle = row.c[1]?.v?.toString().trim();
+    const normalized = normalizeUnit(rawTitle);
+    if (finalUnits.includes(normalized)) {
+      titleMap[normalized] = rawTitle;
+    }
+  }
+
+  for (let i = 0; i < emptyDates.length && i < finalUnits.length; i++) {
+    const date = emptyDates[i];
+    const code = finalUnits[i];
+    currentSchedule[date] = [{
+      code,
+      title: titleMap[code] || code, // ✅ dùng title đúng
+      type: "old",
+      relatedTo: "" // ✅ để trống
+    }];
+    learnedCodes.push(code);
+    console.log(`📅 Gán bài ${code} vào ngày ${date}`);
+  }
+
+  const docRef = window.doc(window.db, "lich", className);
+  await window.setDoc(docRef, currentSchedule);
+
+  await window.setDoc(bosungRef, { codes: [...new Set(learnedCodes)] });
+
+  console.log("✅ Đã cập nhật lịch bổ sung và danh sách bài đã học");
+}
+
+
 
 // ✅ Hiển thị bảng lịch học từ hôm nay trở đi
 async function renderFullScheduleFromFirebase(className) {
@@ -211,32 +277,49 @@ async function renderFullScheduleFromFirebase(className) {
 
   try {
     const snapshot = await window.getDoc(docRef);
-    if (!snapshot.exists()) return;
+    if (!snapshot.exists()) {
+      console.warn("📭 Không có lịch học nào trong Firebase cho lớp", className);
+      return;
+    }
 
     const data = snapshot.data();
     const tableBody = document.querySelector("#scheduleTable tbody");
     tableBody.innerHTML = "";
 
     const entries = Object.entries(data)
-      .filter(([dateStr]) => new Date(dateStr) >= today)
-      .sort(([a], [b]) => new Date(a) - new Date(b));
+    .sort(([a], [b]) => new Date(a) - new Date(b));
+
+
 
     let stt = 1;
     for (let [dateStr, lessons] of entries) {
       for (let lesson of lessons) {
         const row = document.createElement("tr");
+
+        const label =
+          lesson.type === "new"
+            ? "Bài mới - Phải học"
+            : lesson.type === "review"
+            ? "Ôn tập bài mới - Nên học"
+            : lesson.type === "related"
+            ? "Bài liên quan bài mới - Nên học"
+            : lesson.type === "old"
+            ? "Bài cũ"
+            : lesson.type;
+
         row.innerHTML = `
           <td>${stt++}</td>
           <td>${dateStr}</td>
           <td>${lesson.title}</td>
-          <td>${lesson.type === "new" ? "Bài mới" : lesson.type === "review" ? "Ôn tập bài cũ" : "Bài liên quan"}</td>
+          <td>${label}</td>
           <td>${lesson.relatedTo || ""}</td>
         `;
         tableBody.appendChild(row);
       }
     }
 
-    console.log("📋 Đã hiển thị lịch học từ hôm nay trở đi");
+
+    console.log("📋 Đã hiển thị lịch học từ hôm nay trở đi cho lớp", className);
   } catch (err) {
     console.error("❌ Lỗi khi hiển thị bảng lịch học:", err.message);
   }
@@ -253,11 +336,15 @@ function renderLessonChecklist(todayLessons) {
   });
 
   sorted.forEach(item => {
-    const label = item.type === "new"
-      ? "Bài mới"
-      : item.type === "related"
-      ? `Liên quan đến ${item.relatedTo}`
-      : `Ôn tập của ${item.relatedTo}`;
+    const label =
+      item.type === "new"
+        ? "Bài mới"
+        : item.type === "related"
+        ? `Liên quan đến ${item.relatedTo}`
+        : item.type === "old"
+        ? "Bài cũ"
+        : `Ôn tập của ${item.relatedTo}`;
+
 
     const div = document.createElement("div");
     div.innerHTML = `
@@ -269,42 +356,33 @@ function renderLessonChecklist(todayLessons) {
     container.appendChild(div);
   });
 
+  console.log("📑 Đã hiển thị danh sách bài học hôm nay:", sorted);
   document.getElementById("btnLearnSuggested").disabled = false;
 }
 
-// ✅ Lấy từ vựng từ một bài
-async function fetchVocabularyFromUnit(unitCode) {
+// ✅ Hiển thị bài học hôm nay từ Firebase
+async function showTodayLessonFromFirebase(className) {
+  const todayISO = new Date().toISOString().split("T")[0];
+  const docRef = window.doc(window.db, "lich", className);
+
   try {
-    const res = await fetch(VOCAB_URL);
-    const text = await res.text();
-    const json = JSON.parse(text.substring(47).slice(0, -2));
-    const rows = json.table.rows;
+    const snapshot = await window.getDoc(docRef);
+    if (!snapshot.exists()) return;
 
-    wordBank = [];
-
-    rows.forEach(row => {
-      const unitRaw = row.c[1]?.v?.toString().trim();
-      const word = row.c[2]?.v?.toString().trim();
-      if (normalizeUnit(unitRaw) === unitCode) {
-        wordBank.push(word);
-      }
-    });
-
-    wordBank = shuffleArray(wordBank);
-
-    if (wordBank.length === 0) {
-      alert("Không tìm thấy từ vựng cho bài học này.");
+    const data = snapshot.data();
+    const todayLessons = data[todayISO] || [];
+    if (todayLessons.length === 0) {
+      console.warn("📭 Không có bài học nào hôm nay cho lớp", className);
       return;
     }
 
-    localStorage.setItem("wordBank", JSON.stringify(wordBank));
-    localStorage.setItem("victoryTotalWords", wordBank.length);
-    localStorage.setItem("selectedLesson", suggestedUnitRaw);
-    window.location.href = "exercise.html";
+    renderLessonChecklist(todayLessons);
   } catch (err) {
-    console.error("❌ Lỗi khi lấy từ vựng:", err);
+    console.error("❌ Lỗi khi hiển thị bài học hôm nay:", err.message);
   }
 }
+
+
 
 // ✅ Lấy từ vựng từ nhiều bài
 async function fetchVocabularyFromMultipleUnits(unitCodes) {
@@ -331,6 +409,7 @@ async function fetchVocabularyFromMultipleUnits(unitCodes) {
       return;
     }
 
+    console.log("📦 Từ vựng đã lấy:", wordBank);
     localStorage.setItem("wordBank", JSON.stringify(wordBank));
     localStorage.setItem("victoryTotalWords", wordBank.length);
     window.location.href = "exercise.html";
@@ -339,55 +418,14 @@ async function fetchVocabularyFromMultipleUnits(unitCodes) {
   }
 }
 
-// ✅ Dọn lịch cũ theo từng lớp
-async function cleanOldScheduleFromFirebase() {
-  const classList = ["2", "3", "4", "5", "6"];
-  const THRESHOLD_DAYS = 30;
-  const today = new Date();
-
-  for (let className of classList) {
-    const docRef = window.doc(window.db, "lich", className);
-    try {
-      const snapshot = await window.getDoc(docRef);
-      if (!snapshot.exists()) continue;
-
-      const data = snapshot.data();
-      const cleaned = {};
-
-      for (let dateStr in data) {
-        const date = new Date(dateStr);
-        const diffDays = (today - date) / (1000 * 60 * 60 * 24);
-        if (diffDays <= THRESHOLD_DAYS) {
-          cleaned[dateStr] = data[dateStr];
-        } else {
-          console.log(`🧹 Đã xóa lịch ngày ${dateStr} của lớp ${className}`);
-        }
-      }
-
-      await window.setDoc(docRef, cleaned);
-      console.log(`✅ Đã dọn lịch cũ cho lớp ${className}`);
-    } catch (err) {
-      console.error(`❌ Lỗi khi dọn lịch lớp ${className}:`, err.message);
-    }
-  }
-}
-
-// ✅ Lấy tiêu đề từ mã bài
-function getTitleFromCode(code, relatedTitles, mainTitle) {
-  if (normalizeUnit(mainTitle) === code) return mainTitle;
-  const found = relatedTitles.find(item => item.code === code);
-  return found ? found.title : code;
-}
-
 // ✅ Gắn sự kiện khi trang tải
 document.addEventListener("DOMContentLoaded", () => {
-  cleanOldScheduleFromFirebase();
-
   const classSelect = document.getElementById("classSelect");
   if (classSelect) {
     classSelect.addEventListener("change", () => {
       const className = classSelect.value.trim().toLowerCase();
       if (!className) return;
+      console.log("🎯 Đã chọn lớp:", className);
       showTodayLessonFromFirebase(className);
       renderFullScheduleFromFirebase(className);
     });
@@ -405,7 +443,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const selectedCodes = checked.map(input => input.value);
       const selectedTitles = checked.map(input => input.dataset.title);
 
-      alert("Bạn đã chọn: " + selectedTitles.join(", "));
+      console.log("🎯 Đã chọn học các bài:", selectedTitles);
       fetchVocabularyFromMultipleUnits(selectedCodes);
     });
   }
