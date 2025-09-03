@@ -183,39 +183,29 @@ async function generateFullScheduleFromSheet(className) {
 async function autoFillOldLessons(className, currentSchedule) {
   console.log("📌 Bắt đầu bổ sung bài cũ cho lớp:", className);
 
-  const today = new Date();
-  const todayISO = today.toISOString().split("T")[0];
+  const todayISO = new Date().toISOString().split("T")[0];
   const bosungRef = window.doc(window.db, "bosung", className);
 
-  let learnedCodes = [];
-  const learnedSnap = await window.getDoc(bosungRef);
-  if (learnedSnap.exists()) {
-    learnedCodes = learnedSnap.data().codes || [];
+  // ✅ Lấy dữ liệu bổ sung cũ từ Firebase
+  const bosungSnap = await window.getDoc(bosungRef);
+  const oldBosung = bosungSnap.exists() ? bosungSnap.data() : {};
+
+  // ✅ Giữ lại các ngày trước hôm nay
+  const preserved = {};
+  for (let date in oldBosung) {
+    if (date < todayISO) {
+      preserved[date] = oldBosung[date];
+    }
   }
 
+  // ✅ Loại trừ tất cả mã bài đã có trong lịch
   const usedCodes = Object.values(currentSchedule).flat().map(item => normalizeUnit(item.code));
-  console.log("🚫 Bài đã có trong lịch:", usedCodes);
-  console.log("🚫 Bài đã học trước đó:", learnedCodes);
 
-  const allDates = Object.keys(currentSchedule).sort((a, b) => new Date(a) - new Date(b));
-  const maxDate = new Date(allDates[allDates.length - 1]);
+  // ✅ Loại trừ thêm các bài bổ sung trước hôm nay
+  const preservedCodes = Object.values(preserved).flat().map(item => normalizeUnit(item.code));
+  const excluded = new Set([...usedCodes, ...preservedCodes]);
 
-  const emptyDates = [];
-  const d = new Date(today);
-  while (d <= maxDate) {
-    const iso = d.toISOString().split("T")[0];
-    if (!currentSchedule[iso]) emptyDates.push(iso);
-    d.setDate(d.getDate() + 1);
-  }
-  console.log("📅 Ngày trống cần bổ sung:", emptyDates);
-
-  const newCodes = Object.values(currentSchedule).flat()
-    .filter(item => item.type === "new")
-    .map(item => normalizeUnit(item.code));
-
-  const highestCode = newCodes.sort().reverse()[0];
-  console.log("📚 Bài mốc là:", highestCode);
-
+  // ✅ Tìm bài cũ từ Sheet 2
   const res = await fetch(VOCAB_URL);
   const text = await res.text();
   const json = JSON.parse(text.substring(47).slice(0, -2));
@@ -226,6 +216,11 @@ async function autoFillOldLessons(className, currentSchedule) {
     return normalizeUnit(raw);
   }).filter(Boolean);
 
+  const newCodes = Object.values(currentSchedule).flat()
+    .filter(item => item.type === "new")
+    .map(item => normalizeUnit(item.code));
+
+  const highestCode = newCodes.sort().reverse()[0];
   const sortedOldUnits = allUnits
     .filter(code => code < highestCode)
     .sort((a, b) => {
@@ -233,9 +228,22 @@ async function autoFillOldLessons(className, currentSchedule) {
       return lb - la || b.localeCompare(a);
     });
 
-  const excluded = new Set([...usedCodes, ...learnedCodes]);
   const finalUnits = sortedOldUnits.filter(code => !excluded.has(code));
   console.log("✅ Bài được chọn để bổ sung:", finalUnits);
+
+  // ✅ Tìm các ngày trống từ hôm nay trở đi
+  const allDates = Object.keys(currentSchedule).sort((a, b) => new Date(a) - new Date(b));
+  const maxDate = new Date(allDates[allDates.length - 1]);
+
+  const emptyDates = [];
+  const d = new Date(todayISO);
+  while (d <= maxDate) {
+    const iso = d.toISOString().split("T")[0];
+    if (!currentSchedule[iso]) emptyDates.push(iso);
+    d.setDate(d.getDate() + 1);
+  }
+
+  console.log("📅 Ngày trống cần bổ sung:", emptyDates);
 
   // ✅ Tra title từ Sheet 2
   const titleMap = {};
@@ -247,25 +255,35 @@ async function autoFillOldLessons(className, currentSchedule) {
     }
   }
 
+  // ✅ Gán bài bổ sung vào lịch và bosung mới
+  const bosungSchedule = {};
   for (let i = 0; i < emptyDates.length && i < finalUnits.length; i++) {
     const date = emptyDates[i];
     const code = finalUnits[i];
-    currentSchedule[date] = [{
+    const entry = {
       code,
-      title: titleMap[code] || code, // ✅ dùng title đúng
+      title: titleMap[code] || code,
       type: "old",
-      relatedTo: "" // ✅ để trống
-    }];
-    learnedCodes.push(code);
+      relatedTo: ""
+    };
+
+    currentSchedule[date] = [entry];
+    bosungSchedule[date] = [entry];
+
     console.log(`📅 Gán bài ${code} vào ngày ${date}`);
   }
 
+  // ✅ Nếu không còn bài nào để bổ sung → reset bosung
   const docRef = window.doc(window.db, "lich", className);
   await window.setDoc(docRef, currentSchedule);
 
-  await window.setDoc(bosungRef, { codes: [...new Set(learnedCodes)] });
+  const finalBosung = Object.keys(bosungSchedule).length === 0
+    ? {} // ✅ reset nếu hết bài
+    : { ...preserved, ...bosungSchedule };
 
-  console.log("✅ Đã cập nhật lịch bổ sung và danh sách bài đã học");
+  await window.setDoc(bosungRef, finalBosung);
+
+  console.log("✅ Đã cập nhật lịch bổ sung và giữ lại dữ liệu cũ trước hôm nay");
 }
 
 
