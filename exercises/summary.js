@@ -2,7 +2,7 @@
 const startTimeGlobal = localStorage.getItem("startTime_global");
 const now = Date.now();
 
-if (startTimeGlobal && now - parseInt(startTimeGlobal) > 12 * 60 * 60 * 1000) {
+if (startTimeGlobal && now - parseInt(startTimeGlobal) > 3 * 60 * 60 * 1000) {
   const keysToReset = Object.keys(localStorage).filter(k =>
     k.startsWith("result_") || k.startsWith("startTime_")
   );
@@ -229,7 +229,7 @@ const code = `${studentName}-${studentClass}-${selectedLesson}-${dateCode}-${tot
 document.getElementById("resultCode").textContent = code;
 
 // 📋 Sao chép mã
-function copyResultCode() {
+//function copyResultCode() {
   navigator.clipboard.writeText(code).then(() => {
     alert("✅ Đã sao chép mã kết quả - Hãy dán vào Zalo thầy Tình!");
   });
