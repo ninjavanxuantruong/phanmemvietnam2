@@ -230,10 +230,10 @@ document.getElementById("resultCode").textContent = code;
 
 // 📋 Sao chép mã
 //function copyResultCode() {
-  navigator.clipboard.writeText(code).then(() => {
-    alert("✅ Đã sao chép mã kết quả - Hãy dán vào Zalo thầy Tình!");
-  });
-}
+//  navigator.clipboard.writeText(code).then(() => {
+//    alert("✅ Đã sao chép mã kết quả - Hãy dán vào Zalo thầy Tình!");
+//  });
+//}
 
 // ✅ LƯU KẾT QUẢ HỌC SINH CHÍNH THỨC (GHI ĐÈ 1 LẦN MỖI NGÀY)
 const isVerified = localStorage.getItem("isVerifiedStudent") === "true";
