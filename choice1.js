@@ -48,31 +48,73 @@ window.getDoc(docRef).then(snapshot => {
   // ✅ Hiển thị lịch từ hôm nay trở đi
   const tableBody = document.querySelector("#scheduleTable tbody");
   tableBody.innerHTML = "";
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayISO = yesterday.toISOString().split("T")[0];
+
   const entries = Object.entries(data)
-    .filter(([date]) => date >= todayISO)
+    .filter(([date]) => date >= yesterdayISO)
     .sort(([a], [b]) => new Date(a) - new Date(b));
+
 
   let stt = 1;
   for (let [dateStr, lessons] of entries) {
-    for (let lesson of lessons) {
-      const label =
-        lesson.type === "new" ? "Bài mới - Phải học" :
-        lesson.type === "review" ? "Ôn tập bài mới - Nên học" :
-        lesson.type === "related" ? "Bài liên quan bài mới - Nên học" :
-        lesson.type === "old" ? "Bài cũ - Nên học lại" :
-        lesson.type;
+    const row = document.createElement("tr");
 
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${stt++}</td>
-        <td>${dateStr}</td>
-        <td>${lesson.title}</td>
-        <td>${label}</td>
-        <td>${lesson.relatedTo || ""}</td>
-      `;
-      tableBody.appendChild(row);
+    const [yyyy, mm, dd] = dateStr.split("-");
+    const formattedDate = `${dd}/${mm}/${yyyy}`;
+
+    const combined = lessons.map(l => {
+      const label =
+        l.type === "new" ? "Bài mới – Phù hợp" :
+        l.type === "review" ? "Ôn tập – Nên học lại" :
+        l.type === "related" ? "Liên quan – Nên học" :
+        l.type === "old" ? "Bài cũ – Nên học lại" :
+        l.type;
+
+      const related = l.relatedTo ? ` (liên quan ${l.relatedTo})` : "";
+      return `${l.title} – ${label}${related}`;
+    }).join("<br>");
+
+    const codes = lessons.map(l => normalizeUnit(l.code));
+    const titles = lessons.map(l => l.title);
+
+    const button = document.createElement("button");
+    button.textContent = "Học bài";
+    button.style.padding = "6px 12px";
+    button.style.borderRadius = "6px";
+    button.style.border = "none";
+    button.style.background = "#4caf50";
+    button.style.color = "white";
+    button.style.cursor = "pointer";
+    button.onclick = () => {
+      localStorage.setItem("selectedCodes", JSON.stringify(codes));
+      localStorage.setItem("selectedTitles", JSON.stringify(titles));
+      localStorage.setItem("selectedLesson", titles.join(", "));
+      fetchVocabularyFromSelectedCodes(codes);
+    };
+
+    const noteCell = document.createElement("td");
+    noteCell.appendChild(button);
+
+    row.innerHTML = `
+      <td>${formattedDate}</td>
+      <td>${combined}</td>
+    `;
+    row.appendChild(noteCell);
+
+    // ✅ Gán class nếu là hôm nay
+    const todayISO = new Date().toISOString().split("T")[0];
+    if (dateStr === todayISO) {
+      row.classList.add("today-row");
     }
+
+    tableBody.appendChild(row);
   }
+
+
+
+
 
   document.getElementById("btnLearnSuggested").disabled = false;
 }).catch(err => {
