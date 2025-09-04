@@ -31,22 +31,50 @@ const db = getFirestore(app);
 
 // ✅ Xóa dữ liệu cũ hơn 8 ngày
 function isOlderThan8Days(dateCode) {
-  const today = new Date();
-  const cutoff = new Date(today.getTime() - 8 * 24 * 60 * 60 * 1000);
-  const cutoffCode = `${String(cutoff.getDate()).padStart(2, '0')}${String(cutoff.getMonth() + 1).padStart(2, '0')}${String(cutoff.getFullYear()).slice(-2)}`;
-  return dateCode < cutoffCode;
+  if (!/^\d{6}$/.test(dateCode)) {
+    console.warn("⚠️ Sai định dạng ngày:", dateCode);
+    return false;
+  }
+
+  const day = parseInt(dateCode.slice(0, 2), 10);
+  const month = parseInt(dateCode.slice(2, 4), 10) - 1;
+  const year = 2000 + parseInt(dateCode.slice(4, 6), 10); // giả sử năm 20xx
+
+  const entryDate = new Date(year, month, day);
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 8);
+
+  const entryStr = entryDate.toLocaleDateString("vi-VN");
+  const cutoffStr = cutoffDate.toLocaleDateString("vi-VN");
+
+  const isOld = entryDate < cutoffDate;
+  
+  return isOld;
 }
 
+
 async function cleanOldEntries() {
+  console.log("🧹 Bắt đầu kiểm tra dữ liệu cũ...");
   const snapshot = await getDocs(collection(db, "hocsinh"));
   for (const docSnap of snapshot.docs) {
     const data = docSnap.data();
-    if (isOlderThan8Days(data.date)) {
-      await deleteDoc(doc(db, "hocsinh", docSnap.id));
-      console.log("🗑️ Đã xóa:", docSnap.id);
+    const id = docSnap.id;
+    const dateCode = data.date;
+
+    if (!dateCode) {
+      console.warn("⚠️ Không có trường date trong:", id);
+      continue;
+    }
+
+    if (isOlderThan8Days(dateCode)) {
+      await deleteDoc(doc(db, "hocsinh", id));
+      console.log("🗑️ Đã xóa:", id, "| Ngày:", dateCode);
+    } else {
+      console.log("✅ Giữ lại:", id, "| Ngày:", dateCode);
     }
   }
 }
+
 
 // ✅ Tính điểm xếp hạng
 function calculateScores(entries) {
