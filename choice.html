@@ -71,6 +71,37 @@
       font-style: italic;
       color: #666;
     }
+
+    /* ✅ Bảng lịch học */
+    #scheduleTable {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    #scheduleTable th,
+    #scheduleTable td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    #scheduleTable th {
+      background-color: #f2f2f2;
+      font-weight: bold;
+    }
+
+    #scheduleTable td:nth-child(2) {
+      text-align: left;
+    }
+
+    /* ✅ Dòng hôm nay nổi bật */
+    .today-row {
+      background-color: #d1e7dd !important;
+      font-weight: bold;
+      border-left: 4px solid #198754;
+    }
   </style>
 </head>
 <body>
@@ -83,7 +114,6 @@
       <p>Đang tải danh sách bài học...</p>
     </div>
 
-
     <div class="button-group">
       <button id="btnLearnSuggested">🎯 Học bài đề xuất</button>
       <button id="btnChooseOther">📚 Chọn bài khác</button>
@@ -95,45 +125,42 @@
 
   <div id="scheduleBox" class="suggestion-box">
     <h3>📅 Lịch học từ hôm nay trở đi:</h3>
-    <table id="scheduleTable" border="1" cellpadding="8" style="width:100%; margin-top:16px; border-collapse: collapse;">
+    <table id="scheduleTable">
       <thead>
-        <tr style="background:#e0f7fa;">
-          <th>STT</th>
+        <tr>
           <th>Ngày</th>
-          <th>Bài học</th>
-          <th>Dạng</th>
-          <th>Liên quan đến</th>
+          <th>Bài học đề xuất</th>
+          <th>Ghi chú</th>
         </tr>
       </thead>
-      <tbody></tbody>
+      <tbody>
+        <!-- các dòng sẽ được tạo bằng JS -->
+      </tbody>
     </table>
   </div>
 
-
-  <!-- ✅ Firebase SDK: Khởi tạo và gắn vào window để JS chính dùng được -->
+  <!-- ✅ Firebase SDK -->
   <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBQ1pPmSdBV8M8YdVbpKhw_DOetmzIMwXU",
-    authDomain: "lop-hoc-thay-tinh.firebaseapp.com",
-    projectId: "lop-hoc-thay-tinh",
-    storageBucket: "lop-hoc-thay-tinh.firebasestorage.app",
-    messagingSenderId: "391812475288",
-    appId: "1:391812475288:web:ca4c275ac776d69deb23ed"
-  };
+    const firebaseConfig = {
+      apiKey: "AIzaSyBQ1pPmSdBV8M8YdVbpKhw_DOetmzIMwXU",
+      authDomain: "lop-hoc-thay-tinh.firebaseapp.com",
+      projectId: "lop-hoc-thay-tinh",
+      storageBucket: "lop-hoc-thay-tinh.firebasestorage.app",
+      messagingSenderId: "391812475288",
+      appId: "1:391812475288:web:ca4c275ac776d69deb23ed"
+    };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-  // ✅ Gắn vào window để JS chính dùng được
-  window.db = db;
-  window.doc = doc;
-  window.setDoc = setDoc;
-  window.getDoc = getDoc; // ✅ Đây là dòng Anh đang hỏi
-</script>
-
+    window.db = db;
+    window.doc = doc;
+    window.setDoc = setDoc;
+    window.getDoc = getDoc;
+  </script>
 
   <!-- ✅ Các file chức năng -->
   <script type="module" src="choice.js"></script>
