@@ -233,3 +233,24 @@ document.getElementById("btnSaveManual").addEventListener("click", async () => {
   document.getElementById("manualSummary").innerHTML += `<p style="color:green;">✅ Đã lưu lên Firebase!</p>`;
   document.getElementById("btnSaveManual").style.display = "none";
 });
+
+// ✅ Tự động xóa dữ liệu test sau 15 tiếng
+import { getDocs, deleteDoc, collection } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+
+async function autoDeleteOldTests() {
+  const snapshot = await getDocs(collection(db, "test"));
+  const now = Date.now();
+  const cutoff = now - 15 * 60 * 60 * 1000; // 15 tiếng
+
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data();
+    const createdAt = data.createdAt;
+
+    if (createdAt && createdAt < cutoff) {
+      await deleteDoc(doc(db, "test", docSnap.id));
+      console.log("🗑️ Đã xóa test cũ:", docSnap.id);
+    }
+  }
+}
+
+autoDeleteOldTests();
