@@ -22,6 +22,21 @@ function normalizeUnit(str) {
   return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^0-9]/g, "").trim();
 }
 
+function extractCodeFromTitle(title) {
+  if (!title || typeof title !== "string") return "";
+
+  // Tách theo dấu cách hoặc dấu gạch
+  const parts = title.trim().split(/[-\s.]+/);
+
+  // Kiểm tra đúng định dạng: 1 số - 2 số - 1 số
+  if (parts.length >= 3 && /^\d+$/.test(parts[0]) && /^\d+$/.test(parts[1]) && /^\d+$/.test(parts[2])) {
+    return parts[0] + parts[1] + parts[2]; // Ví dụ: "4" + "04" + "1" → "4041"
+  }
+
+  return ""; // Không khớp định dạng
+}
+
+
 async function resolveTitlesFromSheet2(codeList) {
   const res = await fetch(VOCAB_URL);
   const text = await res.text();
@@ -31,15 +46,18 @@ async function resolveTitlesFromSheet2(codeList) {
   const titleMap = {};
 
   for (let row of rows) {
-    const rawTitle = row.c[1]?.v?.toString().trim(); // cột B
-    const normalized = normalizeUnit(rawTitle);
-    if (codeList.includes(normalized)) {
-      titleMap[normalized] = rawTitle;
+    const rawTitle = row.c[1]?.v?.toString().trim(); // cột B: tiêu đề bài học
+    if (!rawTitle) continue;
+
+    const code = extractCodeFromTitle(rawTitle); // ✅ tách đúng mã bài từ tiêu đề
+    if (codeList.includes(code)) {
+      titleMap[code] = rawTitle; // ✅ giữ nguyên tiêu đề gốc
     }
   }
 
   return titleMap;
 }
+
 
 
 // ✅ Chuyển ngày dạng "dd/mm/yyyy" → "yyyy-mm-dd"
