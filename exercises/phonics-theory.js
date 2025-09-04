@@ -31,19 +31,23 @@ document.addEventListener("DOMContentLoaded", () => {
       const text = btn.textContent.trim();
       playIPAFromText(text);
 
-      // ✅ Tính điểm mỗi lần bấm: 
       const currentRaw = parseFloat(localStorage.getItem("phonicsTheoryScore") || "0");
+      const roundedScore = Math.ceil(currentRaw);
+
+      if (roundedScore >= 20) {
+        console.log("🏁 Đã đạt tối đa 20 điểm. Không cộng thêm.");
+        return;
+      }
+
       const updatedRaw = currentRaw + 0.25;
-      const roundedScore = Math.ceil(updatedRaw);
+      const newRounded = Math.min(20, Math.ceil(updatedRaw));
 
-      // ✅ Lưu lại điểm
       localStorage.setItem("phonicsTheoryScore", updatedRaw.toFixed(1));
-      localStorage.setItem("phonicsTheoryRounded", roundedScore);
+      localStorage.setItem("phonicsTheoryRounded", newRounded);
 
-      // ✅ Cập nhật giao diện
       updatePhonicsScoreDisplay();
-
-      console.log(`📚 Điểm lý thuyết Phonics: ${updatedRaw.toFixed(1)} → Làm tròn: ${roundedScore}`);
+      console.log(`📚 Điểm lý thuyết Phonics: ${updatedRaw.toFixed(1)} → Làm tròn: ${newRounded}`);
     });
   });
+
 });
