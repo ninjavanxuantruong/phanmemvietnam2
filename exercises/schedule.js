@@ -277,23 +277,33 @@ async function autoFillOldLessons(className, currentSchedule) {
 
   // ✅ Gán bài bổ sung vào lịch và bosung mới — mỗi ngày 1 bài khác nhau
   const bosungSchedule = {};
-  const limit = Math.min(emptyDates.length, finalUnits.length);
+  let unitIndex = 0;
 
-  for (let i = 0; i < limit; i++) {
-    const date = emptyDates[i];
-    const code = finalUnits[i];
-    const entry = {
-      code,
-      title: titleMap[code] || code,
-      type: "old",
-      relatedTo: ""
-    };
+  for (let date of emptyDates) {
+    const entries = [];
 
-    currentSchedule[date] = [entry];
-    bosungSchedule[date] = [entry];
+    for (let j = 0; j < 2; j++) {
+      if (unitIndex >= finalUnits.length) break;
 
-    console.log(`📅 Gán bài ${code} vào ngày ${date}`);
+      const code = finalUnits[unitIndex];
+      const entry = {
+        code,
+        title: titleMap[code] || code,
+        type: "old",
+        relatedTo: ""
+      };
+
+      entries.push(entry);
+      unitIndex++;
+    }
+
+    if (entries.length > 0) {
+      currentSchedule[date] = entries;
+      bosungSchedule[date] = entries;
+      console.log(`📅 Gán ${entries.length} bài vào ngày ${date}:`, entries.map(e => e.code).join(", "));
+    }
   }
+
 
   // ✅ Ghi lịch mới vào Firebase
   const docRef = window.doc(window.db, "lich", className);
@@ -334,30 +344,33 @@ async function renderFullScheduleFromFirebase(className) {
 
     let stt = 1;
     for (let [dateStr, lessons] of entries) {
-      for (let lesson of lessons) {
-        const row = document.createElement("tr");
+      const row = document.createElement("tr");
 
-        const label =
-          lesson.type === "new"
-            ? "Bài mới - Phải học"
-            : lesson.type === "review"
-            ? "Ôn tập bài mới - Nên học"
-            : lesson.type === "related"
-            ? "Bài liên quan bài mới - Nên học"
-            : lesson.type === "old"
-            ? "Bài cũ"
-            : lesson.type;
+      const titles = lessons.map(l => l.title).join("<br>");
+      const labels = lessons.map(l => {
+        return l.type === "new"
+          ? "Bài mới - Phải học"
+          : l.type === "review"
+          ? "Ôn tập bài mới - Nên học"
+          : l.type === "related"
+          ? "Bài liên quan bài mới - Nên học"
+          : l.type === "old"
+          ? "Bài cũ"
+          : l.type;
+      }).join("<br>");
 
-        row.innerHTML = `
-          <td>${stt++}</td>
-          <td>${dateStr}</td>
-          <td>${lesson.title}</td>
-          <td>${label}</td>
-          <td>${lesson.relatedTo || ""}</td>
-        `;
-        tableBody.appendChild(row);
-      }
+      const related = lessons.map(l => l.relatedTo || "").join("<br>");
+
+      row.innerHTML = `
+        <td>${stt++}</td>
+        <td>${dateStr}</td>
+        <td>${titles}</td>
+        <td>${labels}</td>
+        <td>${related}</td>
+      `;
+      tableBody.appendChild(row);
     }
+
 
 
     console.log("📋 Đã hiển thị lịch học từ hôm nay trở đi cho lớp", className);
