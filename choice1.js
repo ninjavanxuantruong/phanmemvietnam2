@@ -154,10 +154,13 @@ async function fetchVocabularyFromSelectedCodes(unitCodes) {
     rows.forEach(row => {
       const unitRaw = row.c[1]?.v?.toString().trim();
       const word = row.c[2]?.v?.toString().trim();
-      if (unitCodes.includes(normalizeUnit(unitRaw))) {
+      const code = extractCodeFromTitle(unitRaw); // ✅ dùng hàm mới
+
+      if (unitCodes.includes(code)) {
         wordBank.push(word);
       }
     });
+
 
     wordBank = shuffleArray(wordBank);
 
@@ -178,6 +181,15 @@ function normalizeUnit(str) {
   return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^0-9]/g, "").trim();
 }
 
+function extractCodeFromTitle(title) {
+  if (!title || typeof title !== "string") return "";
+  const parts = title.trim().split(/[-\s.]+/);
+  if (parts.length >= 3 && /^\d+$/.test(parts[0]) && /^\d+$/.test(parts[1]) && /^\d+$/.test(parts[2])) {
+    return parts[0] + parts[1] + parts[2]; // ví dụ: "4" + "04" + "2" → "4042"
+  }
+  return "";
+}
+
 // ✅ Xáo trộn từ vựng
 function shuffleArray(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -186,3 +198,5 @@ function shuffleArray(array) {
   }
   return array;
 }
+
+
