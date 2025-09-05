@@ -33,7 +33,10 @@ async function fetchVocabularyData() {
     const image1 = row.c[29]?.v?.trim() || "";
     const extraNote = row.c[30]?.v?.trim() || "";
     const image2 = row.c[32]?.v?.trim() || "";
-    return { word, meaning, image1, extraNote, image2 };
+    const imageKeyword = row.c[47]?.v?.trim() || word;
+
+    return { word, meaning, image1, extraNote, image2, imageKeyword };
+
   });
 
   const filtered = allWords.filter(item => wordBank.includes(item.word));
@@ -89,7 +92,8 @@ async function displayWord(wordObj) {
   const phonetic = await getPhonetic(wordObj.word);
   document.getElementById("vocabPhonetic").textContent = phonetic;
 
-  const imageUrl = await getImage(wordObj.word);
+  const imageUrl = await getImage(wordObj.imageKeyword || wordObj.word);
+
   document.getElementById("vocabImage").src = imageUrl;
 
   // Ẩn phần thú vị nếu đang mở
