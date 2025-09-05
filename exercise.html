@@ -78,8 +78,9 @@
     <h2>🎯 Chọn nhiệm vụ PokéWord</h2>
     <p>Từ vựng bạn đang học: <span id="wordList"></span></p>
 
+    
     <div style="font-weight:bold; font-size:18px; color:#ffeb3b; text-shadow:1px 1px 2px #000; text-align:left;">
-      📌 PHẦN CẦN HỌC ĐỦ CÁC PHẦN
+      📌 HỌC TỪ TRÊN XUỐNG DƯỚI THEO THỨ TỰ, ĐỦ CÁC PHẦN. NẾU NHIỀU HƠN 8 TỪ VỰNG THÌ CHỈ CẦN HỌC 01 DẠNG Ở MỖI PHẦN CŨNG ĐƯỢC
     </div>
 
     <div id="exercise-buttons">
@@ -88,47 +89,44 @@
         Vocabulary - Từ vựng
       </button>
 
-      <button onclick="startExercise('image.html')">
+      <button onclick="startExerciseWithCheck('image', 'image.html')">
         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/235.png" alt="Smeargle">
         Image - Hình ảnh
       </button>
 
-      <button onclick="startExercise('game.html')">
+      <button onclick="startExerciseWithCheck('game', 'game.html')">
         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png" alt="Pikachu">
         Game - Trò chơi
       </button>
 
-      <button onclick="startExercise('listening.html')">
+      <button onclick="startExerciseWithCheck('listening', 'listening.html')">
         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/39.png" alt="Jigglypuff">
         Listening - Nghe
       </button>
 
-      <button onclick="startExercise('speaking.html')">
+      <button onclick="startExerciseWithCheck('speaking', 'speaking.html')">
         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/52.png" alt="Meowth">
         Speaking - Nói
       </button>
 
-      
-
-      <button onclick="startExercise('overview.html')">
+      <button onclick="startExerciseWithCheck('overview', 'overview.html')">
         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/137.png" alt="Porygon">
         Writing - Viết
       </button>
-      
-      <button onclick="startExercise('communication1.html')">
+
+      <button onclick="startExerciseWithCheck('communication1', 'communication1.html')">
         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/100.png" alt="Voltorb">
         Communication - Giao tiếp
       </button>
 
-      
-
-      <button onclick="startExercise('phonics.html')">
+      <button onclick="startExerciseWithCheck('phonics', 'phonics.html')">
         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/146.png" alt="Moltres">
         Phonics - Phát âm
       </button>
 
+
       <div style="font-weight:bold; font-size:18px; color:#ffeb3b; text-shadow:1px 1px 2px #000; text-align:left;">
-        📌 PHẦN DÀNH CHO CÁP HAI
+        📌 PHẦN DÀNH CHO CẤP HAI
       </div>
 
       <button onclick="startExercise('bai-tap-cap-2.html')">
@@ -142,7 +140,7 @@
 
         <button onclick="startExercise('summary.html')">
           <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/249.png" alt="Lugia">
-          Result - Kết quả - dành cho học sinh
+          Result - Kết quả - Học sinh ấn vào đây sau khi học hết
         </button>
       
       <button onclick="startExercise('student-login.html')">
@@ -151,12 +149,12 @@
       </button>
 
       <div style="font-weight:bold; font-size:18px; color:#ffeb3b; text-shadow:1px 1px 2px #000; text-align:left;">
-        📌 PHẦN TÀI LIỆU - NÊN HỌC
+        📌 PHẦN TÀI LIỆU
       </div>
 
         <button onclick="startExercise('document.html')">
           <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/349.png" alt="Dragonite">
-          Tài liệu học
+          Tài liệu học - nên xem trước khi học
         </button>
       
     </div>
@@ -165,9 +163,131 @@
   <script>
     const words = JSON.parse(localStorage.getItem("wordBank")) || [];
     document.getElementById("wordList").textContent = words.join(", ");
+
     function startExercise(page) {
       window.location.href = `exercises/${page}`;
     }
+
+    function startExerciseWithCheck(partName, page) {
+      const currentWords = JSON.parse(localStorage.getItem("wordBank")) || [];
+      const key = "checked:" + partName + ":" + currentWords.join(",");
+      const checked = localStorage.getItem(key);
+      if (checked === "true") {
+        startExercise(page);
+      } else {
+        showPrecheck(partName, page, key);
+      }
+    }
+
+    function showPrecheck(partName, page, key) {
+      document.getElementById("precheckOverlay").style.display = "flex";
+      loadPrecheck(partName, page, key);
+    }
+
+    async function loadPrecheck(partName, page, key) {
+      const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+      const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
+      const checkedWords = JSON.parse(localStorage.getItem("checkedWords") || "[]");
+
+      const res = await fetch(SHEET_URL);
+      const txt = await res.text();
+      const json = JSON.parse(txt.substring(47).slice(0, -2));
+      const rows = json.table.rows;
+
+      const vocabList = rows.map(row => ({
+        word: row.c[2]?.v?.trim() || "",
+        meaning: row.c[24]?.v?.trim() || ""
+      })).filter(item => wordBank.includes(item.word));
+
+      const remaining = vocabList.filter(item => !checkedWords.includes(item.word));
+      const current = remaining.length > 0
+        ? remaining[Math.floor(Math.random() * remaining.length)]
+        : vocabList[Math.floor(Math.random() * vocabList.length)];
+
+      if (remaining.length === 0) localStorage.setItem("checkedWords", "[]");
+
+      const wrongChoices = vocabList.filter(w => w.word !== current.word).map(w => w.meaning);
+      const options = [current.meaning, ...wrongChoices.slice(0, 3)].sort(() => Math.random() - 0.5);
+
+      document.getElementById("questionWord").textContent = `🔤 Từ: ${current.word}`;
+      
+      const choicesArea = document.getElementById("choicesArea");
+      choicesArea.innerHTML = "";
+
+      const row1 = document.createElement("div");
+      const row2 = document.createElement("div");
+      row1.style.display = "flex";
+      row2.style.display = "flex";
+      row1.style.justifyContent = "center";
+      row2.style.justifyContent = "center";
+      row1.style.gap = "12px";
+      row2.style.gap = "12px";
+      row1.style.marginBottom = "12px";
+
+      options.forEach((opt, i) => {
+        const btn = document.createElement("button");
+        btn.textContent = `${String.fromCharCode(65 + i)}. ${opt}`;
+        btn.style.padding = "16px 24px";
+        btn.style.fontSize = "20px";
+        btn.style.borderRadius = "12px";
+        btn.style.minWidth = "120px";
+        btn.style.cursor = "pointer";
+        btn.style.background = "#fff";
+        btn.style.color = "#000";
+        btn.style.border = "2px solid #ccc";
+        btn.onclick = () => handlePrecheckAnswer(opt, current.meaning, current.word, key);
+
+        if (i < 2) {
+          row1.appendChild(btn);
+        } else {
+          row2.appendChild(btn);
+        }
+      });
+
+      choicesArea.appendChild(row1);
+      choicesArea.appendChild(row2);
+
+
+      document.getElementById("precheckStatus").textContent = "";
+    }
+
+    function handlePrecheckAnswer(selected, correct, word, key) {
+      const status = document.getElementById("precheckStatus");
+      if (selected === correct) {
+        const checkedWords = JSON.parse(localStorage.getItem("checkedWords") || "[]");
+        if (!checkedWords.includes(word)) {
+          checkedWords.push(word);
+          localStorage.setItem("checkedWords", JSON.stringify(checkedWords));
+        }
+        localStorage.setItem(key, "true");
+        status.textContent = "✅ Chính xác! Bạn có thể vào nhiệm vụ.";
+        setTimeout(() => {
+          document.getElementById("precheckOverlay").style.display = "none";
+        }, 1200);
+      } else {
+        status.textContent = "❌ Sai rồi! Thử lại câu này.";
+      }
+    }
   </script>
+
+
+  
+
+  
 </body>
 </html>
+
+<!-- ... toàn bộ phần HTML gốc của Anh giữ nguyên như đã gửi ... -->
+
+<!-- THÊM KHUNG KIỂM TRA -->
+<div id="precheckOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:999; justify-content:center; align-items:center;">
+  <div id="precheckBox" style="background:#fff; color:#000; padding:30px; border-radius:16px; max-width:480px; box-shadow:0 0 20px rgba(0,0,0,0.5); text-align:center;">
+    <h2>🧠 MINI TEST</h2>
+    <p id="questionWord" style="font-size:22px;">Đang tải...</p>
+    <div id="choicesArea"></div>
+    <div id="precheckStatus" style="margin-top:16px; font-weight:bold;"></div>
+  </div>
+</div>
+
+
+
