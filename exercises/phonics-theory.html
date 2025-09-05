@@ -197,49 +197,8 @@
     <div class="sound-btn">-age - /ɪʤ/<br><span class="example">(village)</span></div>
   </div>
 
-  <script>
-    function playIPAFromText(text) {
-      const match = text.match(/\/([^/]+)\//);
-      const ipa = match?.[1];
+  <script type="module" src="phonics-theory.js"></script>
 
-      if (ipa) {
-        const url = `https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/${encodeURIComponent(ipa)}.mp3`;
-        const audio = new Audio(url);
-        audio.play();
-      } else {
-        console.warn("Không tìm thấy IPA trong nút:", text);
-      }
-    }
-
-    // ✅ Thêm hàm cập nhật điểm hiển thị
-    function updatePhonicsScoreDisplay() {
-      const scoreDisplay = document.getElementById("scoreValue");
-      const rounded = localStorage.getItem("phonicsTheoryRounded") || "0";
-      scoreDisplay.textContent = rounded;
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      updatePhonicsScoreDisplay(); // ✅ Gọi khi trang tải
-
-      document.querySelectorAll(".sound-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const text = btn.textContent.trim();
-          playIPAFromText(text);
-
-          const currentRaw = parseFloat(localStorage.getItem("phonicsTheoryScore") || "0");
-          const updatedRaw = currentRaw + 0.25;
-          const roundedScore = Math.ceil(updatedRaw);
-
-          localStorage.setItem("phonicsTheoryScore", updatedRaw.toFixed(1));
-          localStorage.setItem("phonicsTheoryRounded", roundedScore);
-
-          updatePhonicsScoreDisplay(); // ✅ Gọi sau khi cộng điểm
-
-          console.log(`📚 Điểm lý thuyết Phonics: ${updatedRaw.toFixed(1)} → Làm tròn: ${roundedScore}`);
-        });
-      });
-    });
-  </script>
 
 
 
