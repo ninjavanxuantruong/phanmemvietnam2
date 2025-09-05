@@ -175,6 +175,8 @@ function handleD1(selected) {
     } else {
       localStorage.setItem("score1", score);
       localStorage.setItem("total1", vocabData.length);
+      setResultImagePart(1, score, vocabData.length);
+
       updateScoreBoard();
       showCompletedMessageImage(1, score, vocabData.length);
       checkGameEnd();
@@ -192,7 +194,7 @@ async function showD2() {
   `;
 
   const current = vocabData[currentIndex];
-  speak(current.word);
+  //speak(current.word);
 
   const imgUrl = await getImage(current.word);
   document.getElementById("imageD2").src = imgUrl;
@@ -237,6 +239,8 @@ function handleD2(selected) {
     } else {
       localStorage.setItem("score2", score);
       localStorage.setItem("total2", vocabData.length);
+      setResultImagePart(2, score, vocabData.length);
+
       updateScoreBoard();
       showCompletedMessageImage(2, score, vocabData.length);
       checkGameEnd();
@@ -256,7 +260,7 @@ async function showD3() {
   `;
 
   const current = vocabData[currentIndex];
-  speak(current.word);
+  //speak(current.word);
 
   const imgUrl = await getImage(current.word);
   const img = document.getElementById("imageD3");
@@ -282,7 +286,7 @@ function handleD3(current) {
 
   img.classList.remove("blur");
   resultBox.innerHTML += `<p><strong>${current.word}</strong>: ${current.meaning}</p>`;
-  speak(current.word);
+  //speak(current.word);
 
   currentIndex++;
   setTimeout(() => {
@@ -291,6 +295,8 @@ function handleD3(current) {
     } else {
       localStorage.setItem("score3", score);
       localStorage.setItem("total3", vocabData.length);
+      setResultImagePart(3, score, vocabData.length);
+
       updateScoreBoard();
       showCompletedMessageImage(3, score, vocabData.length);
       checkGameEnd();
@@ -311,11 +317,7 @@ function checkGameEnd() {
   const totalScore = s1 + s2 + s3;
   const totalMax = t1 + t2 + t3;
 
-  // ✅ Ghi lại vào localStorage theo chuẩn summary.js
-  localStorage.setItem("result_image", JSON.stringify({
-    score: totalScore,
-    total: totalMax
-  }));
+ 
 
   // 👉 Nếu chưa làm hết 3 dạng thì không hiển thị gì
   if (t1 === 0 || t2 === 0 || t3 === 0) return;
@@ -334,3 +336,27 @@ function checkGameEnd() {
   }
 }
 
+
+
+function setResultImagePart(mode, score, total) {
+  const raw = localStorage.getItem("result_image");
+  const prev = raw ? JSON.parse(raw) : {};
+
+  const updated = {
+    score1: mode === 1 ? score : prev.score1 || 0,
+    score2: mode === 2 ? score : prev.score2 || 0,
+    score3: mode === 3 ? score : prev.score3 || 0,
+    total1: mode === 1 ? total : prev.total1 || 0,
+    total2: mode === 2 ? total : prev.total2 || 0,
+    total3: mode === 3 ? total : prev.total3 || 0
+  };
+
+  const totalScore = updated.score1 + updated.score2 + updated.score3;
+  const totalMax = updated.total1 + updated.total2 + updated.total3;
+
+  localStorage.setItem("result_image", JSON.stringify({
+    ...updated,
+    score: totalScore,
+    total: totalMax
+  }));
+}
