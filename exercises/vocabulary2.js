@@ -94,13 +94,12 @@ async function showFlashcard(item, ballElement) {
         const speakingScore = parseInt(localStorage.getItem("speaking_score") || "0");
         const speakingTotal = vocabData.length * 2;
 
-        localStorage.setItem("vocabulary2_score", JSON.stringify({
-          score: speakingScore,
-          total: speakingTotal
-        }));
+        const prev = JSON.parse(localStorage.getItem("result_vocabulary") || "{}");
+        const prevScore = prev.score || 0;
+        const prevTotal = prev.total || 0;
 
-        const combinedScore = speakingScore + 10;
-        const combinedTotal = speakingTotal + 10;
+        const combinedScore = prevScore + speakingScore + 10;
+        const combinedTotal = prevTotal + speakingTotal + 10;
 
         localStorage.setItem("result_vocabulary", JSON.stringify({
           score: combinedScore,
@@ -108,6 +107,9 @@ async function showFlashcard(item, ballElement) {
         }));
 
         localStorage.removeItem("speaking_score");
+
+
+    
       }
     }
   }, 10000); // 10 giây
@@ -128,16 +130,15 @@ async function showFlashcard(item, ballElement) {
       if (caughtCount === vocabData.length) {
         showCatchEffect();
 
+        const prev = JSON.parse(localStorage.getItem("result_vocabulary") || "{}");
+        const prevScore = prev.score || 0;
+        const prevTotal = prev.total || 0;
+
         const speakingScore = parseInt(localStorage.getItem("speaking_score") || "0");
         const speakingTotal = vocabData.length * 2;
 
-        localStorage.setItem("vocabulary2_score", JSON.stringify({
-          score: speakingScore,
-          total: speakingTotal
-        }));
-
-        const combinedScore = speakingScore + 10;
-        const combinedTotal = speakingTotal + 10;
+        const combinedScore = prevScore + speakingScore + 10;
+        const combinedTotal = prevTotal + speakingTotal + 10;
 
         localStorage.setItem("result_vocabulary", JSON.stringify({
           score: combinedScore,
@@ -145,6 +146,7 @@ async function showFlashcard(item, ballElement) {
         }));
 
         localStorage.removeItem("speaking_score");
+
       }
     });
   };
