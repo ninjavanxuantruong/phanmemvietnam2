@@ -136,7 +136,8 @@ document.getElementById("completeBtn").onclick = () => {
   if (roundCount >= 2 && !hasCaught) {
     showCatchEffect();
     const score = vocabData.length > 0 ? 10 : 0;
-    localStorage.setItem("result_vocabulary1", JSON.stringify({score, total: 10}));
+    localStorage.setItem("result_vocabulary", JSON.stringify({score, total: 10}));
+
     hasCaught = true;
 
     document.getElementById("completeBtn").textContent = "✅ Đã hoàn thành!";
