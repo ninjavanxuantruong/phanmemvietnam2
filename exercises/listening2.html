@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>🎧 Listening Monster Random words</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      background-color: #1d3565;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+    }
+
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 40px;
+      padding-top: 60px;
+      flex-wrap: wrap;
+    }
+
+    .frame {
+      background-color: #5dab46;
+      border: 6px solid #ffd54f;
+      border-radius: 20px;
+      width: 520px;
+      min-height: 200px;
+      padding: 24px;
+      box-shadow: 0 0 18px rgba(0,0,0,0.6);
+      font-size: 24px;
+      color: #000;
+      line-height: 1.6;
+    }
+
+    .interaction {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    .poke-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      display: block;
+    }
+
+    #playBtn img {
+      border: 3px solid #48a8ff;
+    }
+
+    #submitBtn img {
+      border: 3px solid #f44336;
+    }
+
+    .label {
+      font-size: 14px;
+      font-weight: bold;
+      color: #ffeb3b;
+      text-shadow: 1px 1px 3px #000;
+      text-align: center;
+    }
+
+    button {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      font-size: 18px;
+      border-radius: 10px;
+      border: 2px solid #ffca28;
+      width: 200px;
+    }
+
+    #scoreBoard {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 18px;
+      color: #ffeb3b;
+      text-shadow: 1px 1px 3px #000;
+    }
+
+    #resultBox {
+      margin-top: 20px;
+      font-size: 18px;
+      text-align: center;
+    }
+
+    .footer {
+      margin-top: 40px;
+      text-align: center;
+    }
+
+    .monster-jp {
+      font-size: 42px;
+      color: #4caf50;
+      font-weight: bold;
+      font-family: 'Noto Sans JP', sans-serif;
+      text-shadow: 2px 2px 6px #000;
+      margin: 0;
+    }
+
+    .monster-en {
+      font-size: 24px;
+      color: #ffeb3b;
+      font-weight: bold;
+      font-family: 'Georgia', serif;
+      text-shadow: 1px 1px 4px #000;
+      margin: 6px 0 0;
+    }
+  </style>
+</head>
+<body>
+  <h1 style="text-align:center;">🎧 Listening Monster</h1>
+  <p id="scoreBoard">🎯 Điểm: 0/0</p>
+
+  <div class="container">
+    <div class="frame" id="exerciseArea">
+      <!-- Nội dung câu hỏi & câu trả lời được JS render -->
+    </div>
+
+    <div class="interaction">
+      <div>
+        <button id="playBtn" title="Nghe lại">
+          <img src="https://cdn-icons-png.flaticon.com/512/361/361998.png" alt="Nghe lại" class="poke-icon" />
+        </button>
+        <div class="label">Nghe lại</div>
+      </div>
+
+      <input type="text" id="inputWord" placeholder="Gõ từ bị che" />
+
+      <div>
+        <button id="submitBtn" title="Trả lời">
+          <img src="https://cdn-icons-png.flaticon.com/512/361/361998.png" alt="Trả lời" class="poke-icon" />
+        </button>
+        <div class="label">Trả lời</div>
+      </div>
+    </div>
+  </div>
+
+  <p id="resultBox"></p>
+
+  <div class="footer">
+    <p class="monster-jp">ポケットモンスター</p>
+    <h2 class="monster-en">POCKET MONSTERS</h2>
+  </div>
+
+  <script type="module" src="pokeball-effect.js"></script>
+  <script type="module" src="listening2.js"></script>
+
+
+
+</body>
+</html>
