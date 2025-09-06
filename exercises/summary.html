@@ -127,12 +127,12 @@
     </table>
     <div style="margin-top: 20px; text-align: center;">
       <p><strong>Mã tổng kết:</strong> <span id="resultCode" style="color:#3b4cca; font-weight:bold;"></span></p>
-      <button onclick="copyResultCode()">📋 Sao chép mã kết quả</button>
+     
     </div>
 
-    <button id="weeklySummaryBtn" class="copy-btn">📅 Xem kết quả tuần</button>
+    <button id="weeklySummaryBtn" class="copy-btn">📅 Gửi kết quả cho thầy Tình</button>
     <div id="weeklySummarySection" style="display:none; margin-top:20px;">
-      <h3>📅 Kết quả tuần của bạn</h3>
+      <h3>📅 Đã gửi thầy - Đây là kết quả tuần qua</h3>
       <table id="weeklySummaryTable">
         <thead>
           <tr>
@@ -174,21 +174,17 @@
     const history = JSON.parse(localStorage.getItem(historyKey)) || [];
     const latestEntry = history[history.length - 1];
 
-    if (latestEntry) {
-      const docId = `${studentName}_${studentClass}_${latestEntry.date}`;
-      const docRef = doc(db, "hocsinh", docId);
+    window.saveStudentResultToFirebase = async function(entry) {
+      try {
+        const docId = `${entry.name}_${entry.class}_${entry.date}`;
+        const docRef = doc(db, "hocsinh", docId);
+        await setDoc(docRef, entry);
+        console.log("📤 Đã lưu Firebase:", entry);
+      } catch (error) {
+        console.error("❌ Lỗi khi lưu Firebase:", error.message);
+      }
+    };
 
-      setDoc(docRef, latestEntry)
-        .then(() => {
-          console.log("📤 Ghi Firebase với:", latestEntry);
-          console.log("✅ Ghi dữ liệu lên Firestore thành công! ID:", docId);
-        })
-        .catch(error => {
-          console.error("❌ Lỗi khi ghi dữ liệu:", error.message);
-        });
-    } else {
-      console.warn("⚠️ Không tìm thấy dữ liệu để ghi.");
-    }
   </script>
 
   <!-- ✅ Gọi xử lý tổng kết -->
