@@ -343,10 +343,77 @@ async function renderStudentWeekSummary() {
   const studentClass = localStorage.getItem("trainerClass");
 
   if (!isVerified) {
-    alert("Bạn chưa được được thầy Tình cấp nick. Không thể xem kết quả tuần.");
+    alert("Bạn chưa được thầy Tình cấp nick. Không thể xem kết quả tuần.");
     return;
   }
 
+  // ✅ Đoạn lưu tự động được đưa xuống đây
+  const normalizedName = studentName.trim().toLowerCase();
+  const normalizedClass = studentClass.trim().toLowerCase();
+
+  const dateStr = new Date();
+  const day = String(dateStr.getDate()).padStart(2, '0');
+  const month = String(dateStr.getMonth() + 1).padStart(2, '0');
+  const year = String(dateStr.getFullYear()).slice(-2);
+  const dateCode = `${day}${month}${year}`;
+
+  const totalScore = parseInt(document.getElementById("totalScore").textContent);
+  const totalMax = parseInt(document.getElementById("totalMax").textContent);
+  const finalRating = document.getElementById("totalRating").textContent.split(" | ").pop().split(": ").pop();
+
+  const startTimeGlobal = localStorage.getItem("startTime_global");
+  const totalMinutes = startTimeGlobal
+    ? Math.max(1, Math.floor((Date.now() - parseInt(startTimeGlobal)) / 60000))
+    : 0;
+
+  const completedParts = [];
+  const parts = [
+    "vocabulary", "image", "game-word-meaning", "word-puzzle", "pokeword",
+    "listening", "speaking-chunks", "speaking-sentence", "speaking-paragraph",
+    "phonics", "overview", "communication"
+  ];
+  parts.forEach(key => {
+    const result = localStorage.getItem(`result_${key}`);
+    const parsed = result ? JSON.parse(result) : null;
+    if (parsed?.total > 0) completedParts.push(key);
+  });
+
+  const grade8Total = parseInt(localStorage.getItem("totalQuestions_grade8") || "0");
+  if (grade8Total > 0) completedParts.push("grade8");
+
+  const completedCount = completedParts.length;
+
+  const newEntry = {
+    name: normalizedName,
+    class: normalizedClass,
+    score: totalScore,
+    max: totalMax,
+    doneParts: completedCount,
+    rating: finalRating,
+    date: dateCode,
+    duration: totalMinutes
+  };
+
+  const historyKey = `history_${studentName}_${studentClass}`;
+  const history = JSON.parse(localStorage.getItem(historyKey)) || [];
+  const existingIndex = history.findIndex(entry => entry.date === dateCode);
+  if (existingIndex >= 0) {
+    history[existingIndex] = newEntry;
+  } else {
+    history.push(newEntry);
+  }
+  localStorage.setItem(historyKey, JSON.stringify(history));
+
+  if (window.saveStudentResultToFirebase) {
+    try {
+      await window.saveStudentResultToFirebase(newEntry);
+      console.log("📥 Đã lưu Firebase từ nút tuần:", newEntry);
+    } catch (err) {
+      console.error("❌ Lỗi khi lưu Firebase:", err.message);
+    }
+  }
+
+  // ✅ Tiếp tục render bảng tuần như cũ
   const { initializeApp, getApp } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js");
   const { getFirestore, collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js");
 
@@ -385,7 +452,6 @@ async function renderStudentWeekSummary() {
   const tbody = document.getElementById("weeklySummaryBody");
   tbody.innerHTML = "";
 
-  // ✅ Chỉ giữ lại đoạn này một lần duy nhất
   recentEntries.forEach(entry => {
     const date = `${entry.date.slice(0,2)}-${entry.date.slice(2,4)}-${entry.date.slice(4)}`;
     const row = `
@@ -401,10 +467,6 @@ async function renderStudentWeekSummary() {
   });
 
   document.getElementById("weeklySummarySection").style.display = "block";
-
-
-
-  
 }
-document.getElementById("weeklySummaryBtn").addEventListener("click", renderStudentWeekSummary);
 
+document.getElementById("weeklySummaryBtn").addEventListener("click", renderStudentWeekSummary);
