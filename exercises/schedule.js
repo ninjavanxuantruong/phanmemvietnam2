@@ -232,8 +232,9 @@ async function autoFillOldLessons(className, currentSchedule) {
 
   const allUnits = rows.map(row => {
     const raw = row.c[1]?.v?.toString().trim();
-    return normalizeUnit(raw);
+    return extractCodeFromTitle(raw);
   }).filter(Boolean);
+
 
   const newCodes = Object.values(currentSchedule).flat()
     .filter(item => item.type === "new")
@@ -269,10 +270,12 @@ async function autoFillOldLessons(className, currentSchedule) {
   const titleMap = {};
   for (let row of rows) {
     const rawTitle = row.c[1]?.v?.toString().trim();
-    const normalized = normalizeUnit(rawTitle);
-    if (finalUnits.includes(normalized)) {
-      titleMap[normalized] = rawTitle;
+    const code = extractCodeFromTitle(rawTitle);
+    if (finalUnits.includes(code)) {
+      titleMap[code] = rawTitle;
     }
+
+
   }
 
   // ✅ Gán bài bổ sung vào lịch và bosung mới — mỗi ngày 1 bài khác nhau
