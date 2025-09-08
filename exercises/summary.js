@@ -467,6 +467,12 @@ async function renderStudentWeekSummary() {
   });
 
   document.getElementById("weeklySummarySection").style.display = "block";
+  document.getElementById("collectionBtn").style.display = "inline-block";
 }
 
 document.getElementById("weeklySummaryBtn").addEventListener("click", renderStudentWeekSummary);
+
+document.getElementById("collectionBtn")?.addEventListener("click", () => {
+  window.location.href = "collection.html";
+});
+
