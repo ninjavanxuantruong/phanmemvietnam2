@@ -410,7 +410,9 @@ async function showDailyParticipation(studentMap, recentDates) {
   const reportBox = document.getElementById("dailyReportContent");
   reportBox.innerHTML = "";
 
-  recentDates.forEach(dateCode => {
+  const sortedDates = [...recentDates].sort((a, b) => b.localeCompare(a));
+  sortedDates.forEach(dateCode => {
+
     const doneSet = new Set();
     const notDone = [];
     const needImprove = [];
