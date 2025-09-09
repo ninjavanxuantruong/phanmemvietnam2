@@ -8,21 +8,28 @@ function normalize(str) {
 
 const SHEET_STUDENT_LIST = "https://docs.google.com/spreadsheets/d/1XmiM7fIGqo3eq8QMuhvxj4G3LrGBzsbQHs_gk0KXdTc/gviz/tq?tqx=out:json";
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+import {
+  initializeApp
+} from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+
 import {
   getFirestore,
   collection,
-  getDocs,
   doc,
-  deleteDoc
+  getDoc,
+  getDocs,
+  setDoc,
+  deleteDoc,
+  query,
+  where
 } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
-// ✅ Khởi tạo Firebase
+
 const firebaseConfig = {
   apiKey: "AIzaSyBQ1pPmSdBV8M8YdVbpKhw_DOetmzIMwXU",
   authDomain: "lop-hoc-thay-tinh.firebaseapp.com",
   projectId: "lop-hoc-thay-tinh",
-  storageBucket: "lop-hoc-thay-tinh.firebasestorage.app",
+  storageBucket: "lop-hoc-thay-tinh.appspot.com",
   messagingSenderId: "391812475288",
   appId: "1:391812475288:web:ca4c275ac776d69deb23ed"
 };
@@ -30,54 +37,185 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ✅ Xóa dữ liệu cũ hơn 8 ngày
-function isOlderThan8Days(dateCode) {
-  if (!/^\d{6}$/.test(dateCode)) {
-    console.warn("⚠️ Sai định dạng ngày:", dateCode);
-    return false;
-  }
+function renderDateCheckboxes(dateList) {
+  const container = document.getElementById("dateCheckboxList");
+  container.innerHTML = "<strong>Chọn ngày:</strong><br/>";
 
+  dateList.forEach(code => {
+    const label = `${code.slice(0,2)}-${code.slice(2,4)}-${code.slice(4)}`;
+    const checkbox = document.createElement("label");
+    checkbox.style.display = "block";
+    checkbox.innerHTML = `
+      <input type="checkbox" value="${code}" class="date-checkbox" />
+      ${label}
+    `;
+    container.appendChild(checkbox);
+  });
+}
+function getSelectedDates() {
+  return Array.from(document.querySelectorAll(".date-checkbox:checked"))
+    .map(cb => cb.value);
+}
+function isOlderThan8Days(dateCode) {
   const day = parseInt(dateCode.slice(0, 2), 10);
   const month = parseInt(dateCode.slice(2, 4), 10) - 1;
-  const year = 2000 + parseInt(dateCode.slice(4, 6), 10); // giả sử năm 20xx
-
+  const year = 2000 + parseInt(dateCode.slice(4, 6), 10);
   const entryDate = new Date(year, month, day);
+
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - 8);
 
-  const entryStr = entryDate.toLocaleDateString("vi-VN");
-  const cutoffStr = cutoffDate.toLocaleDateString("vi-VN");
-
-  const isOld = entryDate < cutoffDate;
-  
-  return isOld;
+  return entryDate < cutoffDate;
 }
 
-
 async function cleanOldEntries() {
-  
+  console.log("🧹 Bắt đầu xoá dữ liệu cũ...");
+
   const snapshot = await getDocs(collection(db, "hocsinh"));
+  let totalRead = 0;
+  let totalDeleted = 0;
+  const deletedDates = new Set();
+
   for (const docSnap of snapshot.docs) {
+    totalRead++;
     const data = docSnap.data();
     const id = docSnap.id;
     const dateCode = data.date;
 
-    if (!dateCode) {
-      console.warn("⚠️ Không có trường date trong:", id);
+    if (!dateCode || !/^\d{6}$/.test(dateCode)) {
+      console.log(`⚠️ Bỏ qua document không có mã ngày hợp lệ: ${id}`);
       continue;
     }
 
     if (isOlderThan8Days(dateCode)) {
+      console.log(`🗑️ Xoá học sinh: ${id} (ngày ${dateCode})`);
       await deleteDoc(doc(db, "hocsinh", id));
-      
+      totalDeleted++;
+      deletedDates.add(dateCode);
     } else {
-      
+      console.log(`✅ Giữ lại học sinh: ${id} (ngày ${dateCode})`);
     }
   }
+
+  console.log("📊 Tổng số document đã đọc:", totalRead);
+  console.log("📊 Tổng số học sinh đã xoá:", totalDeleted);
+  console.log("📊 Danh sách ngày đã xoá:", Array.from(deletedDates));
+
+  // ✅ Xoá dữ liệu tổng hợp theo ngày
+  let totalSummaryDeleted = 0;
+  for (const dateCode of deletedDates) {
+    const classes = ["2", "3", "4", "5", "6"];
+    for (const className of classes) {
+      const summaryId = `summary-${className}-${dateCode}`;
+      await deleteDoc(doc(db, "tonghop", summaryId));
+      console.log(`🗑️ Xoá tổng hợp: ${summaryId}`);
+      totalSummaryDeleted++;
+    }
+  }
+
+  console.log("📊 Tổng số bản tổng hợp đã xoá:", totalSummaryDeleted);
+  alert("✅ Đã xoá dữ liệu cũ thành công.");
 }
 
 
-// ✅ Tính điểm xếp hạng
+// ===============================
+// 🧠 PHẦN 2 — Đọc & ghi dữ liệu tổng hợp theo lớp + ngày
+// ===============================
+async function generateSummaryFromRawData() {
+  const selectedClass = document.getElementById("firebaseClassSelect").value;
+  const selectedDates = getSelectedDates();
+
+  if (!selectedClass || selectedDates.length === 0) {
+    alert("❌ Vui lòng chọn lớp và ít nhất một ngày.");
+    return;
+  }
+
+  console.log("📥 Đang đọc dữ liệu gốc từ collection 'hocsinh'...");
+
+  const snapshot = await getDocs(collection(db, "hocsinh"));
+  const classList = selectedClass === "all"
+    ? ["2", "3", "4", "5", "6"]
+    : [selectedClass];
+
+  const studentMap = {};
+
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data();
+    const { name, class: className, date, score, max, doneParts, duration, rating } = data;
+
+    if (!name || !className || !date || !selectedDates.includes(date)) continue;
+    if (!classList.includes(className)) continue;
+
+    const key = `${normalizeName(name)}_${className}`;
+    if (!studentMap[key]) studentMap[key] = [];
+
+    studentMap[key].push({ name, className, date, score, max, doneParts, duration, rating });
+  }
+
+  console.log("📊 Đã tổng hợp dữ liệu từ 'hocsinh':", studentMap);
+
+  // ✅ Ghi lên tonghop
+  let totalWritten = 0;
+  for (const className of classList) {
+    for (const dateCode of selectedDates) {
+      const students = {};
+
+      for (const key in studentMap) {
+        const [nameKey, keyClass] = key.split("_");
+        if (keyClass !== className) continue;
+
+        const entries = studentMap[key];
+        const entry = entries.find(e => e.date === dateCode);
+        if (!entry) continue;
+
+        students[entry.name] = {
+          score: entry.score,
+          max: entry.max,
+          doneParts: entry.doneParts,
+          duration: entry.duration || null,
+          rating: entry.rating || "–"
+        };
+      }
+
+      if (Object.keys(students).length === 0) {
+        console.log(`⚠️ Không có dữ liệu để ghi: summary-${className}-${dateCode}`);
+        continue;
+      }
+
+      const payload = {
+        class: className,
+        date: dateCode,
+        students
+      };
+
+      await setDoc(doc(db, "tonghop", `summary-${className}-${dateCode}`), payload);
+      console.log(`✅ Đã ghi: summary-${className}-${dateCode}`, payload);
+      totalWritten++;
+    }
+  }
+
+  alert(`✅ Đã ghi ${totalWritten} bản tổng hợp từ dữ liệu gốc.`);
+}
+
+
+// ✅ Gắn sự kiện cho các nút
+document.getElementById("generateSummaryBtn").addEventListener("click", generateSummaryFromRawData);
+
+document.getElementById("cleanOldBtn").addEventListener("click", cleanOldEntries);
+
+// ===============================
+// 📊 PHẦN 3A — Hiển thị bảng thống kê theo lớp + ngày
+// ===============================
+
+// ✅ Hàm chuẩn hóa tên học sinh
+function normalizeName(str) {
+  return str.toLowerCase().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
+
+// ✅ Hàm tính điểm xếp hạng
 function calculateScores(entries) {
   let totalScore = 0;
   let totalMax = 0;
@@ -109,123 +247,59 @@ function calculateScores(entries) {
   };
 }
 
-
-
-// ✅ Hiển thị bảng xếp hạng
-window.renderRanking = async function () {
-  
-
-  document.getElementById("rankingTable").style.display = "table";
-
-  const selectedClass = document.getElementById("classFilter").value;
-  const rankingType = document.getElementById("rankingType").value;
-  const tableBody = document.getElementById("studentTableBody");
-  tableBody.innerHTML = "";
-
-  const snapshot = await getDocs(collection(db, "hocsinh"));
-  const studentMap = {};
-
-  snapshot.forEach(docSnap => {
-    const entry = docSnap.data();
-    if (!selectedClass || entry.class === selectedClass) {
-      const key = `${normalize(entry.name)}_${normalize(entry.class)}`;
-
-      if (!studentMap[key]) studentMap[key] = [];
-      studentMap[key].push(entry);
-    }
-  });
-
-  const rankingList = [];
-
-  for (const key in studentMap) {
-    const [name, className] = key.split("_");
-    const entries = studentMap[key];
-    const scores = calculateScores(entries);
-
-    rankingList.push({
-      name,
-      className,
-      ...scores
-    });
-  }
-
-  const keyMap = {
-    tonghop: "tongHopScore",
-    hieuqua: "hieuQuaScore",
-    chamchi: "chamChiScore"
-  };
-
-  const sortKey = keyMap[rankingType] || "tongHopScore";
-  
-  
-  rankingList.sort((a, b) => b[sortKey] - a[sortKey]);
-
-
-  const headerRow = `<tr>
-    <th>STT</th>
-    <th>Họ tên – lớp</th>
-    <th>Tổng điểm</th>
-    <th>Phần/ngày</th>
-    <th>Ngày làm</th>
-    <th>Hiệu quả</th>
-    <th>Chăm chỉ</th>
-    <th>Tổng hợp</th>
-  </tr>`;
-  tableBody.innerHTML = headerRow;
-
-  rankingList.forEach((student, index) => {
-    const row = `<tr>
-      <td>${index + 1}</td>
-      <td>${student.name} – lớp ${student.className}</td>
-      <td>${student.totalScore}/${student.totalMax}</td>
-      <td>${student.avgParts}</td>
-      <td>${student.daysDone}</td>
-      <td>${student.hieuQuaScore}</td>
-      <td>${student.chamChiScore}</td>
-      <td><strong>${student.tongHopScore}</strong></td>
-    </tr>`;
-    tableBody.innerHTML += row;
-  });
-
-  if (rankingList.length === 0) {
-    tableBody.innerHTML += `<tr><td colspan="8">Không có dữ liệu để xếp hạng.</td></tr>`;
-  }
-};
-// ✅ Hiển thị bảng theo từng ngày
+// ✅ Hàm hiển thị bảng thống kê theo lớp + ngày
 window.renderStudentSummary = async function () {
-  
-  document.getElementById("rankingTable").style.display = "table";
-
   const selectedClass = document.getElementById("classFilter").value;
   const rankingType = document.getElementById("rankingType").value;
-  const tableBody = document.getElementById("studentTableBody");
-  tableBody.innerHTML = "";
 
-  const snapshot = await getDocs(collection(db, "hocsinh"));
+  if (!selectedClass) {
+    alert("❌ Vui lòng chọn lớp.");
+    return;
+  }
+
+  console.log("📊 Đang hiển thị thống kê cho lớp", selectedClass);
+
+  const tableBody = document.getElementById("studentTableBody");
+  const tableHead = document.getElementById("studentTableHead");
+  tableBody.innerHTML = "";
+  tableHead.innerHTML = "";
+  document.getElementById("rankingTable").style.display = "table";
+
   const studentMap = {};
   const allDates = [];
 
+  // ✅ Tự động lấy tất cả document có lớp phù hợp
+  const snapshot = await getDocs(collection(db, "tonghop"));
   snapshot.forEach(docSnap => {
-    const entry = docSnap.data();
-    if (!selectedClass || entry.class === selectedClass) {
-      const key = `${normalize(entry.name)}_${normalize(entry.class)}`;
+    const docId = docSnap.id;
+    if (!docId.startsWith(`summary-${selectedClass}-`)) return;
+
+    const dateCode = docId.split("-")[2];
+    allDates.push(dateCode);
+
+    const data = docSnap.data();
+    const students = data.students || {};
+
+    for (const name in students) {
+      const key = `${normalizeName(name)}_${selectedClass}`;
       if (!studentMap[key]) studentMap[key] = [];
-      studentMap[key].push(entry);
-      allDates.push(entry.date);
+
+      studentMap[key].push({
+        ...students[name],
+        date: dateCode,
+        name
+      });
     }
   });
 
-  const recentDates = [...new Set(allDates)]
-  .filter(code => /^\d{6}$/.test(code)) // chỉ giữ mã ngày hợp lệ
-  .sort((a, b) => {
-    const dateA = new Date(2000 + parseInt(a.slice(4)), parseInt(a.slice(2, 4)) - 1, parseInt(a.slice(0, 2)));
-    const dateB = new Date(2000 + parseInt(b.slice(4)), parseInt(b.slice(2, 4)) - 1, parseInt(b.slice(0, 2)));
-    return dateB - dateA; // sắp xếp từ mới nhất đến cũ nhất
-  })
-  .slice(0, 8);
+  if (allDates.length === 0) {
+    alert(`⚠️ Không tìm thấy dữ liệu tổng hợp cho lớp ${selectedClass}.`);
+    return;
+  }
+
+  window.studentMap = studentMap;
 
   const formatDate = code => `${code.slice(0,2)}-${code.slice(2,4)}-${code.slice(4)}`;
-
   const keyMap = {
     tonghop: "tongHopScore",
     hieuqua: "hieuQuaScore",
@@ -236,21 +310,14 @@ window.renderStudentSummary = async function () {
   const rankingList = [];
 
   for (const key in studentMap) {
-    const [name, className] = key.split("_");
+    const [nameKey, className] = key.split("_");
     const entries = studentMap[key];
 
-    let totalScore = 0;
-    let totalMax = 0;
-    let totalParts = 0;
-    let daysDone = 0;
+    const scores = calculateScores(entries);
 
-    const dayCells = recentDates.map(date => {
+    const dayCells = allDates.map(date => {
       const entry = entries.find(e => e.date === date);
       if (entry) {
-        totalScore += entry.score;
-        totalMax += entry.max;
-        totalParts += entry.doneParts;
-        daysDone++;
         const durationText = entry.duration ? `${entry.duration} phút` : "–";
         return `<td>${entry.score}/${entry.max} – ${entry.doneParts} phần – ${durationText} – ${entry.rating}</td>`;
       } else {
@@ -258,27 +325,18 @@ window.renderStudentSummary = async function () {
       }
     });
 
-    const scorePercent = totalMax > 0 ? (totalScore / totalMax) * 100 : 0;
-    const avgParts = daysDone > 0 ? totalParts / daysDone : 0;
-
-    const hieuQuaScore = scorePercent + totalScore / 2;
-    const chamChiScore = totalScore + avgParts * 10 + daysDone * 20;
-    const tongHopScore = chamChiScore * 1.2 + hieuQuaScore * 0.8;
-
     let summaryRating = "–";
-    if (daysDone >= 7) summaryRating = "Tuyệt vời";
-    else if (daysDone >= 5) summaryRating = "Chăm";
-    else if (daysDone >= 3) summaryRating = "Hơi lười";
+    if (scores.daysDone >= 7) summaryRating = "Tuyệt vời";
+    else if (scores.daysDone >= 5) summaryRating = "Chăm";
+    else if (scores.daysDone >= 3) summaryRating = "Hơi lười";
     else summaryRating = "Lười quá";
 
     rankingList.push({
-      name,
+      name: entries[0].name,
       className,
       dayCells,
       summaryRating,
-      hieuQuaScore: Math.round(hieuQuaScore),
-      chamChiScore: Math.round(chamChiScore),
-      tongHopScore: Math.round(tongHopScore)
+      ...scores
     });
   }
 
@@ -287,14 +345,13 @@ window.renderStudentSummary = async function () {
   const headerRow = `<tr>
     <th>STT</th>
     <th>Họ tên – lớp</th>
-    ${recentDates.map(d => `<th>${formatDate(d)}</th>`).join("")}
+    ${allDates.map(d => `<th>${formatDate(d)}</th>`).join("")}
     <th>Đánh giá chung</th>
     <th>Hiệu quả</th>
     <th>Chăm chỉ</th>
     <th>Tổng hợp</th>
   </tr>`;
-  document.getElementById("studentTableHead").innerHTML = headerRow;
-
+  tableHead.innerHTML = headerRow;
 
   rankingList.forEach((student, index) => {
     const row = `<tr>
@@ -310,23 +367,20 @@ window.renderStudentSummary = async function () {
   });
 
   if (rankingList.length === 0) {
-    tableBody.innerHTML += `<tr><td colspan="${2 + recentDates.length + 4}">Không có dữ liệu cho lớp đã chọn.</td></tr>`;
+    tableBody.innerHTML += `<tr><td colspan="${2 + allDates.length + 4}">Không có dữ liệu cho lớp đã chọn.</td></tr>`;
   }
 
   // ✅ Gọi phần điểm danh tự động
-  await showDailyParticipation(studentMap, recentDates);
+  await showDailyParticipation(studentMap, allDates);
 };
 
-// ✅ Hàm chuẩn hóa tên học sinh
-function normalizeName(str) {
-  return str.toLowerCase().normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]/g, "")
-    .trim();
-}
+// ===============================
+// 📋 PHẦN 3B — Báo cáo học sinh đã làm / chưa làm
+// ===============================
 
-// ✅ Lấy danh sách học sinh từ Google Sheets
+// ✅ Hàm lấy danh sách học sinh từ Google Sheets
 async function fetchStudentListFromSheet() {
+  const SHEET_STUDENT_LIST = "https://docs.google.com/spreadsheets/d/1XmiM7fIGqo3eq8QMuhvxj4G3LrGBzsbQHs_gk0KXdTc/gviz/tq?tqx=out:json";
   const res = await fetch(SHEET_STUDENT_LIST);
   const text = await res.text();
   const json = JSON.parse(text.substring(47).slice(0, -2));
@@ -341,86 +395,104 @@ async function fetchStudentListFromSheet() {
     const normalized = normalizeName(name);
     if (!studentMap[className]) studentMap[className] = [];
     studentMap[className].push({ name, normalized });
-
   });
 
+  console.log("📋 Đã lấy danh sách học sinh từ Sheet:", studentMap);
   return studentMap;
 }
 
-// ✅ Đối chiếu học sinh đã làm bài và chưa làm bài theo ngày
+// ✅ Hàm hiển thị báo cáo theo ngày
 async function showDailyParticipation(studentMap, recentDates) {
   const selectedClass = document.getElementById("classFilter").value;
   const studentList = await fetchStudentListFromSheet();
   const classStudents = studentList[selectedClass] || [];
 
-  const participationMap = {}; // { dateCode: { done: Set, notDone: [] } }
+  const reportBox = document.getElementById("dailyReportContent");
+  reportBox.innerHTML = "";
 
   recentDates.forEach(dateCode => {
-    participationMap[dateCode] = { done: new Set(), notDone: [] };
+    const doneSet = new Set();
+    const notDone = [];
+    const needImprove = [];
 
     for (const key in studentMap) {
       const [name, className] = key.split("_");
       if (className !== selectedClass) continue;
 
       const entries = studentMap[key];
-      const hasEntry = entries.some(e => e.date === dateCode);
-      const normalized = normalizeName(name);
+      const entry = entries.find(e => e.date === dateCode);
+      if (!entry) continue;
 
-      if (hasEntry) {
-        participationMap[dateCode].done.add(normalized);
+      const normalized = normalizeName(name);
+      doneSet.add(normalized);
+
+      const scoreSum = (entry.score || 0) + (entry.doneParts || 0);
+      const overall = scoreSum >= 11 ? "🏆 Tuyệt vời toàn diện"
+                    : scoreSum >= 9 ? "😃 Rất tốt"
+                    : scoreSum >= 7 ? "🙂 Tốt"
+                    : "⚠️ Cần cải thiện";
+
+      if (overall === "⚠️ Cần cải thiện") {
+        needImprove.push(entry.name);
       }
     }
 
-    const notDone = classStudents
-    .filter(s => !participationMap[dateCode].done.has(s.normalized))
-    .map(s => s.name);
+    const notDoneList = classStudents
+      .filter(s => !doneSet.has(normalizeName(s.name)))
+      .map(s => s.name);
 
-    participationMap[dateCode].notDone = notDone;
-  });
+    const doneList = classStudents
+      .filter(s => doneSet.has(normalizeName(s.name)))
+      .map(s => s.name);
 
-  const reportBox = document.getElementById("dailyReportContent");
-  reportBox.innerHTML = "";
-
-  recentDates.forEach(dateCode => {
-    const { done, notDone } = participationMap[dateCode];
     const formattedDate = `${dateCode.slice(0,2)}-${dateCode.slice(2,4)}-${dateCode.slice(4)}`;
-
     const section = document.createElement("div");
     section.style.marginTop = "20px";
+
     section.innerHTML = `
       <h4>📅 Ngày ${formattedDate}</h4>
-      <p>✅ Đã làm bài (${done.size}): <span 
-  id="done-${dateCode}" 
-  data-class="${selectedClass}" 
-  data-date="${formattedDate}" 
-  data-type="done"
->
-  ${classStudents.filter(s => done.has(s.normalized)).map(s => s.name).join(", ") || "Không có"}
-</span>
 
+      <p>✅ Đã làm bài (${doneList.length}): <span 
+        id="done-${dateCode}" 
+        data-class="${selectedClass}" 
+        data-date="${formattedDate}" 
+        data-type="done"
+      >
+        ${doneList.join(", ") || "Không có"}
+      </span>
+      <button onclick="copyToClipboard('done-${dateCode}')">📋 Sao chép</button></p>
 
-        <button onclick="copyToClipboard('done-${dateCode}')">📋 Sao chép</button></p>
-      <p>❌ Chưa làm bài (${notDone.length}): <span 
-  id="notdone-${dateCode}" 
-  data-class="${selectedClass}" 
-  data-date="${formattedDate}" 
-  data-type="notdone"
->
-  ${notDone.join(", ") || "Không có"}
-</span>
+      <p>❌ Chưa làm bài (${notDoneList.length}): <span 
+        id="notdone-${dateCode}" 
+        data-class="${selectedClass}" 
+        data-date="${formattedDate}" 
+        data-type="notdone"
+      >
+        ${notDoneList.join(", ") || "Không có"}
+      </span>
+      <button onclick="copyToClipboard('notdone-${dateCode}')">📋 Sao chép</button></p>
 
-        <button onclick="copyToClipboard('notdone-${dateCode}')">📋 Sao chép</button></p>
+      <p>⚠️ Cần cải thiện (${needImprove.length}): <span 
+        id="needimprove-${dateCode}" 
+        data-class="${selectedClass}" 
+        data-date="${formattedDate}" 
+        data-type="needimprove"
+      >
+        ${needImprove.join(", ") || "Không có"}
+      </span>
+      <button onclick="copyToClipboard('needimprove-${dateCode}')">📋 Sao chép</button></p>
+
       <hr>
     `;
     reportBox.appendChild(section);
   });
 
   reportBox.scrollIntoView({ behavior: "smooth" });
+  console.log("📋 Đã hiển thị báo cáo điểm danh theo ngày.");
 }
 
 
-// ✅ Gọi khi cần kiểm tra
-// showDailyParticipation();
+// ✅ Hàm sao chép danh sách
 window.copyToClipboard = function(id) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -428,16 +500,32 @@ window.copyToClipboard = function(id) {
   const rawNames = el.textContent.trim();
   const className = el.getAttribute("data-class");
   const date = el.getAttribute("data-date");
-  const type = el.getAttribute("data-type"); // "done" hoặc "notdone"
+  const type = el.getAttribute("data-type");
 
-  const label = type === "done" ? "đã làm bài" : "chưa làm bài";
+  let label = "";
+  if (type === "done") label = "đã làm bài";
+  else if (type === "notdone") label = "chưa làm bài";
+  else if (type === "needimprove") label = "cần cải thiện";
+
   const formatted = `Danh sách học sinh lớp ${className} ${label} ngày ${date}: ${rawNames}`;
   navigator.clipboard.writeText(formatted);
+  console.log(`📋 Đã sao chép: ${formatted}`);
 };
 
 
+function generateRecentDateCodes(n = 8) {
+  const list = [];
+  const today = new Date();
+  for (let i = 0; i < n; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const code = `${String(d.getDate()).padStart(2, '0')}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getFullYear()).slice(-2)}`;
+    list.push(code);
+  }
+  return list;
+}
 
-
-
-// ✅ Gọi xóa khi trang mở
-cleanOldEntries();
+// ✅ Gọi khi trang vừa load
+document.addEventListener("DOMContentLoaded", () => {
+  renderDateCheckboxes(generateRecentDateCodes());
+});
