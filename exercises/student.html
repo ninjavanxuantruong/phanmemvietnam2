@@ -96,6 +96,31 @@
 </head>
 <body>
 
+  <h2>🛠️ Quản lý dữ liệu Firebase</h2>
+
+  <label for="firebaseClassSelect">Chọn lớp:</label>
+  <select id="firebaseClassSelect">
+    <option value="">--Chọn lớp --</option>
+    <option value="2">Lớp 2</option>
+    <option value="3">Lớp 3</option>
+    <option value="4">Lớp 4</option>
+    <option value="5">Lớp 5</option>
+    <option value="6">Lớp 6</option>
+    <option value="all">Tất cả lớp</option>
+  </select>
+
+  <div id="dateCheckboxList" style="margin-top: 20px;">
+    <strong>Chọn ngày:</strong><br/>
+    <!-- JS sẽ gắn danh sách ngày vào đây -->
+  </div>
+
+  <button id="generateSummaryBtn">📤 Tổng hợp từ dữ liệu gốc</button>
+
+  <button id="cleanOldBtn">🗑️ Xoá dữ liệu cũ</button>
+
+  <hr style="margin: 30px 0;">
+
+
   <h2>📊 Thống kê kết quả học sinh theo 8 ngày gần nhất</h2>
 
   <label for="classFilter">Lọc theo lớp:</label>
