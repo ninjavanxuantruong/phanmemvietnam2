@@ -347,7 +347,6 @@ async function renderStudentWeekSummary() {
     return;
   }
 
-  // ✅ Đoạn lưu tự động được đưa xuống đây
   const normalizedName = studentName.trim().toLowerCase();
   const normalizedClass = studentClass.trim().toLowerCase();
 
@@ -413,9 +412,15 @@ async function renderStudentWeekSummary() {
     }
   }
 
-  // ✅ Tiếp tục render bảng tuần như cũ
+  // ✅ Khởi tạo Firebase
   const { initializeApp, getApp } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js");
-  const { getFirestore, collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js");
+  const {
+    getFirestore,
+    collection,
+    query,
+    where,
+    getDocs
+  } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js");
 
   const firebaseConfig = {
     apiKey: "AIzaSyBQ1pPmSdBV8M8YdVbpKhw_DOetmzIMwXU",
@@ -434,14 +439,23 @@ async function renderStudentWeekSummary() {
   }
 
   const db = getFirestore(app);
-  const snapshot = await getDocs(collection(db, "hocsinh"));
 
-  const prefix = `${studentName}_${studentClass}_`;
-  const entries = [];
+  // ✅ Truy vấn chỉ lấy dữ liệu của học sinh đang đăng nhập
+  const q = query(
+    collection(db, "hocsinh"),
+    where("name", "==", normalizedName),
+    where("class", "==", normalizedClass)
+  );
+
+  const snapshot = await getDocs(q);
+
+  // ✅ Bắt đầu với bản ghi hôm nay
+  const entries = [newEntry];
 
   snapshot.forEach(docSnap => {
-    if (docSnap.id.startsWith(prefix)) {
-      entries.push(docSnap.data());
+    const data = docSnap.data();
+    if (data.date !== dateCode) {
+      entries.push(data); // chỉ thêm nếu không trùng hôm nay
     }
   });
 
@@ -471,6 +485,8 @@ async function renderStudentWeekSummary() {
 }
 
 document.getElementById("weeklySummaryBtn").addEventListener("click", renderStudentWeekSummary);
+
+
 
 document.getElementById("collectionBtn")?.addEventListener("click", () => {
   window.location.href = "collection.html";
