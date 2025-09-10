@@ -149,11 +149,13 @@ function showFinalResult() {
     : 0;
 
   // ✅ Ghi lại kết quả vào localStorage
-  const result = {
-    score: totalScore,
-    total: totalChunks
+  const prev = JSON.parse(localStorage.getItem("result_speaking")) || { score: 0, total: 0 };
+  const updated = {
+    score: prev.score + totalScore,
+    total: prev.total + totalChunks
   };
-  localStorage.setItem("result_speaking-chunks", JSON.stringify(result));
+  localStorage.setItem("result_speaking", JSON.stringify(updated));
+
 
   // ✅ Hiển thị kết quả
   area.innerHTML += `
