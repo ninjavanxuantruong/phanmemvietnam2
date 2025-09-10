@@ -207,11 +207,14 @@ function triggerVictoryEffect() {
   console.log("✅ Người chơi đã hoàn tất PokéWord!");
   showCatchEffect(); // ✨ Triệu hồi Pokémon
 
-  // ✅ Ghi điểm vào localStorage để summary đọc được
-  localStorage.setItem("result_pokeword", JSON.stringify({
-    score: score,
-    total: vocabWords.length
-  }));
+  // ✅ Ghi điểm vào localStorage (cộng dồn vào result_game)
+  const prev = JSON.parse(localStorage.getItem("result_game")) || { score: 0, total: 0 };
+  const updated = {
+    score: prev.score + score,
+    total: prev.total + vocabWords.length
+  };
+  localStorage.setItem("result_game", JSON.stringify(updated));
+
 }
 
 hintBtn.onclick = () => {
