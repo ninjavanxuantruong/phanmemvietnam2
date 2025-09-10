@@ -49,10 +49,16 @@ function renderScoreTable() {
 
   tbody.innerHTML = "";
 
+  let totalCorrect = 0;
+  let totalQuestions = 0;
+
   types.forEach(type => {
     const { correct, total } = getScore(type);
     const percent = total ? Math.round((correct / total) * 100) : 0;
     const label = typeLabels[type] || type;
+
+    totalCorrect += correct;
+    totalQuestions += total;
 
     const row = document.createElement("tr");
     row.innerHTML = `
@@ -63,7 +69,25 @@ function renderScoreTable() {
     `;
     tbody.appendChild(row);
   });
+
+  const totalPercent = totalQuestions ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+
+  // ✅ Lưu vào localStorage để dùng ở file khác
+  localStorage.setItem("totalCorrect_grade8", totalCorrect.toString());
+  localStorage.setItem("totalQuestions_grade8", totalQuestions.toString());
+  localStorage.setItem("totalPercent_grade8", totalPercent.toString());
+
+  const totalRow = document.createElement("tr");
+  totalRow.innerHTML = `
+    <td><strong>Tổng cộng</strong></td>
+    <td><strong>${totalCorrect}</strong></td>
+    <td><strong>${totalQuestions}</strong></td>
+    <td><strong>${totalPercent}%</strong></td>
+  `;
+  tbody.appendChild(totalRow);
+
 }
+
 
 // ✅ Tạo mã kết quả tóm tắt
 function generateResultCode() {
