@@ -27,19 +27,18 @@ document.getElementById("studentInfo").textContent = `${studentName} (${studentC
 
 const tableBody = document.getElementById("tableBody");
 const parts = [
-  { key: "vocabulary",         label: "Từ vựng" },
-  { key: "image",              label: "Hình ảnh" },
-  { key: "game-word-meaning",  label: "Trò từ & nghĩa" },
-  { key: "word-puzzle",        label: "Trò ô chữ" },
-  { key: "pokeword",           label: "Trò điền chữ cái" },
-  { key: "listening",          label: "Bài tập nghe" },
-  { key: "speaking-chunks",    label: "Nói cụm từ" },
-  { key: "speaking-sentence",  label: "Nói câu đầy đủ" },
-  { key: "speaking-paragraph", label: "Nói đoạn văn" },
-  { key: "phonics",            label: "Phonics" },
-  { key: "overview",           label: "Tổng quan" },
-  { key: "communication",      label: "Chatbot học bài" }
+  { key: "vocabulary",     label: "Từ vựng" },
+  { key: "image",          label: "Hình ảnh" },
+  { key: "game",           label: "Trò chơi" },         // ✅ gộp 3 game
+  { key: "listening",      label: "Bài tập nghe" },
+  { key: "speaking",       label: "Bài tập nói" },      // ✅ gộp 3 speaking
+  { key: "phonics",        label: "Phát âm" },
+  { key: "overview",       label: "Bài viết" },
+  { key: "communication",  label: "Giao tiếp" },
+  { key: "grade8",         label: "Bài tập cấp 2" }     // ✅ thêm phần cấp 2
 ];
+
+
 
 let totalScore = 0;
 let totalMax = 0;
@@ -49,8 +48,8 @@ parts.forEach(({ key, label }, index) => {
   const score = result?.score || 0;
   const total = result?.total || 0;
   const percent = total > 0 ? Math.round((score / total) * 100) : 0;
-  let rating = "";
 
+  let rating = "";
   if (percent < 50) rating = "😕 Cần cố gắng";
   else if (percent < 70) rating = "🙂 Khá";
   else if (percent < 90) rating = "😃 Tốt";
@@ -76,82 +75,33 @@ parts.forEach(({ key, label }, index) => {
   tableBody.innerHTML += row;
 });
 
-// ✅ DÒNG THỨ 13: Bài tập cấp 2
-const grade8Score = parseInt(localStorage.getItem("totalCorrect_grade8") || "0");
-const grade8Total = parseInt(localStorage.getItem("totalQuestions_grade8") || "0");
-const grade8Percent = grade8Total > 0 ? Math.round((grade8Score / grade8Total) * 100) : 0;
 
-let grade8Rating = "";
-if (grade8Percent < 50) grade8Rating = "😕 Cần cố gắng";
-else if (grade8Percent < 70) grade8Rating = "🙂 Khá";
-else if (grade8Percent < 90) grade8Rating = "😃 Tốt";
-else grade8Rating = "🏆 Tuyệt vời";
 
-const grade8Row = `
-  <tr>
-    <td>13</td>
-    <td>Bài tập cấp 2</td>
-    <td>${grade8Score}</td>
-    <td>${grade8Total}</td>
-    <td>${grade8Percent}%</td>
-    <td class="rating">${grade8Rating}</td>
-  </tr>
-`;
-tableBody.innerHTML += grade8Row;
-
-totalScore += grade8Score;
-totalMax += grade8Total;
 
 // ✅ Xử lý phần đã làm và chưa làm theo nhóm
 const completedParts = [];
 const zeroParts = [];
-
-const group1 = ["game-word-meaning", "word-puzzle", "pokeword"];
-const group2 = ["speaking-chunks", "speaking-sentence", "speaking-paragraph"];
-
-let group1Done = false;
-let group2Done = false;
-let group1Zero = [];
-let group2Zero = [];
 
 parts.forEach(({ key, label }) => {
   const result = localStorage.getItem(`result_${key}`);
   const parsed = result ? JSON.parse(result) : null;
   const hasData = parsed?.total > 0;
 
-  if (group1.includes(key)) {
-    if (hasData) group1Done = true;
-    else if (!group1Done) group1Zero.push(label);
-    return;
+  if (hasData) {
+    completedParts.push(label);
+  } else {
+    zeroParts.push(label);
   }
-
-  if (group2.includes(key)) {
-    if (hasData) group2Done = true;
-    else if (!group2Done) group2Zero.push(label);
-    return;
-  }
-
-  if (hasData) completedParts.push(label);
-  else zeroParts.push(label);
 });
 
 // ✅ BỔ SUNG PHẦN CẤP 2 VÀO completed/zero
+const grade8Result = JSON.parse(localStorage.getItem("result_grade8") || "{}");
+const grade8Total = grade8Result.total || 0;
+
 if (grade8Total > 0) {
   completedParts.push("Bài tập cấp 2");
 } else {
   zeroParts.push("Bài tập cấp 2");
-}
-
-if (group1Done) {
-  completedParts.push("Trò chơi từ & nghĩa / ô chữ / điền chữ cái");
-} else {
-  zeroParts.push("Trò chơi");
-}
-
-if (group2Done) {
-  completedParts.push("Nói cụm / câu / đoạn văn");
-} else {
-  zeroParts.push("Phần nói");
 }
 
 
@@ -163,17 +113,13 @@ const finalPercent = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 
 const skillGroups = {
   vocabulary: "Từ vựng",
   image: "Hình ảnh",
-  "game-word-meaning": "Trò chơi",
-  "word-puzzle": "Trò chơi",
-  pokeword: "Trò chơi",
-  listening: "Nghe",
-  "speaking-chunks": "Nói",
-  "speaking-sentence": "Nói",
-  "speaking-paragraph": "Nói",
-  phonics: "Phonics",
-  overview: "Tổng quan",
-  communication: "Chatbot",
-  grade8: "Bài cấp 2"
+  game: "Trò chơi",           // ✅ gộp 3 game
+  listening: "Nghe",          // ✅ gộp các phần nghe
+  speaking: "Nói",            // ✅ gộp các phần nói
+  phonics: "Phát âm",
+  overview: "Viết",
+  communication: "Giao tiếp",
+  grade8: "Bài cấp 2"         // ✅ thêm để thống kê
 };
 
 const learnedGroups = new Set();
@@ -183,7 +129,10 @@ parts.forEach(({ key }) => {
     learnedGroups.add(skillGroups[key]);
   }
 });
-if (grade8Total > 0) learnedGroups.add("Bài cấp 2");
+
+if (grade8Total > 0) {
+  learnedGroups.add("Bài cấp 2");
+}
 
 // ✅ Gọi hàm đánh giá
 const evaluation = getFullEvaluation({
@@ -192,6 +141,7 @@ const evaluation = getFullEvaluation({
   completedParts,
   learnedGroups
 });
+
 
 document.getElementById("totalRating").textContent =
 `📦 Chăm chỉ: ${evaluation.diligence} | 🎯 Hiệu quả: ${evaluation.effectiveness} | 🧠 Kỹ năng: ${evaluation.skill} | 🧾 Đánh giá chung: ${evaluation.overall}`;
@@ -277,8 +227,8 @@ if (isVerified) {
 
 function getFullEvaluation({ totalScore, totalMax, completedParts, learnedGroups }) {
   const percentCorrect = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
-  const coveragePercent = Math.round((completedParts.length / 13) * 100);
-  const skillPercent = Math.round((learnedGroups.size / 9) * 100); // 9 nhóm kỹ năng
+  const coveragePercent = Math.round((completedParts.length / 8) * 100); // ✅ chỉ tính 8 phần chính
+  const skillPercent = Math.round((learnedGroups.size / 8) * 100);       // ✅ chỉ tính 8 nhóm kỹ năng
 
   // 🎯 Hiệu quả
   let effectiveness = "";
@@ -320,13 +270,11 @@ function getFullEvaluation({ totalScore, totalMax, completedParts, learnedGroups
 
   const scoreSum = ratings.reduce((sum, r) => sum + scoreMap[r], 0);
 
-
   let overall = "";
   if (scoreSum >= 11) overall = "🏆 Tuyệt vời toàn diện";
   else if (scoreSum >= 9) overall = "😃 Rất tốt";
   else if (scoreSum >= 7) overall = "🙂 Tốt";
   else overall = "⚠️ Cần cải thiện";
-
 
   return {
     effectiveness,
@@ -335,6 +283,7 @@ function getFullEvaluation({ totalScore, totalMax, completedParts, learnedGroups
     overall
   };
 }
+
 
 
 async function renderStudentWeekSummary() {
