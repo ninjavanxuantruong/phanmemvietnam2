@@ -28,16 +28,29 @@ function updateStats() {
 }
 
 function saveReadingScore() {
-  const key = "score_reading_grade8";
-  const saved = JSON.parse(localStorage.getItem(key) || "{}");
+  const type = "reading";
+  const newScore = correctCount;
+  const newTotal = totalQuestions;
 
-  const newData = {
-    correct: (saved.correct || 0) + correctCount,
-    total: (saved.total || 0) + totalQuestions
+  // ✅ Lấy điểm cũ TRƯỚC khi ghi đè
+  const oldData = JSON.parse(localStorage.getItem(`score_${type}_grade8`) || "{}");
+  const oldScore = oldData.correct || 0;
+  const oldTotal = oldData.total || 0;
+
+  // ✅ Ghi đè điểm mới
+  const scoreData = { correct: newScore, total: newTotal };
+  localStorage.setItem(`score_${type}_grade8`, JSON.stringify(scoreData));
+
+  // ✅ Cập nhật result_grade8
+  const prevResult = JSON.parse(localStorage.getItem("result_grade8") || "{}");
+  const updatedResult = {
+    score: (prevResult.score || 0) - oldScore + newScore,
+    total: (prevResult.total || 0) - oldTotal + newTotal
   };
 
-  localStorage.setItem(key, JSON.stringify(newData));
+  localStorage.setItem("result_grade8", JSON.stringify(updatedResult));
 }
+
 
 async function loadReadingExercise() {
   // ✅ Ghi lại thời điểm bắt đầu làm bài đọc
