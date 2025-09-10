@@ -329,11 +329,14 @@ function checkVictory() {
   if (completedWords === totalWords) {
     console.log("✅ Người chơi đã hoàn thành trò chơi!");
 
-    // ✅ Ghi điểm vào localStorage để summary đọc được
-    localStorage.setItem("result_word-puzzle", JSON.stringify({
-      score: completedWords,
-      total: totalWords
-    }));
+    // ✅ Ghi điểm vào localStorage (cộng dồn vào result_game)
+    const prev = JSON.parse(localStorage.getItem("result_game")) || { score: 0, total: 0 };
+    const updated = {
+      score: prev.score + completedWords,
+      total: prev.total + totalWords
+    };
+    localStorage.setItem("result_game", JSON.stringify(updated));
+
 
     if (!timerExpired) {
       showCatchEffect(); // ✅ Triệu hồi Pokémon nếu hoàn thành đúng thời gian
