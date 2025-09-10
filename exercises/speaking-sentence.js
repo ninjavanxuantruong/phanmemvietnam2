@@ -91,11 +91,15 @@ function showFinalResult() {
     ? Math.round((totalScore / sentences.length) * 100)
     : 0;
 
-  // ✅ Ghi điểm tổng vào localStorage
-  localStorage.setItem("result_speaking-sentence", JSON.stringify({
-    score: totalScore,
-    total: sentences.length
-  }));
+  // ✅ Ghi điểm tổng vào localStorage (cộng dồn vào result_speaking)
+  const prev = JSON.parse(localStorage.getItem("result_speaking")) || { score: 0, total: 0 };
+  const updated = {
+    score: prev.score + totalScore,
+    total: prev.total + sentences.length
+  };
+  localStorage.setItem("result_speaking", JSON.stringify(updated));
+
+
 
   // ✅ Hiển thị kết quả UI
   area.innerHTML = `
