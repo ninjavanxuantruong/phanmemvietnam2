@@ -224,10 +224,14 @@ function checkVictory() {
     showCatchEffect(); // 🎉 Triệu hồi Pokémon thay cho thông báo
 
     // ✅ Ghi điểm vào localStorage để summary đọc được
-    localStorage.setItem("result_game-word-meaning", JSON.stringify({
-      score: matchedPairs,
-      total: totalPairs
-    }));
+    // ✅ Ghi điểm vào localStorage (cộng dồn vào result_game)
+    const prev = JSON.parse(localStorage.getItem("result_game")) || { score: 0, total: 0 };
+    const updated = {
+      score: prev.score + matchedPairs,
+      total: prev.total + totalPairs
+    };
+    localStorage.setItem("result_game", JSON.stringify(updated));
+
   }
 }
 
