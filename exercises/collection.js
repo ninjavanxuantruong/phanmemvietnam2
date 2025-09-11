@@ -444,10 +444,11 @@ function renderCapturedPokemons(data) {
     const card = document.createElement("div");
     card.className = "pokemon-card";
     card.innerHTML = `
-      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png" alt="${p.name}" />
+      <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png" alt="${p.name}" class="pokemon-img" data-id="${p.id}" />
       <p>#${p.id} - ${p.name}</p>
-      <button>Chọn để xuất chiến</button>
+      <button class="battle-btn" data-id="${p.id}">Chọn để xuất chiến</button>
     `;
+
 
     card.querySelector("button").addEventListener("click", async () => {
       const ref = doc(db, "bosuutap", docId);
@@ -461,12 +462,36 @@ function renderCapturedPokemons(data) {
     });
 
     container.appendChild(card);
+    card.querySelector(".pokemon-img").addEventListener("click", () => {
+      showPokemonDetail(p.id);
+    });
+
 
     if (p.id === selectedId) {
       infoBox.textContent = `🛡️ Bạn đang chọn Pokémon ${p.name} (#${p.id}) để xuất chiến`;
     }
   });
 }
+function showPokemonDetail(id) {
+  const poke = pokemonData.find(p => p.id === id);
+  if (!poke) return;
+
+  const html = `
+    <h2>${poke.name} (#${poke.id})</h2>
+    <p>🔰 Hệ: ${poke.type}</p>
+    <p>Stage: ${poke.stage} – Kích thước: ${poke.size}</p>
+    <p>❤️ HP: ${poke.hp} – ⚔️ Power: ${poke.power}</p>
+    <p>🎯 Kỹ năng: ${poke.skills.join(", ")}</p>
+    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${poke.id}.png" style="margin-top:10px;" />
+  `;
+
+  document.getElementById("popupContentInner").innerHTML = html;
+  document.getElementById("pokemonDetailPopup").style.display = "block";
+}
+
+document.getElementById("closePopupBtn").addEventListener("click", () => {
+  document.getElementById("pokemonDetailPopup").style.display = "none";
+});
 
 
 
