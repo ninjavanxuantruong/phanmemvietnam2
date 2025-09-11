@@ -70,16 +70,19 @@ document.getElementById("studentName").textContent = studentName;
 // ✅ Tạo document ID
 const docId = `${studentName}-${studentClass}`;
 
-// ✅ Hàm cập nhật sao từ điểm hôm qua
 async function updateStarsFromYesterday() {
   console.log("🔍 Bắt đầu kiểm tra cập nhật sao hôm nay...");
 
   try {
     const today = new Date();
     const todayCode = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getFullYear()).slice(-2)}`;
+    console.log(`📅 Mã ngày hôm nay: ${todayCode}`);
 
     const yesterday = new Date(Date.now() - 86400000);
     const yesterdayCode = `${String(yesterday.getDate()).padStart(2, '0')}${String(yesterday.getMonth() + 1).padStart(2, '0')}${String(yesterday.getFullYear()).slice(-2)}`;
+    console.log(`📅 Mã ngày hôm qua: ${yesterdayCode}`);
+
+    console.log(`👤 Học sinh: ${studentName} | Lớp: ${studentClass}`);
 
     const refCollection = doc(db, "bosuutap", docId);
     const snapCollection = await getDoc(refCollection);
@@ -112,6 +115,8 @@ async function updateStarsFromYesterday() {
 
     const oldDb = getOldFirestore(oldApp);
     const resultId = `${studentName}_${studentClass}_${yesterdayCode}`;
+    console.log(`🔍 Đang truy vấn document: hocsinh/${resultId}`);
+
     const refResult = oldDoc(oldDb, "hocsinh", resultId);
     const snapResult = await oldGetDoc(refResult);
 
@@ -139,6 +144,7 @@ async function updateStarsFromYesterday() {
     console.error("❌ Lỗi khi cập nhật sao:", error.message);
   }
 }
+
 
 // ✅ Hàm tải dữ liệu từ Firebase và hiển thị bộ sưu tập
 async function loadCollection() {
@@ -216,52 +222,82 @@ document.getElementById("startCaptureBtn").addEventListener("click", async () =>
   console.log(`✅ Đã trừ 500 sao. Còn lại: ${newStars}`);
   console.log("🧠 Bắt đầu tạo quiz thu phục...");
 
-  // ✅ Tạo quiz từ sheet từ vựng (mỗi câu từ một bài khác nhau)
-  const numQuestions = 1; // ✅ Sửa tại đây nếu muốn đổi số câu
-  const currentLessonCode = parseInt(localStorage.getItem("selectedLesson") || "9999");
+  // ✅ Tạo quiz từ dữ liệu lớp và bài học
+  const trainerClass = localStorage.getItem("trainerClass")?.trim();
+  console.log(`📦 Lớp hiện tại từ localStorage: ${trainerClass}`);
 
+  const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
+  const res1 = await fetch(SHEET_BAI_HOC);
+  const text1 = await res1.text();
+  const json1 = JSON.parse(text1.substring(47).slice(0, -2));
+  const rows1 = json1.table.rows;
+
+  const baiList = rows1
+    .map(r => {
+      const lop = r.c[0]?.v?.toString().trim();
+      const bai = r.c[2]?.v?.toString().trim();
+      return lop === trainerClass && bai ? parseInt(bai) : null;
+    })
+    .filter(v => typeof v === "number");
+
+  if (baiList.length === 0) {
+    console.warn(`⚠️ Không tìm thấy bài học nào cho lớp ${trainerClass}`);
+    return;
+  }
+
+  const maxLessonCode = Math.max(...baiList);
+  console.log(`📈 Bài lớn nhất của lớp ${trainerClass}: ${maxLessonCode}`);
+
+  // ✅ Truy vấn Sheet từ vựng
   const SHEET_TU_VUNG = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-  const res = await fetch(SHEET_TU_VUNG);
-  const text = await res.text();
-  const json = JSON.parse(text.substring(47).slice(0, -2));
-  const rows = json.table.rows.slice(1); // ✅ Bỏ dòng đầu tiên
+  const res2 = await fetch(SHEET_TU_VUNG);
+  const text2 = await res2.text();
+  const json2 = JSON.parse(text2.substring(47).slice(0, -2));
+  const rows2 = json2.table.rows.slice(1); // ✅ Bỏ dòng đầu tiên
 
   const baiTuVung = {};
-  rows.forEach(r => {
-    const rawCode = r.c[1]?.v;
+  rows2.forEach(r => {
+    const rawCode = r.c[1]?.v?.toString().trim();
     const word = r.c[2]?.v?.toString().trim();
     const meaning = r.c[24]?.v?.toString().trim();
 
-    if (!rawCode || !word || !meaning) return;
-
-    const codeStr = rawCode.toString().trim();
-    const normalizedCode = parseInt(codeStr.replace(/\D/g, ""));
-    if (isNaN(normalizedCode) || normalizedCode >= currentLessonCode) return;
+    const normalizedCode = parseInt(rawCode?.replace(/\D/g, ""));
+    if (!normalizedCode || normalizedCode > maxLessonCode || !word || !meaning) return;
 
     if (!baiTuVung[normalizedCode]) baiTuVung[normalizedCode] = [];
     baiTuVung[normalizedCode].push({ word, meaning });
   });
 
-
   const allCodes = Object.keys(baiTuVung).map(c => parseInt(c));
-  const shuffledCodes = allCodes.sort(() => Math.random() - 0.5);
-  const selectedCodes = shuffledCodes.slice(0, numQuestions);
+  console.log("📚 Các mã bài hợp lệ:", allCodes);
 
+  const shuffledCodes = allCodes.sort(() => Math.random() - 0.5).slice(0, 20);
+  console.log("🎯 Các bài được chọn:", shuffledCodes);
+
+  const usedMeanings = new Set();
   const quizItems = [];
-  selectedCodes.forEach(code => {
+
+  shuffledCodes.forEach(code => {
     const words = baiTuVung[code];
-    if (words && words.length > 0) {
-      const item = words[Math.floor(Math.random() * words.length)];
-      quizItems.push(item);
-    }
+    if (!words || words.length === 0) return;
+
+    const candidates = words.filter(w => !usedMeanings.has(w.meaning));
+    if (candidates.length === 0) return;
+
+    const item = candidates[Math.floor(Math.random() * candidates.length)];
+    usedMeanings.add(item.meaning);
+    quizItems.push(item);
   });
 
+  console.log(`✅ Đã tạo quiz gồm ${quizItems.length} từ vựng.`);
+
+  // ✅ Hiển thị quiz
   const container = document.getElementById("quizContainer");
   container.innerHTML = "";
   document.getElementById("quizSection").style.display = "block";
 
   quizItems.forEach((item, index) => {
-    const allMeanings = rows
+    const allMeanings = rows2
       .map(r => r.c[24]?.v?.toString().trim())
       .filter(m => m && m !== item.meaning);
 
@@ -285,8 +321,10 @@ document.getElementById("startCaptureBtn").addEventListener("click", async () =>
     container.appendChild(div);
   });
 
+
   console.log(`✅ Đã tạo quiz từ ${selectedCodes.length} bài, mỗi bài 1 từ.`);
 });
+
 
 document.getElementById("submitQuizBtn").addEventListener("click", async () => {
   const radios = document.querySelectorAll("input[type=radio]:checked");
