@@ -759,7 +759,7 @@ export const pokemonData = [
     hp: 180,
     power: 70,
     size: "large",
-    skills: []
+    skills: ["Tackle", "Headbutt"]
   }
 ];
 
