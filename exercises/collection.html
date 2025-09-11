@@ -136,6 +136,42 @@
     <button id="submitQuizBtn">✅ Nộp bài</button>
   </div>
 
+  <!-- ✅ Popup hiển thị thông tin Pokémon -->
+  <div id="pokemonDetailPopup" style="display: none;">
+    <div id="popupOverlay" style="
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    "></div>
+
+    <div id="popupContent" style="
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 1000;
+      width: 300px;
+      text-align: center;
+    ">
+      <button id="closePopupBtn" style="
+        position: absolute;
+        top: 10px; right: 10px;
+        background: transparent;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+      ">❌</button>
+      <div id="popupContentInner">
+        <!-- Nội dung Pokémon sẽ được JS gắn vào đây -->
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="collection.js"></script>
 </body>
 </html>
