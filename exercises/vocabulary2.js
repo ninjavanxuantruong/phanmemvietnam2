@@ -1,4 +1,5 @@
-import { showCatchEffect } from './pokeball-effect.js';
+import { showVictoryEffect } from './effect-win.js';
+import { showDefeatEffect } from './effect-loose.js';
 
 const PEXELS_API_KEY = "DsgAHtqZS5lQtujZcSdZsOHIhoa9NtT6GVMQ3Xn7DQiyDJ9FKDhgo2GQ";
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
@@ -89,12 +90,23 @@ async function showFlashcard(item, ballElement) {
       document.getElementById("ballCounter").textContent = `Còn lại: ${remaining} Pokéball`;
 
       if (caughtCount === vocabData.length) {
-        showCatchEffect();
-
         const speakingScore = parseInt(localStorage.getItem("speaking_score") || "0");
         const speakingTotal = vocabData.length * 2;
+        const percent = speakingScore / speakingTotal;
 
-        const prev = JSON.parse(localStorage.getItem("result_vocabulary") || "{}");
+        console.log("📊 Điểm nói:", speakingScore);
+        console.log("📊 Tổng điểm tối đa:", speakingTotal);
+        console.log("📊 Tỷ lệ đúng:", (percent * 100).toFixed(2) + "%");
+
+        if (percent >= 0.7) {
+          console.log("🏆 Gọi hiệu ứng chiến thắng!");
+          showVictoryEffect();
+        } else {
+          console.log("💥 Gọi hiệu ứng thất bại!");
+          showDefeatEffect();
+        }
+
+        const prev = JSON.parse(localStorage.getItem("result_vocabulary") || {});
         const prevScore = prev.score || 0;
         const prevTotal = prev.total || 0;
 
@@ -107,10 +119,8 @@ async function showFlashcard(item, ballElement) {
         }));
 
         localStorage.removeItem("speaking_score");
-
-
-    
       }
+
     }
   }, 10000); // 10 giây
 
@@ -128,14 +138,25 @@ async function showFlashcard(item, ballElement) {
       document.getElementById("ballCounter").textContent = `Còn lại: ${remaining} Pokéball`;
 
       if (caughtCount === vocabData.length) {
-        showCatchEffect();
-
-        const prev = JSON.parse(localStorage.getItem("result_vocabulary") || "{}");
-        const prevScore = prev.score || 0;
-        const prevTotal = prev.total || 0;
-
         const speakingScore = parseInt(localStorage.getItem("speaking_score") || "0");
         const speakingTotal = vocabData.length * 2;
+        const percent = speakingScore / speakingTotal;
+
+        console.log("📊 Điểm nói:", speakingScore);
+        console.log("📊 Tổng điểm tối đa:", speakingTotal);
+        console.log("📊 Tỷ lệ đúng:", (percent * 100).toFixed(2) + "%");
+
+        if (percent >= 0.7) {
+          console.log("🏆 Gọi hiệu ứng chiến thắng!");
+          showVictoryEffect();
+        } else {
+          console.log("💥 Gọi hiệu ứng thất bại!");
+          showDefeatEffect();
+        }
+
+        const prev = JSON.parse(localStorage.getItem("result_vocabulary") || {});
+        const prevScore = prev.score || 0;
+        const prevTotal = prev.total || 0;
 
         const combinedScore = prevScore + speakingScore + 10;
         const combinedTotal = prevTotal + speakingTotal + 10;
@@ -146,8 +167,8 @@ async function showFlashcard(item, ballElement) {
         }));
 
         localStorage.removeItem("speaking_score");
-
       }
+
     });
   };
 }
