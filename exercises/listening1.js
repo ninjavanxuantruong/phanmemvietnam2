@@ -1,4 +1,5 @@
-import { showCatchEffect } from './pokeball-effect.js';
+import { showVictoryEffect } from './effect-win.js';
+import { showDefeatEffect } from './effect-loose.js';
 
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
@@ -114,7 +115,8 @@ function nextListening1() {
 
 function showSummary() {
   const total = listeningData.length;
-  const passed = score >= Math.ceil(total / 2);
+  const percent = score / total;
+  const passed = percent >= 0.7;
   const area = document.getElementById("exerciseArea");
 
   // ✅ Ghi điểm vào localStorage theo dạng 1
@@ -126,17 +128,23 @@ function showSummary() {
       <br>✅ Trả lời đúng ${score} câu!
   `;
 
+  console.log("📊 Tổng câu:", total);
+  console.log("📊 Số câu đúng:", score);
+  console.log("📊 Tỷ lệ đúng:", (percent * 100).toFixed(2) + "%");
+
   if (passed) {
     html += `<br>🎉 Chuẩn Legendary! Bạn đã bắt được Pokémon!`;
     area.innerHTML = html + `</div>`;
-    showCatchEffect(area);
+    showVictoryEffect(area);
   } else {
-    html += `<br>🚫 Bạn chưa bắt được Pokémon nào! Hãy luyện thêm để đạt tối thiểu 50%.`;
+    html += `<br>🚫 Bạn chưa bắt được Pokémon nào! Hãy luyện thêm để đạt tối thiểu 70%.`;
     area.innerHTML = html + `</div>`;
+    showDefeatEffect(area);
   }
 
   document.getElementById("resultBox").textContent = "";
 }
+
 
 function setResultListeningPart(mode, score, total) {
   const raw = localStorage.getItem("result_listening");
