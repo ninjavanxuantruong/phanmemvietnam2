@@ -315,16 +315,21 @@ function updateMatchedWordsDisplay() {
     .join(" | ");
 }
 
-import { showCatchEffect } from './pokeball-effect.js';  // Gọi hiệu ứng Pokémon
+import { showVictoryEffect } from './effect-win.js';
+import { showDefeatEffect } from './effect-loose.js';
+
 
 function checkVictory() {
   console.log("Hàm checkVictory đã chạy!");
 
   const totalWords = vocabWords.length;
   const completedWords = matchedWords.length;
+  const percent = completedWords / totalWords;
 
   console.log("🔍 Tổng số từ cần hoàn thành:", totalWords);
   console.log("🔍 Số từ đã ghép đúng:", completedWords);
+  console.log("📊 Tỷ lệ đúng:", (percent * 100).toFixed(2) + "%");
+  console.log("⏱️ Trạng thái thời gian:", timerExpired ? "Hết giờ" : "Trong thời gian");
 
   if (completedWords === totalWords) {
     console.log("✅ Người chơi đã hoàn thành trò chơi!");
@@ -337,11 +342,14 @@ function checkVictory() {
     };
     localStorage.setItem("result_game", JSON.stringify(updated));
 
-
-    if (!timerExpired) {
-      showCatchEffect(); // ✅ Triệu hồi Pokémon nếu hoàn thành đúng thời gian
+    if (percent >= 0.7 && !timerExpired) {
+      console.log("🏆 Gọi hiệu ứng chiến thắng!");
+      showVictoryEffect();
     } else {
-      let msg = `🚫 Bạn hoàn thành muộn quá! Hãy hoàn tất trong ${totalTime}s để bắt được Pokémon lần sau.`;
+      console.log("💥 Gọi hiệu ứng thất bại!");
+      showDefeatEffect();
+
+      let msg = `🚫 Bạn chưa đạt đủ điều kiện để bắt Pokémon! Hãy hoàn tất ít nhất 70% trong thời gian ${totalTime}s nhé.`;
       let hintBox = document.getElementById("hintDisplay");
       if (hintBox) hintBox.textContent = msg;
       else alert(msg);
