@@ -126,9 +126,13 @@
   </div>
 
   <script type="module">
-    import { showCatchEffect } from './pokeball-effect.js';
-    window.showCatchEffect = showCatchEffect;
+    import { showVictoryEffect } from './effect-win.js';
+    import { showDefeatEffect } from './effect-loose.js';
+
+    window.showVictoryEffect = showVictoryEffect;
+    window.showDefeatEffect = showDefeatEffect;
   </script>
+
 
 
   <script src="communication.js"></script>
