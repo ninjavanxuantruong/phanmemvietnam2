@@ -208,7 +208,8 @@ function showStarAndSpeak() {
 // 🆕 Hàm kiểm tra chiến thắng và hiển thị pháo hoa
 
 
-import { showCatchEffect } from './pokeball-effect.js';
+import { showVictoryEffect } from './effect-win.js';
+import { showDefeatEffect } from './effect-loose.js';
 
 function checkVictory() {
   const totalPairs = parseInt(localStorage.getItem("totalWords")) || 0;
@@ -219,21 +220,28 @@ function checkVictory() {
 
   if (totalPairs > 0 && matchedPairs === totalPairs) {
     console.log("✅ Người chơi đã hoàn thành trò chơi!");
-    console.log("🚨 Hiệu ứng triệu hồi Pokémon đã được gọi!");
 
-    showCatchEffect(); // 🎉 Triệu hồi Pokémon thay cho thông báo
+    const scorePercent = (matchedPairs / totalPairs) * 100;
+    console.log("📊 Tỷ lệ đúng:", scorePercent.toFixed(2) + "%");
+
+    if (scorePercent >= 70) {
+      console.log("🏆 Hiệu ứng chiến thắng được gọi!");
+      showVictoryEffect(); // 🎉 Hiệu ứng thắng
+    } else {
+      console.log("💥 Hiệu ứng thất bại được gọi!");
+      showDefeatEffect(); // 💥 Hiệu ứng thua
+    }
 
     // ✅ Ghi điểm vào localStorage để summary đọc được
-    // ✅ Ghi điểm vào localStorage (cộng dồn vào result_game)
     const prev = JSON.parse(localStorage.getItem("result_game")) || { score: 0, total: 0 };
     const updated = {
       score: prev.score + matchedPairs,
       total: prev.total + totalPairs
     };
     localStorage.setItem("result_game", JSON.stringify(updated));
-
   }
 }
+
 
 
 // 🆕 Sự kiện khi trang tải xong, khởi động game
