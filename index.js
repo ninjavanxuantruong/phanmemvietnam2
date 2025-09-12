@@ -37,8 +37,10 @@ async function startApp() {
   console.log("🧪 Test Trần Anh lớp 2:", testMatch ? "✅ Có trong danh sách" : "❌ Không tìm thấy");
 
   // ✅ Lưu thông tin học sinh
-  const cleanedName = cleanInput(name);
-  const cleanedClass = cleanInput(className);
+  
+  
+  const cleanedName = cleanName(name);
+  const cleanedClass = cleanName(className);
 
   localStorage.removeItem("trainerName");
   localStorage.removeItem("trainerClass");
