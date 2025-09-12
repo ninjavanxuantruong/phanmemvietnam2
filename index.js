@@ -1,9 +1,12 @@
 import { fetchStudentList } from './studentList.js';
 
-function cleanName(str) {
-  return str.toLowerCase().trim();
+console.log("✅ index.js đã chạy");
+function cleanInput(str) {
+  return str
+    .toLowerCase()               // chuyển về chữ thường
+    .replace(/[.,;/:]/g, "")     // xóa dấu câu
+    .trim();                     // xóa khoảng trắng đầu/cuối
 }
-
 
 async function startApp() {
   const name = document.getElementById("studentName").value.trim();
@@ -37,18 +40,11 @@ async function startApp() {
   console.log("🧪 Test Trần Anh lớp 2:", testMatch ? "✅ Có trong danh sách" : "❌ Không tìm thấy");
 
   // ✅ Lưu thông tin học sinh
-  
-  
-  const cleanedName = cleanName(name);
-  const cleanedClass = cleanName(className);
-
-  localStorage.removeItem("trainerName");
-  localStorage.removeItem("trainerClass");
+  const cleanedName = cleanInput(name);
+  const cleanedClass = cleanInput(className);
 
   localStorage.setItem("trainerName", cleanedName);
   localStorage.setItem("trainerClass", cleanedClass);
-
-  
  
   localStorage.setItem("startTime_global", Date.now());
 
@@ -74,4 +70,3 @@ window.addEventListener("DOMContentLoaded", () => {
     console.warn("❌ Không tìm thấy nút #startBtn");
   }
 });
-
