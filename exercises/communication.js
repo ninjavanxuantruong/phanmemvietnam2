@@ -71,8 +71,8 @@ document.addEventListener("DOMContentLoaded", function () {
         total: totalPoints
       }));
       setTimeout(() => {
-        if (typeof showCatchEffect === "function") {
-          showCatchEffect(chatContainer);
+        if (typeof showVictoryEffect === "function") {
+          showVictoryEffect(chatContainer);
         }
       }, 600);
       return;
