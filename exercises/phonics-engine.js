@@ -1,5 +1,6 @@
 // ✅ Import hiệu ứng PokéBall từ module
-import { showCatchEffect } from './pokeball-effect.js';
+import { showVictoryEffect } from './effect-win.js';
+import { showDefeatEffect } from './effect-loose.js';
 import { phonicsBank } from './phonics-bank.js';
 
 let filteredBank = [];
@@ -399,9 +400,20 @@ function checkTotalScore() {
 
   container.appendChild(resultSummary);
 
-  if (totalScore >= maxScore / 2) {
-    showCatchEffect(container);
+  const percent = totalScore / maxScore;
+
+  console.log("📊 Tổng điểm:", totalScore);
+  console.log("📊 Điểm tối đa:", maxScore);
+  console.log("📊 Tỷ lệ đúng:", (percent * 100).toFixed(2) + "%");
+
+  if (percent >= 0.7) {
+    console.log("🏆 Gọi hiệu ứng chiến thắng!");
+    showVictoryEffect(container);
+  } else {
+    console.log("💥 Gọi hiệu ứng thất bại!");
+    showDefeatEffect(container);
   }
+
 }
 
 function shuffleArray(arr) {
