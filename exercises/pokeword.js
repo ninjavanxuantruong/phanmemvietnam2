@@ -1,5 +1,6 @@
 import { displayBackground } from './backgroundPokeword.js';
-import { showCatchEffect } from './pokeball-effect.js';
+import { showVictoryEffect } from './effect-win.js';
+import { showDefeatEffect } from './effect-loose.js';
 
 console.log("pokeword.js đã được load");
 
@@ -164,15 +165,29 @@ function checkAnswer() {
   if (currentIndex < vocabWords.length) {
     setTimeout(() => renderWord(vocabWords[currentIndex]), 1000);
   } else {
-    const totalWords = vocabWords.length;
-    const passThreshold = Math.floor(totalWords / 2); // 👈 Ngưỡng 50%
+    clearInterval(timer); // ✅ Dừng đếm thời gian khi game kết thúc
 
-    if (score >= passThreshold) {
-      triggerVictoryEffect(); // ✅ Triệu hồi Pokémon
+    const totalWords = vocabWords.length;
+    const percent = score / totalWords;
+    
+
+    if (percent >= 0.7 && !timerExpired) {
+      console.log("🏆 Gọi hiệu ứng chiến thắng!");
+      showVictoryEffect();
     } else {
-      hintBox.textContent = `🚫 Bạn chưa bắt được Pokémon nào! Hãy luyện thêm để đạt tối thiểu 50% từ đúng nhé`;
+      console.log("💥 Gọi hiệu ứng thất bại!");
+      showDefeatEffect();
     }
+
+    // ✅ Ghi điểm vào localStorage (cộng dồn vào result_game)
+    const prev = JSON.parse(localStorage.getItem("result_game")) || { score: 0, total: 0 };
+    const updated = {
+      score: prev.score + score,
+      total: prev.total + totalWords
+    };
+    localStorage.setItem("result_game", JSON.stringify(updated));
   }
+
 
 }
 
@@ -203,19 +218,11 @@ function updateMatchedWordsDisplay(obj) {
     : "Từ đã bắt được: " + newEntry;
 }
 
-function triggerVictoryEffect() {
-  console.log("✅ Người chơi đã hoàn tất PokéWord!");
-  showCatchEffect(); // ✨ Triệu hồi Pokémon
 
-  // ✅ Ghi điểm vào localStorage (cộng dồn vào result_game)
-  const prev = JSON.parse(localStorage.getItem("result_game")) || { score: 0, total: 0 };
-  const updated = {
-    score: prev.score + score,
-    total: prev.total + vocabWords.length
-  };
-  localStorage.setItem("result_game", JSON.stringify(updated));
 
-}
+
+
+
 
 hintBtn.onclick = () => {
   const wordObj = vocabWords[currentIndex];
