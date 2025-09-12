@@ -1,4 +1,4 @@
-import { showCatchEffect } from './pokeball-effect.js'; // 🥎 Import hiệu ứng từ file
+import { showVictoryEffect } from './effect-win.js'; // 🥎 Import hiệu ứng từ file
 
 const PEXELS_API_KEY = "DsgAHtqZS5lQtujZcSdZsOHIhoa9NtT6GVMQ3Xn7DQiyDJ9FKDhgo2GQ";
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
@@ -138,7 +138,7 @@ let hasCaught = false;
 
 document.getElementById("completeBtn").onclick = () => {
   if (roundCount >= 2 && !hasCaught) {
-    showCatchEffect();
+    showVictoryEffect();
     const score = vocabData.length > 0 ? 10 : 0;
     localStorage.setItem("result_vocabulary", JSON.stringify({score, total: 10}));
 
