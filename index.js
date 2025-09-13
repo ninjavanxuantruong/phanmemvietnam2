@@ -20,53 +20,34 @@ async function startApp() {
   }
 
   const studentList = await fetchStudentList();
-
-  // ✅ Hàm chuẩn hóa: giữ dấu, bỏ khoảng trắng đầu/cuối, không phân biệt hoa/thường
   const normalize = str => str.toLowerCase().trim();
 
-  // ✅ Kiểm tra khớp tên và lớp
   const matchedStudent = studentList.find(s =>
     normalize(s.name) === normalize(name) &&
     normalize(s.class) === normalize(className)
   );
 
-  // ✅ Test riêng cho Trần Anh lớp 2
-  const testName = "Trần Anh";
-  const testClass = "2";
-  const testMatch = studentList.find(s =>
-    normalize(s.name) === normalize(testName) &&
-    normalize(s.class) === normalize(testClass)
-  );
-  console.log("🧪 Test Trần Anh lớp 2:", testMatch ? "✅ Có trong danh sách" : "❌ Không tìm thấy");
-
-  // ✅ Lưu thông tin học sinh
   const cleanedName = cleanInput(name);
   const cleanedClass = cleanInput(className);
 
   localStorage.setItem("trainerName", cleanedName);
   localStorage.setItem("trainerClass", cleanedClass);
- 
   localStorage.setItem("startTime_global", Date.now());
 
   if (matchedStudent) {
     localStorage.setItem("isVerifiedStudent", "true");
     localStorage.setItem("studentPassword", matchedStudent.password || "");
+    window.location.href = "choice.html";
   } else {
     localStorage.setItem("isVerifiedStudent", "false");
+    alert("⚠️ Bạn chưa được cấp nick. Bạn vẫn có thể tiếp tục học.");
+    // ❌ KHÔNG chuyển trang ở đây
   }
-
-  console.log("Đã xác thực:", localStorage.getItem("isVerifiedStudent"));
-  console.log("Đã lưu mật khẩu:", localStorage.getItem("studentPassword"));
-
-  window.location.href = "choice.html";
 }
-
 window.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("startBtn");
-  console.log("✅ Đã tìm thấy nút:", btn);
   if (btn) {
     btn.addEventListener("click", startApp);
-  } else {
-    console.warn("❌ Không tìm thấy nút #startBtn");
   }
 });
+
