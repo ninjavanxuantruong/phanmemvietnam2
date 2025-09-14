@@ -428,15 +428,12 @@ async function showDailyParticipation(studentMap, recentDates) {
       const normalized = normalizeName(name);
       doneSet.add(normalized);
 
-      const scoreSum = (entry.score || 0) + (entry.doneParts || 0);
-      const overall = scoreSum >= 11 ? "🏆 Tuyệt vời toàn diện"
-                    : scoreSum >= 9 ? "😃 Rất tốt"
-                    : scoreSum >= 7 ? "🙂 Tốt"
-                    : "⚠️ Cần cải thiện";
+      const rating = entry.rating || ""; // ✅ lấy đánh giá từ Firebase
 
-      if (overall === "⚠️ Cần cải thiện") {
+      if (rating.trim() === "⚠️ Cần cải thiện") {
         needImprove.push(entry.name);
       }
+
     }
 
     const notDoneList = classStudents
