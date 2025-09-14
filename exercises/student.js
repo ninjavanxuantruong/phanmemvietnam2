@@ -410,9 +410,11 @@ async function showDailyParticipation(studentMap, recentDates) {
   const reportBox = document.getElementById("dailyReportContent");
   reportBox.innerHTML = "";
 
-  const sortedDates = [...recentDates].sort((a, b) => b.localeCompare(a));
-  sortedDates.forEach(dateCode => {
+  const sortedDates = [...recentDates].sort((a, b) => b.localeCompare(a)); // từ mới đến cũ
 
+  const weakTracker = {}; // tên → danh sách ngày yếu
+
+  for (const dateCode of sortedDates) {
     const doneSet = new Set();
     const notDone = [];
     const needImprove = [];
@@ -428,12 +430,10 @@ async function showDailyParticipation(studentMap, recentDates) {
       const normalized = normalizeName(name);
       doneSet.add(normalized);
 
-      const rating = entry.rating || ""; // ✅ lấy đánh giá từ Firebase
-
+      const rating = entry.rating || "";
       if (rating.trim() === "⚠️ Cần cải thiện") {
         needImprove.push(entry.name);
       }
-
     }
 
     const notDoneList = classStudents
@@ -443,6 +443,16 @@ async function showDailyParticipation(studentMap, recentDates) {
     const doneList = classStudents
       .filter(s => doneSet.has(normalizeName(s.name)))
       .map(s => s.name);
+
+    // ✅ Ghi lại trạng thái yếu để tổng hợp sau
+    const allWeak = [...notDoneList, ...needImprove];
+    for (const name of allWeak) {
+      if (!weakTracker[name]) weakTracker[name] = [];
+      weakTracker[name].push({
+        date: dateCode,
+        type: notDoneList.includes(name) ? "chưa làm bài" : "cần cải thiện"
+      });
+    }
 
     const formattedDate = `${dateCode.slice(0,2)}-${dateCode.slice(2,4)}-${dateCode.slice(4)}`;
     const section = document.createElement("div");
@@ -484,7 +494,53 @@ async function showDailyParticipation(studentMap, recentDates) {
       <hr>
     `;
     reportBox.appendChild(section);
-  });
+  }
+
+  // ✅ Tổng hợp học sinh yếu liên tiếp
+  const weakAlerts = [];
+
+  for (const name in weakTracker) {
+    const history = weakTracker[name];
+    const sorted = history.sort((a, b) => b.date.localeCompare(a.date)); // từ hôm nay trở về
+
+    let streak = [];
+    const recentCodes = [...recentDates].sort((a, b) => b.localeCompare(a)); // từ hôm nay trở về
+
+    for (let i = 0; i < recentCodes.length; i++) {
+      const h = history.find(e => e.date === recentCodes[i]);
+      if (h) {
+        streak.push(h);
+      } else {
+        break;
+      }
+    }
+
+    if (streak.length >= 2) {
+      const detail = streak.map(h => `${h.type} (${h.date.slice(0,2)}/${h.date.slice(2,4)})`).join(", ");
+      weakAlerts.push(`${name} (${streak.length} ngày: ${detail})`);
+
+    }
+    const alertTextPlain = weakAlerts.join("\n");
+    const alertTextHTML = weakAlerts.map(line => `• ${line}`).join("<br>");
+
+    const alertSection = document.createElement("div");
+    alertSection.style.marginBottom = "20px";
+
+    alertSection.innerHTML = `
+      <h4>🔔 Học sinh cần quan tâm (${weakAlerts.length})</h4>
+      <p id="weak-alerts" data-class="${selectedClass}" data-type="weak" data-raw="${alertTextPlain}">
+        ${alertTextHTML}
+      </p>
+      <button onclick="copyToClipboard('weak-alerts')">📋 Sao chép</button>
+      <hr>
+    `;
+
+    reportBox.prepend(alertSection); // ✅ hiển thị lên đầu
+
+  }
+
+  // ✅ Hiển thị cảnh báo đầu trang
+  
 
   reportBox.scrollIntoView({ behavior: "smooth" });
   console.log("📋 Đã hiển thị báo cáo điểm danh theo ngày.");
@@ -496,7 +552,8 @@ window.copyToClipboard = function(id) {
   const el = document.getElementById(id);
   if (!el) return;
 
-  const rawNames = el.textContent.trim();
+  const rawNames = el.getAttribute("data-raw") || el.textContent.trim();
+
   const className = el.getAttribute("data-class");
   const date = el.getAttribute("data-date");
   const type = el.getAttribute("data-type");
