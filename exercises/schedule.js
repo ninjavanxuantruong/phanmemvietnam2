@@ -249,8 +249,9 @@ async function generateFullScheduleFromSheet(className) {
         code: mainCode,
         title: mainRaw,
         relatedCodes,
-        baseDate // ✅ thêm ngày gốc từ Sheet
+        baseDate // ✅ dùng ngày gốc từ Sheet
       });
+
 
     }
 
@@ -405,11 +406,27 @@ async function autoFillOldLessons(className, currentSchedule) {
   await window.setDoc(docRef, currentSchedule);
 
   // ✅ Gộp dữ liệu cũ + mới → ghi vào bosung
-  const finalBosung = Object.keys(bosungSchedule).length === 0
-    ? {} // ✅ reset nếu hết bài
-    : { ...preserved, ...bosungSchedule };
+  let finalBosung;
+
+  if (finalUnits.length < totalNeeded) {
+    console.warn("⚠️ Không đủ bài để bổ sung, cho phép quay vòng lại từ đầu — reset bosung");
+    finalBosung = bosungSchedule;
+
+    // ✅ THÊM LOG KIỂM TRA RESET
+    console.log("🧹 Đã RESET bosung — chỉ ghi lại bài vừa bổ sung:");
+    console.table(bosungSchedule);
+  } else {
+    finalBosung = { ...preserved, ...bosungSchedule };
+
+    // ✅ THÊM LOG KIỂM TRA GỘP
+    console.log("📦 Đã GỘP bosung — giữ lại bài cũ và thêm bài mới:");
+    console.log("🗂 preserved:", Object.keys(preserved).length, "ngày");
+    console.log("🆕 bosung mới:", Object.keys(bosungSchedule).length, "ngày");
+  }
+
 
   await window.setDoc(bosungRef, finalBosung);
+
 
   console.log("✅ Đã cập nhật lịch bổ sung và giữ lại dữ liệu cũ trước hôm nay");
 }
