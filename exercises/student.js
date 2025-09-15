@@ -411,9 +411,9 @@ async function showDailyParticipation(studentMap, recentDates) {
   reportBox.innerHTML = "";
 
   const sortedDates = [...recentDates].sort((a, b) => b.localeCompare(a)); // từ mới đến cũ
-
   const weakTracker = {}; // tên → danh sách ngày yếu
 
+  // 📅 Lặp qua từng ngày để hiển thị báo cáo và ghi trạng thái yếu
   for (const dateCode of sortedDates) {
     const doneSet = new Set();
     const notDone = [];
@@ -444,7 +444,7 @@ async function showDailyParticipation(studentMap, recentDates) {
       .filter(s => doneSet.has(normalizeName(s.name)))
       .map(s => s.name);
 
-    // ✅ Ghi lại trạng thái yếu để tổng hợp sau
+    // Ghi lại trạng thái yếu để tổng hợp sau
     const allWeak = [...notDoneList, ...needImprove];
     for (const name of allWeak) {
       if (!weakTracker[name]) weakTracker[name] = [];
@@ -454,6 +454,7 @@ async function showDailyParticipation(studentMap, recentDates) {
       });
     }
 
+    // Hiển thị báo cáo từng ngày
     const formattedDate = `${dateCode.slice(0,2)}-${dateCode.slice(2,4)}-${dateCode.slice(4)}`;
     const section = document.createElement("div");
     section.style.marginTop = "20px";
@@ -496,30 +497,29 @@ async function showDailyParticipation(studentMap, recentDates) {
     reportBox.appendChild(section);
   }
 
-  // ✅ Tổng hợp học sinh yếu liên tiếp
+  // 📊 Tổng hợp học sinh yếu: hôm nay & hôm qua đều yếu, thống kê tất cả ngày yếu
   const weakAlerts = [];
+  const sortedDatesByData = [...recentDates].sort((a, b) => b.localeCompare(a)); // từ mới đến cũ
+  const todayCode = sortedDatesByData[0];
+  const yesterdayCode = sortedDatesByData[1] || null;
 
   for (const name in weakTracker) {
     const history = weakTracker[name];
-    const sorted = history.sort((a, b) => b.date.localeCompare(a.date)); // từ hôm nay trở về
+    const todayWeak = todayCode ? history.find(h => h.date === todayCode) : null;
+    const yesterdayWeak = yesterdayCode ? history.find(h => h.date === yesterdayCode) : null;
 
-    let streak = [];
-    const recentCodes = [...recentDates].sort((a, b) => b.localeCompare(a)); // từ hôm nay trở về
-
-    for (let i = 0; i < recentCodes.length; i++) {
-      const h = history.find(e => e.date === recentCodes[i]);
-      if (h) {
-        streak.push(h);
-      } else {
-        break;
-      }
+    if (todayWeak && yesterdayWeak) {
+      // Lấy toàn bộ các ngày yếu trong recentDates
+      const allWeakDays = history
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .map(h => `${h.type} (${h.date.slice(0,2)}/${h.date.slice(2,4)})`)
+        .join(", ");
+      weakAlerts.push(`${name} (${history.length} ngày: ${allWeakDays})`);
     }
+  }
 
-    if (streak.length >= 2) {
-      const detail = streak.map(h => `${h.type} (${h.date.slice(0,2)}/${h.date.slice(2,4)})`).join(", ");
-      weakAlerts.push(`${name} (${streak.length} ngày: ${detail})`);
-
-    }
+  // 🔔 Hiển thị cảnh báo duy nhất
+  if (weakAlerts.length > 0) {
     const alertTextPlain = weakAlerts.join("\n");
     const alertTextHTML = weakAlerts.map(line => `• ${line}`).join("<br>");
 
@@ -534,17 +534,13 @@ async function showDailyParticipation(studentMap, recentDates) {
       <button onclick="copyToClipboard('weak-alerts')">📋 Sao chép</button>
       <hr>
     `;
-
-    reportBox.prepend(alertSection); // ✅ hiển thị lên đầu
-
+    reportBox.prepend(alertSection);
   }
-
-  // ✅ Hiển thị cảnh báo đầu trang
-  
 
   reportBox.scrollIntoView({ behavior: "smooth" });
   console.log("📋 Đã hiển thị báo cáo điểm danh theo ngày.");
 }
+
 
 
 // ✅ Hàm sao chép danh sách
