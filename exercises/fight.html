@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Đối kháng nói - Theo trình độ</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .row { margin: 10px 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+    .red { background: #ffe0e0; color: #b30000; }
+    .green { background: #e0ffe8; color: #0c6b3a; }
+    .muted { color: #666; }
+    #gameArea { margin-top: 16px; border-top: 1px solid #eee; padding-top: 16px; }
+    #question { font-size: 18px; margin: 12px 0; }
+    button { padding: 8px 14px; margin-right: 8px; }
+    .pill { padding: 2px 8px; border-radius: 16px; background: #f3f3f3; }
+    .flex { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <h2>🎤 Đối kháng nói — Theo trình độ</h2>
+
+  <div class="row flex">
+    <div><strong>Người chơi:</strong> <span id="meName" class="pill"></span></div>
+    <div>
+      <label>Chọn trình độ:
+        <select id="levelSelect">
+          <option value="2">Lớp 2</option>
+          <option value="3">Lớp 3</option>
+          <option value="4">Lớp 4</option>
+          <option value="5">Lớp 5</option>
+          <option value="6">Lớp 6</option>
+        </select>
+      </label>
+      <button id="joinBtn">Tham gia</button>
+      
+    </div>
+  </div>
+
+  <div id="status" class="row muted">Chưa tham gia phòng.</div>
+
+  <div id="gameArea" style="display:none;">
+    <div class="row flex">
+      <div>Phòng: <strong><span id="roomId">—</span></strong></div>
+      <div>Trình độ: <strong><span id="roomLevel">—</span></strong></div>
+      <div>Lượt: <strong><span id="turnIndex">0</span>/10</strong></div>
+    </div>
+
+    <div class="row">
+      <div>Người chơi 1: <span id="p1" class="badge">—</span></div>
+      <div>Người chơi 2: <span id="p2" class="badge">—</span></div>
+    </div>
+
+    <div class="row">
+      <div>Đang tới lượt: <strong><span id="currentTurn">—</span></strong></div>
+      <div id="question">Câu hỏi: <span id="questionText">—</span></div>
+    </div>
+
+    <div class="row">
+      
+      <button id="recordBtn" disabled>🎤 Ghi âm</button>
+      <div id="speechResult" style="margin-top:10px;"></div>
+
+      
+    </div>
+  </div>
+
+  <script type="module" src="fight.js"></script>
+</body>
+</html>
