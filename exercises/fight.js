@@ -376,23 +376,40 @@ async function attachRoom(level, roomId) {
 
   roomIdSpan.textContent = currentRoomId;
   roomLevelSpan.textContent = currentLevel;
-  
+
 
   const ref = roomDocRef(level, roomId);
+  let wasFull = false;
+
   unsubRoom = onSnapshot(ref, (snap) => {
     if (!snap.exists()) return;
     const data = snap.data();
+
+    const iAmStillHere = (data.player1 === playerName || data.player2 === playerName);
+    const opponentGone = (!data.player1 || !data.player2);
+
+    // Đánh dấu đã từng đủ 2 người
+    if (data.player1 && data.player2) {
+      wasFull = true;
+    }
+
+    // Chỉ đá ra nếu đã từng đủ 2 người và giờ thiếu
+    if (wasFull && iAmStillHere && opponentGone) {
+      statusDiv.textContent = "⚠️ Đối thủ đã thoát. Phòng bị đóng.";
+      leaveRoom();
+      wasFull = false;
+      return;
+    }
+
     renderRoom(data);
 
-    // Status message
     if (!data.player2) {
       statusDiv.textContent = "Đang chờ đối thủ...";
     } else if (data.started) {
       statusDiv.textContent = "Trận đấu đã bắt đầu!";
-    } else {
-      statusDiv.textContent = "Đối thủ đã rời. Chờ người mới...";
     }
   });
+
 }
 
 // Actions
@@ -500,13 +517,38 @@ async function leaveRoom() {
   currentTurnSpan.textContent = "—";
   questionText.textContent = "—";
   turnIndexSpan.textContent = "0";
-  
+
   gameArea.style.display = "none";
   statusDiv.textContent = "Đã thoát phòng.";
 }
+
+async function leaveRoomFast() {
+  try {
+    if (!currentLevel || !currentRoomId) return;
+    const ref = roomDocRef(currentLevel, currentRoomId);
+    await updateDoc(ref, {
+      // Không cần getDoc, không cần xóa slot — chỉ báo phòng đóng
+      status: "deleted",
+      lastUpdated: Date.now()
+    });
+  } catch (e) {
+    console.warn("leaveRoomFast error", e);
+  }
+}
+
 
 // Auto cleanup on tab close
 window.addEventListener("beforeunload", async (e) => {
   // Best-effort cleanup; may not always complete due to browser timing
   try { await leaveRoom(); } catch {}
+});
+
+// Mobile-friendly: chạy khi tab/app bị ẩn hoặc đóng
+window.addEventListener("pagehide", () => {
+  leaveRoomFast();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    leaveRoomFast();
+  }
 });
