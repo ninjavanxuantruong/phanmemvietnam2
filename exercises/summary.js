@@ -286,90 +286,112 @@ function getFullEvaluation({ totalScore, totalMax, completedParts, learnedGroups
 
 
 
-async function renderStudentWeekSummary() {
-  const isVerified = localStorage.getItem("isVerifiedStudent") === "true";
-  const studentName = localStorage.getItem("trainerName");
-  const studentClass = localStorage.getItem("trainerClass");
+// Hàm tạo object kết quả hôm nay
+function getTodayEntry() {
+  // Lấy tên/lớp hiển thị (để lưu vào history local cho dễ đọc)
+  const studentName = localStorage.getItem("trainerName") || "";
+  const studentClass = localStorage.getItem("trainerClass") || "";
 
-  if (!isVerified) {
-    alert("Bạn chưa được thầy Tình cấp nick. Không thể xem kết quả tuần.");
-    return;
-  }
+  // Lấy tên/lớp đã chuẩn hóa từ lúc đăng nhập (ưu tiên dùng)
+  const normalizedName =
+    localStorage.getItem("normalizedTrainerName") ||
+    studentName.toLowerCase().trim();
+  const normalizedClass =
+    localStorage.getItem("normalizedTrainerClass") ||
+    studentClass.toLowerCase().trim();
 
-  const normalizedName = studentName.trim().toLowerCase();
-  const normalizedClass = studentClass.trim().toLowerCase();
-
+  // Mã ngày dạng ddmmyy
   const dateStr = new Date();
-  const day = String(dateStr.getDate()).padStart(2, '0');
-  const month = String(dateStr.getMonth() + 1).padStart(2, '0');
+  const day = String(dateStr.getDate()).padStart(2, "0");
+  const month = String(dateStr.getMonth() + 1).padStart(2, "0");
   const year = String(dateStr.getFullYear()).slice(-2);
   const dateCode = `${day}${month}${year}`;
 
-  const totalScore = parseInt(document.getElementById("totalScore").textContent);
-  const totalMax = parseInt(document.getElementById("totalMax").textContent);
-  const finalRating = document.getElementById("totalRating").textContent.split(" | ").pop().split(": ").pop();
+  // Điểm và đánh giá
+  const totalScore =
+    parseInt(document.getElementById("totalScore").textContent) || 0;
+  const totalMax =
+    parseInt(document.getElementById("totalMax").textContent) || 0;
+  const finalRating = document
+    .getElementById("totalRating")
+    .textContent.split(" | ")
+    .pop()
+    .split(": ")
+    .pop();
 
+  // Thời gian làm bài
   const startTimeGlobal = localStorage.getItem("startTime_global");
   const totalMinutes = startTimeGlobal
     ? Math.max(1, Math.floor((Date.now() - parseInt(startTimeGlobal)) / 60000))
     : 0;
 
-  const completedParts = [];
-  const parts = [
-    "vocabulary", "image", "game-word-meaning", "word-puzzle", "pokeword",
-    "listening", "speaking-chunks", "speaking-sentence", "speaking-paragraph",
-    "phonics", "overview", "communication"
-  ];
-  parts.forEach(key => {
-    const result = localStorage.getItem(`result_${key}`);
-    const parsed = result ? JSON.parse(result) : null;
-    if (parsed?.total > 0) completedParts.push(key);
-  });
-
-  const grade8Total = parseInt(localStorage.getItem("totalQuestions_grade8") || "0");
-  if (grade8Total > 0) completedParts.push("grade8");
-
+  // Số phần đã làm
+  const completedParts =
+    JSON.parse(localStorage.getItem("completedParts") || "[]");
   const completedCount = completedParts.length;
 
-  const newEntry = {
-    name: normalizedName,
-    class: normalizedClass,
+  return {
+    name: normalizedName,       // luôn dùng bản chuẩn hóa để lưu Firebase
+    class: normalizedClass,     // luôn dùng bản chuẩn hóa để lưu Firebase
     score: totalScore,
     max: totalMax,
     doneParts: completedCount,
     rating: finalRating,
     date: dateCode,
-    duration: totalMinutes
+    duration: totalMinutes,
+    _displayName: studentName,  // để hiển thị đẹp
+    _displayClass: studentClass // để hiển thị đẹp
   };
+}
 
-  const historyKey = `history_${studentName}_${studentClass}`;
+
+// 1️⃣ Hàm lưu kết quả hôm nay
+async function saveTodayResult() {
+  const isVerified = localStorage.getItem("isVerifiedStudent") === "true";
+  if (!isVerified) {
+    alert("❌ Bạn chưa được xác thực, không thể ghi kết quả.");
+    return;
+  }
+
+  const entry = getTodayEntry();
+
+  // Lưu local history
+  const historyKey = `history_${entry._displayName}_${entry._displayClass}`;
   const history = JSON.parse(localStorage.getItem(historyKey)) || [];
-  const existingIndex = history.findIndex(entry => entry.date === dateCode);
+  const existingIndex = history.findIndex(e => e.date === entry.date);
   if (existingIndex >= 0) {
-    history[existingIndex] = newEntry;
+    history[existingIndex] = entry;
   } else {
-    history.push(newEntry);
+    history.push(entry);
   }
   localStorage.setItem(historyKey, JSON.stringify(history));
 
+  // Ghi Firebase
   if (window.saveStudentResultToFirebase) {
     try {
-      await window.saveStudentResultToFirebase(newEntry);
-      console.log("📥 Đã lưu Firebase từ nút tuần:", newEntry);
+      await window.saveStudentResultToFirebase(entry);
+      alert("✅ Đã ghi kết quả lên hệ thống!");
     } catch (err) {
-      console.error("❌ Lỗi khi lưu Firebase:", err.message);
+      alert("❌ Lỗi khi ghi kết quả: " + err.message);
     }
+  } else {
+    alert("⚠️ Chưa có hàm saveStudentResultToFirebase.");
+  }
+}
+
+// 2️⃣ Hàm render bảng tuần từ Firebase
+async function renderStudentWeekSummary() {
+  const isVerified = localStorage.getItem("isVerifiedStudent") === "true";
+  if (!isVerified) {
+    alert("❌ Bạn chưa được xác thực, không thể xem kết quả tuần.");
+    return;
   }
 
-  // ✅ Khởi tạo Firebase
+  const entryToday = getTodayEntry();
+
+  // Khởi tạo Firebase
   const { initializeApp, getApp } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js");
-  const {
-    getFirestore,
-    collection,
-    query,
-    where,
-    getDocs
-  } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js");
+  const { getFirestore, collection, query, where, getDocs } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js");
 
   const firebaseConfig = {
     apiKey: "AIzaSyBQ1pPmSdBV8M8YdVbpKhw_DOetmzIMwXU",
@@ -381,63 +403,58 @@ async function renderStudentWeekSummary() {
   };
 
   let app;
-  try {
-    app = initializeApp(firebaseConfig);
-  } catch (e) {
-    app = getApp();
-  }
-
+  try { app = initializeApp(firebaseConfig); } catch { app = getApp(); }
   const db = getFirestore(app);
 
-  // ✅ Truy vấn chỉ lấy dữ liệu của học sinh đang đăng nhập
+  // Truy vấn dữ liệu học sinh
   const q = query(
     collection(db, "hocsinh"),
-    where("name", "==", normalizedName),
-    where("class", "==", normalizedClass)
+    where("name", "==", entryToday.name),
+    where("class", "==", entryToday.class)
   );
 
   const snapshot = await getDocs(q);
 
-  // ✅ Bắt đầu với bản ghi hôm nay
-  const entries = [newEntry];
-
+  // Gom dữ liệu: hôm nay + các ngày khác từ Firebase
+  const entries = [entryToday];
   snapshot.forEach(docSnap => {
     const data = docSnap.data();
-    if (data.date !== dateCode) {
-      entries.push(data); // chỉ thêm nếu không trùng hôm nay
+    if (data.date !== entryToday.date) {
+      entries.push(data);
     }
   });
 
+  // Sắp xếp và lấy 7 ngày gần nhất
   const recentEntries = entries
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 7);
 
+  // Render bảng
   const tbody = document.getElementById("weeklySummaryBody");
   tbody.innerHTML = "";
-
-  recentEntries.forEach(entry => {
-    const date = `${entry.date.slice(0,2)}-${entry.date.slice(2,4)}-${entry.date.slice(4)}`;
+  recentEntries.forEach(e => {
+    const date = `${e.date.slice(0,2)}-${e.date.slice(2,4)}-${e.date.slice(4)}`;
     const row = `
       <tr>
         <td>${date}</td>
-        <td>${entry.score}</td>
-        <td>${entry.max}</td>
-        <td>${entry.doneParts}</td>
-        <td>${entry.rating}</td>
+        <td>${e.score}</td>
+        <td>${e.max}</td>
+        <td>${e.doneParts}</td>
+        <td>${e.rating}</td>
       </tr>
     `;
     tbody.innerHTML += row;
   });
 
   document.getElementById("weeklySummarySection").style.display = "block";
-  document.getElementById("collectionBtn").style.display = "inline-block";
 }
 
+// Gắn sự kiện cho nút
+document.getElementById("saveResultBtn").addEventListener("click", saveTodayResult);
 document.getElementById("weeklySummaryBtn").addEventListener("click", renderStudentWeekSummary);
 
 
 
-document.getElementById("collectionBtn")?.addEventListener("click", () => {
-  window.location.href = "collection.html";
-});
+
+
 
