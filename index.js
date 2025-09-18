@@ -37,12 +37,17 @@ async function startApp() {
   if (matchedStudent) {
     localStorage.setItem("isVerifiedStudent", "true");
     localStorage.setItem("studentPassword", matchedStudent.password || "");
+
+    // Lưu cả bản chuẩn hóa để dùng khi ghi Firebase
+    localStorage.setItem("normalizedTrainerName", cleanedName);
+    localStorage.setItem("normalizedTrainerClass", cleanedClass);
+
     window.location.href = "choice.html";
   } else {
     localStorage.setItem("isVerifiedStudent", "false");
     alert("⚠️ Bạn chưa được cấp nick. Bạn vẫn có thể tiếp tục học.");
-    // ❌ KHÔNG chuyển trang ở đây
   }
+
 }
 window.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("startBtn");
