@@ -131,52 +131,113 @@ async function ensureRoomExists(level, roomId) {
   return ref;
 }
 
-// Lấy đúng cặp J-L, theo đúng trình độ
-async function getQuestionsFromSheet() {
+// Lấy đúng cặp J-L theo trình độ đã chọn; luôn trả về đúng QUESTIONS_PER_SIDE phần tử
+async function getQuestionsFromSheet(selectedLevel) {
+  // Chuẩn hóa lớp chọn: "2" -> "Lớp 2" để khớp sheet Bài học
+  const chosenLevelNum = parseInt(String(selectedLevel), 10);
+  const classLabel = `Lớp ${chosenLevelNum}`;
+
+  // 1) Lấy bài lớn nhất (maxLessonCode) của lớp đã chọn từ sheet Bài học
   const resBaiHoc = await fetch(SHEET_BAI_HOC);
   const textBaiHoc = await resBaiHoc.text();
   const jsonBaiHoc = JSON.parse(textBaiHoc.substring(47).slice(0, -2));
-  const rowsBaiHoc = jsonBaiHoc.table.rows;
+  const rowsBaiHoc = jsonBaiHoc.table.rows || [];
 
+  // Ưu tiên so sánh "Lớp 2" đúng chuỗi; fallback: so sánh số (2 == 2)
   const baiList = rowsBaiHoc
     .map(r => {
-      const lopRaw = r.c[0]?.v?.toString().trim();
-      const bai = r.c[2]?.v?.toString().trim();
-      const lopNum = parseInt(lopRaw?.replace(/\D/g, ""));
-      const classNum = parseInt(trainerClass?.replace(/\D/g, ""));
-      return lopNum === classNum && bai ? parseInt(bai) : null;
-    })
-    .filter(v => typeof v === "number");
+      const lopRaw = r.c?.[0]?.v != null ? String(r.c[0].v).trim() : null; // "Lớp 2" hoặc "2"
+      const baiRaw = r.c?.[2]?.v != null ? String(r.c[2].v).trim() : null; // số bài
+      if (!baiRaw) return null;
 
-  if (baiList.length === 0) return { p1: [], p2: [] };
+      const lopNum = lopRaw ? parseInt(lopRaw.replace(/\D/g, ""), 10) : NaN;
+      const baiNum = parseInt(baiRaw, 10);
+
+      const classMatchByLabel = (lopRaw === classLabel);
+      const classMatchByNum = Number.isFinite(lopNum) && lopNum === chosenLevelNum;
+
+      return (classMatchByLabel || classMatchByNum) && Number.isFinite(baiNum) ? baiNum : null;
+    })
+    .filter(v => Number.isFinite(v));
+
+  if (baiList.length === 0) {
+    console.warn(`⚠️ Không tìm thấy bài học cho lớp ${classLabel}`);
+    return { p1: [], p2: [] };
+  }
+
   const maxLessonCode = Math.max(...baiList);
 
+  // 2) Lọc sheet Từ vựng theo maxLessonCode, gom theo "bài" (code)
   const resTuVung = await fetch(SHEET_TU_VUNG);
   const textTuVung = await resTuVung.text();
   const jsonTuVung = JSON.parse(textTuVung.substring(47).slice(0, -2));
-  const rows = jsonTuVung.table.rows.slice(1);
+  const rows = (jsonTuVung.table.rows || []).slice(1); // bỏ header
 
-  const pairs = [];
+  // Map: code -> danh sách cặp {q, a} của bài đó
+  const byCode = new Map();
+  const poolAllPairs = [];
+
   rows.forEach(r => {
-    const rawCode = r.c[1]?.v?.toString().trim();
-    const questionJ = r.c[9]?.v?.toString().trim();  // Cột J
-    const answerL   = r.c[11]?.v?.toString().trim(); // Cột L
-    const normalizedCode = parseInt(rawCode?.replace(/\D/g, ""));
-    if (!normalizedCode || normalizedCode > maxLessonCode) return;
-    if (questionJ && answerL) {
-      pairs.push({ q: questionJ, a: answerL });
-    }
+    const rawCode = r.c?.[1]?.v != null ? String(r.c[1].v).trim() : null;  // Mã bài
+    const qJ = r.c?.[9]?.v != null ? String(r.c[9].v).trim() : "";        // Cột J
+    const aL = r.c?.[11]?.v != null ? String(r.c[11].v).trim() : "";       // Cột L
+
+    const codeNum = rawCode ? parseInt(rawCode.replace(/\D/g, ""), 10) : NaN;
+    if (!Number.isFinite(codeNum) || codeNum <= 0) return;
+    if (codeNum > maxLessonCode) return;
+    if (!qJ || !aL) return;
+
+    const pair = { q: qJ, a: aL };
+
+    if (!byCode.has(codeNum)) byCode.set(codeNum, []);
+    byCode.get(codeNum).push(pair);
+    poolAllPairs.push({ code: codeNum, ...pair });
   });
 
-  // Trộn và lấy tối đa QUESTIONS_PER_SIDE
-  pairs.sort(() => Math.random() - 0.5);
-  const selected = pairs.slice(0, QUESTIONS_PER_SIDE);
+  // Danh sách các mã bài hợp lệ (có ít nhất 1 cặp J-L)
+  const availableCodes = Array.from(byCode.keys());
+  if (availableCodes.length === 0) {
+    console.warn(`⚠️ Không có từ vựng phù hợp ≤ bài ${maxLessonCode} cho ${classLabel}`);
+    return { p1: [], p2: [] };
+  }
 
-  const quizItemsP1 = selected.map(p => p.q); // Player1 nói J
-  const quizItemsP2 = selected.map(p => p.a); // Player2 nói L
+  const pickCount = QUESTIONS_PER_SIDE; // 10 bài
+  const chosenCodes = [];
 
-  return { p1: quizItemsP1, p2: quizItemsP2 };
+  if (availableCodes.length >= pickCount) {
+    // Chọn 10 bài khác nhau
+    const shuffled = [...availableCodes].sort(() => Math.random() - 0.5);
+    chosenCodes.push(...shuffled.slice(0, pickCount));
+  } else {
+    // Lặp bài để đủ 10
+    while (chosenCodes.length < pickCount) {
+      const code = availableCodes[Math.floor(Math.random() * availableCodes.length)];
+      chosenCodes.push(code);
+    }
+  }
+
+  // Với mỗi bài đã chọn, lấy 1 cặp J-L ngẫu nhiên từ bài đó
+  let pairs = chosenCodes.map(code => {
+    const items = byCode.get(code) || [];
+    if (items.length === 0) return null;
+    return items[Math.floor(Math.random() * items.length)];
+  }).filter(Boolean);
+
+  // Fallback: nếu vì lý do dữ liệu mà pairs < 10, bù bằng pool chung
+  while (pairs.length < pickCount && poolAllPairs.length > 0) {
+    const p = poolAllPairs[Math.floor(Math.random() * poolAllPairs.length)];
+    pairs.push({ q: p.q, a: p.a });
+  }
+
+  // Cắt đúng số lượng (đề phòng dư)
+  pairs = pairs.slice(0, pickCount);
+
+  return {
+    p1: pairs.map(p => p.q), // P1 nói J
+    p2: pairs.map(p => p.a)  // P2 nói L
+  };
 }
+
 
 // Tính trạng thái theo thời gian server (đã hiệu chỉnh)
 function computeTurnState() {
@@ -322,7 +383,7 @@ async function tryJoinFirstAvailableRoom(level) {
 
     if (!data.player2 && data.player1 !== playerName) {
       // Player 2 vào → tạo câu hỏi và start
-      const { p1, p2 } = await getQuestionsFromSheet();
+      const { p1, p2 } = await getQuestionsFromSheet(level);
       const questions = p1.map((q, idx) => ({ q, a: p2[idx] }));
 
       await updateDoc(ref, {
