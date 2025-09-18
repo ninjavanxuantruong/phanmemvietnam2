@@ -2,27 +2,36 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🔐 Đăng nhập hệ thống học sinh</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       background-color: #f0f2f5;
-      text-align: center;
-      padding-top: 100px;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
     }
 
     h2 {
       color: #2c3e50;
       margin-bottom: 30px;
+      text-align: center;
     }
 
     input {
       padding: 10px;
       font-size: 16px;
-      width: 250px;
+      width: 100%;
+      max-width: 300px;
       margin-bottom: 20px;
       border-radius: 6px;
       border: 1px solid #ccc;
+      box-sizing: border-box;
     }
 
     button {
@@ -34,6 +43,9 @@
       border-radius: 6px;
       cursor: pointer;
       margin: 10px;
+      width: 100%;
+      max-width: 300px;
+      box-sizing: border-box;
     }
 
     button:hover {
@@ -43,11 +55,20 @@
     #menuSection {
       display: none;
       margin-top: 40px;
+      width: 100%;
+      max-width: 400px;
     }
 
     #menuSection h3 {
       margin-bottom: 20px;
       color: #2c3e50;
+      text-align: center;
+    }
+
+    @media (min-width: 768px) {
+      button {
+        width: auto;
+      }
     }
   </style>
 </head>
@@ -55,7 +76,6 @@
 
   <h2 id="loginTitle">🔐 Nhập mật khẩu để truy cập hệ thống</h2>
   <input type="password" id="passwordInput" placeholder="Nhập mật khẩu..." />
-  <br>
   <button onclick="login()">Đăng nhập</button>
 
   <!-- ✅ Menu chức năng sau khi đăng nhập -->
@@ -73,12 +93,12 @@
       if (password === "1111") {
         sessionStorage.setItem("authenticated", "true");
 
-        // ✅ Ẩn phần đăng nhập
+        // Ẩn phần đăng nhập
         document.getElementById("passwordInput").style.display = "none";
         document.querySelector("button").style.display = "none";
         document.getElementById("loginTitle").textContent = "✅ Đăng nhập thành công!";
 
-        // ✅ Hiện menu chức năng
+        // Hiện menu chức năng
         document.getElementById("menuSection").style.display = "block";
       } else {
         alert("❌ Sai mật khẩu. Vui lòng thử lại.");
