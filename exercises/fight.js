@@ -1,10 +1,11 @@
 // ===== Part 1/3 =====
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot,
-  serverTimestamp
+import { 
+  getFirestore, doc, collection, query, where, getDocs, getDoc, 
+  updateDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
 
 // Firebase config
 const firebaseConfig = {
@@ -54,6 +55,7 @@ const p2Span = document.getElementById("p2");
 const currentTurnSpan = document.getElementById("currentTurn");
 const recordBtn = document.getElementById("recordBtn");
 const speechResultDiv = document.getElementById("speechResult");
+const confirmBtn = document.getElementById("confirmBtn");
 
 // Điểm
 let scoreP1El = document.getElementById("scoreP1");
@@ -269,7 +271,7 @@ function computeTurnState() {
 }
 // ===== Part 2/3 =====
 
-// Hiển thị UI theo state
+// Hiển thị UI theo state (giữ nguyên)
 function renderRoom(data) {
   p1Span.textContent = data.player1 || "—";
   p2Span.textContent = data.player2 || "—";
@@ -323,24 +325,28 @@ function renderRoom(data) {
 }
 
 
-import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
+// ========== Cleanup: dọn phòng ma ==========
+// - Xoá phòng cleanupAt < now (hết hạn)
+// - Xoá phòng pendingStart quá 10s (P1 không xác nhận)
 async function cleanupExpiredRooms(level) {
   try {
     const now = Date.now();
     const roomsRef = collection(db, String(level));
-    const q = query(roomsRef, where("cleanupAt", "<", now));
-    const snap = await getDocs(q);
 
-    if (!snap.empty) {
-      console.log(`🧹 Dọn ${snap.size} phòng quá hạn ở level ${level}...`);
-      for (const docSnap of snap.docs) {
-        try {
-          await deleteDoc(docSnap.ref);
-          console.log("Đã xoá phòng:", docSnap.id);
-        } catch (e) {
-          console.error("Lỗi xoá phòng", docSnap.id, e);
-        }
+    // cleanupAt quá hạn
+    const q1 = query(roomsRef, where("cleanupAt", "<", now));
+    const snap1 = await getDocs(q1);
+    for (const docSnap of snap1.docs) {
+      try { await deleteDoc(docSnap.ref); } catch {}
+    }
+
+    // pendingStart quá 10s
+    const q2 = query(roomsRef, where("pendingStart", "==", true));
+    const snap2 = await getDocs(q2);
+    for (const docSnap of snap2.docs) {
+      const d = docSnap.data();
+      if (d.requestTime && now - d.requestTime > 10000) {
+        try { await deleteDoc(docSnap.ref); } catch {}
       }
     }
   } catch (err) {
@@ -349,7 +355,9 @@ async function cleanupExpiredRooms(level) {
 }
 
 
-// Join phòng
+// ========== Join phòng ==========
+// Giữ luồng cũ: P1/P2 ghi tên bình thường
+// Chỉ thêm: P2 vào thì set pendingStart + requestFrom + requestTime (chưa start)
 async function tryJoinFirstAvailableRoom(level) {
   await cleanupExpiredRooms(level);
 
@@ -359,52 +367,89 @@ async function tryJoinFirstAvailableRoom(level) {
     const snap = await getDoc(ref);
     const data = snap.data();
 
+    // Bỏ qua phòng đã kết thúc
     if (data.status === "player_left" || data.status === "finished") continue;
 
+    // Nếu mình đã ở phòng này
     if (data.player1 === playerName || data.player2 === playerName) {
       await attachRoom(level, roomId);
       return { level, roomId };
     }
 
+    // Slot P1 trống -> mình vào làm P1
     if (!data.player1) {
       await updateDoc(ref, {
         player1: playerName,
         started: false,
+        pendingStart: false,
         status: null,
         winner: null,
         startTimestamp: null,
         questions: null,
-        cleanupAt: null,
+        // Cho 2 phút chờ P2, nếu không sẽ bị dọn
+        cleanupAt: Date.now() + 120000,
         lastUpdated: Date.now()
       });
       await attachRoom(level, roomId);
       return { level, roomId };
     }
 
+    // Slot P2 trống -> mình vào làm P2, NHƯNG không start ngay
     if (!data.player2 && data.player1 !== playerName) {
-      // Player 2 vào → tạo câu hỏi và start
-      const { p1, p2 } = await getQuestionsFromSheet(level);
-      const questions = p1.map((q, idx) => ({ q, a: p2[idx] }));
-
+      // P2 vào → gửi yêu cầu xác nhận, chưa start
       await updateDoc(ref, {
         player2: playerName,
-        questions,
-        started: true,
-        startTimestamp: serverTimestamp(),
+        pendingStart: true,
+        requestFrom: playerName,
+        requestTime: Date.now(),
+        cleanupAt: Date.now() + 15000, // 15s chờ P1 bấm OK
         status: null,
         winner: null,
-        cleanupAt: Date.now() + CLEANUP_TOTAL_MS, // 260s theo yêu cầu
         lastUpdated: Date.now()
       });
-
       await attachRoom(level, roomId);
       return { level, roomId };
     }
+
   }
   throw new Error("Không còn phòng trống trong trình độ này.");
 }
 
-// Attach snapshot
+
+// ========== P1 bấm OK để start ==========
+async function confirmStart(level, roomId) {
+  const ref = roomDocRef(level, roomId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const data = snap.data();
+
+  // Chỉ P1 mới được xác nhận & phải còn trong trạng thái chờ
+  if (data.player1 !== playerName) return;
+  if (!data.pendingStart || !data.player2) return;
+
+  // Quá 10s không xác nhận -> xoá phòng
+  if (!data.requestTime || Date.now() - data.requestTime > 10000) {
+    try { await deleteDoc(ref); } catch {}
+    return;
+  }
+
+  // Tạo câu hỏi tại thời điểm bắt đầu
+  const { p1, p2 } = await getQuestionsFromSheet(level);
+  const questions = p1.map((q, idx) => ({ q, a: p2[idx] }));
+
+  // Bắt đầu trận
+  await updateDoc(ref, {
+    started: true,
+    pendingStart: false,
+    questions,
+    startTimestamp: serverTimestamp(),
+    cleanupAt: Date.now() + CLEANUP_TOTAL_MS, // ví dụ 260000 ms
+    lastUpdated: Date.now()
+  });
+}
+
+
+// ========== Attach snapshot ==========
 async function attachRoom(level, roomId) {
   if (unsubRoom) { unsubRoom(); unsubRoom = null; }
   currentLevel = String(level);
@@ -415,30 +460,88 @@ async function attachRoom(level, roomId) {
 
   const ref = roomDocRef(level, roomId);
 
-  unsubRoom = onSnapshot(ref, (snap) => {
+  unsubRoom = onSnapshot(ref, async (snap) => {
     if (!snap.exists()) {
       statusDiv.textContent = "⚠️ Phòng đã bị xoá.";
-      leaveRoom();
+      // Ẩn nút confirm nếu có
+      if (typeof confirmBtn !== "undefined") confirmBtn.style.display = "none";
+      await leaveRoom();
       return;
     }
 
     const data = snap.data();
     lastRoomData = data;
+    const now = Date.now();
 
+    // Hết hạn -> xoá phòng và rời
+    if (data.cleanupAt && now > data.cleanupAt) {
+      try { await deleteDoc(ref); } catch {}
+      if (typeof confirmBtn !== "undefined") confirmBtn.style.display = "none";
+      await leaveRoom();
+      return;
+    }
+
+    // Đang chờ P1 xác nhận
+    if (!data.started && data.pendingStart) {
+      // P2: chỉ chờ
+      if (data.player2 === playerName) {
+        if (data.requestTime && now - data.requestTime > 10000) {
+          try { await deleteDoc(ref); } catch {}
+          if (typeof confirmBtn !== "undefined") confirmBtn.style.display = "none";
+          await leaveRoom();
+          return;
+        }
+        statusDiv.textContent = "Đang chờ P1 xác nhận…";
+        if (typeof confirmBtn !== "undefined") confirmBtn.style.display = "none";
+        return;
+      }
+
+      // P1: hiển thị nút OK
+      if (data.player1 === playerName) {
+        if (data.requestTime && now - data.requestTime > 10000) {
+          try { await deleteDoc(ref); } catch {}
+          if (typeof confirmBtn !== "undefined") confirmBtn.style.display = "none";
+          await leaveRoom();
+          return;
+        }
+        statusDiv.textContent = `${data.requestFrom} muốn vào trận`;
+        if (typeof confirmBtn !== "undefined") {
+          confirmBtn.style.display = "inline-block";
+          confirmBtn.onclick = async () => {
+            confirmBtn.style.display = "none";
+            await confirmStart(level, roomId);
+          };
+        }
+        return;
+      }
+    } else {
+      // Không còn pendingStart -> ẩn nút confirm nếu có
+      if (typeof confirmBtn !== "undefined") confirmBtn.style.display = "none";
+    }
+
+    // Kết thúc hoặc ai rời
     // Kết thúc hoặc ai rời
     if (data.status === "player_left" || data.status === "finished") {
       statusDiv.textContent = data.winner
         ? `🏆 ${data.winner} thắng!`
         : "🏆 Đối thủ đã thoát. Bạn thắng!";
+      if (typeof confirmBtn !== "undefined") confirmBtn.style.display = "none";
 
-      // Không xóa doc ở đây; để dọn theo lịch cleanupAt
+      // Sau 3 giây hiển thị kết quả → xoá phòng và rời
       setTimeout(async () => {
+        try {
+          await deleteDoc(roomDocRef(currentLevel, currentRoomId)); // Xoá ngay phòng trên Firestore
+        } catch (e) {
+          console.error("Lỗi xoá phòng khi kết thúc:", e);
+        }
         await leaveRoom();
       }, 3000);
+
       return;
     }
 
-    // Đồng bộ câu hỏi
+
+    // Đồng bộ câu hỏi khi đã có
     if (data.questions && Array.isArray(data.questions)) {
       questionsP1 = data.questions.map(p => p.q);
       questionsP2 = data.questions.map(p => p.a);
@@ -455,19 +558,26 @@ async function attachRoom(level, roomId) {
   // Vòng tick UI
   clearInterval(uiTick);
   uiTick = setInterval(async () => {
-    if (!lastRoomData || !serverStartMs) return;
+    if (!lastRoomData) return;
 
-    // Bộ dọn dẹp: đến hạn cleanupAt → xóa phòng bất kể ai còn ở trong
+    // Dọn khi tới hạn
     if (lastRoomData.cleanupAt && Date.now() > lastRoomData.cleanupAt) {
       try { await deleteDoc(roomDocRef(currentLevel, currentRoomId)); } catch {}
+      if (typeof confirmBtn !== "undefined") confirmBtn.style.display = "none";
       await leaveRoom();
+      return;
+    }
+
+    // Chưa start thì không tính lượt
+    if (!serverStartMs) {
+      renderRoom(lastRoomData);
       return;
     }
 
     const state = computeTurnState();
     if (!state) return;
 
-    // Chỉ kết thúc khi đã qua TOTAL_TURNS và đã render xong câu cuối
+    // Kết thúc khi đã qua TOTAL_TURNS và render xong câu cuối
     if (state.startedVisually && state.turnIndex >= TOTAL_TURNS && lastRenderedTurn === TOTAL_TURNS - 1) {
       await finishMatch();
       return;
@@ -483,6 +593,7 @@ async function attachRoom(level, roomId) {
     renderRoom(lastRoomData);
   }, 500);
 }
+
 // ===== Part 3/3 =====
 
 // Bắt mic khi nhấn nút (chỉ có tác dụng khi tới lượt mình và không hết câu)
