@@ -76,6 +76,8 @@ let currentLevel = null;
 let currentRoomId = null;
 let unsubRoom = null;
 
+let turnStartTime = null; // lưu thời điểm bắt đầu lượt hiện tại
+
 // Thông số trận
 const TURN_MS = 10000;        // 10 giây mỗi lượt
 const START_DELAY_MS = 3000;  // trễ 3 giây để 2 máy kịp đồng bộ
@@ -463,7 +465,6 @@ async function attachRoom(level, roomId) {
   unsubRoom = onSnapshot(ref, async (snap) => {
     if (!snap.exists()) {
       statusDiv.textContent = "⚠️ Phòng đã bị xoá.";
-      // Ẩn nút confirm nếu có
       if (typeof confirmBtn !== "undefined") confirmBtn.style.display = "none";
       await leaveRoom();
       return;
@@ -483,7 +484,6 @@ async function attachRoom(level, roomId) {
 
     // Đang chờ P1 xác nhận
     if (!data.started && data.pendingStart) {
-      // P2: chỉ chờ
       if (data.player2 === playerName) {
         if (data.requestTime && now - data.requestTime > 10000) {
           try { await deleteDoc(ref); } catch {}
@@ -496,7 +496,6 @@ async function attachRoom(level, roomId) {
         return;
       }
 
-      // P1: hiển thị nút OK
       if (data.player1 === playerName) {
         if (data.requestTime && now - data.requestTime > 10000) {
           try { await deleteDoc(ref); } catch {}
@@ -515,33 +514,23 @@ async function attachRoom(level, roomId) {
         return;
       }
     } else {
-      // Không còn pendingStart -> ẩn nút confirm nếu có
       if (typeof confirmBtn !== "undefined") confirmBtn.style.display = "none";
     }
 
-    // Kết thúc hoặc ai rời
     // Kết thúc hoặc ai rời
     if (data.status === "player_left" || data.status === "finished") {
       statusDiv.textContent = data.winner
         ? `🏆 ${data.winner} thắng!`
         : "🏆 Đối thủ đã thoát. Bạn thắng!";
       if (typeof confirmBtn !== "undefined") confirmBtn.style.display = "none";
-
-      // Sau 3 giây hiển thị kết quả → xoá phòng và rời
       setTimeout(async () => {
-        try {
-          await deleteDoc(roomDocRef(currentLevel, currentRoomId)); // Xoá ngay phòng trên Firestore
-        } catch (e) {
-          console.error("Lỗi xoá phòng khi kết thúc:", e);
-        }
+        try { await deleteDoc(roomDocRef(currentLevel, currentRoomId)); } catch {}
         await leaveRoom();
-      }, 3000);
-
+      }, 6000);
       return;
     }
 
-
-    // Đồng bộ câu hỏi khi đã có
+    // Đồng bộ câu hỏi
     if (data.questions && Array.isArray(data.questions)) {
       questionsP1 = data.questions.map(p => p.q);
       questionsP2 = data.questions.map(p => p.a);
@@ -555,8 +544,9 @@ async function attachRoom(level, roomId) {
     renderRoom(data);
   });
 
-  // Vòng tick UI
+  // Tick UI
   clearInterval(uiTick);
+  let lastSec = -1;
   uiTick = setInterval(async () => {
     if (!lastRoomData) return;
 
@@ -568,7 +558,6 @@ async function attachRoom(level, roomId) {
       return;
     }
 
-    // Chưa start thì không tính lượt
     if (!serverStartMs) {
       renderRoom(lastRoomData);
       return;
@@ -577,22 +566,37 @@ async function attachRoom(level, roomId) {
     const state = computeTurnState();
     if (!state) return;
 
-    // Kết thúc khi đã qua TOTAL_TURNS và render xong câu cuối
+    // Nếu sang lượt mới → lưu thời điểm bắt đầu
+    if (state.startedVisually && state.turnIndex !== lastComputedTurn) {
+      answeredThisTurn = false;
+      lastComputedTurn = state.turnIndex;
+      lastWasMyTurn = (state.currentPlayer === playerName);
+      turnStartTime = Date.now(); // 🆕 lưu thời điểm bắt đầu lượt
+    }
+
+    // Cập nhật đồng hồ 10s
+    if (state.startedVisually && state.turnIndex < TOTAL_TURNS && turnStartTime) {
+      const sec = Math.floor((Date.now() - turnStartTime) / 1000);
+      if (sec !== lastSec) {
+        document.getElementById("turnSeconds").textContent = sec;
+        lastSec = sec;
+      }
+    } else {
+      document.getElementById("turnSeconds").textContent = 0;
+      lastSec = -1;
+    }
+
+    // Kết thúc trận
     if (state.startedVisually && state.turnIndex >= TOTAL_TURNS && lastRenderedTurn === TOTAL_TURNS - 1) {
       await finishMatch();
       return;
     }
 
-    // Phát hiện sang lượt mới (để reset trạng thái mic)
-    if (state.startedVisually && state.turnIndex !== lastComputedTurn) {
-      answeredThisTurn = false;
-      lastComputedTurn = state.turnIndex;
-      lastWasMyTurn = (state.currentPlayer === playerName);
-    }
-
     renderRoom(lastRoomData);
   }, 500);
 }
+
+
 
 // ===== Part 3/3 =====
 
