@@ -1,9 +1,9 @@
 // ===== Part 1/3 =====
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { 
+import {
   getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot,
-  serverTimestamp 
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // Firebase config
@@ -26,10 +26,10 @@ const playerName = `${trainerName}-${trainerClass}`;
 
 // UI
 const meName = document.getElementById("meName");
-
 const chatBox = document.getElementById("chatBox");
 
 function appendChatBubble(text, isP1) {
+  if (!text) return;
   const div = document.createElement("div");
   div.textContent = text;
   div.style.maxWidth = "70%";
@@ -40,7 +40,6 @@ function appendChatBubble(text, isP1) {
   chatBox.appendChild(div);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
-
 
 const levelSelect = document.getElementById("levelSelect");
 const joinBtn = document.getElementById("joinBtn");
@@ -53,43 +52,12 @@ const turnIndexSpan = document.getElementById("turnIndex");
 const p1Span = document.getElementById("p1");
 const p2Span = document.getElementById("p2");
 const currentTurnSpan = document.getElementById("currentTurn");
-const questionText = document.getElementById("questionText");
 const recordBtn = document.getElementById("recordBtn");
 const speechResultDiv = document.getElementById("speechResult");
 
-// Tạo khu vực điểm (nếu chưa có sẵn trong HTML)
+// Điểm
 let scoreP1El = document.getElementById("scoreP1");
 let scoreP2El = document.getElementById("scoreP2");
-(function ensureScoreboard() {
-  if (!scoreP1El || !scoreP2El) {
-    const sb = document.createElement("div");
-    sb.id = "scoreboard";
-    sb.style.display = "flex";
-    sb.style.alignItems = "center";
-    sb.style.justifyContent = "space-between";
-    sb.style.gap = "16px";
-    const left = document.createElement("div");
-    left.id = "scoreP1";
-    left.className = "score left";
-    left.textContent = "0";
-    const center = document.createElement("div");
-    center.id = "questionArea";
-    center.style.flex = "1";
-    center.style.textAlign = "center";
-    const right = document.createElement("div");
-    right.id = "scoreP2";
-    right.className = "score right";
-    right.textContent = "0";
-    sb.appendChild(left);
-    sb.appendChild(center);
-    sb.appendChild(right);
-    gameArea?.prepend(sb);
-    // Map questionText to center (use existing questionText as content holder)
-    center.appendChild(questionText);
-    scoreP1El = left;
-    scoreP2El = right;
-  }
-})();
 
 // Speech
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -106,19 +74,23 @@ let currentLevel = null;
 let currentRoomId = null;
 let unsubRoom = null;
 
-// “Đồng hồ chung” và thông số trận
-const TURN_MS = 10000;       // 10 giây mỗi lượt
-const START_DELAY_MS = 3000; // trễ 3 giây để 2 máy kịp đồng bộ
+// Thông số trận
+const TURN_MS = 10000;        // 10 giây mỗi lượt
+const START_DELAY_MS = 3000;  // trễ 3 giây để 2 máy kịp đồng bộ
 const QUESTIONS_PER_SIDE = 10;
 const TOTAL_TURNS = QUESTIONS_PER_SIDE * 2;
-const SCORE_THRESHOLD = 60;  // % từ đúng tối thiểu tính là đúng
+const SCORE_THRESHOLD = 60;   // % từ đúng tối thiểu tính là đúng
+const CLEANUP_TOTAL_MS = 260000; // 260s theo yêu cầu
 
-let serverStartMs = null;    // startTimestamp (ms) từ server
-let clockOffset = 0;         // hiệu chỉnh lệch giờ: serverStart - localNow
-let uiTick = null;           // interval update UI theo thời gian
-let lastComputedTurn = -1;   // để phát hiện biên lượt
-let lastWasMyTurn = false;   // lượt trước có phải của mình
-let answeredThisTurn = false;// đã trả lời trong lượt hiện tại chưa
+let serverStartMs = null;     // startTimestamp (ms) từ server
+let uiTick = null;
+let lastComputedTurn = -1;    // phát hiện biên lượt (logic mic)
+let lastWasMyTurn = false;
+let answeredThisTurn = false; // đã trả lời trong lượt hiện tại chưa
+
+// Chống lặp chat
+let lastRenderedTurn = -1;    // lượt cuối đã append câu hỏi
+let lastAnsweredTurn = -1;    // lượt cuối đã append câu trả lời
 
 let scoreP1 = 0;
 let scoreP2 = 0;
@@ -153,7 +125,6 @@ async function ensureRoomExists(level, roomId) {
       startTimestamp: null,
       questions: null,
       lastUpdated: Date.now(),
-      // Dọn sau 160s kể từ khi start (client sẽ chủ động xóa)
       cleanupAt: null
     });
   }
@@ -202,7 +173,7 @@ async function getQuestionsFromSheet() {
   const selected = pairs.slice(0, QUESTIONS_PER_SIDE);
 
   const quizItemsP1 = selected.map(p => p.q); // Player1 nói J
-  const quizItemsP2 = selected.map(p => p.a); // Player2 nói L (đáp án đúng của J tương ứng)
+  const quizItemsP2 = selected.map(p => p.a); // Player2 nói L
 
   return { p1: quizItemsP1, p2: quizItemsP2 };
 }
@@ -213,7 +184,6 @@ function computeTurnState() {
 
   const startWithDelay = serverStartMs + START_DELAY_MS;
   const elapsed = Date.now() - startWithDelay;
-
 
   if (elapsed < 0) {
     return {
@@ -238,11 +208,6 @@ function computeTurnState() {
 }
 // ===== Part 2/3 =====
 
- // div mới thay cho questionText
-
-
-
-
 // Hiển thị UI theo state
 function renderRoom(data) {
   p1Span.textContent = data.player1 || "—";
@@ -261,26 +226,28 @@ function renderRoom(data) {
 
   // Câu hiển thị theo lượt
   const idx = Math.floor(state.turnIndex / 2); // mỗi bên 1 câu/2 lượt
-  const myIsP1 = (playerName === data.player1);
-
   let displayText = "";
-  if (!state.startedVisually) {
-    displayText = "Chuẩn bị bắt đầu...";
-  } else if (state.turnIndex >= TOTAL_TURNS) {
-    displayText = "Hết câu hỏi!";
-  } else {
-    if (state.turnIndex % 2 === 0) {
-      // P1 nói (đọc J)
-      displayText = questionsP1[idx] || "—";
-    } else {
-      // P2 nói (đọc L)
-      displayText = questionsP2[idx] || "—";
-    }
 
+  if (!state.startedVisually) {
+    displayText = ""; // không append
+  } else if (state.turnIndex >= TOTAL_TURNS) {
+    displayText = ""; // không append
+  } else {
+    displayText = (state.turnIndex % 2 === 0)
+      ? (questionsP1[idx] || "")
+      : (questionsP2[idx] || "");
   }
 
-  appendChatBubble(displayText, state.currentPlayer === data.player1);
-
+  // Append QUESTION vào chat chỉ 1 lần khi sang lượt mới
+  if (
+    displayText &&
+    state.startedVisually &&
+    state.turnIndex < TOTAL_TURNS &&
+    state.turnIndex !== lastRenderedTurn
+  ) {
+    appendChatBubble(displayText, state.currentPlayer === data.player1);
+    lastRenderedTurn = state.turnIndex;
+  }
 
   // Mic: chỉ bật cho người đang có lượt và còn trong phạm vi câu hỏi
   const myTurn = state.startedVisually && state.turnIndex < TOTAL_TURNS && (state.currentPlayer === playerName);
@@ -294,8 +261,37 @@ function renderRoom(data) {
   turnIndexSpan.textContent = String(state.turnIndex);
 }
 
+
+import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+async function cleanupExpiredRooms(level) {
+  try {
+    const now = Date.now();
+    const roomsRef = collection(db, String(level));
+    const q = query(roomsRef, where("cleanupAt", "<", now));
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+      console.log(`🧹 Dọn ${snap.size} phòng quá hạn ở level ${level}...`);
+      for (const docSnap of snap.docs) {
+        try {
+          await deleteDoc(docSnap.ref);
+          console.log("Đã xoá phòng:", docSnap.id);
+        } catch (e) {
+          console.error("Lỗi xoá phòng", docSnap.id, e);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Lỗi cleanupExpiredRooms:", err);
+  }
+}
+
+
 // Join phòng
 async function tryJoinFirstAvailableRoom(level) {
+  await cleanupExpiredRooms(level);
+
   for (let i = 1; i <= 30; i++) {
     const roomId = `room-${i}`;
     const ref = await ensureRoomExists(level, roomId);
@@ -336,7 +332,7 @@ async function tryJoinFirstAvailableRoom(level) {
         startTimestamp: serverTimestamp(),
         status: null,
         winner: null,
-        cleanupAt: Date.now() + 260000, // dấu mốc client-side
+        cleanupAt: Date.now() + CLEANUP_TOTAL_MS, // 260s theo yêu cầu
         lastUpdated: Date.now()
       });
 
@@ -374,8 +370,8 @@ async function attachRoom(level, roomId) {
         ? `🏆 ${data.winner} thắng!`
         : "🏆 Đối thủ đã thoát. Bạn thắng!";
 
+      // Không xóa doc ở đây; để dọn theo lịch cleanupAt
       setTimeout(async () => {
-        try { await deleteDoc(ref); } catch {}
         await leaveRoom();
       }, 3000);
       return;
@@ -383,21 +379,14 @@ async function attachRoom(level, roomId) {
 
     // Đồng bộ câu hỏi
     if (data.questions && Array.isArray(data.questions)) {
-      // Player1 nói J, Player2 nói L
-      if (playerName === data.player1) {
-        questionsP1 = data.questions.map(p => p.q);
-        questionsP2 = data.questions.map(p => p.a);
-      } else {
-        questionsP1 = data.questions.map(p => p.q);
-        questionsP2 = data.questions.map(p => p.a);
-      }
+      questionsP1 = data.questions.map(p => p.q);
+      questionsP2 = data.questions.map(p => p.a);
     }
 
-    // Đồng bộ startTimestamp và clockOffset
+    // Đồng bộ startTimestamp
     if (data.startTimestamp) {
       serverStartMs = data.startTimestamp.toMillis();
     }
-
 
     renderRoom(data);
   });
@@ -407,7 +396,7 @@ async function attachRoom(level, roomId) {
   uiTick = setInterval(async () => {
     if (!lastRoomData || !serverStartMs) return;
 
-    // Kiểm tra đến hạn cleanupAt (client-side dọn dẹp)
+    // Bộ dọn dẹp: đến hạn cleanupAt → xóa phòng bất kể ai còn ở trong
     if (lastRoomData.cleanupAt && Date.now() > lastRoomData.cleanupAt) {
       try { await deleteDoc(roomDocRef(currentLevel, currentRoomId)); } catch {}
       await leaveRoom();
@@ -417,16 +406,14 @@ async function attachRoom(level, roomId) {
     const state = computeTurnState();
     if (!state) return;
 
-    // Kết thúc trận khi qua TOTAL_TURNS
-    if (state.startedVisually && state.turnIndex >= TOTAL_TURNS) {
+    // Chỉ kết thúc khi đã qua TOTAL_TURNS và đã render xong câu cuối
+    if (state.startedVisually && state.turnIndex >= TOTAL_TURNS && lastRenderedTurn === TOTAL_TURNS - 1) {
       await finishMatch();
       return;
     }
 
-    // Phát hiện sang lượt mới
+    // Phát hiện sang lượt mới (để reset trạng thái mic)
     if (state.startedVisually && state.turnIndex !== lastComputedTurn) {
-      // Nếu lượt trước là của mình mà chưa trả lời → 0 điểm lượt đó (không cộng)
-      // Reset trạng thái lượt mới
       answeredThisTurn = false;
       lastComputedTurn = state.turnIndex;
       lastWasMyTurn = (state.currentPlayer === playerName);
@@ -463,38 +450,39 @@ recordBtn.addEventListener("click", () => {
     try { recognitionLocal.stop(); } catch {}
     const transcript = event.results[0][0].transcript.toLowerCase().trim();
 
-    // Xác định văn bản tham chiếu đúng cho lượt này
-    let referenceText = "";
-    if (state.turnIndex % 2 === 0) {
-      // Lượt P1 nói J
-      referenceText = questionsP1[idx] || "";
-    } else {
-      // Lượt P2 nói L
-      referenceText = questionsP2[idx] || "";
-    }
+    // Đọc lại state tại thời điểm nhận kết quả (tránh lệch)
+    const curState = computeTurnState();
+    if (!curState || !curState.startedVisually || curState.turnIndex >= TOTAL_TURNS) return;
+
+    const curIdx = Math.floor(curState.turnIndex / 2);
+
+    // Văn bản tham chiếu đúng cho lượt hiện tại
+    const referenceText = (curState.turnIndex % 2 === 0)
+      ? (questionsP1[curIdx] || "")
+      : (questionsP2[curIdx] || "");
 
     const { percent, isCorrect } = gradeSpeech(transcript, referenceText);
     speechResultDiv.innerHTML =
       `✅ Bạn nói: "<i>${transcript}</i>"<br>🎯 Đúng ${percent}%`;
 
-    appendChatBubble(`💬 ${transcript}`, (state.turnIndex % 2 === 0));
+    // Append câu trả lời vào chat CHỈ 1 LẦN/LƯỢT
+    if (curState.turnIndex !== lastAnsweredTurn) {
+      appendChatBubble(`💬 ${transcript}`, (curState.turnIndex % 2 === 0));
+      lastAnsweredTurn = curState.turnIndex;
+    }
 
-
-    // Cập nhật điểm cục bộ
-    if (isCorrect) {
-      if (state.turnIndex % 2 === 0) {
-        // P1 lượt
+    // Chấm điểm CHỈ 1 LẦN/LƯỢT
+    if (!answeredThisTurn && isCorrect) {
+      if (curState.turnIndex % 2 === 0) {
         scoreP1++;
         scoreP1El.textContent = String(scoreP1);
         flashScore(scoreP1El);
       } else {
-        // P2 lượt
         scoreP2++;
         scoreP2El.textContent = String(scoreP2);
         flashScore(scoreP2El);
       }
     }
-
 
     answeredThisTurn = true;
   };
@@ -551,24 +539,28 @@ async function finishMatch() {
   `;
 
   // Gửi điểm cuối trận lên Firebase 1 lần duy nhất
-  await updateDoc(ref, {
-    status: "finished",
-    winner: (winner === "Hòa") ? null : winner,
-    finalScores: { p1: scoreP1, p2: scoreP2 },
-    lastUpdated: Date.now()
-  });
+  try {
+    const ref = roomDocRef(currentLevel, currentRoomId);
+    await updateDoc(ref, {
+      status: "finished",
+      winner: (winner === "Hòa") ? null : winner,
+      finalScores: { p1: scoreP1, p2: scoreP2 },
+      lastUpdated: Date.now(),
+      finishedAt: Date.now()
+    });
+  } catch (e) {
+    console.warn("finishMatch update error", e);
+  }
 
-  // Đợi 5 giây rồi thoát
+  // Đợi 5 giây rồi thoát (không xóa doc ở đây; để dọn đúng lịch 260s)
   setTimeout(async () => {
-    try { await deleteDoc(ref); } catch {}
     await leaveRoom();
   }, 5000);
-
 }
 
 // Thoát phòng chuẩn
 async function leaveRoom() {
-  if (recognition) recognition.stop();
+  if (recognition) try { recognition.stop(); } catch {}
   clearInterval(uiTick);
   if (!currentLevel || !currentRoomId) {
     resetUiAfterLeave();
@@ -582,26 +574,20 @@ async function leaveRoom() {
       const data = snap.data();
       const updates = {
         lastUpdated: Date.now(),
-        started: false
+        // không thay started ở đây; trận có thể vẫn đang chạy cho người còn lại
       };
 
-      if (data.player1 === playerName) {
-        updates.player1 = null;
-      } else if (data.player2 === playerName) {
-        updates.player2 = null;
-      }
+      if (data.player1 === playerName) updates.player1 = null;
+      if (data.player2 === playerName) updates.player2 = null;
 
-      if ((data.player1 === playerName && !data.player2) ||
-          (data.player2 === playerName && !data.player1)) {
-        try { await deleteDoc(ref); } catch {}
-      } else {
-        await updateDoc(ref, updates);
-      }
+      await updateDoc(ref, updates);
+      // Không xóa doc ở đây; để dọn theo cleanupAt
     }
-  } catch {}
+  } catch (e) {
+    console.warn("leaveRoom update error", e);
+  }
 
   if (unsubRoom) { unsubRoom(); unsubRoom = null; }
-
   resetUiAfterLeave();
 }
 
@@ -625,11 +611,14 @@ function resetUiAfterLeave() {
   currentRoomId = null;
   lastRoomData = null;
   serverStartMs = null;
-  clockOffset = 0;
+  uiTick = null;
   lastComputedTurn = -1;
   lastWasMyTurn = false;
   answeredThisTurn = false;
+  lastRenderedTurn = -1;
+  lastAnsweredTurn = -1;
   scoreP1 = 0; scoreP2 = 0;
+
   scoreP1El.textContent = "0";
   scoreP2El.textContent = "0";
   roomIdSpan.textContent = "—";
@@ -637,9 +626,10 @@ function resetUiAfterLeave() {
   p1Span.textContent = "—"; p1Span.className = "badge";
   p2Span.textContent = "—"; p2Span.className = "badge";
   currentTurnSpan.textContent = "—";
-  questionText.textContent = "—";
-  questionText.classList.remove("left", "right");
   turnIndexSpan.textContent = "0";
+
+  if (chatBox) chatBox.innerHTML = "";
+
   gameArea.style.display = "none";
   statusDiv.textContent = "Đã thoát phòng.";
   delete statusDiv.dataset.finished;
