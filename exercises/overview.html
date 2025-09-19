@@ -1,165 +1,126 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bài tập tổng quan - Học từ vựng cho trẻ</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>📖 Bài tập tổng quan (Pokémon Edition)</title>
   <style>
-    /* Không đặt background cũ cho body - ảnh nền sẽ được quản lý bởi background.js */
     body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Comic Sans MS', cursive, sans-serif;
-      color: #333;
-      background: none;
-    }
-    /* Container chính cho bài tập - nền trong suốt để background hiển thị rõ */
-    .container {
-      max-width: 800px;
-      margin: 20px auto;
-      border-radius: 10px;
-      padding: 20px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      text-align: center;
-      background: transparent; /* Không có nền phủ */
-      display: none;
-    }
-    h2 {
-      font-size: 32px;
-      color: #FF69B4;
-      margin-bottom: 10px;
-    }
-    h3 {
-      font-size: 24px;
-      color: #FF4500;
-      margin-bottom: 10px;
-    }
-    #currentWord {
-      font-size: 20px;
-      font-weight: bold;
+      margin: 0; padding: 0;
+      font-family: "Comic Sans MS", Arial, sans-serif;
+      background: linear-gradient(135deg, #ffecd2, #fcb69f);
       color: #333;
     }
-    #wordList {
-      font-style: italic;
-      font-size: 18px;
-      color: #555;
+    .overview-container {
+      max-width: 1100px; margin: 24px auto; padding: 16px;
     }
-    /* Phần nội dung bài tập: chữ màu cam, cỡ lớn */
-    #exerciseContainer {
-      margin-top: 20px;
-      font-size: 28px;
-      color: #FF8C00;
-      font-weight: bold;
-      line-height: 1.6;
+    h1 {
+      color: #ff4f81; margin-bottom: 8px;
+      text-shadow: 2px 2px #fff176;
+      font-size: 2.2rem;
     }
-    /* Input nhập câu trả lời giảm xuống 1/3 chiều ngang (20% hiện tại so với 60% ban đầu) */
-    input[type="text"] {
-      width: 20%;
-      height: 30px;
-      padding: 5px;
-      font-size: 20px;
-      border: 2px solid #FF69B4;
-      border-radius: 5px;
-      margin: 10px 0;
-      outline: none;
+    .toolbar {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      margin-bottom: 12px;
     }
-    /* Các nút: loại bỏ nền màu hồng, thay bằng nền trong suốt và chỉnh kích cỡ nhỏ hơn nếu cần */
-    button {
-      cursor: pointer;
-      background: transparent; /* Nền trong suốt */
-      border: none;
-      color: #FF69B4; /* Giữ màu chữ hồng */
-      font-size: 20px;
-      padding: 12px 20px;
-      border-radius: 5px;
-      margin: 5px;
-      transition: background 0.3s ease;
+    .mode-btn {
+      padding: 12px 18px; border: none; border-radius: 12px;
+      background: #ffcc80; color: #6d4c41; cursor: pointer; font-weight: 700;
+      font-size: 1rem; box-shadow: 2px 2px #f57c00;
+      transition: transform 0.1s ease;
     }
-    button:hover {
-      background: rgba(255,105,180,0.2); /* Nhẹ nhàng tạo hiệu ứng hover nếu cần */
+    .mode-btn.active { background: #ffb300; color: #fff; }
+    .mode-btn:hover { transform: scale(1.05); }
+    .panel {
+      background: rgba(255,255,255,0.9); border-radius: 16px; padding: 20px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+      margin-bottom: 16px;
     }
-    /* Container thống kê */
-    #statsContainer {
-      margin-top: 20px;
-      font-size: 20px;
-      color: #333;
-      font-weight: bold;
+    #scoreBoard p { margin: 6px 0; font-size: 1.1rem; }
+
+    /* chips/blocks */
+    .chip {
+      display: inline-block; margin: 4px; padding: 8px 12px;
+      border-radius: 16px; border: 2px solid #ff9800;
+      background: #fff3e0; color: #e65100;
+      cursor: pointer; user-select: none; font-weight: 600;
     }
-    /* Modal lựa chọn phương án học */
-    .mode-selection {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.7);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      color: #fff;
+    .chip.disabled { opacity: 0.5; pointer-events: none; }
+
+    .btn {
+      padding: 10px 14px; border-radius: 10px; border: none; cursor: pointer;
+      background: #81d4fa; color: #01579b; font-weight: 700;
+      margin: 6px 4px; font-size: 1rem;
+      box-shadow: 2px 2px #0288d1;
     }
-    .mode-selection button {
-      font-size: 20px;
-      padding: 10px 20px;
-      margin: 10px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      background: #FF69B4;
-      color: #fff;
-      transition: background 0.3s ease;
-    }
-    .mode-selection button:hover {
-      background: #FF1493;
-    }
-    /* Phần hiển thị câu hỏi được đặt trong khung màu trắng để nổi bật, tự đổi kích cỡ theo nội dung */
+    .btn.primary { background: #4dd0e1; color: #004d40; }
+    .btn:hover { transform: scale(1.05); }
+
     .question-box {
-      background-color: white;
-      padding: 10px;
-      border-radius: 5px;
-      display: inline-block;
-      max-width: 90%;
+      background: #fffde7; padding: 12px 14px; border-radius: 10px;
+      display: inline-block; box-shadow: inset 0 0 0 2px #ffeb3b;
+      font-size: 1.2rem; font-weight: 600;
+    }
+    .muted { color: #777; font-size: 0.95rem; }
+    .answer-slot {
+      display: inline-block; min-width: 64px; min-height: 28px;
+      padding: 6px 8px; margin: 4px; border-radius: 8px;
+      background: #eef4ff; border: 2px dashed #64b5f6;
+    }
+    .slot-correct { background: #e6ffec; border-color: #7ddc8a; }
+    .slot-wrong { background: #ffecec; border-color: #ffa8a8; }
+    input[type="text"] {
+      padding: 10px; font-size: 1rem; border-radius: 8px; border: 2px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    /* Dạng 3: cặp block VI–EN */
+    .pair-row {
+      display: flex; align-items: stretch; gap: 8px;
       margin-bottom: 10px;
     }
+    .vi-block {
+      flex: 1; padding: 10px; border: 2px solid #ef5350;
+      border-radius: 8px; background: #ffebee;
+      font-weight: 600; font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .en-input {
+      flex: 1; padding: 10px; border: 2px solid #64b5f6;
+      border-radius: 8px; background: #e3f2fd;
+      font-size: 1rem;
+    }
+    .en-input.ok { background: #e6ffec; border-color: #7ddc8a; }
+    .en-input.bad { background: #ffecec; border-color: #ffa8a8; }
   </style>
 </head>
 <body>
-  <!-- Modal chọn phương án học -->
-  <div class="mode-selection" id="modeSelection">
-    <h2>Chọn phương án học</h2>
-    <p>Vui lòng chọn cách học của bạn:</p>
-    <button id="modeWord">Học theo từng từ</button>
-    <button id="modeExercise">Học theo dạng bài</button>
-  </div>
-
-  <!-- Container chính -->
-  <div class="container" id="mainContainer">
-    <h2>📖 Bài tập tổng quan</h2>
-
-    <div>
-      <strong>Danh sách từ vựng cần học:</strong>
-      <span id="wordList"></span>
+  <div class="overview-container">
+    <h1>⚡📖 Bài tập tổng quan – Pokémon Training Mode</h1>
+    <div class="panel toolbar">
+      <button class="mode-btn active" data-mode="1">🧩 Dạng 1: Sắp xếp câu</button>
+      <button class="mode-btn" data-mode="2">🔤 Dạng 2: Dịch từ đơn (VI → EN)</button>
+      <button class="mode-btn" data-mode="3">🧱 Dạng 3: Dịch theo cụm (VI ↔ EN)</button>
+      <button class="btn" id="resetSessionBtn">♻️ Làm lại phiên</button>
     </div>
 
-    <h3>Từ vựng đang làm: <span id="currentWord"></span></h3>
-
-    <div id="exerciseContainer"></div>
-
-    <div class="buttons">
-      <button id="btnShowAnswer">🔍 Xem đáp án</button>
-      <button id="btnPrev">⬅ Quay lại</button>
-      <button id="btnNext">➡ Tiếp tục</button>
+    <div class="panel" id="scoreBoard">
+      <p>🧩 Dạng 1: 0/0</p>
+      <p>🔤 Dạng 2: 0/0</p>
+      <p>🧱 Dạng 3: 0/0</p>
+      <hr />
+      <p><strong>🎯 Tổng: 0/0</strong></p>
+      <p class="muted">Hoàn thành cả 3 dạng để xem hiệu ứng bắt Pokémon!</p>
     </div>
 
-    <div id="statsContainer"></div>
+    <!-- Khu vực làm bài -->
+    <div class="panel" id="exerciseArea" style="min-height: 300px; font-size: 1.2rem;"></div>
+
+    <!-- Khu vực kết quả cuối -->
+    <div class="panel" id="finalBox"></div>
   </div>
 
-  <!-- Nhúng các tập tin JS -->
-  <script src="overview.js" type="module"></script>
-  
-  <script src="displayBackground.js" type="module"></script>
+  <script type="module" src="overview.js"></script>
   <script type="module" src="effect-win.js"></script>
   <script type="module" src="effect-loose.js"></script>
 </body>
