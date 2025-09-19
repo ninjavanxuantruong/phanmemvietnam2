@@ -326,9 +326,14 @@ function getTodayEntry() {
     : 0;
 
   // Số phần đã làm
-  const completedParts =
-    JSON.parse(localStorage.getItem("completedParts") || "[]");
-  const completedCount = completedParts.length;
+  const completedCount = [
+    "vocabulary", "image", "game", "listening", "speaking",
+    "phonics", "overview", "communication", "grade8"
+  ].filter(key => {
+    const result = JSON.parse(localStorage.getItem(`result_${key}`) || "{}");
+    return result.total > 0;
+  }).length;
+
 
   return {
     name: normalizedName,       // luôn dùng bản chuẩn hóa để lưu Firebase
@@ -370,13 +375,16 @@ async function saveTodayResult() {
   if (window.saveStudentResultToFirebase) {
     try {
       await window.saveStudentResultToFirebase(entry);
-      alert("✅ Đã ghi kết quả lên hệ thống!");
+      alert("✅ Kết quả đã được ghi lên hệ thống thành công!");
     } catch (err) {
-      alert("❌ Lỗi khi ghi kết quả: " + err.message);
+      console.error("❌ Lỗi khi ghi Firebase:", err.message);
+      alert("❌ Ghi không thành công. Vui lòng kiểm tra mạng hoặc ấn gửi lại kết quả.");
     }
   } else {
-    alert("⚠️ Chưa có hàm saveStudentResultToFirebase.");
+    alert("⚠️ Hệ thống chưa sẵn sàng để ghi kết quả. Vui lòng thử lại hoặc báo cho giáo viên.");
   }
+
+
 }
 
 // 2️⃣ Hàm render bảng tuần từ Firebase
