@@ -1,8 +1,9 @@
 import { getRandomResponse, speakResponse } from './library.js';
-import { showCatchEffect } from './pokeball-effect.js';
+import { showVictoryEffect } from './effect-win.js';
+import { showDefeatEffect } from './effect-loose.js';
 function triggerVictoryEffect() {
   console.log("✅ Người chơi đã hoàn tất Overview!");
-  showCatchEffect();
+    showVictoryEffect();
 
   localStorage.setItem("result_overview", JSON.stringify({
     score: correctCount,
