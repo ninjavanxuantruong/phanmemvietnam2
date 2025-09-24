@@ -80,6 +80,42 @@ function convertSheetDateToISO(dateStr) {
   return isoStr;
 }
 
+// ✅ Xáo trộn mảng (Fisher–Yates shuffle)
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+
+// ✅ Hàm thêm bài vào lịch với logic ưu tiên
+function addLesson(schedule, iso, entry) {
+  const priority = { new: 1, review: 2, related: 3, old: 4 };
+
+  if (!schedule[iso]) {
+    schedule[iso] = entry;
+    return;
+  }
+
+  const existing = schedule[iso];
+
+  if (priority[entry.type] < priority[existing.type]) {
+    // entry quan trọng hơn → đẩy bài cũ xuống
+    let nextDate = new Date(iso);
+    nextDate.setDate(nextDate.getDate() + 1);
+    addLesson(schedule, nextDate.toISOString().split("T")[0], existing);
+    schedule[iso] = entry;
+  } else {
+    // entry kém ưu tiên hơn → đẩy entry xuống
+    let nextDate = new Date(iso);
+    nextDate.setDate(nextDate.getDate() + 1);
+    addLesson(schedule, nextDate.toISOString().split("T")[0], entry);
+  }
+}
+
+
 // ✅ Tạo lịch học từ ngày gốc
 function generateLessonSchedule(mainCode, relatedCodes, baseDateStr, reviewOffsets) {
   const baseDate = new Date(baseDateStr);
@@ -133,75 +169,52 @@ function generateLessonSchedule(mainCode, relatedCodes, baseDateStr, reviewOffse
 
 function buildFullScheduleFromLessons(lessonList, reviewOffsets) {
   const schedule = {};
-  const usedDates = new Map(); // date → số lượng bài đã gán
-  const newLessonDates = [];   // danh sách bài mới đã gán
 
-  // ✅ Bước 1: Gán bài mới vào ngày gốc
+  // Bước 1: Gán bài mới
   for (let lesson of lessonList) {
     const iso = lesson.baseDate;
     if (!iso) continue;
 
-    if (!schedule[iso]) schedule[iso] = [];
-    schedule[iso].push({
+    addLesson(schedule, iso, {
       code: lesson.code,
       title: lesson.title,
       type: "new",
       relatedTo: lesson.code
     });
-
-    usedDates.set(iso, (usedDates.get(iso) || 0) + 1);
-    newLessonDates.push({ code: lesson.code, date: iso });
   }
 
-  // ✅ Bước 2: Gán bài ôn tập theo offset từ ngày gốc
-  for (let item of newLessonDates) {
+  // Bước 2: Gán bài ôn tập
+  for (let lesson of lessonList) {
     for (let offset of reviewOffsets) {
-      const d = new Date(item.date);
+      const d = new Date(lesson.baseDate);
       d.setDate(d.getDate() + offset);
-      let iso = d.toISOString().split("T")[0];
+      const iso = d.toISOString().split("T")[0];
 
-      // ✅ Nếu ngày có bài mới hoặc đủ 2 bài → lùi
-      while ((schedule[iso]?.some(e => e.type === "new")) || (usedDates.get(iso) || 0) >= 2) {
-        d.setDate(d.getDate() + 1);
-        iso = d.toISOString().split("T")[0];
-      }
-
-      if (!schedule[iso]) schedule[iso] = [];
-      schedule[iso].push({
-        code: item.code,
-        title: item.code,
+      addLesson(schedule, iso, {
+        code: lesson.code,
+        title: lesson.code,
         type: "review",
-        relatedTo: item.code
+        relatedTo: lesson.code
       });
-
-      usedDates.set(iso, (usedDates.get(iso) || 0) + 1);
     }
   }
 
-  // ✅ Bước 3: Gán bài liên quan sau bài mới
+  // Bước 3: Gán bài liên quan
   for (let lesson of lessonList) {
     let d = new Date(lesson.baseDate);
-    d.setDate(d.getDate() + 1); // bắt đầu từ ngày sau bài mới
+    d.setDate(d.getDate() + 1);
 
     for (let relatedCode of lesson.relatedCodes || []) {
-      let iso = d.toISOString().split("T")[0];
+      const iso = d.toISOString().split("T")[0];
 
-      // ✅ Nếu ngày có bài mới hoặc đủ 2 bài → lùi
-      while ((schedule[iso]?.some(e => e.type === "new")) || (usedDates.get(iso) || 0) >= 2) {
-        d.setDate(d.getDate() + 1);
-        iso = d.toISOString().split("T")[0];
-      }
-
-      if (!schedule[iso]) schedule[iso] = [];
-      schedule[iso].push({
+      addLesson(schedule, iso, {
         code: relatedCode,
         title: relatedCode,
         type: "related",
         relatedTo: lesson.code
       });
 
-      usedDates.set(iso, (usedDates.get(iso) || 0) + 1);
-      d.setDate(d.getDate() + 1); // tiếp tục ngày sau
+      d.setDate(d.getDate() + 1);
     }
   }
 
@@ -223,16 +236,10 @@ async function generateFullScheduleFromSheet(className) {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      if (!row || !row.c || !row.c[0] || !row.c[1] || !row.c[2]) {
-        console.warn(`⚠️ Bỏ qua dòng ${i + 1} vì thiếu dữ liệu`);
-        continue;
-      }
+      if (!row || !row.c || !row.c[0] || !row.c[1] || !row.c[2]) continue;
 
       const sheetClass = row.c[0].v.toString().trim().toLowerCase();
-      if (!sheetClass.includes(className)) {
-        console.warn(`⚠️ Bỏ qua dòng ${i + 1} vì lớp không khớp: lớp trong Sheet = ${sheetClass}, lớp đã chọn = ${className}`);
-        continue;
-      }
+      if (!sheetClass.includes(className)) continue;
 
       const mainRaw = row.c[2].v.toString().trim();
       const relatedRaw = row.c[3]?.v?.toString().trim() || "";
@@ -249,26 +256,39 @@ async function generateFullScheduleFromSheet(className) {
         code: mainCode,
         title: mainRaw,
         relatedCodes,
-        baseDate // ✅ dùng ngày gốc từ Sheet
+        baseDate
       });
-
-
     }
 
     const reviewOffsets = spacedConfig[className] || [4, 11, 25];
     const fullSchedule = buildFullScheduleFromLessons(lessonList, reviewOffsets);
 
+    // Tính ngày xa nhất có thể (KHÔNG lưu vào lịch)
+    const lastLesson = lessonList[lessonList.length - 1];
+    let maxDate = new Date(lastLesson.baseDate);
+    const maxOffset = Math.max(...reviewOffsets);
+    maxDate.setDate(maxDate.getDate() + maxOffset);
+    if (lastLesson.relatedCodes && lastLesson.relatedCodes.length > 0) {
+      maxDate.setDate(maxDate.getDate() + lastLesson.relatedCodes.length);
+    }
+    const maxDateISO = maxDate.toISOString().split("T")[0];
+
+    // Ghi lịch mới
     const docRef = window.doc(window.db, "lich", className);
     await window.setDoc(docRef, fullSchedule);
     console.log("✅ Đã ghi toàn bộ lịch mới vào Firebase cho lớp:", className);
 
-    await autoFillOldLessons(className, fullSchedule);
+    // Bổ sung bài cũ dùng maxDate tính sẵn (không cần _maxDate trong doc)
+    await autoFillOldLessons(className, fullSchedule, maxDateISO);
+
+    // Hiển thị
     renderFullScheduleFromFirebase(className);
     showTodayLessonFromFirebase(className);
   } catch (err) {
     console.error("❌ Lỗi khi tạo lại lịch học:", err.message);
   }
 }
+
 
 
 async function autoFillOldLessons(className, currentSchedule) {
@@ -290,10 +310,10 @@ async function autoFillOldLessons(className, currentSchedule) {
   }
 
   // ✅ Loại trừ tất cả mã bài đã có trong lịch
-  const usedCodes = Object.values(currentSchedule).flat().map(item => normalizeUnit(item.code));
+  const usedCodes = Object.values(currentSchedule).map(item => normalizeUnit(item.code));
 
   // ✅ Loại trừ thêm các bài bổ sung trước hôm nay
-  const preservedCodes = Object.values(preserved).flat().map(item => normalizeUnit(item.code));
+  const preservedCodes = Object.values(preserved).map(item => normalizeUnit(item.code));
 
   // ✅ Tìm bài cũ từ Sheet 2
   const res = await fetch(VOCAB_URL);
@@ -306,26 +326,22 @@ async function autoFillOldLessons(className, currentSchedule) {
     return extractCodeFromTitle(raw);
   }).filter(Boolean);
 
-  const newCodes = Object.values(currentSchedule).flat()
+  const newCodes = Object.values(currentSchedule)
     .filter(item => item.type === "new")
     .map(item => normalizeUnit(item.code));
 
   const highestCode = newCodes.sort().reverse()[0];
-  const sortedOldUnits = allUnits
-    .filter(code => code < highestCode)
-    .sort((a, b) => {
-      const [la, lb] = [parseInt(a[0]), parseInt(b[0])];
-      return lb - la || b.localeCompare(a);
-    });
-
-  
-
-  
-
+  const sortedOldUnits = allUnits.filter(code => code < highestCode);
 
   // ✅ Tìm các ngày trống từ hôm nay trở đi
-  const allDates = Object.keys(currentSchedule).sort((a, b) => new Date(a) - new Date(b));
-  const maxDate = new Date(allDates[allDates.length - 1]);
+  let maxDate;
+  if (currentSchedule._maxDate) {
+    maxDate = new Date(currentSchedule._maxDate);
+  } else {
+    const allDates = Object.keys(currentSchedule).sort((a, b) => new Date(a) - new Date(b));
+    maxDate = new Date(allDates[allDates.length - 1]);
+  }
+
 
   const emptyDates = [];
   const d = new Date(todayISO);
@@ -341,21 +357,17 @@ async function autoFillOldLessons(className, currentSchedule) {
   let excluded = new Set([...usedCodes, ...preservedCodes]);
   let finalUnits = [...new Set(sortedOldUnits.filter(code => !excluded.has(code)))];
 
+  // ✅ Random danh sách bài còn lại
+  finalUnits = shuffleArray(finalUnits);
+
   // ✅ Nếu không đủ bài để gán → cho phép dùng lại bài đã từng bổ sung
-  const totalNeeded = emptyDates.length * 2;
+  const totalNeeded = emptyDates.length;
   if (finalUnits.length < totalNeeded) {
     console.warn("⚠️ Không đủ bài mới để bổ sung, cho phép dùng lại bài đã từng bổ sung trước hôm nay");
     excluded = new Set(usedCodes); // bỏ preservedCodes ra khỏi excluded
     finalUnits = [...new Set(sortedOldUnits.filter(code => !excluded.has(code)))];
+    finalUnits = shuffleArray(finalUnits); // random lại
   }
-
-  // ✅ Log kiểm tra
-  console.log("🔍 Tổng số bài cũ có thể dùng:", sortedOldUnits.length);
-  console.log("🔍 Số bài đã học:", usedCodes.length);
-  console.log("🔍 Số bài đã từng bổ sung:", preservedCodes.length);
-  console.log("🔍 Tổng số bài bị loại:", excluded.size);
-  console.log("🔍 Bài còn lại để bổ sung:", finalUnits.length);
-  console.log("🔍 Danh sách bài còn lại:", finalUnits);
 
   // ✅ Tra title từ Sheet 2
   const titleMap = {};
@@ -365,78 +377,47 @@ async function autoFillOldLessons(className, currentSchedule) {
     if (finalUnits.includes(code)) {
       titleMap[code] = rawTitle;
     }
-
-
   }
 
-  // ✅ Gán bài bổ sung vào lịch và bosung mới — mỗi ngày 1 bài khác nhau
+  // ✅ Gán bài bổ sung vào lịch và bosung mới — mỗi ngày 1 bài
   const bosungSchedule = {};
   let unitIndex = 0;
 
   for (let date of emptyDates) {
-    const entries = [];
+    if (unitIndex >= finalUnits.length) unitIndex = 0; // quay vòng nếu hết bài
 
-    for (let j = 0; j < 2; j++) {
-      // ✅ Nếu hết bài → quay lại đầu danh sách
-      if (unitIndex >= finalUnits.length) unitIndex = 0;
+    const code = finalUnits[unitIndex];
+    const entry = {
+      code,
+      title: titleMap[code] || code,
+      type: "old",
+      relatedTo: ""
+    };
 
-      const code = finalUnits[unitIndex];
-      const entry = {
-        code,
-        title: titleMap[code] || code,
-        type: "old",
-        relatedTo: ""
-      };
+    addLesson(currentSchedule, date, entry); // dùng addLesson để tránh xung đột
+    bosungSchedule[date] = entry;
 
-      entries.push(entry);
-      unitIndex++;
-    }
-
-    if (entries.length > 0) {
-      currentSchedule[date] = entries;
-      bosungSchedule[date] = entries;
-      console.log(`📅 Gán ${entries.length} bài vào ngày ${date}:`, entries.map(e => e.code).join(", "));
-    }
+    console.log(`📅 Gán bài bổ sung ${code} vào ngày ${date}`);
+    unitIndex++;
   }
-
-
 
   // ✅ Ghi lịch mới vào Firebase
   const docRef = window.doc(window.db, "lich", className);
   await window.setDoc(docRef, currentSchedule);
 
   // ✅ Gộp dữ liệu cũ + mới → ghi vào bosung
-  let finalBosung;
-
-  if (finalUnits.length < totalNeeded) {
-    console.warn("⚠️ Không đủ bài để bổ sung, cho phép quay vòng lại từ đầu — reset bosung");
-    finalBosung = bosungSchedule;
-
-    // ✅ THÊM LOG KIỂM TRA RESET
-    console.log("🧹 Đã RESET bosung — chỉ ghi lại bài vừa bổ sung:");
-    console.table(bosungSchedule);
-  } else {
-    finalBosung = { ...preserved, ...bosungSchedule };
-
-    // ✅ THÊM LOG KIỂM TRA GỘP
-    console.log("📦 Đã GỘP bosung — giữ lại bài cũ và thêm bài mới:");
-    console.log("🗂 preserved:", Object.keys(preserved).length, "ngày");
-    console.log("🆕 bosung mới:", Object.keys(bosungSchedule).length, "ngày");
-  }
-
-
+  const finalBosung = { ...preserved, ...bosungSchedule };
   await window.setDoc(bosungRef, finalBosung);
 
-
-  console.log("✅ Đã cập nhật lịch bổ sung và giữ lại dữ liệu cũ trước hôm nay");
+  console.log("✅ Đã cập nhật lịch bổ sung:", finalBosung);
 }
 
 
 
-// ✅ Hiển thị bảng lịch học từ hôm nay trở đi
+
+// ✅ Hiển thị bảng lịch học từ hôm nay trở đi (mỗi ngày 1 bài duy nhất)
 async function renderFullScheduleFromFirebase(className) {
   const docRef = window.doc(window.db, "lich", className);
-  const today = new Date();
 
   try {
     const snapshot = await window.getDoc(docRef);
@@ -449,41 +430,34 @@ async function renderFullScheduleFromFirebase(className) {
     const tableBody = document.querySelector("#scheduleTable tbody");
     tableBody.innerHTML = "";
 
+    // Sắp xếp ngày tăng dần
     const entries = Object.entries(data)
-    .sort(([a], [b]) => new Date(a) - new Date(b));
-
-
+      .sort(([a], [b]) => new Date(a) - new Date(b));
 
     let stt = 1;
-    for (let [dateStr, lessons] of entries) {
-      const row = document.createElement("tr");
-
-      const titles = lessons.map(l => l.title).join("<br>");
-      const labels = lessons.map(l => {
-        return l.type === "new"
+    for (let [dateStr, lesson] of entries) {
+      // lesson là object duy nhất
+      const label =
+        lesson.type === "new"
           ? "Bài mới - Phải học"
-          : l.type === "review"
+          : lesson.type === "review"
           ? "Ôn tập bài mới - Nên học"
-          : l.type === "related"
+          : lesson.type === "related"
           ? "Bài liên quan bài mới - Nên học"
-          : l.type === "old"
+          : lesson.type === "old"
           ? "Bài cũ"
-          : l.type;
-      }).join("<br>");
+          : lesson.type;
 
-      const related = lessons.map(l => l.relatedTo || "").join("<br>");
-
+      const row = document.createElement("tr");
       row.innerHTML = `
         <td>${stt++}</td>
         <td>${dateStr}</td>
-        <td>${titles}</td>
-        <td>${labels}</td>
-        <td>${related}</td>
+        <td>${lesson.title}</td>
+        <td>${label}</td>
+        <td>${lesson.relatedTo || ""}</td>
       `;
       tableBody.appendChild(row);
     }
-
-
 
     console.log("📋 Đã hiển thị lịch học từ hôm nay trở đi cho lớp", className);
   } catch (err) {
@@ -491,40 +465,58 @@ async function renderFullScheduleFromFirebase(className) {
   }
 }
 
+// ✅ Hiển thị bảng lịch học từ hôm nay trở đi
+// ✅ Hiển thị bảng lịch học từ hôm nay trở đi (mỗi ngày 1 bài duy nhất)
+async function showTodayLessonFromFirebase(className) {
+  const todayISO = new Date().toISOString().split("T")[0];
+  const docRef = window.doc(window.db, "lich", className);
+
+  try {
+    const snapshot = await window.getDoc(docRef);
+    if (!snapshot.exists()) return;
+
+    const data = snapshot.data();
+    const todayLesson = data[todayISO];
+    if (!todayLesson) {
+      console.warn("📭 Không có bài học nào hôm nay cho lớp", className);
+      return;
+    }
+
+    renderLessonChecklist(todayLesson);
+  } catch (err) {
+    console.error("❌ Lỗi khi hiển thị bài học hôm nay:", err.message);
+  }
+}
+
+
+
 // ✅ Hiển thị danh sách bài học hôm nay để chọn
-function renderLessonChecklist(todayLessons) {
+function renderLessonChecklist(todayLesson) {
   const container = document.getElementById("lessonList");
   container.innerHTML = "";
 
-  const sorted = [...todayLessons].sort((a, b) => {
-    const order = { new: 0, related: 1, review: 2 };
-    return order[a.type] - order[b.type];
-  });
+  const label =
+    todayLesson.type === "new"
+      ? "Bài mới"
+      : todayLesson.type === "related"
+      ? `Liên quan đến ${todayLesson.relatedTo}`
+      : todayLesson.type === "old"
+      ? "Bài cũ"
+      : `Ôn tập của ${todayLesson.relatedTo}`;
 
-  sorted.forEach(item => {
-    const label =
-      item.type === "new"
-        ? "Bài mới"
-        : item.type === "related"
-        ? `Liên quan đến ${item.relatedTo}`
-        : item.type === "old"
-        ? "Bài cũ"
-        : `Ôn tập của ${item.relatedTo}`;
+  const div = document.createElement("div");
+  div.innerHTML = `
+    <label>
+      <input type="checkbox" value="${normalizeUnit(todayLesson.code)}" data-title="${todayLesson.title}" />
+      ${todayLesson.title} (${label})
+    </label>
+  `;
+  container.appendChild(div);
 
-
-    const div = document.createElement("div");
-    div.innerHTML = `
-      <label>
-        <input type="checkbox" value="${normalizeUnit(item.code)}" data-title="${item.title}" />
-        ${item.title} (${label})
-      </label>
-    `;
-    container.appendChild(div);
-  });
-
-  console.log("📑 Đã hiển thị danh sách bài học hôm nay:", sorted);
+  console.log("📑 Đã hiển thị bài học hôm nay:", todayLesson);
   document.getElementById("btnLearnSuggested").disabled = false;
 }
+
 
 // ✅ Hiển thị bài học hôm nay từ Firebase
 async function showTodayLessonFromFirebase(className) {
