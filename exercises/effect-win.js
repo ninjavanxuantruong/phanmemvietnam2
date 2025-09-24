@@ -1,5 +1,3 @@
-// effect-win.js
-
 // ——————————————————————————————————————————————————
 // 1. IMPORTS & FIREBASE SETUP
 // ——————————————————————————————————————————————————
@@ -7,7 +5,9 @@ import { initializeApp, getApp } from "https://www.gstatic.com/firebasejs/10.5.0
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 import { pokemonData } from "./pokemonData.js";
 import { skillEffects } from "./skillEffects.js";
+// Nếu anh đã có backgroundgame.js tự áp nền, có thể bỏ hàm applyRandomBackground ở dưới.
 
+// Firebase config (giữ nguyên)
 const firebaseConfig = {
   apiKey: "AIzaSyCCVdzWiiFvcWiHVJN-x33YKarsjyziS8E",
   authDomain: "pokemon-capture-10d03.firebaseapp.com",
@@ -22,10 +22,11 @@ try { app = initializeApp(firebaseConfig); }
 catch { app = getApp(); }
 const db = getFirestore(app);
 
+// Lấy selected Pokémon ID (giữ nguyên)
 (async () => {
   const name = localStorage.getItem("trainerName") || "Không tên";
-  const cls = localStorage.getItem("trainerClass") || "Chưa có lớp";
-  const ref = doc(db, "bosuutap", `${name.trim()}-${cls.trim()}`);
+  const cls  = localStorage.getItem("trainerClass") || "Chưa có lớp";
+  const ref  = doc(db, "bosuutap", `${name.trim()}-${cls.trim()}`);
   try {
     const snap = await getDoc(ref);
     window.selectedPokemonID = snap.exists() ? snap.data().selected : 25;
@@ -35,7 +36,7 @@ const db = getFirestore(app);
 })();
 
 // ——————————————————————————————————————————————————
-// 2. HELPERS
+// 2. HELPERS (styles, data, centers, background)
 // ——————————————————————————————————————————————————
 
 function injectGlobalStyles() {
@@ -45,32 +46,17 @@ function injectGlobalStyles() {
   s.innerHTML = `
     @keyframes shake { 0%,100%{transform:translate(-50%,-50%)rotate(0);}25%{transform:translate(-50%,-50%)rotate(10deg);}50%{transform:translate(-50%,-50%)rotate(-10deg);}75%{transform:translate(-50%,-50%)rotate(10deg);} }
     @keyframes beamFlash { 0%{opacity:0;transform:translate(-50%,-50%)scale(0.5);}50%{opacity:1;transform:translate(-50%,-50%)scale(1.2);}100%{opacity:0;transform:translate(-50%,-50%)scale(1.6);} }
-    @keyframes faint { 0%{opacity:1;transform:translate(-50%,-50%)scale(1.4);}50%{opacity:0.5;transform:translate(-50%,-50%)rotate(20deg)scale(1.2);}100%{opacity:0;transform:translate(-50%,-50%)rotate(90deg)scale(0.8);} }
+    @keyframes faint { 0%{opacity:1;transform:translate(-50%,-50%)scale(1.2);}50%{opacity:0.6;transform:translate(-50%,-50%)rotate(12deg)scale(1.0);}100%{opacity:0;transform:translate(-50%,-50%)rotate(90deg)scale(0.7);} }
     @keyframes chase { 0%{top:40%;left:30%;}25%{top:35%;left:50%;}50%{top:45%;left:40%;}75%{top:38%;left:60%;}100%{top:40%;left:30%;} }
     @keyframes dodge { 0%{top:60%;left:70%;}25%{top:65%;left:50%;}50%{top:55%;left:60%;}75%{top:62%;left:40%;}100%{top:60%;left:70%;} }
     @keyframes zigzag { 0%{top:40%;left:40%;}25%{top:35%;left:60%;}50%{top:45%;left:50%;}75%{top:38%;left:70%;}100%{top:40%;left:40%;} }
     @keyframes circle { 0%{transform:translate(-50%,-50%)rotate(0);}100%{transform:translate(-50%,-50%)rotate(360deg);} }
     @keyframes hop { 0%{top:50%;}50%{top:40%;}100%{top:50%;} }
-    @keyframes slideX {
-      0% { left: 10%; }
-      100% { left: 90%; }
-    }
-    @keyframes slideY {
-      0% { top: 10%; }
-      100% { top: 90%; }
-    }
-    @keyframes diagonal {
-      0% { top: 10%; left: 10%; }
-      100% { top: 90%; left: 90%; }
-    }
-    @keyframes teleportOut {
-      0% { opacity: 1; transform: scale(1); }
-      100% { opacity: 0; transform: scale(0.5); }
-    }
-    @keyframes teleportIn {
-      0% { opacity: 0; transform: scale(0.5); }
-      100% { opacity: 1; transform: scale(1.4); }
-    }
+    @keyframes slideX { 0% { left: 10%; } 100% { left: 90%; } }
+    @keyframes slideY { 0% { top: 10%; } 100% { top: 90%; } }
+    @keyframes diagonal { 0% { top: 10%; left: 10%; } 100% { top: 90%; left: 90%; } }
+    @keyframes teleportOut { 0% { opacity: 1; transform: translate(-50%,-50%) scale(1); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } }
+    @keyframes teleportIn  { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } 100% { opacity: 1; transform: translate(-50%,-50%) scale(1.2); } }
   `;
   document.head.appendChild(s);
 }
@@ -79,94 +65,149 @@ function getPokemonInfo(id) {
   return pokemonData.find(p => p.id === id) || {
     id,
     type: "normal",
-    skills: ["Tackle"],
+    skills: ["Tackle", "Headbutt"],
     power: 30,
-    size: "medium"
+    size: "medium",
+    stage: 1
   };
 }
+
+// Tính tâm sprite (để skill luôn bắn đúng tâm)
+function getSpriteCenter(id) {
+  const el = document.querySelector(`img[data-poke-id="${id}"]`);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+
+// Random nền chiến đấu (nếu chưa có backgroundgame.js tự áp)
+function applyRandomBackground() {
+  const backgrounds = [
+    'https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/b%20(1).jpg',
+    'https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/b%20(2).jpg',
+    'https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/b%20(3).jpg',
+    'https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/b%20(4).jpg',
+    'https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/b%20(5).jpg',
+    'https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/b%20(6).jpg',
+    'https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/b%20(7).jpg',
+    'https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/b%20(8).jpg',
+    'https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/b%20(9).jpg',
+    'https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/b%20(10).jpg',
+  ];
+  const bg = backgrounds[Math.floor(Math.random() * backgrounds.length)];
+
+  // Nếu đã có overlay thì chỉ đổi ảnh
+  let overlay = document.getElementById("battle-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "battle-overlay";
+    Object.assign(overlay.style, {
+      position: "fixed",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      zIndex: 999,   // đè hẳn lên nền cũ
+      overflow: "hidden"
+    });
+    document.body.appendChild(overlay);
+  }
+  overlay.style.backgroundImage = `url('${bg}')`;
+
+  return overlay; // trả về overlay để append sprite/hiệu ứng vào
+}
+
+
+// ——————————————————————————————————————————————————
+// 3. SPRITES, MOVEMENT & SKILL EFFECTS
+// ——————————————————————————————————————————————————
 
 function createSprite(id, role) {
   const pos = role === "my"
     ? { top: "60%", left: "70%" }
     : { top: "40%", left: "30%" };
+
+  // Mobile responsive: nhỏ đi ~1/2
+  const isMobile = window.innerWidth < 768;
+  const scale = isMobile ? 0.7 : 1.4;
+  const height = isMobile ? "90px" : "180px";
+
   const img = document.createElement("img");
-  img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+  // ✅ Dùng official artwork (nền trong suốt, không khung vuông)
+  img.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
   img.dataset.pokeId = id;
+
   Object.assign(img.style, {
     position: "fixed",
     top: pos.top,
     left: pos.left,
-    transform: "translate(-50%,-50%) scale(1.4)",
-    height: "180px",
+    transform: `translate(-50%,-50%) scale(${scale})`,
+    height,
     boxShadow: role === "my"
       ? "0 0 30px rgba(255,255,0,0.9)"
       : "0 0 30px rgba(255,255,255,0.9)",
-    zIndex: 1000
+    zIndex: 1000,
+    // ✅ Cắt gọn hình tròn để loại bỏ viền vuông
+    clipPath: "circle(48% at 50% 50%)",
+    WebkitClipPath: "circle(48% at 50% 50%)",
+    background: "transparent"
   });
+
   return img;
 }
 
+
+function getRandomMovement() {
+  const names = ["chase", "dodge", "zigzag", "circle", "hop", "slideX", "slideY", "diagonal"];
+  const name = names[Math.floor(Math.random() * names.length)];
+  const duration = (Math.random() * 3 + 3).toFixed(2) + "s"; // 3–6s
+  return { name, duration };
+}
+
+// Giữ nguyên phong cách di chuyển ngắt quãng hiện tại
 function animateSpriteSequence(sprite, totalMs, role) {
-  let currentTop = parseFloat(sprite.style.top) || 50;
-  let currentLeft = parseFloat(sprite.style.left) || 50;
   const moveCount = Math.floor(totalMs / 1500);
-  const moveTypes = ["slideX", "slideY", "diagonal", "teleport", "chase", "hop"];
-  const isMy = role === "my";
+  const moveTypes = ["slideX", "slideY", "diagonal", "chase", "hop", "zigzag", "circle"];
 
   for (let i = 0; i < moveCount; i++) {
     const delay = i * 1500;
     setTimeout(() => {
       const move = moveTypes[Math.floor(Math.random() * moveTypes.length)];
-      let newTop = currentTop;
-      let newLeft = currentLeft;
+      const randTop  = Math.random() * 80 + 10;
+      const randLeft = Math.random() * 80 + 10;
 
-      const randTop = Math.random() * 90 + 5;
-      const randLeft = Math.random() * 90 + 5;
+      sprite.style.animation = `${move} 1.5s ease-in-out`;
+      sprite.style.top  = `${randTop}%`;
+      sprite.style.left = `${randLeft}%`;
 
-      if (move === "slideX") {
-        newLeft = randLeft;
-        sprite.style.animation = "slideX 1.5s ease-in-out";
-      } else if (move === "slideY") {
-        newTop = randTop;
-        sprite.style.animation = "slideY 1.5s ease-in-out";
-      } else if (move === "diagonal") {
-        newTop = randTop;
-        newLeft = randLeft;
-        sprite.style.animation = "diagonal 1.5s ease-in-out";
-      } else if (move === "teleport") {
-        sprite.style.animation = "teleportOut 0.3s ease-in-out";
-        setTimeout(() => {
-          newTop = Math.random() * 90 + 5;
-          newLeft = Math.random() * 90 + 5;
-          sprite.style.top = `${newTop}%`;
-          sprite.style.left = `${newLeft}%`;
-          sprite.style.animation = "teleportIn 0.3s ease-in-out";
-          currentTop = newTop;
-          currentLeft = newLeft;
-        }, 300);
-        return;
-      } else {
-        sprite.style.animation = `${move} 1.5s ease-in-out`;
-        newTop = randTop;
-        newLeft = randLeft;
-      }
-
-      // Nếu là bước cuối → ép vị trí kết thúc theo hướng
       if (i === moveCount - 1) {
-        newLeft = isMy ? Math.random() * 20 + 70 : Math.random() * 20 + 10;
-        newTop = Math.random() * 80 + 10;
+        sprite.style.top  = `${Math.random() * 80 + 10}%`;
+        sprite.style.left = role === "my"
+          ? `${Math.random() * 20 + 70}%`
+          : `${Math.random() * 20 + 10}%`;
       }
-
-      sprite.style.top = `${newTop}%`;
-      sprite.style.left = `${newLeft}%`;
-      currentTop = newTop;
-      currentLeft = newLeft;
     }, delay);
   }
 }
 
+// FIX: skill luôn bắn từ tâm attacker → tâm target
+function animateSkillEffect(pokemonId, skills, container, targetId) {
+  const from = getSpriteCenter(pokemonId);
+  const to   = getSpriteCenter(targetId);
+  if (!from || !to) return;
 
+  skills.forEach(name => {
+    const fn = skillEffects[name];
+    if (typeof fn === "function") {
+      fn(container, { x: from.x, y: from.y, targetX: to.x, targetY: to.y });
+    }
+  });
+}
 
+// PokéBall intro (giữ nguyên)
 function animatePokeBall(container) {
   injectGlobalStyles();
   return new Promise(resolve => {
@@ -207,115 +248,112 @@ function animatePokeBall(container) {
     }, 1100);
   });
 }
+
+// ——————————————————————————————————————————————————
+// 4. SKILL SELECTION UI (giữ đầy đủ skill)
+// ——————————————————————————————————————————————————
+
 function showSkillSelection(pokemonId, callback) {
   const { skills } = getPokemonInfo(pokemonId);
 
-  // ✅ Lọc ra các kỹ năng có hiệu ứng thực sự
   const validSkills = (skills || []).filter(name => typeof skillEffects[name] === "function");
+  const finalSkills = validSkills.length > 0 ? validSkills : skills || ["Tackle"];
 
-  // ✅ Nếu không có kỹ năng hợp lệ → dùng mặc định
-  const finalSkills = validSkills.length > 0 ? validSkills : ["Headbutt", "Tackle"];
-
-  const overlay = document.createElement("div");
-  Object.assign(overlay.style, {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    background: "rgba(0,0,0,0.6)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 3000
-  });
-
-  const box = document.createElement("div");
-  Object.assign(box.style, {
-    background: "#fff",
-    padding: "20px",
-    borderRadius: "12px",
-    textAlign: "center",
-    minWidth: "240px",
-    boxShadow: "0 0 12px rgba(0,0,0,0.3)"
-  });
-
-  const title = document.createElement("h3");
-  title.textContent = "🧠 Chọn chiêu cuối của bạn";
-  title.style.marginBottom = "12px";
-  box.appendChild(title);
+  let menu = document.getElementById("skillMenu");
+  if (!menu) {
+    menu = document.createElement("div");
+    menu.id = "skillMenu";
+    Object.assign(menu.style, {
+      position: "fixed",
+      bottom: "20px",
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: "rgba(0,0,0,0.7)",
+      padding: "12px 16px",
+      borderRadius: "8px",
+      display: "flex",
+      gap: "10px",
+      zIndex: 3000
+    });
+    document.body.appendChild(menu);
+  }
+  menu.innerHTML = "";
 
   finalSkills.forEach(name => {
     const btn = document.createElement("button");
     btn.textContent = name;
     Object.assign(btn.style, {
-      margin: "6px",
-      padding: "8px 16px",
-      fontSize: "16px",
+      padding: "8px 14px",
       borderRadius: "8px",
       border: "none",
-      background: "linear-gradient(to right, #3b4cca, #ffcc00)",
-      color: "#fff",
       cursor: "pointer",
+      background: "#ffcc00",
+      fontWeight: "bold",
       boxShadow: "0 2px 6px rgba(0,0,0,0.2)"
     });
     btn.onclick = () => {
-      document.body.removeChild(overlay);
+      menu.remove();
       callback([name]);
     };
-    box.appendChild(btn);
-  });
-
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-}
-
-
-
-function animateSkillEffect(pokemonId, skills, container, targetId) {
-  const source = document.querySelector(`img[data-poke-id="${pokemonId}"]`);
-  const target = document.querySelector(`img[data-poke-id="${targetId}"]`);
-  if (!source || !target) return;
-
-  const { x: x1, y: y1 } = source.getBoundingClientRect();
-  const { x: x2, y: y2 } = target.getBoundingClientRect();
-
-  skills.forEach(name => {
-    const fn = skillEffects[name];
-    if (typeof fn === "function") {
-      fn(container, { x: x1, y: y1, targetX: x2, targetY: y2 });
-    }
+    menu.appendChild(btn);
   });
 }
 
-
 // ——————————————————————————————————————————————————
-// 3. PUBLIC API: SHOW VICTORY EFFECT
+// 5. PUBLIC API: SHOW VICTORY EFFECT (mới)
 // ——————————————————————————————————————————————————
 
-export async function showVictoryEffect(container = document.body) {
-  await animatePokeBall(container);
+/**
+ * Hiệu ứng chiến thắng:
+ * - Random nền chiến đấu
+ * - Xuất hiện 2 Pokémon, vừa di chuyển vừa spam skill cơ bản (2–4 lần mỗi con)
+ * - Người chơi chọn chiêu cuối → đối thủ trúng, animation "faint" → hiển thị "Bạn đã chiến thắng!"
+ * - Giữ các hành vi cũ: PokéBall intro, menu chọn skill, phong cách di chuyển ngắt quãng
+ */
+export async function showVictoryEffect() {
+  injectGlobalStyles();
 
-  const myId = window.selectedPokemonID || 25;
+  // Tạo overlay nền mới
+  const overlay = applyRandomBackground();
+
+  await animatePokeBall(overlay);
+
+  const myId   = window.selectedPokemonID || 25;
   const wildId = Math.floor(Math.random() * 649) + 1;
 
-  const totalMs = Math.floor(Math.random() * 3000 + 5000); // 5–8s
-
-  const mySprite = createSprite(myId, "my");
+  // Render sprites
+  const mySprite   = createSprite(myId, "my");
   const wildSprite = createSprite(wildId, "wild");
-  container.append(mySprite, wildSprite);
+  overlay.append(mySprite, wildSprite);
 
+  // Thời gian di chuyển 5–8s
+  const totalMs = Math.floor(Math.random() * 3000 + 5000);
   animateSpriteSequence(mySprite, totalMs, "my");
   animateSpriteSequence(wildSprite, totalMs, "wild");
 
+  // Trong lúc di chuyển: spam skill cơ bản 2–4 lần mỗi con
+  function spamSkills(attackerId, targetId, durationMs) {
+    const base = getPokemonInfo(attackerId).skills.slice(0, 2);
+    const times = Math.floor(Math.random() * 3) + 2;
+    for (let i = 0; i < times; i++) {
+      const delay = (durationMs / times) * i + 400;
+      setTimeout(() => {
+        const skill = base[Math.floor(Math.random() * base.length)];
+        animateSkillEffect(attackerId, [skill], overlay, targetId);
+      }, delay);
+    }
+  }
+  spamSkills(myId, wildId, totalMs);
+  spamSkills(wildId, myId, totalMs);
 
+  // Kết thúc di chuyển → người chơi chọn chiêu cuối
   setTimeout(() => {
     showSkillSelection(myId, chosen => {
-      animateSkillEffect(myId, chosen, container, wildId);
+      animateSkillEffect(myId, chosen, overlay, wildId);
 
-      // Wild Pokémon biến mất
+      // Wild Pokémon gục
       setTimeout(() => {
-        wildSprite.style.animation = "faint 1s ease-in-out forwards";
+        wildSprite.style.animation = "faint 1.2s ease-out forwards";
       }, 1000);
 
       // Thông báo chiến thắng
@@ -330,10 +368,11 @@ export async function showVictoryEffect(container = document.body) {
           fontSize: "22px",
           color: "#00ff00",
           textShadow: "2px 2px 6px black",
-          zIndex: 1003
+          zIndex: 2000
         });
-        container.appendChild(result);
+        overlay.appendChild(result);
       }, 1600);
     });
   }, totalMs + 200);
 }
+
