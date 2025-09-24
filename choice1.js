@@ -1,4 +1,4 @@
-// ✅ choice1.js — phiên bản đầy đủ
+// ✅ choice1.js — phiên bản mới (mỗi ngày chỉ 1 bài)
 
 const todayISO = new Date().toISOString().split("T")[0];
 const className = localStorage.getItem("trainerClass")?.trim().toLowerCase();
@@ -19,30 +19,32 @@ window.getDoc(docRef).then(snapshot => {
   }
 
   const data = snapshot.data();
-  const todayLessons = data[todayISO] || [];
+  const todayLesson = data[todayISO] || null;
 
   // ✅ Hiển thị bài học hôm nay
   const container = document.getElementById("lessonList");
   container.innerHTML = "";
-  if (todayLessons.length === 0) {
+  if (!todayLesson) {
     container.innerHTML = "<p>📭 Không có bài học nào hôm nay.</p>";
   } else {
-    todayLessons.forEach(item => {
-      const label =
-        item.type === "new" ? "Bài mới" :
-        item.type === "related" ? `Liên quan đến ${item.relatedTo}` :
-        item.type === "review" ? `Ôn tập của ${item.relatedTo}` :
-        item.type === "old" ? "Bài cũ" : item.type;
+    const item = todayLesson; // object duy nhất
+    const label =
+      item.type === "new" ? "Bài mới" :
+      item.type === "related" ? `Liên quan đến ${item.relatedTo}` :
+      item.type === "review" ? `Ôn tập của ${item.relatedTo}` :
+      item.type === "old" ? "Bài cũ" : item.type;
 
-      const div = document.createElement("div");
-      div.innerHTML = `
-        <label>
-          <input type="checkbox" value="${normalizeUnit(item.code)}" data-title="${item.title}" />
-          ${item.title} (${label})
-        </label>
-      `;
-      container.appendChild(div);
-    });
+    const div = document.createElement("div");
+    div.innerHTML = `
+      <label>
+        <input type="checkbox" value="${normalizeUnit(item.code)}" data-title="${item.title}" />
+        ${item.title} (${label})
+      </label>
+    `;
+    container.appendChild(div);
+
+    // Lưu vào localStorage để choice.js đọc được
+    localStorage.setItem("todayLesson", JSON.stringify(item));
   }
 
   // ✅ Hiển thị lịch từ hôm nay trở đi
@@ -56,28 +58,22 @@ window.getDoc(docRef).then(snapshot => {
     .filter(([date]) => date >= yesterdayISO)
     .sort(([a], [b]) => new Date(a) - new Date(b));
 
-
-  let stt = 1;
-  for (let [dateStr, lessons] of entries) {
-    const row = document.createElement("tr");
-
+  for (let [dateStr, lesson] of entries) {
     const [yyyy, mm, dd] = dateStr.split("-");
     const formattedDate = `${dd}/${mm}/${yyyy}`;
 
-    const combined = lessons.map(l => {
-      const label =
-        l.type === "new" ? "Bài mới – Phù hợp" :
-        l.type === "review" ? "Ôn tập – Nên học lại" :
-        l.type === "related" ? "Liên quan – Nên học" :
-        l.type === "old" ? "Bài cũ – Nên học lại" :
-        l.type;
+    const label =
+      lesson.type === "new" ? "Bài mới – Phù hợp" :
+      lesson.type === "review" ? "Ôn tập – Nên học lại" :
+      lesson.type === "related" ? "Liên quan – Nên học" :
+      lesson.type === "old" ? "Bài cũ – Nên học lại" :
+      lesson.type;
 
-      const related = l.relatedTo ? ` (liên quan ${l.relatedTo})` : "";
-      return `${l.title} – ${label}${related}`;
-    }).join("<br>");
+    const related = lesson.relatedTo ? ` (liên quan ${lesson.relatedTo})` : "";
+    const combined = `${lesson.title} – ${label}${related}`;
 
-    const codes = lessons.map(l => normalizeUnit(l.code));
-    const titles = lessons.map(l => l.title);
+    const code = normalizeUnit(lesson.code);
+    const title = lesson.title;
 
     const button = document.createElement("button");
     button.textContent = "Học bài";
@@ -88,33 +84,26 @@ window.getDoc(docRef).then(snapshot => {
     button.style.color = "white";
     button.style.cursor = "pointer";
     button.onclick = () => {
-      localStorage.setItem("selectedCodes", JSON.stringify(codes));
-      localStorage.setItem("selectedTitles", JSON.stringify(titles));
-      localStorage.setItem("selectedLesson", titles.join(", "));
-      fetchVocabularyFromSelectedCodes(codes);
+      localStorage.setItem("selectedCodes", JSON.stringify([code]));
+      localStorage.setItem("selectedTitles", JSON.stringify([title]));
+      localStorage.setItem("selectedLesson", title);
+      fetchVocabularyFromSelectedCodes([code]);
     };
 
     const noteCell = document.createElement("td");
     noteCell.appendChild(button);
 
+    const row = document.createElement("tr");
     row.innerHTML = `
       <td>${formattedDate}</td>
       <td>${combined}</td>
     `;
     row.appendChild(noteCell);
 
-    // ✅ Gán class nếu là hôm nay
-    const todayISO = new Date().toISOString().split("T")[0];
-    if (dateStr === todayISO) {
-      row.classList.add("today-row");
-    }
+    if (dateStr === todayISO) row.classList.add("today-row");
 
     tableBody.appendChild(row);
   }
-
-
-
-
 
   document.getElementById("btnLearnSuggested").disabled = false;
 }).catch(err => {
@@ -124,21 +113,20 @@ window.getDoc(docRef).then(snapshot => {
 
 // ✅ Gắn sự kiện nút học bài đề xuất
 document.getElementById("btnLearnSuggested").addEventListener("click", () => {
-  const checked = Array.from(document.querySelectorAll("#lessonList input[type='checkbox']:checked"));
-  if (checked.length === 0) {
+  const checkbox = document.querySelector("#lessonList input[type='checkbox']");
+  if (!checkbox || !checkbox.checked) {
     alert("Bạn chưa chọn bài nào.");
     return;
   }
 
-  const selectedCodes = checked.map(input => normalizeUnit(input.value));
-  const selectedTitles = checked.map(input => input.dataset.title);
+  const code = normalizeUnit(checkbox.value);
+  const title = checkbox.dataset.title;
 
-  localStorage.setItem("selectedCodes", JSON.stringify(selectedCodes));
-  localStorage.setItem("selectedTitles", JSON.stringify(selectedTitles));
-  localStorage.setItem("selectedLesson", selectedTitles.join(", "));
+  localStorage.setItem("selectedCodes", JSON.stringify([code]));
+  localStorage.setItem("selectedTitles", JSON.stringify([title]));
+  localStorage.setItem("selectedLesson", title);
 
-
-  fetchVocabularyFromSelectedCodes(selectedCodes);
+  fetchVocabularyFromSelectedCodes([code]);
 });
 
 // ✅ Lấy từ vựng từ Google Sheets theo mã bài
@@ -154,13 +142,12 @@ async function fetchVocabularyFromSelectedCodes(unitCodes) {
     rows.forEach(row => {
       const unitRaw = row.c[1]?.v?.toString().trim();
       const word = row.c[2]?.v?.toString().trim();
-      const code = extractCodeFromTitle(unitRaw); // ✅ dùng hàm mới
+      const code = extractCodeFromTitle(unitRaw);
 
       if (unitCodes.includes(code)) {
         wordBank.push(word);
       }
     });
-
 
     wordBank = shuffleArray(wordBank);
 
@@ -185,7 +172,7 @@ function extractCodeFromTitle(title) {
   if (!title || typeof title !== "string") return "";
   const parts = title.trim().split(/[-\s.]+/);
   if (parts.length >= 3 && /^\d+$/.test(parts[0]) && /^\d+$/.test(parts[1]) && /^\d+$/.test(parts[2])) {
-    return parts[0] + parts[1] + parts[2]; // ví dụ: "4" + "04" + "2" → "4042"
+    return parts[0] + parts[1] + parts[2];
   }
   return "";
 }
@@ -198,5 +185,3 @@ function shuffleArray(array) {
   }
   return array;
 }
-
-
