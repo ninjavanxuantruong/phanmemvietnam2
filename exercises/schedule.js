@@ -225,6 +225,9 @@ function buildFullScheduleFromLessons(lessonList, reviewOffsets) {
 
 
 // ✅ Tạo lại toàn bộ lịch học từ Sheet theo lớp
+// ✅ Tạo lại toàn bộ lịch học từ Sheet theo lớp (tính maxDate chuẩn từ toàn bộ lessonList)
+// ✅ Tạo lại toàn bộ lịch học từ Sheet theo lớp (max date chắc tay)
+// ✅ Tạo lại toàn bộ lịch học từ Sheet theo lớp (luôn lấp 30 ngày tới)
 async function generateFullScheduleFromSheet(className) {
   try {
     const res = await fetch(SCHEDULE_URL);
@@ -263,22 +266,19 @@ async function generateFullScheduleFromSheet(className) {
     const reviewOffsets = spacedConfig[className] || [4, 11, 25];
     const fullSchedule = buildFullScheduleFromLessons(lessonList, reviewOffsets);
 
-    // Tính ngày xa nhất có thể (KHÔNG lưu vào lịch)
-    const lastLesson = lessonList[lessonList.length - 1];
-    let maxDate = new Date(lastLesson.baseDate);
-    const maxOffset = Math.max(...reviewOffsets);
-    maxDate.setDate(maxDate.getDate() + maxOffset);
-    if (lastLesson.relatedCodes && lastLesson.relatedCodes.length > 0) {
-      maxDate.setDate(maxDate.getDate() + lastLesson.relatedCodes.length);
-    }
+    // ✅ Thay vì tính xa nhất → lấy hôm nay + 30 ngày
+    const today = new Date();
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + 30);
     const maxDateISO = maxDate.toISOString().split("T")[0];
+    console.log("📅 Lịch sẽ được lấp đến:", maxDateISO);
 
     // Ghi lịch mới
     const docRef = window.doc(window.db, "lich", className);
     await window.setDoc(docRef, fullSchedule);
     console.log("✅ Đã ghi toàn bộ lịch mới vào Firebase cho lớp:", className);
 
-    // Bổ sung bài cũ dùng maxDate tính sẵn (không cần _maxDate trong doc)
+    // Bổ sung bài cũ cho đủ 30 ngày
     await autoFillOldLessons(className, fullSchedule, maxDateISO);
 
     // Hiển thị
@@ -291,100 +291,112 @@ async function generateFullScheduleFromSheet(className) {
 
 
 
-async function autoFillOldLessons(className, currentSchedule) {
+
+async function autoFillOldLessons(className, currentSchedule, maxDateOverride) {
   console.log("📌 Bắt đầu bổ sung bài cũ cho lớp:", className);
 
   const todayISO = new Date().toISOString().split("T")[0];
   const bosungRef = window.doc(window.db, "bosung", className);
 
-  // ✅ Lấy dữ liệu bổ sung cũ từ Firebase
+  // Lấy dữ liệu bổ sung cũ
   const bosungSnap = await window.getDoc(bosungRef);
   const oldBosung = bosungSnap.exists() ? bosungSnap.data() : {};
 
-  // ✅ Giữ lại các ngày trước hôm nay
+  // Giữ lại dữ liệu trước hôm nay
   const preserved = {};
   for (let date in oldBosung) {
-    if (date < todayISO) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date) && date < todayISO) {
       preserved[date] = oldBosung[date];
     }
   }
 
-  // ✅ Loại trừ tất cả mã bài đã có trong lịch
-  const usedCodes = Object.values(currentSchedule).map(item => normalizeUnit(item.code));
+  // Loại trừ mã đã có trong lịch
+  const usedCodes = Object.entries(currentSchedule)
+    .filter(([k]) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+    .map(([, item]) => normalizeUnit(item.code));
 
-  // ✅ Loại trừ thêm các bài bổ sung trước hôm nay
+  // Loại trừ thêm các bài bổ sung trước hôm nay
   const preservedCodes = Object.values(preserved).map(item => normalizeUnit(item.code));
 
-  // ✅ Tìm bài cũ từ Sheet 2
+  // Lấy danh sách bài cũ từ Sheet 2
   const res = await fetch(VOCAB_URL);
   const text = await res.text();
   const json = JSON.parse(text.substring(47).slice(0, -2));
   const rows = json.table.rows;
 
-  const allUnits = rows.map(row => {
-    const raw = row.c[1]?.v?.toString().trim();
-    return extractCodeFromTitle(raw);
-  }).filter(Boolean);
+  const allUnits = rows
+    .map(row => {
+      const raw = row.c[1]?.v?.toString().trim();
+      return extractCodeFromTitle(raw);
+    })
+    .filter(Boolean)
+    .map(code => normalizeUnit(code));
 
-  const newCodes = Object.values(currentSchedule)
+  // Lấy highestCode từ các bài "new"
+  const newCodes = Object.entries(currentSchedule)
+    .filter(([k]) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+    .map(([, item]) => item)
     .filter(item => item.type === "new")
-    .map(item => normalizeUnit(item.code));
+    .map(item => Number(normalizeUnit(item.code)))
+    .filter(n => !Number.isNaN(n));
 
-  const highestCode = newCodes.sort().reverse()[0];
-  const sortedOldUnits = allUnits.filter(code => code < highestCode);
+  const highestCodeNum = newCodes.length > 0 ? Math.max(...newCodes) : null;
 
-  // ✅ Tìm các ngày trống từ hôm nay trở đi
-  let maxDate;
-  if (currentSchedule._maxDate) {
-    maxDate = new Date(currentSchedule._maxDate);
-  } else {
-    const allDates = Object.keys(currentSchedule).sort((a, b) => new Date(a) - new Date(b));
-    maxDate = new Date(allDates[allDates.length - 1]);
+  // Lọc bài cũ: chỉ lấy những mã nhỏ hơn highestCode
+  let candidateUnits = allUnits.slice();
+  if (highestCodeNum !== null) {
+    candidateUnits = candidateUnits.filter(code => {
+      const n = Number(code);
+      return !Number.isNaN(n) && n < highestCodeNum;
+    });
   }
 
+  // ✅ Bắt buộc dùng maxDateOverride
+  const maxDate = new Date(maxDateOverride);
 
+  // Tìm các ngày trống từ hôm nay đến maxDate
   const emptyDates = [];
-  const d = new Date(todayISO);
-  while (d <= maxDate) {
-    const iso = d.toISOString().split("T")[0];
+  const cursor = new Date(todayISO);
+  while (cursor <= maxDate) {
+    const iso = cursor.toISOString().split("T")[0];
     if (!currentSchedule[iso]) emptyDates.push(iso);
-    d.setDate(d.getDate() + 1);
+    cursor.setDate(cursor.getDate() + 1);
   }
 
   console.log("📅 Ngày trống cần bổ sung:", emptyDates);
 
-  // ✅ Loại trừ bài đã học và bài từng bổ sung trước hôm nay
+  // Loại trừ bài đã học và đã bổ sung trước hôm nay
   let excluded = new Set([...usedCodes, ...preservedCodes]);
-  let finalUnits = [...new Set(sortedOldUnits.filter(code => !excluded.has(code)))];
+  let finalUnits = [...new Set(candidateUnits.filter(code => !excluded.has(code)))];
 
-  // ✅ Random danh sách bài còn lại
+  // Random danh sách bài còn lại
   finalUnits = shuffleArray(finalUnits);
 
-  // ✅ Nếu không đủ bài để gán → cho phép dùng lại bài đã từng bổ sung
-  const totalNeeded = emptyDates.length;
-  if (finalUnits.length < totalNeeded) {
-    console.warn("⚠️ Không đủ bài mới để bổ sung, cho phép dùng lại bài đã từng bổ sung trước hôm nay");
-    excluded = new Set(usedCodes); // bỏ preservedCodes ra khỏi excluded
-    finalUnits = [...new Set(sortedOldUnits.filter(code => !excluded.has(code)))];
-    finalUnits = shuffleArray(finalUnits); // random lại
+  // Nếu không đủ bài → cho phép dùng lại
+  if (finalUnits.length < emptyDates.length) {
+    console.warn("⚠️ Không đủ bài để bổ sung, cho phép dùng lại");
+    excluded = new Set(usedCodes);
+    finalUnits = [...new Set(candidateUnits.filter(code => !excluded.has(code)))];
+    finalUnits = shuffleArray(finalUnits);
   }
 
-  // ✅ Tra title từ Sheet 2
+  // Map title từ Sheet 2
   const titleMap = {};
   for (let row of rows) {
     const rawTitle = row.c[1]?.v?.toString().trim();
-    const code = extractCodeFromTitle(rawTitle);
+    const code = normalizeUnit(extractCodeFromTitle(rawTitle));
     if (finalUnits.includes(code)) {
       titleMap[code] = rawTitle;
     }
   }
 
-  // ✅ Gán bài bổ sung vào lịch và bosung mới — mỗi ngày 1 bài
+  // Gán bài bổ sung
   const bosungSchedule = {};
   let unitIndex = 0;
 
   for (let date of emptyDates) {
-    if (unitIndex >= finalUnits.length) unitIndex = 0; // quay vòng nếu hết bài
+    if (finalUnits.length === 0) break;
+    if (unitIndex >= finalUnits.length) unitIndex = 0;
 
     const code = finalUnits[unitIndex];
     const entry = {
@@ -394,23 +406,25 @@ async function autoFillOldLessons(className, currentSchedule) {
       relatedTo: ""
     };
 
-    addLesson(currentSchedule, date, entry); // dùng addLesson để tránh xung đột
+    console.log("👉 Gán bài bổ sung", entry, "vào ngày", date);
+
+    addLesson(currentSchedule, date, entry);
     bosungSchedule[date] = entry;
 
-    console.log(`📅 Gán bài bổ sung ${code} vào ngày ${date}`);
     unitIndex++;
   }
 
-  // ✅ Ghi lịch mới vào Firebase
+  // Ghi lịch mới
   const docRef = window.doc(window.db, "lich", className);
   await window.setDoc(docRef, currentSchedule);
 
-  // ✅ Gộp dữ liệu cũ + mới → ghi vào bosung
+  // Gộp dữ liệu cũ + mới
   const finalBosung = { ...preserved, ...bosungSchedule };
   await window.setDoc(bosungRef, finalBosung);
 
   console.log("✅ Đã cập nhật lịch bổ sung:", finalBosung);
 }
+
 
 
 
