@@ -3,8 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <title>📘 PokéVocabulary</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- ✅ Chặn auto-zoom khi bấm nút trên mobile -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+
   <style>
+    /* ✅ Ngăn trình duyệt tự chỉnh font gây zoom */
+    html { -webkit-text-size-adjust: 100%; }
+
     body {
       background: linear-gradient(to bottom, #232526, #414345);
       color: #fff;
@@ -39,21 +44,30 @@
       gap: 20px;
     }
 
+    /* ✅ Khung ảnh giữ tỷ lệ cố định 16:9, giữ nguyên 4 góc PokéBall */
     .image-frame {
       position: relative;
       background: #f5f5f5;
       border: 12px solid #cfd8dc;
       border-radius: 32px;
       box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-      overflow: visible;
-      width: 300px;
+      overflow: visible;            /* giữ cho 4 góc PokéBall lộ ra ngoài */
+      width: 300px;                 /* giữ nguyên kích thước khung như cũ */
       height: auto;
       box-sizing: border-box;
     }
-
+    /* Tạo tỷ lệ 16:9 ổn định, không phụ thuộc vào ảnh */
+    .image-frame::before {
+      content: "";
+      display: block;
+      padding-top: 56.25%;          /* 16:9 = 9/16 = 56.25% */
+    }
+    /* Ảnh luôn lấp đầy khung, không bị lệch, không làm card “nhảy” */
     .image-frame img#vocabImage {
+      position: absolute;
+      top: 0; left: 0;
       width: 100%;
-      height: auto;
+      height: 100%;
       display: block;
       object-fit: cover;
       border-radius: 20px;
@@ -65,7 +79,6 @@
       height: 36px;
       z-index: 100;
     }
-
     .top-left     { top: -18px; left: -18px; }
     .top-right    { top: -18px; right: -18px; }
     .bottom-left  { bottom: -18px; left: -18px; }
@@ -77,11 +90,16 @@
       text-align: left;
     }
 
+    /* ✅ Cố định chiều cao các vùng chữ, tránh kéo lên/kéo xuống */
     #vocabWord {
       font-size: 28px;
       margin-bottom: 12px;
+      min-height: 44px;               /* chiều cao cố định ~2 dòng */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
-
     #vocabPhonetic {
       font-size: 18px;
       color: #222;
@@ -90,14 +108,29 @@
       border-radius: 8px;
       margin-bottom: 10px;
       display: inline-block;
+      min-height: 34px;               /* chiều cao cố định */
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-
     #vocabMeaning {
       font-size: 18px;
       color: #222;
       background: #fff9c4;
       padding: 10px;
       border-radius: 8px;
+      min-height: 48px;               /* chiều cao cố định ~2 dòng */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ✅ Tránh zoom khi bấm nút trên điện thoại */
+    button, input, select, textarea {
+      font-size: 16px !important;     /* tối thiểu 16px để iOS không zoom */
+      touch-action: manipulation;      /* tránh double-tap zoom */
     }
 
     #playSound {
@@ -106,7 +139,6 @@
       cursor: pointer;
       margin-top: 12px;
     }
-
     #playSound img {
       width: 80px;
       transition: transform 0.2s;
@@ -123,10 +155,7 @@
       cursor: pointer;
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
-
-    #nextBtn:hover {
-      background-color: #d32f2f;
-    }
+    #nextBtn:hover { background-color: #d32f2f; }
 
     #funBtn, #closeFunBtn {
       margin-top: 20px;
@@ -136,18 +165,8 @@
       border-radius: 10px;
       cursor: pointer;
     }
-
-    #funBtn {
-      background-color: #ff9800;
-      color: white;
-      margin-right: 10px;
-    }
-
-    #closeFunBtn {
-      background-color: #9e9e9e;
-      color: white;
-      display: none;
-    }
+    #funBtn { background-color: #ff9800; color: white; margin-right: 10px; }
+    #closeFunBtn { background-color: #9e9e9e; color: white; display: none; }
 
     #funContent .fun-wrapper {
       display: flex;
@@ -156,7 +175,6 @@
       gap: 20px;
       margin-top: 10px;
     }
-
     #funContent .fun-wrapper img {
       width: 240px;
       height: 180px;
@@ -166,27 +184,13 @@
     }
 
     @media (max-width: 600px) {
-      #funContent .fun-wrapper img {
-        width: 100%;
-        height: auto;
-      }
-    }
-
-
-    @keyframes shake {
-      0%, 100% { transform: rotate(0deg); }
-      25% { transform: rotate(10deg); }
-      50% { transform: rotate(-10deg); }
-      75% { transform: rotate(10deg); }
-    }
-
-    @media (max-width: 600px) {
       .vocab-card {
         flex-direction: column;
-        align-items: center;
+      align-items: center;
         padding: 16px;
       }
 
+      /* Khung ảnh co ngang nhưng vẫn 16:9, giữ 4 góc */
       .image-frame {
         width: 100%;
         max-width: 100%;
@@ -202,6 +206,18 @@
       #vocabMeaning {
         text-align: center;
       }
+
+      #funContent .fun-wrapper img {
+        width: 100%;
+        height: auto;
+      }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(10deg); }
+      50% { transform: rotate(-10deg); }
+      75% { transform: rotate(10deg); }
     }
   </style>
 </head>
@@ -219,7 +235,7 @@
     margin-bottom: 20px;
     cursor: not-allowed;
   ">
-  ✅ Hoàn thành nhiệm vụ
+    ✅ Hoàn thành nhiệm vụ
   </button>
 
   <div class="vocab-card">
