@@ -1,7 +1,7 @@
+// =============== Firebase import & config ===============
 import { initializeApp, getApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
 import { getFirestore, doc, setDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
-// =============== Firebase config ===============
 const firebaseConfig = {
   apiKey: "AIzaSyCCVdzWiiFvcWiHVJN-x33YKarsjyziS8E",
   authDomain: "pokemon-capture-10d03.firebaseapp.com",
@@ -17,7 +17,8 @@ const db = getFirestore(app);
 const SHEET_ID = "1RRnMZJJd6U8_gQp80k5S_w7Li58nEts2mT5Nxg7CPIQ";
 
 // =============== Helpers ===============
-// =============== Google Sheet fetch ===============
+
+// Fetch toàn bộ sheet theo tên lớp
 async function fetchSheetValues(sheetName) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=0&sheet=${encodeURIComponent(sheetName)}`;
   const res = await fetch(url);
@@ -29,9 +30,13 @@ async function fetchSheetValues(sheetName) {
     cleaned = cleaned.substring(start, end);
   }
   const obj = JSON.parse(cleaned);
-  return obj.table.rows.map(r => r.c.map(c => (c?.v != null ? String(c.v) : "")));
+  const values = obj.table.rows.map(r => r.c.map(c => (c?.v != null ? String(c.v) : "")));
+  console.log("=== DEBUG fetchSheetValues ===");
+  console.log("Sheet:", sheetName, "Rows:", values.length);
+  return values;
 }
 
+// Chuẩn hoá nickname
 function normalizeNickname(raw) {
   return String(raw || "")
     .toLowerCase()
@@ -39,7 +44,57 @@ function normalizeNickname(raw) {
     .replace(/^[\s,.;]+|[\s,.;]+$/g, "")
     .replace(/\s+/g, " ");
 }
-// Đọc dấu điểm danh: x, 1/2x, cp, kp, other
+
+// dd/mm/yyyy -> ISO
+function ddmmyyyyToISO(dateStr) {
+  const m = String(dateStr).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+}
+// ISO -> dd/mm/yyyy
+function isoToDDMMYYYY(isoStr) {
+  if (!isoStr) return "";
+  const [y, m, d] = isoStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+// Parse ngày từ header (dd/mm hoặc dd/mm/yyyy) -> ISO
+// Parse ngày từ header (hỗ trợ Date(YYYY,MM,DD), dd/mm/yyyy, dd/mm) -> ISO YYYY-MM-DD
+function parseHeaderDateToISO(cellText, fallbackYear) {
+  const s = String(cellText || "").trim();
+
+  // Case 1: Date(YYYY,MM,DD) từ GViz (MM là zero-based)
+  let m = s.match(/^Date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\)$/);
+  if (m) {
+    const y = m[1];
+    const mo = String(Number(m[2]) + 1).padStart(2, "0");
+    const d = String(Number(m[3])).padStart(2, "0");
+    return `${y}-${mo}-${d}`;
+  }
+
+  // Case 2: dd/mm/yyyy
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) {
+    const d = m[1].padStart(2, "0");
+    const mo = m[2].padStart(2, "0");
+    const y = m[3];
+    return `${y}-${mo}-${d}`;
+  }
+
+  // Case 3: dd/mm (dùng fallbackYear)
+  m = s.match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (m && fallbackYear) {
+    const d = m[1].padStart(2, "0");
+    const mo = m[2].padStart(2, "0");
+    const y = String(fallbackYear);
+    return `${y}-${mo}-${d}`;
+  }
+
+  return null;
+}
+
+
+// Đọc dấu điểm danh
 function normalizeMark(raw) {
   const s = String(raw || "").toLowerCase().trim();
   const noSpace = s.replace(/\s+/g, "");
@@ -50,12 +105,11 @@ function normalizeMark(raw) {
   return noSpace.length ? "other" : "";
 }
 
-// Parse ngày trong ô học sinh: Date(YYYY,MM,DD) hoặc dd/mm[/yyyy]
+// Parse ngày trong ô học sinh: Date(YYYY,MM,DD) hoặc dd/mm[/yyyy] -> ISO
 function parseAnyDateToISO(val, fallbackYear) {
   if (!val) return null;
   const s = String(val).trim();
 
-  // Date(YYYY,MM,DD) dạng GViz
   let m = s.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})\)$/);
   if (m) {
     const y = m[1];
@@ -64,7 +118,6 @@ function parseAnyDateToISO(val, fallbackYear) {
     return `${y}-${mo}-${d}`;
   }
 
-  // dd/mm[/yyyy]
   m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/);
   if (m) {
     const d = m[1].padStart(2,"0");
@@ -76,64 +129,61 @@ function parseAnyDateToISO(val, fallbackYear) {
   return null;
 }
 
+// =============== Tìm cột nộp tiền từ dòng 1 ===============
+// Chỉ check tháng/năm để tránh lệch do múi giờ/locale
+function findPaidColIndexFromLine1(headerLine1, month, year) {
+  console.log("=== DEBUG: DÒ CỘT NỘP TIỀN Ở DÒNG 1 ===");
+  console.log("Header dòng 1 raw:", headerLine1);
 
-function ddmmyyyyToISO(dateStr) {
-  const m = String(dateStr).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return null;
-  return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
-}
-function isoToDDMMYYYY(isoStr) {
-  if (!isoStr) return "";
-  const [y, m, d] = isoStr.split("-");
-  return `${d}/${m}/${y}`;
+  let paidColIndex = null;
+  headerLine1.forEach((cell, idx) => {
+    const iso = parseHeaderDateToISO(cell, year);
+    if (!iso) {
+      console.log(`D1[${idx}] skip (không parse được):`, cell);
+      return;
+    }
+    const d = new Date(iso);
+    const ok = d.getFullYear() === Number(year) && (d.getMonth() + 1) === Number(month);
+    console.log(`D1[${idx}]`, { cell, iso, y: d.getFullYear(), m: d.getMonth() + 1, ok });
+    if (ok) {
+      paidColIndex = idx;
+      console.log(">>> MATCH cột nộp tiền tại index", idx, "cell:", cell, "iso:", iso);
+    }
+  });
+
+  console.log("Kết quả paidColIndex:", paidColIndex);
+  return paidColIndex;
 }
 
-// Header date: supports d/m or d/m/yyyy → ISO
-// Parse ngày từ header (dd/mm/yyyy hoặc d/m/yyyy)
-function parseHeaderDateToISO(cellText, fallbackYear) {
-  const s = String(cellText || "").trim();
-  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (m) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
-  m = s.match(/^(\d{1,2})\/(\d{1,2})$/);
-  if (m && fallbackYear) return `${fallbackYear}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
-  return null;
-}
 
-// =============== Tổng hợp lớp ===============
+// =============== Tổng hợp lớp (dòng 1 = cột nộp tiền theo tháng/năm, dòng 2 = ngày học) ===============
 async function summarizeClassMonth(className, month, year) {
   const values = await fetchSheetValues(className);
   if (values.length < 4) throw new Error("Sheet thiếu dữ liệu (cần >= 4 dòng)");
 
-  const headerLine1 = values[0]; // dòng 1: ngày đại diện cho tháng (cột nộp tiền)
-  const headerDays = values[1];  // dòng 2: ngày học
+  const headerLine1 = values[0];
+  const headerLine2 = values[1];
 
-  // tìm cột nộp tiền: parse ngày ở dòng 1, nếu tháng/năm khớp thì lấy
-  let paidColIndex = null;
-  headerLine1.forEach((cell, idx) => {
-    const iso = parseHeaderDateToISO(cell, year);
-    if (!iso) return;
-    const d = new Date(iso);
-    if (d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year)) {
-      paidColIndex = idx;
-      console.log("Cột nộp tiền (dòng 1):", cell, "=> index", idx);
-    }
-  });
+  console.log("=== DEBUG summarize ===");
+  console.log("Class:", className, "Month/Year:", month, year);
+  console.log("Header dòng 1:", headerLine1);
+  console.log("Header dòng 2:", headerLine2);
+
+  const paidColIndex = findPaidColIndexFromLine1(headerLine1, month, year);
   if (paidColIndex === null) {
-    throw new Error(`Không tìm thấy cột thanh toán cho tháng ${month}/${year}`);
+    throw new Error(`Không tìm thấy cột nộp tiền cho tháng ${month}/${year}`);
   }
 
-
-
-  // tìm các cột ngày học ở dòng 2
+  // Dò các cột ngày học ở dòng 2
   const dayCols = [];
-  headerDays.forEach((cell, idx) => {
+  headerLine2.forEach((cell, idx) => {
     const iso = parseHeaderDateToISO(cell, year);
     if (!iso) return;
     const d = new Date(iso);
-    if (d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year)) {
-      dayCols.push({ idx, iso });
-    }
+    const ok = d.getFullYear() === Number(year) && d.getMonth() + 1 === Number(month);
+    if (ok) dayCols.push({ idx, iso });
   });
+  console.log("DayCols:", dayCols);
 
   const rowsOut = [];
   const classSummaryObj = {};
@@ -162,12 +212,10 @@ async function summarizeClassMonth(className, month, year) {
     const totalBuoi = totalX + 0.5 * totalHalf;
     const totalMoney = Math.round(totalBuoi * heSo);
 
-    let paid = false, paidDate = null;
-    if (paidColIndex !== null) {
-      const paidCell = row[paidColIndex] || "";
-      const isoPaid = parseAnyDateToISO(paidCell, year);
-      if (isoPaid) { paid = true; paidDate = isoPaid; }
-    }
+    const paidCell = row[paidColIndex] || "";
+    const isoPaid = parseAnyDateToISO(paidCell, year);
+    const paid = !!isoPaid;
+    const paidDate = isoPaid || null;
 
     totalClassMoney += totalMoney;
     if (paid) totalPaid += totalMoney; else totalUnpaid += totalMoney;
@@ -207,31 +255,19 @@ async function summarizeClassMonth(className, month, year) {
   return { rowsOut, totals: { totalClassMoney, totalPaid, totalUnpaid } };
 }
 
-// =============== Cập nhật nộp tiền ===============
+// =============== Cập nhật nộp tiền (dòng 1 = cột nộp tiền theo tháng/năm) ===============
 async function updatePaymentsFromSheet(className, month, year, currentRows) {
   const values = await fetchSheetValues(className);
   if (values.length < 4) throw new Error("Sheet thiếu dữ liệu (cần >= 4 dòng)");
 
-  const headerLine1 = values[0]; // dòng 1: ngày đại diện cho tháng
-  
-  let paidColIndex = null;
-  headerLine1.forEach((cell, idx) => {
-    const iso = parseHeaderDateToISO(cell, year);
-    if (!iso) return;
-    const d = new Date(iso);
-    if (d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year)) {
-      paidColIndex = idx;
-      console.log("Cột nộp tiền (dòng 1):", cell, "=> index", idx);
-    }
-  });
+  const headerLine1 = values[0];
+  console.log("=== DEBUG payments ===");
+  console.log("Class:", className, "Month/Year:", month, year);
+  console.log("Header dòng 1:", headerLine1);
+
+  const paidColIndex = findPaidColIndexFromLine1(headerLine1, month, year);
   if (paidColIndex === null) {
-    throw new Error(`Không tìm thấy cột thanh toán cho tháng ${month}/${year}`);
-  }
-
-
-
-  if (paidColIndex === null) {
-    throw new Error(`Không tìm thấy cột thanh toán cho tháng ${month}/${year}`);
+    throw new Error(`Không tìm thấy cột nộp tiền cho tháng ${month}/${year}`);
   }
 
   for (let r = 3; r < values.length; r++) {
@@ -243,6 +279,8 @@ async function updatePaymentsFromSheet(className, month, year, currentRows) {
     const iso = parseAnyDateToISO(paidCell, year);
     const paid = !!iso;
     const paidDate = iso || null;
+
+    console.log("Row", r, "nick:", nickname, "paidCell:", paidCell, "=> ISO:", iso);
 
     let needUpdate = true;
     if (currentRows) {
@@ -283,10 +321,6 @@ async function updatePaymentsFromSheet(className, month, year, currentRows) {
   }
   return null;
 }
-
-
-
-
 // =============== View data from Firestore (1 read) ===============
 async function viewDataFromFirestore(className, month, year) {
   const ref = doc(db, "money", `${className}-${month}-${year}`);
@@ -313,7 +347,7 @@ async function viewDataFromFirestore(className, month, year) {
       paid: !!v.paid,
       paidDate: v.paidDate || null
     }))
-    .sort((a,b) => a.order - b.order); // giữ đúng thứ tự sheet
+    .sort((a,b) => a.order - b.order);
 
   return { rowsOut, totals };
 }
@@ -349,6 +383,7 @@ summarizeBtn.addEventListener("click", async () => {
     renderSummary(rowsOut, totals);
   } catch (e) {
     alert("Lỗi tổng hợp: " + e.message);
+    console.error(e);
   } finally {
     summarizeBtn.disabled = false;
     summarizeBtn.textContent = "Tổng hợp";
@@ -375,6 +410,7 @@ paymentsBtn.addEventListener("click", async () => {
     }
   } catch (e) {
     alert("Lỗi cập nhật nộp tiền: " + e.message);
+    console.error(e);
   } finally {
     paymentsBtn.disabled = false;
     paymentsBtn.textContent = "Cập nhật nộp tiền";
@@ -396,6 +432,7 @@ viewBtn.addEventListener("click", async () => {
     renderSummary(rowsOut, totals);
   } catch (e) {
     alert("Lỗi xem dữ liệu: " + e.message);
+    console.error(e);
   } finally {
     viewBtn.disabled = false;
     viewBtn.textContent = "Xem dữ liệu";
@@ -466,6 +503,7 @@ function renderSummary(rows, totals) {
         renderSummary(rows, totals2);
       } catch (e) {
         alert("Cập nhật thất bại: " + e.message);
+        console.error(e);
       }
     });
   });
