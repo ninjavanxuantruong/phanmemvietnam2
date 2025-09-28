@@ -39,6 +39,43 @@ function normalizeNickname(raw) {
     .replace(/^[\s,.;]+|[\s,.;]+$/g, "")
     .replace(/\s+/g, " ");
 }
+// Đọc dấu điểm danh: x, 1/2x, cp, kp, other
+function normalizeMark(raw) {
+  const s = String(raw || "").toLowerCase().trim();
+  const noSpace = s.replace(/\s+/g, "");
+  if (noSpace === "x") return "x";
+  if (noSpace === "1/2x" || noSpace === "0.5x" || s === "half" || s === "nửa" || s === "½x") return "half";
+  if (noSpace === "cp") return "cp";
+  if (noSpace === "kp" || noSpace === "k") return "kp";
+  return noSpace.length ? "other" : "";
+}
+
+// Parse ngày trong ô học sinh: Date(YYYY,MM,DD) hoặc dd/mm[/yyyy]
+function parseAnyDateToISO(val, fallbackYear) {
+  if (!val) return null;
+  const s = String(val).trim();
+
+  // Date(YYYY,MM,DD) dạng GViz
+  let m = s.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})\)$/);
+  if (m) {
+    const y = m[1];
+    const mo = String(Number(m[2]) + 1).padStart(2,"0");
+    const d = m[3].padStart(2,"0");
+    return `${y}-${mo}-${d}`;
+  }
+
+  // dd/mm[/yyyy]
+  m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/);
+  if (m) {
+    const d = m[1].padStart(2,"0");
+    const mo = m[2].padStart(2,"0");
+    const y = m[3] || fallbackYear;
+    return `${y}-${mo}-${d}`;
+  }
+
+  return null;
+}
+
 
 function ddmmyyyyToISO(dateStr) {
   const m = String(dateStr).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -78,8 +115,14 @@ async function summarizeClassMonth(className, month, year) {
     const d = new Date(iso);
     if (d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year)) {
       paidColIndex = idx;
+      console.log("Cột nộp tiền (dòng 1):", cell, "=> index", idx);
     }
   });
+  if (paidColIndex === null) {
+    throw new Error(`Không tìm thấy cột thanh toán cho tháng ${month}/${year}`);
+  }
+
+
 
   // tìm các cột ngày học ở dòng 2
   const dayCols = [];
@@ -170,6 +213,7 @@ async function updatePaymentsFromSheet(className, month, year, currentRows) {
   if (values.length < 4) throw new Error("Sheet thiếu dữ liệu (cần >= 4 dòng)");
 
   const headerLine1 = values[0]; // dòng 1: ngày đại diện cho tháng
+  
   let paidColIndex = null;
   headerLine1.forEach((cell, idx) => {
     const iso = parseHeaderDateToISO(cell, year);
@@ -177,8 +221,14 @@ async function updatePaymentsFromSheet(className, month, year, currentRows) {
     const d = new Date(iso);
     if (d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year)) {
       paidColIndex = idx;
+      console.log("Cột nộp tiền (dòng 1):", cell, "=> index", idx);
     }
   });
+  if (paidColIndex === null) {
+    throw new Error(`Không tìm thấy cột thanh toán cho tháng ${month}/${year}`);
+  }
+
+
 
   if (paidColIndex === null) {
     throw new Error(`Không tìm thấy cột thanh toán cho tháng ${month}/${year}`);
