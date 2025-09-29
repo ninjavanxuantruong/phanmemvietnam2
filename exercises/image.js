@@ -1,18 +1,22 @@
-// ✅ Import hiệu ứng PokéBall từ module
+// ✅ Import hiệu ứng PokéBall từ module (giữ nguyên)
 import { showVictoryEffect } from './effect-win.js';
 import { showDefeatEffect } from './effect-loose.js';
+
+// ✅ Thêm import cache/proxy ảnh (mới)
+import { prefetchImagesBatch, getImageFromMap } from './imageCache.js';
 
 const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
 const uniqueWords = [...new Set(wordBank)];
 
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-const PEXELS_API_KEY = "DsgAHtqZS5lQtujZcSdZsOHIhoa9NtT6GVMQ3Xn7DQiyDJ9FKDhgo2GQ";
 
-// ✅ Reset điểm nếu mở lại trang
+// ⚠️ Bỏ hẳn việc dùng trực tiếp Pexels API, KHÔNG cần PEXELS_API_KEY nữa
+// const PEXELS_API_KEY = "...."; // ← xoá
+
+// ✅ Reset điểm nếu mở lại trang (giữ nguyên)
 ["score1", "score2", "score3", "total1", "total2", "total3", "isSessionStarted"].forEach(k => {
   localStorage.removeItem(k);
 });
-
 
 if (!localStorage.getItem("isSessionStarted")) {
   ["score1", "score2", "score3", "total1", "total2", "total3"].forEach(k => localStorage.removeItem(k));
@@ -45,11 +49,11 @@ async function fetchWords() {
     meaning: row.c[24]?.v?.trim() || ""
   }));
 
-  // 🔧 Lọc từ trùng dựa trên 'word' duy nhất
+  // 🔧 Lọc từ trùng dựa trên 'word' duy nhất (giữ nguyên)
   const filtered = [];
   const seen = new Set();
   for (let item of all) {
-    const w = item.word.toLowerCase(); // Nếu muốn bỏ qua hoa/thường
+    const w = item.word.toLowerCase();
     if (!seen.has(w)) {
       seen.add(w);
       filtered.push(item);
@@ -57,20 +61,10 @@ async function fetchWords() {
   }
 
   return shuffle(filtered.filter(item => uniqueWords.includes(item.word)));
-
 }
 
-async function getImage(word) {
-  try {
-    const res = await fetch(`https://api.pexels.com/v1/search?query=${word}&per_page=1`, {
-      headers: { Authorization: PEXELS_API_KEY }
-    });
-    const data = await res.json();
-    return data.photos[0]?.src.medium || "fallback.jpg";
-  } catch {
-    return "fallback.jpg";
-  }
-}
+// ⛔ Xoá hẳn hàm getImage cũ (gọi trực tiếp Pexels)
+// async function getImage(word) { ... } // ← xoá
 
 function updateScoreBoard() {
   let s1 = +localStorage.getItem("score1") || 0;
@@ -98,21 +92,25 @@ document.querySelectorAll(".mode-btn").forEach(btn => {
   };
 });
 
-function startMode(m) {
+// ✅ Chỉ thêm prefetch ảnh trước khi vào các dạng, giữ nguyên logic khác
+async function startMode(m) {
   currentIndex = 0;
   score = 0;
   document.getElementById("exerciseArea").innerHTML = "";
   document.getElementById("finalBox").textContent = "";
   updateScoreBoard();
 
-  fetchWords().then(data => {
-    vocabData = data;
-    if (vocabData.length > 0) {
-      if (m === 1) showD1();
-      if (m === 2) showD2();
-      if (m === 3) showD3();
-    }
-  });
+  vocabData = await fetchWords();
+
+  if (vocabData.length > 0) {
+    // Gọi proxy cache ảnh 1 lần cho toàn bộ từ
+    const keywords = [...new Set(vocabData.map(item => item.word.toLowerCase()).filter(Boolean))];
+    await prefetchImagesBatch(keywords);
+
+    if (m === 1) showD1();
+    if (m === 2) showD2();
+    if (m === 3) showD3();
+  }
 }
 
 function showCompletedMessageImage(mode, score, total) {
@@ -123,6 +121,7 @@ function showCompletedMessageImage(mode, score, total) {
 }
 
 // ------------------ DẠNG 1 ------------------
+// ✅ Chỉ thay thế chỗ ảnh: dùng getImageFromMap(item.word), giữ nguyên phần khác
 async function showD1() {
   const area = document.getElementById("exerciseArea");
   area.innerHTML = `
@@ -141,7 +140,7 @@ async function showD1() {
   const container = document.getElementById("cardsD1");
 
   for (let item of mixed) {
-    const imgUrl = await getImage(item.word);
+    const imgUrl = getImageFromMap(item.word); // ← dùng cache/proxy
     const card = document.createElement("div");
     card.style.width = "160px";
     card.style.border = "3px solid #fff9c4";
@@ -195,9 +194,7 @@ async function showD2() {
   `;
 
   const current = vocabData[currentIndex];
-  //speak(current.word);
-
-  const imgUrl = await getImage(current.word);
+  const imgUrl = getImageFromMap(current.word); // ✅ dùng cache/proxy
   document.getElementById("imageD2").src = imgUrl;
 
   const wrong = vocabData.filter(item => item.word !== current.word);
@@ -261,9 +258,7 @@ async function showD3() {
   `;
 
   const current = vocabData[currentIndex];
-  //speak(current.word);
-
-  const imgUrl = await getImage(current.word);
+  const imgUrl = getImageFromMap(current.word); // ✅ dùng cache/proxy
   const img = document.getElementById("imageD3");
   img.src = imgUrl;
   img.classList.add("blur");
@@ -287,7 +282,6 @@ function handleD3(current) {
 
   img.classList.remove("blur");
   resultBox.innerHTML += `<p><strong>${current.word}</strong>: ${current.meaning}</p>`;
-  //speak(current.word);
 
   currentIndex++;
   setTimeout(() => {
@@ -318,12 +312,8 @@ function checkGameEnd() {
   const totalScore = s1 + s2 + s3;
   const totalMax = t1 + t2 + t3;
 
- 
-
-  // 👉 Nếu chưa làm hết 3 dạng thì không hiển thị gì
   if (t1 === 0 || t2 === 0 || t3 === 0) return;
 
-  // ✅ UI hiển thị kết quả
   const container = document.querySelector(".quiz-container");
   container.innerHTML = `
     <h2 style="color:hotpink;">🎯 Đã hoàn tất cả 3 dạng!</h2>
@@ -331,24 +321,14 @@ function checkGameEnd() {
     <div style="font-size: 60px; color:hotpink;">✨ Sẵn sàng bắt Pokémon ✨</div>
   `;
 
-  // ✅ Gọi hiệu ứng nếu đạt từ 50%
   const percent = totalScore / totalMax;
 
-  console.log("📊 Tổng điểm:", totalScore);
-  console.log("📊 Điểm tối đa:", totalMax);
-  console.log("📊 Tỷ lệ đúng:", (percent * 100).toFixed(2) + "%");
-
   if (totalMax > 0 && percent >= 0.7) {
-    console.log("🏆 Gọi hiệu ứng chiến thắng!");
     showVictoryEffect(container);
   } else {
-    console.log("💥 Gọi hiệu ứng thất bại!");
     showDefeatEffect(container);
   }
-
 }
-
-
 
 function setResultImagePart(mode, score, total) {
   const raw = localStorage.getItem("result_image");
