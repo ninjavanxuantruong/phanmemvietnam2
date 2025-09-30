@@ -2,6 +2,7 @@
 import { initializeApp, getApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
 import { getFirestore, doc, setDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
+
 const firebaseConfig = {
   apiKey: "AIzaSyCCVdzWiiFvcWiHVJN-x33YKarsjyziS8E",
   authDomain: "pokemon-capture-10d03.firebaseapp.com",
@@ -157,37 +158,98 @@ function findPaidColIndexFromLine1(headerLine1, month, year) {
 
 
 // =============== Tổng hợp lớp (dòng 1 = cột nộp tiền theo tháng/năm, dòng 2 = ngày học) ===============
+
+
+// Hàm so sánh shallow
+// So sánh thông minh: bỏ qua order, normalize kiểu, mảng sort trước khi so sánh
+function isEqualSmart(a, b) {
+  const omitOrder = obj => {
+    if (!obj || typeof obj !== "object") return obj;
+    const { order, ...rest } = obj;
+    return rest;
+  };
+  const normalizeVal = v => {
+    if (Array.isArray(v)) return [...v].sort(); // mảng: sort để không lệ thuộc thứ tự
+    if (typeof v === "string" && v.trim() !== "" && !isNaN(Number(v))) return Number(v); // chuỗi số -> số
+    return v === undefined ? null : v; // unify undefined -> null
+  };
+
+  const A = omitOrder(a);
+  const B = omitOrder(b);
+  const keys = new Set([...Object.keys(A || {}), ...Object.keys(B || {})]);
+
+  for (const k of keys) {
+    const va = normalizeVal(A?.[k]);
+    const vb = normalizeVal(B?.[k]);
+
+    // Shallow cho object con (ví dụ daysISO)
+    if (
+      typeof va === "object" && va !== null && !Array.isArray(va) &&
+      typeof vb === "object" && vb !== null && !Array.isArray(vb)
+    ) {
+      const subKeys = new Set([...Object.keys(va), ...Object.keys(vb)]);
+      for (const sk of subKeys) {
+        const sva = normalizeVal(va[sk]);
+        const svb = normalizeVal(vb[sk]);
+        if (JSON.stringify(sva) !== JSON.stringify(svb)) return false;
+      }
+    } else {
+      if (JSON.stringify(va) !== JSON.stringify(vb)) return false;
+    }
+  }
+  return true;
+}
+
+// Log khác biệt giữa new vs old (bỏ qua order)
+function diffFields(newObj, oldObj) {
+  const omitOrder = obj => {
+    if (!obj || typeof obj !== "object") return obj;
+    const { order, ...rest } = obj;
+    return rest;
+  };
+  const A = omitOrder(newObj) || {};
+  const B = omitOrder(oldObj) || {};
+  const diffs = [];
+  const keys = new Set([...Object.keys(A), ...Object.keys(B)]);
+  for (const k of keys) {
+    const same = isEqualSmart({ [k]: A[k] }, { [k]: B[k] });
+    if (!same) diffs.push({ field: k, newValue: A[k], oldValue: B[k] });
+  }
+  return diffs;
+}
+
+// =============== Tổng hợp lớp (so sánh với money, chỉ ghi khi khác) ===============
 async function summarizeClassMonth(className, month, year) {
   const values = await fetchSheetValues(className);
   if (values.length < 4) throw new Error("Sheet thiếu dữ liệu (cần >= 4 dòng)");
 
   const headerLine1 = values[0];
   const headerLine2 = values[1];
-
-  console.log("=== DEBUG summarize ===");
-  console.log("Class:", className, "Month/Year:", month, year);
-  console.log("Header dòng 1:", headerLine1);
-  console.log("Header dòng 2:", headerLine2);
-
   const paidColIndex = findPaidColIndexFromLine1(headerLine1, month, year);
-  if (paidColIndex === null) {
-    throw new Error(`Không tìm thấy cột nộp tiền cho tháng ${month}/${year}`);
-  }
+  if (paidColIndex === null) throw new Error(`Không tìm thấy cột nộp tiền cho tháng ${month}/${year}`);
 
-  // Dò các cột ngày học ở dòng 2
+  // Dò các cột ngày học của tháng đang tổng hợp
   const dayCols = [];
   headerLine2.forEach((cell, idx) => {
     const iso = parseHeaderDateToISO(cell, year);
     if (!iso) return;
     const d = new Date(iso);
-    const ok = d.getFullYear() === Number(year) && d.getMonth() + 1 === Number(month);
-    if (ok) dayCols.push({ idx, iso });
+    if (d.getFullYear() === Number(year) && d.getMonth() + 1 === Number(month)) {
+      dayCols.push({ idx, iso });
+    }
   });
-  console.log("DayCols:", dayCols);
+
+  // Lấy dữ liệu cũ từ Firestore (1 read)
+  const moneyRef = doc(db, "money", `${className}-${month}-${year}`);
+  const moneySnap = await getDoc(moneyRef);
+  const oldMoneyData = moneySnap.exists() ? moneySnap.data() : {};
 
   const rowsOut = [];
   const classSummaryObj = {};
   let totalClassMoney = 0, totalPaid = 0, totalUnpaid = 0;
+
+  console.log("=== BẮT ĐẦU TỔNG HỢP THÔNG MINH ===");
+  console.log("Lớp:", className, "Tháng:", month, "Năm:", year);
 
   for (let r = 3; r < values.length; r++) {
     const row = values[r];
@@ -202,11 +264,11 @@ async function summarizeClassMonth(className, month, year) {
 
     dayCols.forEach(({ idx, iso }) => {
       const mark = normalizeMark(row[idx]);
-      if (mark === "x") { totalX += 1; daysISO.x.push(iso); }
-      else if (mark === "half") { totalHalf += 1; daysISO.half.push(iso); }
-      else if (mark === "cp") { totalCP += 1; daysISO.cp.push(iso); }
-      else if (mark === "kp") { totalKP += 1; daysISO.kp.push(iso); }
-      else if (mark === "other") { totalOther += 1; daysISO.other.push(iso); }
+      if (mark === "x") { totalX++; daysISO.x.push(iso); }
+      else if (mark === "half") { totalHalf++; daysISO.half.push(iso); }
+      else if (mark === "cp") { totalCP++; daysISO.cp.push(iso); }
+      else if (mark === "kp") { totalKP++; daysISO.kp.push(iso); }
+      else if (mark === "other") { totalOther++; daysISO.other.push(iso); }
     });
 
     const totalBuoi = totalX + 0.5 * totalHalf;
@@ -220,40 +282,56 @@ async function summarizeClassMonth(className, month, year) {
     totalClassMoney += totalMoney;
     if (paid) totalPaid += totalMoney; else totalUnpaid += totalMoney;
 
-    await setDoc(doc(db, "parents", `${nickname}-${className}`), {
-      realName,
-      nickname,
-      class: Number(className),
-      parentName,
-      [`${month}-${year}`]: {
-        totalX, totalHalf, totalCP, totalKP, totalOther,
-        totalMoney, paid, paidDate, daysISO
-      }
-    }, { merge: true });
-
-    rowsOut.push({
+    const newData = {
       order: r,
-      realName, nickname, parentName,
-      heSo,
+      realName, nickname, parentName, heSo,
       totalX, totalHalf, totalCP, totalKP, totalOther,
-      totalMoney, paid, paidDate
-    });
-    classSummaryObj[nickname] = {
-      order: r,
-      realName, nickname, parentName,
-      heSo,
-      totalX, totalHalf, totalCP, totalKP, totalOther,
-      totalMoney, paid, paidDate
+      totalMoney, paid, paidDate, daysISO
     };
+
+    const oldMoneyRow = oldMoneyData[nickname] || {};
+    if (!isEqualSmart(newData, oldMoneyRow)) {
+      const diffs = diffFields(newData, oldMoneyRow);
+      console.log(`⚡ Update học sinh: ${nickname} (có thay đổi)`, diffs);
+      // Ghi pending vào money (gom setDoc 1 lần sau)
+      classSummaryObj[nickname] = newData;
+
+      // Đồng thời update vào parents tương ứng
+      const parentRef = doc(db, "parents", `${nickname}-${className}`);
+      await setDoc(parentRef, {
+        realName, nickname, parentName, class: Number(className),
+        [`${month}-${year}`]: newData
+      }, { merge: true });
+    } else {
+      console.log(`✅ Bỏ qua học sinh: ${nickname} (không thay đổi)`);
+    }
+
+    rowsOut.push(newData);
   }
 
-  await setDoc(doc(db, "money", `${className}-${month}-${year}`), {
-    _summary: { totalClassMoney, totalPaid, totalUnpaid },
-    ...classSummaryObj
-  }, { merge: true });
+  // Cập nhật summary nếu thay đổi
+  const newSummary = { totalClassMoney, totalPaid, totalUnpaid };
+  if (!isEqualSmart(newSummary, oldMoneyData._summary || {})) {
+    const diffs = diffFields(newSummary, oldMoneyData._summary || {});
+    console.log("⚡ Update _summary (có thay đổi)", diffs);
+    classSummaryObj._summary = newSummary;
+  } else {
+    console.log("✅ Bỏ qua _summary (không thay đổi)");
+  }
 
-  return { rowsOut, totals: { totalClassMoney, totalPaid, totalUnpaid } };
+  // Nếu có thay đổi thì mới ghi vào money
+  if (Object.keys(classSummaryObj).length > 0) {
+    await setDoc(moneyRef, classSummaryObj, { merge: true });
+    console.log(">>> Đã ghi cập nhật vào money");
+  } else {
+    console.log(">>> Không có thay đổi nào, không ghi vào money");
+  }
+
+  console.log("=== KẾT THÚC TỔNG HỢP ===");
+
+  return { rowsOut, totals: newSummary };
 }
+
 
 // =============== Cập nhật nộp tiền (dòng 1 = cột nộp tiền theo tháng/năm) ===============
 async function updatePaymentsFromSheet(className, month, year, currentRows) {
