@@ -153,7 +153,6 @@
   </div>
 
 
-  <!-- ✅ Firebase SDK + Ghi dữ liệu -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
     import { getFirestore, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
@@ -170,17 +169,64 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // ✅ Hàm ghi song song: hocsinh + summary chung
+    // ✅ Ghi chi tiết + summary (sessions + total) và giữ trường phẳng để render tuần không cần đổi
     window.saveStudentResultToFirebase = async function(entry) {
       try {
-        // 1. Ghi chi tiết vào collection hocsinh
-        const docId = `${entry.name}_${entry.class}_${entry.date}`;
-        const docRef = doc(db, "hocsinh", docId);
-        await setDoc(docRef, entry);
+        const sessionId = localStorage.getItem("startTime_global") || Date.now().toString();
 
-        // 2. Cập nhật summary chung
+        const safeNum = (n) => Number.isFinite(n) ? n : 0;
+        const partsArray = Array.isArray(entry.parts) ? entry.parts : [];
+
+        // 1) Ghi chi tiết phiên vào 'hocsinh'
+        const detailId = `${entry.name}_${entry.class}_${entry.date}_${sessionId}`;
+        await setDoc(doc(db, "hocsinh", detailId), { ...entry, sessionId, parts: partsArray });
+
+        // 2) Cập nhật summary lớp
         const summaryRef = doc(db, "tonghop", `summary-${entry.class}-recent`);
         const snap = await getDoc(summaryRef);
+
+        // Helper: tính total từ sessions (sum max, hợp nhất parts)
+        const computeTotals = (sessions) => {
+          const list = Object.values(sessions || {});
+          const totalScore = list.reduce((sum, s) => sum + safeNum(s.score), 0);
+          const totalMax   = list.reduce((sum, s) => sum + safeNum(s.max), 0);   // ✅ tổng cộng
+          const totalDur   = list.reduce((sum, s) => sum + safeNum(s.duration), 0);
+          const allParts   = new Set();
+          list.forEach(s => (Array.isArray(s.parts) ? s.parts : []).forEach(p => allParts.add(p)));
+          return {
+            score: totalScore,
+            max: totalMax,
+            duration: totalDur,
+            doneParts: allParts.size,
+            attempt: list.length
+          };
+        };
+
+        const ensureNodeWithSessions = (node, fallbackRating) => {
+          const result = node && typeof node === "object" ? { ...node } : {};
+
+          // Khởi tạo sessions nếu chưa có (migrate dữ liệu phẳng nếu tồn tại)
+          if (!result.sessions || typeof result.sessions !== "object") {
+            const migrated = {};
+            const hasFlat =
+              Number.isFinite(result.score) ||
+              Number.isFinite(result.max) ||
+              Number.isFinite(result.duration) ||
+              Array.isArray(result.parts);
+
+            if (hasFlat) {
+              migrated["legacy_v1"] = {
+                score: safeNum(result.score),
+                max: safeNum(result.max),
+                duration: safeNum(result.duration),
+                rating: result.rating || fallbackRating,
+                parts: Array.isArray(result.parts) ? result.parts : []
+              };
+            }
+            result.sessions = migrated;
+          }
+          return result;
+        };
 
         if (snap.exists()) {
           const data = snap.data();
@@ -189,27 +235,77 @@
 
           const dayData = data.dayData || {};
           if (!dayData[entry.date]) dayData[entry.date] = {};
-          dayData[entry.date][entry.name] = entry;
+
+          // Lấy node theo ngày + học sinh, đảm bảo có sessions
+          let node = ensureNodeWithSessions(dayData[entry.date][entry.name], entry.rating);
+
+          // Ghi/ghi đè phiên hiện tại
+          node.sessions[sessionId] = {
+            score: safeNum(entry.score),
+            max: safeNum(entry.max),
+            duration: safeNum(entry.duration),
+            rating: entry.rating,
+            parts: partsArray
+          };
+
+          // Tính lại total
+          node.total = computeTotals(node.sessions);
+
+          // ✅ Cập nhật trường phẳng để weekly render dùng như cũ
+          node.score     = node.total.score;
+          node.max       = node.total.max;
+          node.doneParts = node.total.doneParts;
+          node.rating    = entry.rating; // lấy đánh giá mới nhất cho ngày
+
+          dayData[entry.date][entry.name] = node;
 
           await updateDoc(summaryRef, {
-            days: Array.from(days).sort((a,b)=>b.localeCompare(a)),
+            days: Array.from(days).sort((a, b) => b.localeCompare(a)),
             dayData
           });
+
+          console.log(`📤 Summary updated: ${entry.name} - lớp ${entry.class}, attempt=${node.total.attempt}`);
         } else {
-          await setDoc(summaryRef, {
-            days: [entry.date],
-            dayData: {
-              [entry.date]: { [entry.name]: entry }
+          // Tạo mới summary lớp
+          const sessions = {
+            [sessionId]: {
+              score: safeNum(entry.score),
+              max: safeNum(entry.max),
+              duration: safeNum(entry.duration),
+              rating: entry.rating,
+              parts: partsArray
             }
-          });
+          };
+          const total = computeTotals(sessions);
+
+          const node = {
+            sessions,
+            total,
+            // Trường phẳng để bảng tuần đọc trực tiếp
+            score: total.score,
+            max: total.max,
+            doneParts: total.doneParts,
+            rating: entry.rating
+          };
+
+          const dayData = { [entry.date]: { [entry.name]: node } };
+          await setDoc(summaryRef, { days: [entry.date], dayData });
+
+          console.log(`📤 Summary created: ${entry.name} - lớp ${entry.class}, attempt=${total.attempt}`);
         }
 
-        console.log("📤 Đã lưu Firebase (chi tiết + summary):", entry);
+        console.log(`✅ Đã lưu Firebase cho ${entry.name} - lớp ${entry.class}`);
       } catch (error) {
         console.error("❌ Lỗi khi lưu Firebase:", error.message);
       }
     };
   </script>
+
+
+
+
+
+
 
 
   <!-- ✅ Gọi xử lý tổng kết -->
