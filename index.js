@@ -1,3 +1,15 @@
+import { fetchStudentList } from './studentList.js';
+
+console.log("✅ index.js đã chạy");
+
+// Hàm chuẩn hóa để lưu
+function cleanInput(str) {
+  return str
+    .toLowerCase()               // chuyển về chữ thường
+    .replace(/[.,;/:]/g, "")     // xóa dấu câu
+    .trim();                     // xóa khoảng trắng đầu/cuối
+}
+
 async function startApp() {
   const name = document.getElementById("studentName").value.trim();
   const className = document.getElementById("studentClass").value.trim();
@@ -11,14 +23,20 @@ async function startApp() {
 
   const studentList = await fetchStudentList();
 
+  // Hàm normalize để so khớp
+  const normalize = str => str.toLowerCase().trim();
+
+  // Tìm trong danh sách
+  const matchedStudent = studentList.find(s =>
+    normalize(s.name) === normalize(name) &&
+    normalize(s.class) === normalize(className)
+  );
+
+  // Chuẩn hóa để lưu
   const cleanedName = cleanInput(name);
   const cleanedClass = cleanInput(className);
 
-  const matchedStudent = studentList.find(s =>
-    cleanInput(s.name) === cleanedName &&
-    cleanInput(s.class) === cleanedClass
-  );
-
+  // Lưu vào localStorage
   localStorage.setItem("trainerName", cleanedName);
   localStorage.setItem("trainerClass", cleanedClass);
   localStorage.setItem("startTime_global", Date.now());
@@ -26,9 +44,24 @@ async function startApp() {
   if (matchedStudent) {
     localStorage.setItem("isVerifiedStudent", "true");
     localStorage.setItem("studentPassword", matchedStudent.password || "");
+
+    // Lưu cả bản chuẩn hóa để dùng khi ghi Firebase
+    localStorage.setItem("normalizedTrainerName", cleanedName);
+    localStorage.setItem("normalizedTrainerClass", cleanedClass);
+
+    console.log(`✅ Đăng nhập thành công: ${cleanedName} - lớp ${cleanedClass}`);
     window.location.href = "choice.html";
   } else {
     localStorage.setItem("isVerifiedStudent", "false");
     alert("⚠️ Bạn chưa được cấp nick. Bạn vẫn có thể tiếp tục học.");
+    console.log(`⚠️ Nick chưa xác thực: ${cleanedName} - lớp ${cleanedClass}`);
   }
 }
+
+// Gắn sự kiện cho nút
+window.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("startBtn");
+  if (btn) {
+    btn.addEventListener("click", startApp);
+  }
+});
