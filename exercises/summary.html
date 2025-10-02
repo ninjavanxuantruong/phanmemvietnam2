@@ -156,7 +156,7 @@
   <!-- ✅ Firebase SDK + Ghi dữ liệu -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBQ1pPmSdBV8M8YdVbpKhw_DOetmzIMwXU",
@@ -170,25 +170,47 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // ✅ Ghi dữ liệu thực tế từ localStorage
-    const studentName = localStorage.getItem("trainerName") || "Không tên";
-    const studentClass = localStorage.getItem("trainerClass") || "Chưa có lớp";
-    const historyKey = `history_${studentName}_${studentClass}`;
-    const history = JSON.parse(localStorage.getItem(historyKey)) || [];
-    const latestEntry = history[history.length - 1];
-
+    // ✅ Hàm ghi song song: hocsinh + summary chung
     window.saveStudentResultToFirebase = async function(entry) {
       try {
+        // 1. Ghi chi tiết vào collection hocsinh
         const docId = `${entry.name}_${entry.class}_${entry.date}`;
         const docRef = doc(db, "hocsinh", docId);
         await setDoc(docRef, entry);
-        console.log("📤 Đã lưu Firebase:", entry);
+
+        // 2. Cập nhật summary chung
+        const summaryRef = doc(db, "tonghop", `summary-${entry.class}-recent`);
+        const snap = await getDoc(summaryRef);
+
+        if (snap.exists()) {
+          const data = snap.data();
+          const days = new Set(data.days || []);
+          days.add(entry.date);
+
+          const dayData = data.dayData || {};
+          if (!dayData[entry.date]) dayData[entry.date] = {};
+          dayData[entry.date][entry.name] = entry;
+
+          await updateDoc(summaryRef, {
+            days: Array.from(days).sort((a,b)=>b.localeCompare(a)),
+            dayData
+          });
+        } else {
+          await setDoc(summaryRef, {
+            days: [entry.date],
+            dayData: {
+              [entry.date]: { [entry.name]: entry }
+            }
+          });
+        }
+
+        console.log("📤 Đã lưu Firebase (chi tiết + summary):", entry);
       } catch (error) {
         console.error("❌ Lỗi khi lưu Firebase:", error.message);
       }
     };
-
   </script>
+
 
   <!-- ✅ Gọi xử lý tổng kết -->
   <script type="module" src="summary.js"></script>
