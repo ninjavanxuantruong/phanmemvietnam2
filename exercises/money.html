@@ -69,6 +69,28 @@
     </tfoot>
   </table>
 
+  <h2>Tổng hợp nhiều tháng theo lớp</h2>
+  <table id="multiMonthTable" border="1">
+    <thead>
+      <tr id="multiMonthHeader">
+        <th>Tên</th>
+        <th>Nickname</th>
+        <!-- Các cột tháng sẽ được thêm động -->
+      </tr>
+    </thead>
+    <tbody id="multiMonthBody"></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="2">Tổng chưa nộp</td>
+        <td id="multiMonthTotal" colspan="12"></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <!-- Thêm nút để gọi -->
+  <button id="multiMonthBtn">Xem tổng hợp cả năm</button>
+
+
   <script type="module" src="money.js"></script>
 </body>
 </html>
