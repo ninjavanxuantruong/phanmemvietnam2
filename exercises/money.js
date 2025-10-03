@@ -604,7 +604,6 @@ function recomputeTotals(rows) {
 
 
 // ================== XEM NHIỀU THÁNG THEO LỚP ==================
-// ================== XEM NHIỀU THÁNG THEO LỚP ==================
 async function viewClassMultiMonth(className, year) {
   const dataByNick = {};
   const monthsWithData = [];
@@ -622,10 +621,11 @@ async function viewClassMultiMonth(className, year) {
         dataByNick[nick] = {
           realName: v.realName || "",
           nickname: v.nickname || nick,
+          parentName: v.parentName || "",
           months: {},
           totalPaid: 0,
           totalUnpaid: 0,
-          order: v.order || 9999   // ✅ giữ thứ tự từ sheet
+          order: v.order || 9999
         };
       }
       const money = Number(v.totalMoney || 0);
@@ -638,83 +638,94 @@ async function viewClassMultiMonth(className, year) {
   renderMultiMonthTable(dataByNick, monthsWithData.sort((a,b)=>a-b), className, year);
 }
 
-  function renderMultiMonthTable(dataByNick, months, className, year) {
-    const headerRow = document.getElementById("multiMonthHeader");
-    const body = document.getElementById("multiMonthBody");
+function renderMultiMonthTable(dataByNick, months, className, year) {
+  const headerRow = document.getElementById("multiMonthHeader");
+  const body = document.getElementById("multiMonthBody");
 
-    headerRow.innerHTML =
-      "<th>Tên</th><th>Nickname</th>" +
-      months.map(m => `<th>Tháng ${m}</th>`).join("") +
-      "<th>Tổng đã nộp</th><th>Tổng chưa nộp</th>";
+  headerRow.innerHTML =
+    "<th>STT</th><th>Tên</th><th>Nickname</th><th>Phụ huynh</th>" +
+    months.map(m => `<th>Tháng ${m}</th>`).join("") +
+    "<th>Tổng đã nộp</th><th>Tổng chưa nộp</th>";
 
-    body.innerHTML = "";
+  body.innerHTML = "";
 
-    // ✅ Sắp xếp học sinh theo order
-    const students = Object.values(dataByNick).sort((a,b) => a.order - b.order);
+  const students = Object.values(dataByNick).sort((a,b) => a.order - b.order);
 
-    let grandPaid = 0;
-    let grandUnpaid = 0;
+  let grandPaid = 0;
+  let grandUnpaid = 0;
 
-    students.forEach(stu => {
-      const tr = document.createElement("tr");
-      let cells = `<td>${stu.realName}</td><td>${stu.nickname}</td>`;
-      months.forEach(m => {
-        const info = stu.months[m];
-        if (info) {
-          cells += `<td class="${info.paid ? "paid-true" : "paid-false"}">
-            ${info.totalMoney.toLocaleString("vi-VN")}<br>
-            ${info.paid ? "Đã nộp" : "Chưa nộp"}
-            <button data-nick="${stu.nickname}" data-month="${m}" class="payBtn">
-              ${info.paid ? "Huỷ" : "Nộp"}
-            </button>
-          </td>`;
-        } else {
-          cells += "<td>-</td>";
-        }
-      });
-      cells += `<td>${stu.totalPaid.toLocaleString("vi-VN")}</td>`;
-      cells += `<td>${stu.totalUnpaid.toLocaleString("vi-VN")}</td>`;
-      tr.innerHTML = cells;
-      body.appendChild(tr);
+  // Chuẩn bị mảng cộng dọc theo tháng
+  const monthTotals = {};
+  months.forEach(m => {
+    monthTotals[m] = { paid: 0, unpaid: 0 };
+  });
 
-      grandPaid += stu.totalPaid;
-      grandUnpaid += stu.totalUnpaid;
+  students.forEach((stu, idx) => {
+    const tr = document.createElement("tr");
+    let cells = `<td>${idx+1}</td><td>${stu.realName}</td><td>${stu.nickname}</td><td>${stu.parentName}</td>`;
+    months.forEach(m => {
+      const info = stu.months[m];
+      if (info) {
+        cells += `<td class="${info.paid ? "paid-true" : "paid-false"}">
+          ${info.totalMoney.toLocaleString("vi-VN")}<br>
+          ${info.paid ? "Đã nộp" : "Chưa nộp"}
+          <button data-nick="${stu.nickname}" data-month="${m}" class="payBtn">
+            ${info.paid ? "Huỷ" : "Nộp"}
+          </button>
+        </td>`;
+        if (info.paid) monthTotals[m].paid += info.totalMoney;
+        else monthTotals[m].unpaid += info.totalMoney;
+      } else {
+        cells += "<td>-</td>";
+      }
     });
+    cells += `<td>${stu.totalPaid.toLocaleString("vi-VN")}</td>`;
+    cells += `<td>${stu.totalUnpaid.toLocaleString("vi-VN")}</td>`;
+    tr.innerHTML = cells;
+    body.appendChild(tr);
 
-    // ✅ Thêm dòng tổng cuối bảng
-    const trTotal = document.createElement("tr");
-    trTotal.classList.add("grand-total");
-    let totalCells = `<td colspan="${2 + months.length}"><b>TỔNG CỘNG</b></td>`;
-    totalCells += `<td><b>${grandPaid.toLocaleString("vi-VN")}</b></td>`;
-    totalCells += `<td><b>${grandUnpaid.toLocaleString("vi-VN")}</b></td>`;
-    trTotal.innerHTML = totalCells;
-    body.appendChild(trTotal);
+    grandPaid += stu.totalPaid;
+    grandUnpaid += stu.totalUnpaid;
+  });
 
-    // Gắn sự kiện cho nút nộp tiền
-    body.querySelectorAll("button.payBtn").forEach(btn => {
-      btn.addEventListener("click", async ev => {
-        const nick = ev.currentTarget.dataset.nick;
-        const month = ev.currentTarget.dataset.month;
-        const newPaid = ev.currentTarget.textContent === "Nộp";
-        const newDateISO = newPaid ? new Date().toISOString().slice(0,10) : null;
+  // ✅ Hàng tổng cuối
+  const trTotal = document.createElement("tr");
+  trTotal.classList.add("grand-total");
+  let totalCells = `<td colspan="4"><b>TỔNG CỘNG</b></td>`;
+  months.forEach(m => {
+    const paid = monthTotals[m].paid;
+    const unpaid = monthTotals[m].unpaid;
+    totalCells += `<td><b>Đã: ${paid.toLocaleString("vi-VN")}<br>Chưa: ${unpaid.toLocaleString("vi-VN")}</b></td>`;
+  });
+  totalCells += `<td><b>${grandPaid.toLocaleString("vi-VN")}</b></td>`;
+  totalCells += `<td><b>${grandUnpaid.toLocaleString("vi-VN")}</b></td>`;
+  trTotal.innerHTML = totalCells;
+  body.appendChild(trTotal);
 
-        await updateDoc(doc(db, "parents", `${nick}-${className}`), {
-          [`${month}-${year}.paid`]: newPaid,
-          [`${month}-${year}.paidDate`]: newDateISO
-        });
-        await updateDoc(doc(db, "money", `${className}-${month}-${year}`), {
-          [`${nick}.paid`]: newPaid,
-          [`${nick}.paidDate`]: newDateISO
-        });
+  // Gắn sự kiện cho nút nộp tiền
+  body.querySelectorAll("button.payBtn").forEach(btn => {
+    btn.addEventListener("click", async ev => {
+      const nick = ev.currentTarget.dataset.nick;
+      const month = ev.currentTarget.dataset.month;
+      const newPaid = ev.currentTarget.textContent === "Nộp";
+      const newDateISO = newPaid ? new Date().toISOString().slice(0,10) : null;
 
-        // Refresh lại
-        viewClassMultiMonth(className, year);
+      await updateDoc(doc(db, "parents", `${nick}-${className}`), {
+        [`${month}-${year}.paid`]: newPaid,
+        [`${month}-${year}.paidDate`]: newDateISO
       });
+      await updateDoc(doc(db, "money", `${className}-${month}-${year}`), {
+        [`${nick}.paid`]: newPaid,
+        [`${nick}.paidDate`]: newDateISO
+      });
+
+      // Refresh lại
+      viewClassMultiMonth(className, year);
     });
-  }
+  });
+}
 
 
-// ================== GẮN NÚT GỌI ==================
 document.getElementById("multiMonthBtn").addEventListener("click", () => {
   const cls = classSelect.value;
   const year = Number(yearInput.value);
