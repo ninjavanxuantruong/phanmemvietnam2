@@ -225,6 +225,7 @@ async function summarizeClassMonth(className, month, year) {
 
   const headerLine1 = values[0];
   const headerLine2 = values[1];
+  console.log("=== DEBUG headerLine2 raw ===", headerLine2);
   const paidColIndex = findPaidColIndexFromLine1(headerLine1, month, year);
   if (paidColIndex === null) throw new Error(`Không tìm thấy cột nộp tiền cho tháng ${month}/${year}`);
 
@@ -600,3 +601,106 @@ function recomputeTotals(rows) {
   });
   return { totalClassMoney, totalPaid, totalUnpaid };
 }
+
+
+// ================== XEM NHIỀU THÁNG THEO LỚP ==================
+// ================== XEM NHIỀU THÁNG THEO LỚP ==================
+async function viewClassMultiMonth(className, year) {
+  const dataByNick = {};
+  const monthsWithData = [];
+
+  for (let m = 1; m <= 12; m++) {
+    const ref = doc(db, "money", `${className}-${m}-${year}`);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) continue;
+    monthsWithData.push(m);
+
+    const data = snap.data();
+    Object.entries(data).forEach(([nick, v]) => {
+      if (nick === "_summary") return;
+      if (!dataByNick[nick]) {
+        dataByNick[nick] = {
+          realName: v.realName || "",
+          nickname: v.nickname || nick,
+          months: {},
+          totalPaid: 0,
+          totalUnpaid: 0,
+          order: v.order || 9999   // ✅ giữ thứ tự từ sheet
+        };
+      }
+      const money = Number(v.totalMoney || 0);
+      dataByNick[nick].months[m] = { totalMoney: money, paid: v.paid, paidDate: v.paidDate || null };
+      if (v.paid) dataByNick[nick].totalPaid += money;
+      else dataByNick[nick].totalUnpaid += money;
+    });
+  }
+
+  renderMultiMonthTable(dataByNick, monthsWithData.sort((a,b)=>a-b), className, year);
+}
+
+function renderMultiMonthTable(dataByNick, months, className, year) {
+  const headerRow = document.getElementById("multiMonthHeader");
+  const body = document.getElementById("multiMonthBody");
+
+  headerRow.innerHTML =
+    "<th>Tên</th><th>Nickname</th>" +
+    months.map(m => `<th>Tháng ${m}</th>`).join("") +
+    "<th>Tổng đã nộp</th><th>Tổng chưa nộp</th>";
+
+  body.innerHTML = "";
+
+  // ✅ Sắp xếp học sinh theo order
+  const students = Object.values(dataByNick).sort((a,b) => a.order - b.order);
+
+  students.forEach(stu => {
+    const tr = document.createElement("tr");
+    let cells = `<td>${stu.realName}</td><td>${stu.nickname}</td>`;
+    months.forEach(m => {
+      const info = stu.months[m];
+      if (info) {
+        cells += `<td class="${info.paid ? "paid-true" : "paid-false"}">
+          ${info.totalMoney.toLocaleString("vi-VN")}<br>
+          ${info.paid ? "Đã nộp" : "Chưa nộp"}
+          <button data-nick="${stu.nickname}" data-month="${m}" class="payBtn">
+            ${info.paid ? "Huỷ" : "Nộp"}
+          </button>
+        </td>`;
+      } else {
+        cells += "<td>-</td>";
+      }
+    });
+    cells += `<td>${stu.totalPaid.toLocaleString("vi-VN")}</td>`;
+    cells += `<td>${stu.totalUnpaid.toLocaleString("vi-VN")}</td>`;
+    tr.innerHTML = cells;
+    body.appendChild(tr);
+  });
+
+  // Gắn sự kiện cho nút nộp tiền
+  body.querySelectorAll("button.payBtn").forEach(btn => {
+    btn.addEventListener("click", async ev => {
+      const nick = ev.currentTarget.dataset.nick;
+      const month = ev.currentTarget.dataset.month;
+      const newPaid = ev.currentTarget.textContent === "Nộp";
+      const newDateISO = newPaid ? new Date().toISOString().slice(0,10) : null;
+
+      await updateDoc(doc(db, "parents", `${nick}-${className}`), {
+        [`${month}-${year}.paid`]: newPaid,
+        [`${month}-${year}.paidDate`]: newDateISO
+      });
+      await updateDoc(doc(db, "money", `${className}-${month}-${year}`), {
+        [`${nick}.paid`]: newPaid,
+        [`${nick}.paidDate`]: newDateISO
+      });
+
+      // Refresh lại
+      viewClassMultiMonth(className, year);
+    });
+  });
+}
+
+// ================== GẮN NÚT GỌI ==================
+document.getElementById("multiMonthBtn").addEventListener("click", () => {
+  const cls = classSelect.value;
+  const year = Number(yearInput.value);
+  viewClassMultiMonth(cls, year);
+});
