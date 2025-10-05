@@ -1,6 +1,30 @@
-// ✅ Import Firebase SDK
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+import { initializeApp, getApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+
+// App 1: Pokémon (bosuutap)
+const pokemonConfig = {
+  apiKey: "AIzaSyCCVdzWiiFvcWiHVJN-x33YKarsjyziS8E",
+  authDomain: "pokemon-capture-10d03.firebaseapp.com",
+  projectId: "pokemon-capture-10d03",
+  storageBucket: "pokemon-capture-10d03.firebasestorage.app",
+  messagingSenderId: "1068125543917",
+  appId: "1:1068125543917:web:57de4365ee56729ea8dbe4"
+};
+const pokemonApp = initializeApp(pokemonConfig, "pokemonApp");
+const dbPokemon = getFirestore(pokemonApp);
+
+// App 2: Lớp học thầy Tình (tonghop)
+const lopHocConfig = {
+  apiKey: "AIzaSyBQ1pPmSdBV8M8YdVbpKhw_DOetmzIMwXU",
+  authDomain: "lop-hoc-thay-tinh.firebaseapp.com",
+  projectId: "lop-hoc-thay-tinh",
+  storageBucket: "lop-hoc-thay-tinh.firebasestorage.app",
+  messagingSenderId: "391812475288",
+  appId: "1:391812475288:web:ca4c275ac776d69deb23ed"
+};
+const lopHocApp = initializeApp(lopHocConfig, "lopHocApp");
+const dbLopHoc = getFirestore(lopHocApp);
+
 // ✅ Import dữ liệu Pokémon
 import { pokemonData } from './pokemonData.js';
 
@@ -49,19 +73,6 @@ function getNextPokemonToCapture(currentList = []) {
   return selected;
 }
 
-// ✅ Cấu hình Firebase mới (bộ sưu tập Pokémon)
-const firebaseConfig = {
-  apiKey: "AIzaSyCCVdzWiiFvcWiHVJN-x33YKarsjyziS8E",
-  authDomain: "pokemon-capture-10d03.firebaseapp.com",
-  projectId: "pokemon-capture-10d03",
-  storageBucket: "pokemon-capture-10d03.firebasestorage.app",
-  messagingSenderId: "1068125543917",
-  appId: "1:1068125543917:web:57de4365ee56729ea8dbe4"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
 // ✅ Lấy tên và lớp từ localStorage
 const studentName = localStorage.getItem("trainerName") || "Không tên";
 const studentClass = localStorage.getItem("trainerClass") || "Chưa có lớp";
@@ -70,88 +81,81 @@ document.getElementById("studentName").textContent = studentName;
 // ✅ Tạo document ID
 const docId = `${studentName}-${studentClass}`;
 
+// ✅ Lấy sao từ điểm hôm qua trong tonghop (lop-hoc-thay-tinh) rồi cộng vào bosuutap (pokemon-capture-10d03)
 async function updateStarsFromYesterday() {
-  console.log("🔍 Bắt đầu kiểm tra cập nhật sao hôm nay...");
-
   try {
-    const today = new Date();
-    const todayCode = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getFullYear()).slice(-2)}`;
-    console.log(`📅 Mã ngày hôm nay: ${todayCode}`);
+    const name = localStorage.getItem("trainerName") || "Không tên";
+    const clazz = localStorage.getItem("trainerClass") || "Chưa có lớp";
 
-    const yesterday = new Date(Date.now() - 86400000);
-    const yesterdayCode = `${String(yesterday.getDate()).padStart(2, '0')}${String(yesterday.getMonth() + 1).padStart(2, '0')}${String(yesterday.getFullYear()).slice(-2)}`;
-    console.log(`📅 Mã ngày hôm qua: ${yesterdayCode}`);
+    const pad = n => String(n).padStart(2, "0");
+    const now = new Date();
+    const todayCode = `${pad(now.getDate())}${pad(now.getMonth() + 1)}${String(now.getFullYear()).slice(-2)}`;
+    const yesterday = new Date(now.getTime() - 86400000);
+    const yesterdayCode = `${pad(yesterday.getDate())}${pad(yesterday.getMonth() + 1)}${String(yesterday.getFullYear()).slice(-2)}`;
 
-    console.log(`👤 Học sinh: ${studentName} | Lớp: ${studentClass}`);
+    console.log(`📅 Hôm nay: ${todayCode} | Hôm qua: ${yesterdayCode} | HS: ${name} | Lớp: ${clazz}`);
 
-    const refCollection = doc(db, "bosuutap", docId);
+    // Lấy điểm từ project lop-hoc-thay-tinh
+    const refSummary = doc(dbLopHoc, "tonghop", `summary-${clazz}-recent`);
+    const snapSummary = await getDoc(refSummary);
+
+    if (!snapSummary.exists()) {
+      console.warn(`⚠️ Không tìm thấy doc tonghop/summary-${clazz}-recent`);
+      return;
+    }
+
+    const summaryData = snapSummary.data();
+    const dayBucket = summaryData.dayData?.[yesterdayCode];
+    if (!dayBucket || !dayBucket[name]) {
+      console.warn(`⚠️ Không có dữ liệu cho ${name} ngày ${yesterdayCode}`);
+      return;
+    }
+
+    const score = parseInt(dayBucket[name].score || 0, 10);
+    console.log(`📦 Điểm hôm qua của ${name}: ${score}`);
+
+    // ✅ Cộng sao vào project pokemon-capture-10d03
+    const id = `${name}-${clazz}`;
+    const refCollection = doc(dbPokemon, "bosuutap", id);
+
+    // Lấy dữ liệu cũ (nếu có)
     const snapCollection = await getDoc(refCollection);
-    const data = snapCollection.exists() ? snapCollection.data() : null;
+    const oldData = snapCollection.exists() ? snapCollection.data() : {};
 
-    if (data?.lastStarUpdate === todayCode) {
-      console.log(`⏳ Hôm nay (${todayCode}) đã cập nhật sao rồi. Bỏ qua.`);
+    // Nếu hôm nay đã cộng rồi thì bỏ qua
+    if (oldData.lastStarUpdate === todayCode) {
+      console.log(`⏳ Hôm nay (${todayCode}) đã cộng sao rồi. Bỏ qua.`);
       return;
     }
 
-    // ✅ Lấy điểm hôm qua từ Firebase cũ
-    const oldFirebaseConfig = {
-      apiKey: "AIzaSyBQ1pPmSdBV8M8YdVbpKhw_DOetmzIMwXU",
-      authDomain: "lop-hoc-thay-tinh.firebaseapp.com",
-      projectId: "lop-hoc-thay-tinh",
-      storageBucket: "lop-hoc-thay-tinh.appspot.com",
-      messagingSenderId: "391812475288",
-      appId: "1:391812475288:web:ca4c275ac776d69deb23ed"
-    };
+    // Tính số sao mới
+    const previousStars = parseInt(oldData.stars || 0, 10);
+    const newStars = previousStars + score;
 
-    const { initializeApp: initOld, getApp: getOldApp } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js");
-    const { getFirestore: getOldFirestore, doc: oldDoc, getDoc: oldGetDoc } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js");
-
-    let oldApp;
-    try {
-      oldApp = initOld(oldFirebaseConfig, "oldApp");
-    } catch {
-      oldApp = getOldApp("oldApp");
-    }
-
-    const oldDb = getOldFirestore(oldApp);
-    const resultId = `${studentName}_${studentClass}_${yesterdayCode}`;
-    console.log(`🔍 Đang truy vấn document: hocsinh/${resultId}`);
-
-    const refResult = oldDoc(oldDb, "hocsinh", resultId);
-    const snapResult = await oldGetDoc(refResult);
-
-    if (!snapResult.exists()) {
-      console.warn(`⚠️ Không tìm thấy kết quả hôm qua (${yesterdayCode}) trong Firebase cũ.`);
-      return;
-    }
-
-    const resultData = snapResult.data();
-    console.log("📦 Dữ liệu hôm qua:", resultData);
-
-    const score = resultData.score || 0;
-    const newStars = (data?.stars || 0) + score;
-
+    // Ghi lại dữ liệu mới
     await setDoc(refCollection, {
-      ...data,
+      ...oldData,
       stars: newStars,
       lastStarUpdate: todayCode
     });
 
-    document.getElementById("starCount").textContent = newStars;
-    console.log(`✅ Đã cộng ${score} sao từ kết quả hôm qua (${yesterdayCode}).`);
-    console.log(`⭐ Tổng sao mới: ${newStars}`);
+    // Cập nhật giao diện
+    const starEl = document.getElementById("starCount");
+    if (starEl) starEl.textContent = newStars;
+
+    console.log(`✅ Đã cộng ${score} sao từ ngày ${yesterdayCode}. ⭐ Tổng mới: ${newStars}`);
   } catch (error) {
     console.error("❌ Lỗi khi cập nhật sao:", error.message);
   }
 }
-
 
 // ✅ Hàm tải dữ liệu từ Firebase và hiển thị bộ sưu tập
 async function loadCollection() {
   console.log("📥 Đang tải dữ liệu bộ sưu tập Pokémon...");
 
   try {
-    const ref = doc(db, "bosuutap", docId);
+    // Dùng dbPokemon (project pokemon-capture-10d03)
+    const ref = doc(dbPokemon, "bosuutap", docId);
     const snap = await getDoc(ref);
 
     if (!snap.exists()) {
@@ -178,7 +182,6 @@ async function loadCollection() {
     console.log("✅ Đã hiển thị bộ sưu tập Pokémon");
     renderCapturedPokemons(data);
 
-
     // ✅ Gọi cập nhật sao sau khi tải xong
     updateStarsFromYesterday();
   } catch (error) {
@@ -192,7 +195,8 @@ loadCollection();
 document.getElementById("startCaptureBtn").addEventListener("click", async () => {
   console.log("🎯 Bắt đầu kiểm tra điều kiện thu phục...");
 
-  const ref = doc(db, "bosuutap", docId);
+  // Dùng dbPokemon
+  const ref = doc(dbPokemon, "bosuutap", docId);
   const snap = await getDoc(ref);
 
   if (!snap.exists()) {
@@ -321,11 +325,10 @@ document.getElementById("startCaptureBtn").addEventListener("click", async () =>
     container.appendChild(div);
   });
 
-
-  console.log(`✅ Đã tạo quiz từ ${selectedCodes.length} bài, mỗi bài 1 từ.`);
+  console.log(`✅ Đã tạo quiz từ ${shuffledCodes.length} bài, mỗi bài 1 từ.`);
 });
 
-
+// Nút nộp bài quiz
 document.getElementById("submitQuizBtn").addEventListener("click", async () => {
   const radios = document.querySelectorAll("input[type=radio]:checked");
   let correctCount = 0;
@@ -340,7 +343,8 @@ document.getElementById("submitQuizBtn").addEventListener("click", async () => {
   console.log(`📊 Số câu đúng: ${correctCount}/${totalQuestions} | Yêu cầu: ≥${passThreshold}`);
 
   if (correctCount >= passThreshold) {
-    const ref = doc(db, "bosuutap", docId);
+    // Dùng dbPokemon
+    const ref = doc(dbPokemon, "bosuutap", docId);
     const snap = await getDoc(ref);
     const data = snap.exists() ? snap.data() : {};
     const currentList = data.pokemons || [];
@@ -390,7 +394,6 @@ document.getElementById("submitQuizBtn").addEventListener("click", async () => {
         50% { transform: translate(-50%, -50%) rotate(-10deg); }
         75% { transform: translate(-50%, -50%) rotate(10deg); }
       }
-
       @keyframes summon {
         from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
         to { opacity: 1; transform: translate(-50%, -50%) scale(1.4); }
@@ -449,9 +452,9 @@ function renderCapturedPokemons(data) {
       <button class="battle-btn" data-id="${p.id}">Chọn để xuất chiến</button>
     `;
 
-
+    // Dùng dbPokemon
     card.querySelector("button").addEventListener("click", async () => {
-      const ref = doc(db, "bosuutap", docId);
+      const ref = doc(dbPokemon, "bosuutap", docId);
       await setDoc(ref, {
         ...data,
         selected: p.id
@@ -466,12 +469,12 @@ function renderCapturedPokemons(data) {
       showPokemonDetail(p.id);
     });
 
-
     if (p.id === selectedId) {
       infoBox.textContent = `🛡️ Bạn đang chọn Pokémon ${p.name} (#${p.id}) để xuất chiến`;
     }
   });
 }
+
 function showPokemonDetail(id) {
   const poke = pokemonData.find(p => p.id === id);
   if (!poke) return;
@@ -492,6 +495,3 @@ function showPokemonDetail(id) {
 document.getElementById("closePopupBtn").addEventListener("click", () => {
   document.getElementById("pokemonDetailPopup").style.display = "none";
 });
-
-
-
