@@ -80,7 +80,15 @@
 </head>
 <body>
   <div class="container">
-    <h2>📘 Chọn phạm vi bài học</h2>
+
+    <h2>📘 Ấn vào đây để tạo bài tự động</h2>
+    
+    <!-- ✅ Nút tự động -->
+    <button id="autoBtn" style="margin-bottom:20px; background:linear-gradient(to right,#4caf50,#81c784); color:white;">
+      ⚡ Tạo bài
+    </button>
+    
+    <h2>📘 chế độ thủ công</h2>
 
     <label for="startLessonSelect">🔰 Bài bắt đầu:</label>
     <select id="startLessonSelect">
@@ -98,7 +106,7 @@
     </select>
 
 
-    <button id="confirmBtn">OK</button>
+    <button id="confirmBtn">Bắt đầu</button>
   </div>
 
   <script>
@@ -162,7 +170,119 @@
 
         window.location.href = "communication2.html";
       });
+
+
+      // ✅ Helper: chuyển "4-09-2" → 4092 (cùng cách normalize như code quiz)
+      function normalizeUnitId(unitStr) {
+        return parseInt(unitStr.replace(/\D/g, ""), 10);
+      }
+
+      // ✅ Nút Tự động: chọn bài kết thúc trước (≤ bài lớn nhất), rồi lùi tối đa 9 bài
+      document.getElementById("autoBtn").addEventListener("click", async () => {
+        try {
+          const SHEET_UNITS = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+          const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
+
+          const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
+          const classNum = parseInt(trainerClass.replace(/\D/g, ""), 10) || null;
+
+          // 1) Lấy maxLessonCode theo đúng cách Anh dùng trong code quiz (normalize số)
+          const res1 = await fetch(SHEET_BAI_HOC);
+          const text1 = await res1.text();
+          const json1 = JSON.parse(text1.substring(47).slice(0, -2));
+          const rows1 = json1.table.rows;
+
+          const baiList = rows1
+            .map(r => {
+              const lop = r.c[0]?.v?.toString().trim();
+              const bai = r.c[2]?.v?.toString().trim(); // giữ nguyên cột C như code của Anh
+              return lop === trainerClass && bai ? parseInt(bai, 10) : null;
+            })
+            .filter(v => typeof v === "number");
+
+          if (baiList.length === 0) {
+            alert(`Không tìm thấy bài học nào cho lớp ${trainerClass}`);
+            return;
+          }
+
+          const maxLessonCode = Math.max(...baiList); // ví dụ: 4072
+          console.log(`📈 Bài lớn nhất (normalize) của lớp ${trainerClass}: ${maxLessonCode}`);
+
+          // 2) Lấy danh sách mã bài từ Units (cột B), lọc cùng tiêu chí như quiz:
+          // - Bỏ 2-...
+          // - Nếu có classNum → chỉ lấy ${classNum}-...
+          // - Chỉ lấy những mã có normalizeUnitId ≤ maxLessonCode
+          const res2 = await fetch(SHEET_UNITS);
+          const text2 = await res2.text();
+          const json2 = JSON.parse(text2.substring(47).slice(0, -2));
+          const rows2 = json2.table.rows;
+
+          let units = rows2
+            .map(r => r.c[1]?.v?.toString().trim())
+            .filter(Boolean)
+            .filter(u => !u.startsWith("2-"))
+            .filter(u => (classNum ? u.startsWith(`${classNum}-`) : true))
+            .filter(u => normalizeUnitId(u) <= maxLessonCode)
+            // unique
+            .filter((u, i, arr) => i === arr.findIndex(x => x === u))
+            // sort theo normalize tăng dần
+            .sort((a, b) => normalizeUnitId(a) - normalizeUnitId(b));
+
+          if (units.length === 0) {
+            alert("Không có bài hợp lệ trong phạm vi lớp hiện tại.");
+            return;
+          }
+
+          // 3) Chọn bài kết thúc trước trong phạm vi ≤ maxLessonCode
+          const endIndex = Math.floor(Math.random() * units.length);
+          const endLesson = units[endIndex];
+
+          // 4) Bài bắt đầu = lùi tối đa 9 bài; nếu không đủ thì về đầu danh sách
+          const startIndex = Math.max(0, endIndex - 9);
+          const startLesson = units[startIndex];
+
+          // 5) Chọn giọng: en-US, en-GB, en-AU
+          const voices = await getVocabVoice();
+          const allowed = voices.filter(v => /(en-US|en-GB|en-AU)/.test(v.lang));
+          const chosenVoice = allowed.length > 0
+            ? allowed[Math.floor(Math.random() * allowed.length)]
+            : voices[0];
+
+          // 6) Gán vào dropdown để người dùng thấy
+          document.getElementById("startLessonSelect").value = startLesson;
+          document.getElementById("endLessonSelect").value = endLesson;
+          if (chosenVoice) document.getElementById("voiceSelect").value = chosenVoice.name;
+
+          // 7) Lưu tạm vào localStorage để nút Bắt đầu dùng luôn
+          localStorage.setItem("startLesson", startLesson);
+          localStorage.setItem("endLesson", endLesson);
+          localStorage.setItem("selectedLesson", `${startLesson} → ${endLesson}`);
+          if (chosenVoice) localStorage.setItem("selectedVoice", chosenVoice.name);
+
+          // 8) Log/Alert rõ ràng
+          console.log(`👉 MaxLessonCode(lớp ${trainerClass}) = ${maxLessonCode}`);
+          console.log(`✅ Auto: end=${endLesson} (id=${normalizeUnitId(endLesson)}), start=${startLesson} (id=${normalizeUnitId(startLesson)}), voice=${chosenVoice?.name}`);
+          alert(
+            `Đề xuất tự động:\n` +
+            `Bài lớn nhất lớp ${trainerClass}: (id=${maxLessonCode})\n` +
+            `Bài kết thúc: ${endLesson} (id=${normalizeUnitId(endLesson)})\n` +
+            `Bài bắt đầu: ${startLesson} (id=${normalizeUnitId(startLesson)})\n` +
+            `Giọng: ${chosenVoice?.name} (${chosenVoice?.lang})`
+          );
+        } catch (e) {
+          console.error("Auto pick error:", e);
+          alert("Có lỗi khi chạy chế độ tự động. Thử lại giúp em nhé.");
+        }
+      });
+
+
+
+
+      
     });
+
+
+    
 
     // ✅ Hàm lấy danh sách giọng nói
     function getVocabVoice() {
@@ -174,6 +294,7 @@
     }
 
     // ✅ Hàm nạp giọng vào dropdown
+    // ✅ Hàm nạp giọng vào dropdown (chỉ en-US, en-GB, en-AU)
     function populateVoiceList() {
       const voiceSelect = document.getElementById("voiceSelect");
       if (!voiceSelect) return;
@@ -181,24 +302,32 @@
       voiceSelect.innerHTML = "";
 
       getVocabVoice().then(voices => {
-        voices.forEach(voice => {
+        // Lọc chỉ lấy en-US, en-GB, en-AU
+        const allowed = voices.filter(v => /(en-US|en-GB|en-AU)/.test(v.lang));
+
+        allowed.forEach(voice => {
           const option = document.createElement("option");
           option.value = voice.name;
           option.textContent = `${voice.name} (${voice.lang})`;
           voiceSelect.appendChild(option);
         });
 
+        // Nếu trước đó đã lưu giọng thì chọn lại
         const savedVoice = localStorage.getItem("selectedVoice");
-        if (savedVoice) {
+        if (savedVoice && allowed.some(v => v.name === savedVoice)) {
           voiceSelect.value = savedVoice;
         }
 
+        // Khi đổi giọng → lưu lại
         voiceSelect.onchange = () => {
           localStorage.setItem("selectedVoice", voiceSelect.value);
         };
       });
     }
+
   </script>
+
+  
 
 </body>
 </html>
