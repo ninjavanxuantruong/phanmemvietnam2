@@ -20,9 +20,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // ✅ Hàm gọi ảnh từ Openverse theo keyword
   function fetchImageForKeyword(keyword) {
-    const apiKey = "51268254-554135d72f1d226beca834413"; // 🔑 dán key Pixabay vào đây
-    // ✅ thêm safesearch, ưu tiên illustration, và nối thêm " cartoon" để ra ảnh dễ thương
-    const apiUrl = `https://pixabay.com/api/?key=${apiKey}&q=${encodeURIComponent(keyword + " cartoon")}&image_type=illustration&safesearch=true&per_page=5`;
+    const apiKey = "51268254-554135d72f1d226beca834413"; // 🔑 dán key của Anh vào đây
+    // ✅ kết hợp illustration + safesearch + cartoon để ra ảnh dễ hiểu, sát nghĩa, an toàn
+    const searchTerm = `${keyword} cartoon`; // thêm cartoon để gợi ý phong cách
+    const apiUrl = `https://pixabay.com/api/?key=${apiKey}&q=${encodeURIComponent(searchTerm)}&image_type=illustration&safesearch=true&per_page=5`;
 
     console.log("👉 Fetching image for keyword:", keyword, apiUrl);
 
@@ -31,7 +32,6 @@ document.addEventListener("DOMContentLoaded", function () {
       .then(data => {
         console.log("👉 Pixabay response:", data);
         if (data.hits && data.hits.length > 0) {
-          // random 1 ảnh trong danh sách trả về
           const chosen = data.hits[Math.floor(Math.random() * data.hits.length)];
           console.log("👉 Chosen image:", chosen.webformatURL, "for vocab:", keyword);
           return { url: chosen.webformatURL, keyword };
@@ -44,6 +44,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return null;
       });
   }
+
 
 
 
