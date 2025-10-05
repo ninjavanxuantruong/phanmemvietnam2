@@ -218,28 +218,54 @@
           const rows2 = json2.table.rows;
 
           let units = rows2
-            .map(r => r.c[1]?.v?.toString().trim())
-            .filter(Boolean)
-            .filter(u => !u.startsWith("2-"))
-            .filter(u => (classNum ? u.startsWith(`${classNum}-`) : true))
-            .filter(u => normalizeUnitId(u) <= maxLessonCode)
-            // unique
-            .filter((u, i, arr) => i === arr.findIndex(x => x === u))
-            // sort theo normalize tăng dần
-            .sort((a, b) => normalizeUnitId(a) - normalizeUnitId(b));
+          .map(r => r.c[1]?.v?.toString().trim())
+          .filter(Boolean)
+          .filter(u => !u.startsWith("2-")) // bỏ lớp 2
+          // ❌ bỏ dòng filter theo classNum
+          .filter(u => normalizeUnitId(u) <= maxLessonCode)
+          .filter((u, i, arr) => i === arr.findIndex(x => x === u)) // unique
+          .sort((a, b) => normalizeUnitId(a) - normalizeUnitId(b)); // sort tăng dần
+
 
           if (units.length === 0) {
             alert("Không có bài hợp lệ trong phạm vi lớp hiện tại.");
             return;
           }
 
-          // 3) Chọn bài kết thúc trước trong phạm vi ≤ maxLessonCode
-          const endIndex = Math.floor(Math.random() * units.length);
-          const endLesson = units[endIndex];
+          // ✅ Ngưỡng mặc định cho tất cả các lớp: 3-05-1
+          const MIN_END_ID = 3051;
 
-          // 4) Bài bắt đầu = lùi tối đa 9 bài; nếu không đủ thì về đầu danh sách
-          const startIndex = Math.max(0, endIndex - 9);
-          const startLesson = units[startIndex];
+          // 3) Chọn bài kết thúc và bài bắt đầu
+          console.log("📚 Danh sách units (đã sort):", units);
+
+          // Random vị trí kết thúc cho đến khi >= ngưỡng
+          let endPos;
+          do {
+            endPos = Math.floor(Math.random() * units.length);
+          } while (normalizeUnitId(units[endPos]) < MIN_END_ID);
+
+          const endLesson = units[endPos];
+
+          // Nếu còn đủ ≥ 9 bài trước endPos → lùi đúng 9
+          // Nếu không đủ (< 9) → fallback: lấy từ đầu đến endLesson
+          let startPos;
+          if (endPos >= 9) {
+            startPos = endPos - 9;
+          } else {
+            startPos = 0;
+          }
+          const startLesson = units[startPos];
+
+          // Log chi tiết để kiểm tra
+          console.log(`👉 Tổng số bài hợp lệ: ${units.length}`);
+          console.log(`🎯 endPos=${endPos + 1}/${units.length}, endLesson=${endLesson} (id=${normalizeUnitId(endLesson)})`);
+          console.log(`⬅️ startPos=${startPos + 1}/${units.length}, startLesson=${startLesson} (id=${normalizeUnitId(startLesson)})`);
+
+
+
+
+
+
 
           // 5) Chọn giọng: en-US, en-GB, en-AU
           const voices = await getVocabVoice();
