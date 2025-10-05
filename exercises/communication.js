@@ -15,7 +15,62 @@ document.addEventListener("DOMContentLoaded", function () {
   let waitingAfterCorrection = false;
   let currentBotResponse = [];
 
-  
+  // ✅ Cache ảnh theo câu hỏi để giảm độ trễ
+  const imageCache = {}; // key: question (string), value: { url, keyword }
+
+  // ✅ Hàm gọi ảnh từ Openverse theo keyword
+  function fetchImageForKeyword(keyword) {
+    const apiKey = "51268254-554135d72f1d226beca834413"; // 🔑 dán key Pixabay vào đây
+    // ✅ thêm safesearch, ưu tiên illustration, và nối thêm " cartoon" để ra ảnh dễ thương
+    const apiUrl = `https://pixabay.com/api/?key=${apiKey}&q=${encodeURIComponent(keyword + " cartoon")}&image_type=illustration&safesearch=true&per_page=5`;
+
+    console.log("👉 Fetching image for keyword:", keyword, apiUrl);
+
+    return fetch(apiUrl)
+      .then(res => res.json())
+      .then(data => {
+        console.log("👉 Pixabay response:", data);
+        if (data.hits && data.hits.length > 0) {
+          // random 1 ảnh trong danh sách trả về
+          const chosen = data.hits[Math.floor(Math.random() * data.hits.length)];
+          console.log("👉 Chosen image:", chosen.webformatURL, "for vocab:", keyword);
+          return { url: chosen.webformatURL, keyword };
+        }
+        console.warn("⚠️ No image found for keyword:", keyword);
+        return null;
+      })
+      .catch(err => {
+        console.error("❌ Lỗi fetch ảnh Pixabay:", err);
+        return null;
+      });
+  }
+
+
+
+  // ✅ Chèn ảnh trực tiếp vào khung chat, kích thước responsive
+  function addImage(url, keyword) {
+    console.log("👉 Hiển thị ảnh:", url, "ứng với từ vựng:", keyword); // ✅ log rõ ràng
+    if (!url) return;
+    const wrapper = document.createElement("div");
+    wrapper.className = "message bot";
+
+    const img = document.createElement("img");
+    img.src = url;
+    img.className = "chat-image";
+    img.style.maxWidth = "60%";
+    img.style.width = "100%";
+    img.style.height = "auto";
+    img.style.borderRadius = "8px";
+    img.style.margin = "6px 0";
+    img.style.objectFit = "cover";
+
+    wrapper.appendChild(img);
+    chatContainer.appendChild(wrapper);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+
+
+
 
   function getVocabVoice() {
     return new Promise(resolve => {
@@ -36,14 +91,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-
   getVocabVoice().then(voices => {
     const preferredVoiceName = localStorage.getItem("selectedVoice");
     vocabVoice = voices.find(v => v.name === preferredVoiceName)
                || voices.find(v => v.lang === "en-US")
                || voices[0]; // fallback nếu không có gì khớp
   });
-
 
   function speak(text) {
     if (!vocabVoice) return;
@@ -83,6 +136,21 @@ document.addEventListener("DOMContentLoaded", function () {
     addMessage("Bot", next.question);
     currentBotResponse = [next.question]; // ✅ thêm dòng này
 
+    // ✅ Hiển thị ảnh từ cache nếu có, nếu chưa có thì thử lấy theo vocabList
+    const cached = imageCache[next.question];
+    if (cached && cached.url) {
+      addImage(cached.url, cached.keyword);
+
+    } else if (next.vocabList && next.vocabList.length > 0) {
+      const keyword = next.vocabList[Math.floor(Math.random() * next.vocabList.length)];
+      fetchImageForKeyword(keyword).then(img => {
+        if (img && img.url) {
+          imageCache[next.question] = img;
+          addImage(img.url, img.keyword);
+
+        }
+      });
+    }
   }
 
   function extractUnitCode(text) {
@@ -118,10 +186,17 @@ document.addEventListener("DOMContentLoaded", function () {
           const answer = row.c[10].v.trim();
           const suggestion = row.c[11]?.v?.trim() || "";
 
-          if (unitCode >= startCode && unitCode <= endCode) {
-  rawQuestions.push({ unit: fullUnit, question, answer, suggestion });
-}
+          // ✅ Lấy từ vựng ở cột AV: index 47 (AV là cột số 48, 0-based = 47)
+          const vocabRaw = row.c[47]?.v?.trim() || "";
+          const vocabList = vocabRaw
+            ? vocabRaw.split(",").map(s => s.trim()).filter(Boolean)
+            : [];
+          console.log("👉 Vocab for question:", question, "=>", vocabList); // ✅ log
 
+
+          if (unitCode >= startCode && unitCode <= endCode) {
+            rawQuestions.push({ unit: fullUnit, question, answer, suggestion, vocabList });
+          }
 
           const userQuestion = row.c[8]?.v?.trim();
           const botAnswer = row.c[11]?.v?.trim();
@@ -152,8 +227,24 @@ document.addEventListener("DOMContentLoaded", function () {
         questionPool.push(questions[randomIndex]);
       }
 
-      addMessage("Bot", `Hello my friend`);
-      askNextQuestion();
+      // ✅ Prefetch ảnh và cache theo câu hỏi để giảm độ trễ hiển thị
+      const prefetchPromises = questionPool.map(item => {
+        if (item.vocabList && item.vocabList.length > 0) {
+          const keyword = item.vocabList[Math.floor(Math.random() * item.vocabList.length)];
+          return fetchImageForKeyword(keyword).then(img => {
+            if (img && img.url) {
+              imageCache[item.question] = img;
+              item.imageUrl = img.url; // phòng trường hợp cần dùng trực tiếp
+            }
+          });
+        }
+        return Promise.resolve();
+      });
+
+      Promise.all(prefetchPromises).then(() => {
+        addMessage("Bot", `Hello my friend`);
+        askNextQuestion();
+      });
     });
 
   const positiveFeedback = [
@@ -189,15 +280,12 @@ document.addEventListener("DOMContentLoaded", function () {
         const reply = matchedQuestions[Math.floor(Math.random() * matchedQuestions.length)];
         addMessage("Bot", reply);
         currentBotResponse = [reply]; // ✅ thêm dòng này
-
       }
 
       // Dù là câu hỏi hay câu trả lời → đều hỏi tiếp câu mới
       askNextQuestion();
       return;
     }
-
-
 
     const matchedQuestions = [];
 
@@ -251,12 +339,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-
-  
   const recordBtn = document.getElementById("recordBtn");
   const speechResult = document.getElementById("speechResult");
 
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SpeechRecognition && recordBtn) {
     const recognition = new SpeechRecognition();
     recognition.lang = "en-US";
@@ -280,7 +366,7 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
     };
   }
 
-  // ✅ Đặt ngay dưới đoạn này:
+  // ✅ Nút đọc lại nội dung bot nói
   const repeatBtn = document.getElementById("repeatBtn");
   if (repeatBtn) {
     repeatBtn.onclick = () => {
