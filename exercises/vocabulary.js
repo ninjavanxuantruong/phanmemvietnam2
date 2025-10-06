@@ -13,6 +13,7 @@ let hasCaught = false;
 let vocabVoice = null;
 let vocabData = [];
 
+
 // ===== Voice =====
 function getVocabVoice() {
   return new Promise((resolve) => {
@@ -89,6 +90,7 @@ async function getPhonetic(word) {
 }
 
 // ===== Display word (ảnh đọc từ cache) =====
+// ===== Display word (ảnh đọc từ cache, chờ load xong) =====
 async function displayWord(wordObj) {
   const upper = wordObj.word.toUpperCase();
   document.getElementById("vocabWord").textContent = upper;
@@ -98,18 +100,43 @@ async function displayWord(wordObj) {
   document.getElementById("vocabPhonetic").textContent = phonetic;
 
   const mainImg = getImageFromMap(wordObj.imageKeyword || wordObj.word);
-  document.getElementById("vocabImage").src = mainImg;
+  const imgEl = document.getElementById("vocabImage");
+
+  // ✅ Khoá nút Next trong lúc chờ ảnh load
+  const nextBtn = document.getElementById("nextBtn");
+  nextBtn.disabled = true;
+
+  await new Promise((resolve) => {
+    imgEl.onload = () => {
+      resolve();
+    };
+    imgEl.onerror = () => {
+      resolve();
+    };
+    imgEl.src = mainImg;
+  });
+
+  // ✅ Sau khi ảnh load xong thì mới cho phép Next (nhưng vẫn phải nghe ít nhất 1 lần)
+  nextBtn.disabled = false;
 
   document.getElementById("funContent").innerHTML = "";
   document.getElementById("closeFunBtn").style.display = "none";
 }
 
+
+
 // ===== Buttons =====
+let listenCount = 0;              // số lần đã nghe lại
+const REQUIRED_LISTENS = 1;       // chỉ cần nghe ít nhất 1 lần
+
+// ===== Nút nghe lại =====
 document.getElementById("playSound").onclick = () => {
   const word = document.getElementById("vocabWord").textContent;
   const utter = new SpeechSynthesisUtterance(word);
   utter.voice = vocabVoice || speechSynthesis.getVoices()[0] || null;
   speechSynthesis.speak(utter);
+
+  listenCount++; // ✅ tăng số lần nghe
 
   const img = document.querySelector("#playSound img");
   if (img) {
@@ -120,13 +147,26 @@ document.getElementById("playSound").onclick = () => {
   }
 };
 
+// ===== Nút Next =====
 document.getElementById("nextBtn").onclick = async () => {
+  if (listenCount < REQUIRED_LISTENS) {
+    alert(`Bạn cần nghe ít nhất ${REQUIRED_LISTENS} lần trước khi Next!`);
+    return;
+  }
+
+  const btn = document.getElementById("nextBtn");
+  btn.disabled = true;
+
   currentIndex++;
   if (currentIndex >= vocabData.length) {
     currentIndex = 0;
     roundCount++;
   }
   await displayWord(vocabData[currentIndex]);
+
+  // ✅ reset lại số lần nghe cho từ mới
+  listenCount = 0;
+
   if (roundCount >= 2) {
     const completeBtn = document.getElementById("completeBtn");
     completeBtn.disabled = false;
@@ -134,7 +174,10 @@ document.getElementById("nextBtn").onclick = async () => {
     completeBtn.style.backgroundColor = "#2196f3";
     completeBtn.textContent = "🌟 Hoàn thành nhiệm vụ!";
   }
+
+  btn.disabled = false;
 };
+
 
 document.getElementById("completeBtn").onclick = () => {
   if (roundCount >= 2 && !hasCaught) {
