@@ -92,11 +92,17 @@ async function fetchWords() {
 
 
 // Hàm khởi tạo trò chơi nối từ & nghĩa
+// Hàm khởi tạo trò chơi nối từ & nghĩa
 async function setupGame() {
   console.log("Bắt đầu setupGame()");
   const words = await fetchWords();
+
+  // ✅ Gán dữ liệu fetch được vào vocabWords
+  vocabWords = words;
+
   console.log("Danh sách từ đã chốt:", vocabWords);
   console.log("Tổng số từ cần ghép:", vocabWords.length);
+
   if (!words.length) {
     console.error("Không có từ vựng nào được tải về!");
     return;
@@ -134,6 +140,7 @@ async function setupGame() {
 
   console.log("Game đã được hiển thị!");
 }
+
 
 // 🆕 Mảng lưu trữ các thẻ được chọn tạm thời
 let selectedCards = [];
@@ -211,6 +218,30 @@ function showStarAndSpeak() {
 import { showVictoryEffect } from './effect-win.js';
 import { showDefeatEffect } from './effect-loose.js';
 
+function setResultGamePart(mode, score, total) {
+  const raw = localStorage.getItem("result_game");
+  const prev = raw ? JSON.parse(raw) : {};
+
+  const updated = {
+    scoreGame1: mode === 1 ? score : prev.scoreGame1 || 0,
+    scoreGame2: mode === 2 ? score : prev.scoreGame2 || 0,
+    scoreGame3: mode === 3 ? score : prev.scoreGame3 || 0,
+    totalGame1: mode === 1 ? total : prev.totalGame1 || 0,
+    totalGame2: mode === 2 ? total : prev.totalGame2 || 0,
+    totalGame3: mode === 3 ? total : prev.totalGame3 || 0
+  };
+
+  const totalScore = updated.scoreGame1 + updated.scoreGame2 + updated.scoreGame3;
+  const totalMax   = updated.totalGame1 + updated.totalGame2 + updated.totalGame3;
+
+  localStorage.setItem("result_game", JSON.stringify({
+    ...updated,
+    score: totalScore,
+    total: totalMax
+  }));
+}
+
+
 function checkVictory() {
   const totalPairs = parseInt(localStorage.getItem("totalWords")) || 0;
   const matchedPairs = matchedWords.length / 2;
@@ -232,13 +263,9 @@ function checkVictory() {
       showDefeatEffect(); // 💥 Hiệu ứng thua
     }
 
-    // ✅ Ghi điểm vào localStorage để summary đọc được
-    const prev = JSON.parse(localStorage.getItem("result_game")) || { score: 0, total: 0 };
-    const updated = {
-      score: prev.score + matchedPairs,
-      total: prev.total + totalPairs
-    };
-    localStorage.setItem("result_game", JSON.stringify(updated));
+    // ✅ Ghi điểm cho Game 1 (ghi đè, giống listening)
+    setResultGamePart(1, matchedPairs, totalPairs);
+
   }
 }
 
