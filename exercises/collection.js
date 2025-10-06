@@ -101,6 +101,7 @@ async function updateStarsFromYesterday() {
 
     if (!snapSummary.exists()) {
       console.warn(`⚠️ Không tìm thấy doc tonghop/summary-${clazz}-recent`);
+      alert("⚠️ Không tìm thấy dữ liệu tổng hợp của lớp.");
       return;
     }
 
@@ -108,6 +109,7 @@ async function updateStarsFromYesterday() {
     const dayBucket = summaryData.dayData?.[yesterdayCode];
     if (!dayBucket || !dayBucket[name]) {
       console.warn(`⚠️ Không có dữ liệu cho ${name} ngày ${yesterdayCode}`);
+      alert("📭 Hôm qua bạn không làm bài, không có sao nào được cộng.");
       return;
     }
 
@@ -125,6 +127,7 @@ async function updateStarsFromYesterday() {
     // Nếu hôm nay đã cộng rồi thì bỏ qua
     if (oldData.lastStarUpdate === todayCode) {
       console.log(`⏳ Hôm nay (${todayCode}) đã cộng sao rồi. Bỏ qua.`);
+      alert("⏳ Hôm nay bạn đã được cộng sao rồi, không cộng lại nữa.");
       return;
     }
 
@@ -143,9 +146,16 @@ async function updateStarsFromYesterday() {
     const starEl = document.getElementById("starCount");
     if (starEl) starEl.textContent = newStars;
 
+    if (score > 0) {
+      alert(`✅ Bạn đã được cộng ${score} sao từ hôm qua (${yesterdayCode}). ⭐ Tổng mới: ${newStars}`);
+    } else {
+      alert("ℹ️ Hôm qua bạn làm nhưng không được sao nào.");
+    }
+
     console.log(`✅ Đã cộng ${score} sao từ ngày ${yesterdayCode}. ⭐ Tổng mới: ${newStars}`);
   } catch (error) {
     console.error("❌ Lỗi khi cập nhật sao:", error.message);
+    alert("❌ Có lỗi khi cập nhật sao. Vui lòng thử lại sau.");
   }
 }
 
