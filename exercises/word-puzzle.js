@@ -319,6 +319,30 @@ import { showVictoryEffect } from './effect-win.js';
 import { showDefeatEffect } from './effect-loose.js';
 
 
+function setResultGamePart(mode, score, total) {
+  const raw = localStorage.getItem("result_game");
+  const prev = raw ? JSON.parse(raw) : {};
+
+  const updated = {
+    scoreGame1: mode === 1 ? score : prev.scoreGame1 || 0,
+    scoreGame2: mode === 2 ? score : prev.scoreGame2 || 0,
+    scoreGame3: mode === 3 ? score : prev.scoreGame3 || 0,
+    totalGame1: mode === 1 ? total : prev.totalGame1 || 0,
+    totalGame2: mode === 2 ? total : prev.totalGame2 || 0,
+    totalGame3: mode === 3 ? total : prev.totalGame3 || 0
+  };
+
+  const totalScore = updated.scoreGame1 + updated.scoreGame2 + updated.scoreGame3;
+  const totalMax   = updated.totalGame1 + updated.totalGame2 + updated.totalGame3;
+
+  localStorage.setItem("result_game", JSON.stringify({
+    ...updated,
+    score: totalScore,
+    total: totalMax
+  }));
+}
+
+
 function checkVictory() {
   console.log("Hàm checkVictory đã chạy!");
 
@@ -335,12 +359,9 @@ function checkVictory() {
     console.log("✅ Người chơi đã hoàn thành trò chơi!");
 
     // ✅ Ghi điểm vào localStorage (cộng dồn vào result_game)
-    const prev = JSON.parse(localStorage.getItem("result_game")) || { score: 0, total: 0 };
-    const updated = {
-      score: prev.score + completedWords,
-      total: prev.total + totalWords
-    };
-    localStorage.setItem("result_game", JSON.stringify(updated));
+    // ✅ Ghi điểm cho Game 2 (ghi đè, giống listening)
+    setResultGamePart(2, completedWords, totalWords);
+
 
     if (percent >= 0.7 && !timerExpired) {
       console.log("🏆 Gọi hiệu ứng chiến thắng!");
