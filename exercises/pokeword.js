@@ -134,6 +134,28 @@ function startTimer() {
   }, 1000);
 }
 
+function setResultGamePart(mode, score, total) {
+  const raw = localStorage.getItem("result_game");
+  const prev = raw ? JSON.parse(raw) : {};
+
+  const updated = {
+    scoreGame1: mode === 1 ? score : prev.scoreGame1 || 0,
+    scoreGame2: mode === 2 ? score : prev.scoreGame2 || 0,
+    scoreGame3: mode === 3 ? score : prev.scoreGame3 || 0,
+    totalGame1: mode === 1 ? total : prev.totalGame1 || 0,
+    totalGame2: mode === 2 ? total : prev.totalGame2 || 0,
+    totalGame3: mode === 3 ? total : prev.totalGame3 || 0
+  };
+
+  const totalScore = updated.scoreGame1 + updated.scoreGame2 + updated.scoreGame3;
+  const totalMax   = updated.totalGame1 + updated.totalGame2 + updated.totalGame3;
+
+  localStorage.setItem("result_game", JSON.stringify({
+    ...updated,
+    score: totalScore,
+    total: totalMax
+  }));
+}
 
 function checkAnswer() {
   const wordObj = vocabWords[currentIndex];
@@ -149,7 +171,7 @@ function checkAnswer() {
   });
 
   if (guess === expected) {
-    if (!timerExpired) {
+    if (!timerExpired) {   // ✅ chỉ cộng điểm khi còn thời gian
       score += 1;
       scoreBox.textContent = `Điểm: ${score}`;
     }
@@ -165,31 +187,22 @@ function checkAnswer() {
   if (currentIndex < vocabWords.length) {
     setTimeout(() => renderWord(vocabWords[currentIndex]), 1000);
   } else {
-    clearInterval(timer); // ✅ Dừng đếm thời gian khi game kết thúc
+    clearInterval(timer);
 
-    const totalWords = vocabWords.length;
+    const totalWords = vocabWords.length; // ✅ tổng số câu = số từ gốc × 2
     const percent = score / totalWords;
-    
 
     if (percent >= 0.7 && !timerExpired) {
-      console.log("🏆 Gọi hiệu ứng chiến thắng!");
       showVictoryEffect();
     } else {
-      console.log("💥 Gọi hiệu ứng thất bại!");
       showDefeatEffect();
     }
 
-    // ✅ Ghi điểm vào localStorage (cộng dồn vào result_game)
-    const prev = JSON.parse(localStorage.getItem("result_game")) || { score: 0, total: 0 };
-    const updated = {
-      score: prev.score + score,
-      total: prev.total + totalWords
-    };
-    localStorage.setItem("result_game", JSON.stringify(updated));
+    // ✅ Ghi điểm cho Game 3
+    setResultGamePart(3, score, totalWords);
   }
-
-
 }
+
 
 submitBtn.onclick = () => {
   checkAnswer();
