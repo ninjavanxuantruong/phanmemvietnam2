@@ -9,7 +9,7 @@ function goToMode(mode) {
       url = "speaking-sentence.html";
       break;
     case "paragraph":
-      url = "speaking-paragraph.html";
+      url = "speaking3.html";
       break;
     default:
       console.warn("❌ Không xác định được chế độ:", mode);
