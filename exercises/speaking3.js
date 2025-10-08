@@ -130,6 +130,20 @@ function fetchImageForKeyword(keyword) {
       return null;
     });
 }
+function showIntroParagraph() {
+  const area = document.getElementById("sentenceArea");
+  const fullParagraph = sentences.map(s => s.text).join(". ").replace(/\s+\./g, ".").trim() + ".";
+  area.innerHTML = `
+    <div style="font-size:20px; margin-bottom:8px;">🧩 Đoạn văn tổng thể (nghe mẫu)</div>
+    <div id="paragraphBox" style="margin-bottom:12px; color:#a7b1d0;">${fullParagraph}</div>
+    <div style="text-align:center;">
+      <button id="playParagraphBtn">🔊 Nghe đoạn</button>
+      <button id="startPracticeBtn">Bắt đầu luyện từng câu</button>
+    </div>
+  `;
+  document.getElementById("playParagraphBtn").onclick = () => speak(fullParagraph);
+  document.getElementById("startPracticeBtn").onclick = () => startSentence();
+}
 
 // ===== Rendering and scoring =====
 function renderSentence(autoSpeak = false, target = "", meaning = "") {
@@ -318,27 +332,45 @@ function showFinalResult() {
 
   longRec.onresult = (event) => {
     const transcript = event.results[0][0].transcript.toLowerCase().trim();
-    console.log("🗣️ Paragraph transcript:", transcript);
-
     const targetWords = normText(fullParagraph).split(/\s+/).filter(Boolean);
     const userWordsSet = new Set(normText(transcript).split(/\s+/).filter(Boolean));
 
     let correct = 0;
-    for (let word of targetWords) {
-      if (userWordsSet.has(word)) correct++;
-    }
+    for (let word of targetWords) if (userWordsSet.has(word)) correct++;
     const percentPara = targetWords.length ? Math.round((correct / targetWords.length) * 100) : 0;
 
-    document.getElementById("paragraphResult").innerHTML =
-      `📣 Bạn đọc: "<i>${transcript}</i>"<br>🎯 Khớp ${correct}/${targetWords.length} từ → <b>${percentPara}%</b>`;
+    // Thang điểm đoạn văn
+    let paragraphScore = 0;
+    if (percentPara >= 80) paragraphScore = 10;
+    else if (percentPara >= 50 && percentPara <= 70) paragraphScore = 5;
 
-    console.log("🧮 Paragraph scoring:", { percentPara, correct, total: targetWords.length });
+    totalScore += paragraphScore;
+
+    const grandTotal = sentences.length + 10;
+    const percentTotal = Math.round((totalScore / grandTotal) * 100);
+
+    // Lưu localStorage
+    const prev = JSON.parse(localStorage.getItem("result_speaking")) || { score: 0, total: 0 };
+    const updated = {
+      score: prev.score + totalScore,
+      total: prev.total + grandTotal
+    };
+    localStorage.setItem("result_speaking", JSON.stringify(updated));
+
+    const resEl = document.getElementById("paragraphResult");
+    resEl.innerHTML =
+      `📣 Bạn đọc: "<i>${transcript}</i>"<br>🎯 Khớp ${correct}/${targetWords.length} từ → <b>${percentPara}%</b><br>` +
+      `🧮 Điểm đoạn văn: <b>${paragraphScore}/10</b><br>` +
+      `📊 Tổng điểm: <b>${totalScore}/${grandTotal}</b> → <b>${percentTotal}%</b>`;
+
+    if (percentTotal >= 50) {
+      resEl.innerHTML += `<div style="margin-top:10px;">🎉 Chuẩn Legendary! Bạn đã bắt được Pokémon!</div>`;
+      try { showCatchEffect(area); } catch {}
+    } else {
+      resEl.innerHTML += `<div style="margin-top:10px;">🚫 Bạn đã thua! Hãy luyện thêm để đạt tối thiểu 50%.</div>`;
+    }
   };
 
-  longRec.onerror = (event) => {
-    document.getElementById("paragraphResult").innerText = `❌ Lỗi: ${event.error}`;
-    console.error("❌ Paragraph recognition error:", event.error);
-  };
 }
 
 // ===== Flow control =====
@@ -391,8 +423,9 @@ getVoices().then(v => {
         });
 
         Promise.all(prefetchPromises).then(() => {
-          startSentence();
+          showIntroParagraph();
         });
+
       } else {
         document.getElementById("sentenceArea").innerHTML =
           `<div style="font-size:20px;">📭 Không tìm thấy dữ liệu từ vựng đã học.</div>`;
