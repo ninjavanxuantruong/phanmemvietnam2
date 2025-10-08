@@ -1,387 +1,406 @@
-// speaking3.js (ES module)
-const SHEET_UNITS = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-const SHEET_LESSONS = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
-const MIN_UNIT_NUM = 3031;
+// Speaking 3 — built from Speaking 2 flow, with images, hint-on-2-words, and final paragraph reading.
+// Notes:
+// - Uses column I for presentation sentences, column C for vocab, column B for lesson name.
+// - Shows only first two words as hint (e.g., "my name...").
+// - Does NOT auto-speak at render; speaks the correct full sentence AFTER scoring.
+// - Fetches and displays an image for each sentence via Pixabay; caches by keyword.
+// - After all sentences, builds a paragraph of all sentences, plays sample, then lets user read it; scores the long read.
+// - Detailed logs included for data extraction, selection, images, and scoring.
+
+// ===== Config =====
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 const PIXABAY_KEY = "51268254-554135d72f1d226beca834413";
 
-let speakingItems = []; // unique name to avoid collisions
-let currentIndex = 0;
-let score = 0;
+// ===== State =====
+let sentences = []; // [{ text, target, meaning, lesson, imageUrl }]
+let sentenceIndex = 0;
+let voice = null;
+let totalScore = 0;
+let recognition = null;
+let isListening = false;
 
-// UI refs
-const progressBalls = Array.from(document.querySelectorAll('.ball-small'));
-const imgEl = document.getElementById('vocabImage');
-const hintEl = document.getElementById('hintText');
-const targetEl = document.getElementById('targetWord');
-const lessonEl = document.getElementById('lessonCode');
-const resultEl = document.getElementById('speechResult');
-const scoreEl = document.getElementById('scoreValue');
-const pokemonEmoteEl = document.getElementById('pokemonEmote');
-const prevBtn = document.getElementById('prevBtn');
-const nextBtn = document.getElementById('nextBtn');
-const recordBtn = document.getElementById('recordBtn');
+// ===== Image cache =====
+const imageCache = {}; // key: keyword (string), value: { url, keyword }
 
-// Helpers
-function normalizeUnitId(unitStr){
-  const m = (unitStr || "").trim().match(/^(\d+)-(\d+)-(\d+)$/);
-  if (!m) return 0;
-  return parseInt(m[1],10)*1000 + parseInt(m[2],10)*10 + parseInt(m[3],10);
+// ===== Helpers =====
+function normText(s) {
+  return (s || "").toLowerCase().replace(/[^a-z0-9'\s]/g, "").trim();
 }
-function normalizeClass(raw){
-  const n = parseInt((raw||"").replace(/\D/g,""),10);
-  return Number.isFinite(n) ? n : null;
-}
-function splitTargets(rawTarget){
-  return (rawTarget||"").toLowerCase().split(/[/;,]/).map(s=>s.trim()).filter(Boolean);
-}
-function normText(s){ return (s||"").toLowerCase().replace(/[^a-z0-9'\s]/g,"").trim(); }
-function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
-async function fetchGVizRows(url){
-  console.log("🔗 Fetch GViz:", url);
+function firstTwoWordsHint(s) {
+  const words = (s || "").trim().split(/\s+/);
+  return words.slice(0, 2).join(" ") + (words.length > 2 ? "..." : "");
+}
+
+function splitTargets(rawTarget) {
+  return (rawTarget || "")
+    .toLowerCase()
+    .split(/[/;,]/)
+    .map(t => t.trim())
+    .filter(Boolean);
+}
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function speak(text) {
+  if (!text) return;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = "en-US";
+  utter.voice = voice;
+  speechSynthesis.speak(utter);
+}
+
+function getVoices() {
+  return new Promise(resolve => {
+    const voices = speechSynthesis.getVoices();
+    if (voices.length) return resolve(voices);
+    speechSynthesis.onvoiceschanged = () => resolve(speechSynthesis.getVoices());
+  });
+}
+
+async function fetchGVizRows(url) {
+  console.log("🔗 Fetching GViz:", url);
   const res = await fetch(url);
   const txt = await res.text();
-  const json = JSON.parse(txt.substring(47).replace(/\);$/, ""));
-  const rows = json.table?.rows || [];
-  console.log("📥 GViz parsed rows:", rows.length);
-  return rows;
+  try {
+    const json = JSON.parse(txt.substring(47).slice(0, -2));
+    const rows = json.table?.rows || [];
+    console.log("📥 GViz parsed rows:", rows.length);
+    return rows;
+  } catch (err) {
+    console.error("❌ GViz parse error:", err);
+    console.log("🧾 Raw head(200):", txt.slice(0, 200));
+    throw err;
+  }
 }
 
-function numberToUnitStr(num){
-  const s = num.toString().padStart(4,"0");
-  return `${s[0]}-${s.slice(1,3)}-${s[3]}`;
-}
+/**
+ * Extract presentation data from sheet rows.
+ * Columns:
+ * - B (index 1): lesson/mã bài (e.g., "3-07-2")
+ * - C (index 2): vocab raw (keywords)
+ * - I (index 8): presentation sentence
+ * - Y (index 24): meaning (if available; same as Speaking 2)
+ */
+function extractPresentationData(rows) {
+  const items = rows.map((r, idx) => {
+    const lessonName = r.c?.[1]?.v?.toString().trim() || ""; // B
+    const vocabRaw = r.c?.[2]?.v?.toString().trim() || "";   // C
+    const presentation = r.c?.[8]?.v?.toString().trim() || ""; // I
+    const meaning = r.c?.[24]?.v?.toString().trim() || "";     // Y (optional)
 
-async function getMaxLessonCode(trainerClassRaw){
-  const classNum = normalizeClass(trainerClassRaw);
-  console.log("🎓 TrainerClass raw:", trainerClassRaw, "→ normalized:", classNum);
-  if (!classNum) return null;
-
-  const rows = await fetchGVizRows(SHEET_LESSONS);
-  console.log("🗂 Lessons sample:", rows.slice(0,3).map(r=>({A:r.c?.[0]?.v, C:r.c?.[2]?.v})));
-
-  const codes = rows.map(r=>{
-    const lopNum = normalizeClass(r.c?.[0]?.v?.toString().trim());
-    const baiNum = parseInt(r.c?.[2]?.v?.toString().trim(),10);
-    if (lopNum===classNum && Number.isFinite(baiNum)){
-      return normalizeUnitId(numberToUnitStr(baiNum));
-    }
-    return null;
-  }).filter(v=>typeof v==="number");
-
-  console.log("📊 Max lesson candidates:", codes);
-  return codes.length ? Math.max(...codes) : null;
-}
-
-async function fetchPresentationRows(){
-  const rows = await fetchGVizRows(SHEET_UNITS);
-  console.log("🔎 Units first 3 raw (B/C/I):", rows.slice(0,3).map(r=>({
-    B:r.c?.[1]?.v, C:r.c?.[2]?.v, I:r.c?.[8]?.v
-  })));
-
-  const items = rows.map((r, idx)=>{
-    const unitStr = r.c?.[1]?.v?.toString().trim() || "";
-    const vocabRaw = r.c?.[2]?.v?.toString().trim() || "";
-    const presentation = r.c?.[8]?.v?.toString().trim() || "";
-    const unitNum = unitStr ? normalizeUnitId(unitStr) : 0;
     const targets = splitTargets(vocabRaw);
 
-    // Per-row log (requested)
-    console.log("🧩 Row", idx, { unitStr, vocabRaw, presentation, unitNum, targets });
+    // Log per-row for debugging
+    console.log("📖 Row", idx, { lessonName, vocabRaw, presentation, meaning, targets });
 
-    return { unitStr, unitNum, targets, presentation };
-  }).filter(it=>it.unitStr && it.unitNum && it.presentation);
+    return { lessonName, vocabRaw, presentation, meaning, targets };
+  }).filter(it => it.lessonName && it.presentation);
 
-  console.log("📦 Presentation items count:", items.length);
+  console.log("✅ Presentation items count:", items.length);
   return items;
 }
 
-function makeHint(text){
-  const w = (text||"").split(/\s+/).filter(Boolean);
-  return (w.slice(0,2).join(" ") || "...") + "...";
-}
-
-// Images
-const imageCache = {};
-function fetchImageForKeyword(keyword){
-  const kw = (keyword||"").trim().toLowerCase();
+// ===== Images: Pixabay fetch + cache =====
+function fetchImageForKeyword(keyword) {
+  const kw = (keyword || "").trim().toLowerCase();
   if (!kw) return Promise.resolve(null);
-  const apiUrl = `https://pixabay.com/api/?key=${PIXABAY_KEY}&q=${encodeURIComponent(`${kw} cartoon`)}&image_type=illustration&safesearch=true&per_page=5`;
-  console.log("🖼️ Fetching image:", kw, apiUrl);
+
+  const searchTerm = `${kw} cartoon`;
+  const apiUrl = `https://pixabay.com/api/?key=${PIXABAY_KEY}&q=${encodeURIComponent(searchTerm)}&image_type=illustration&safesearch=true&per_page=5`;
+
+  console.log("🖼️ Fetching image for keyword:", kw, apiUrl);
+
   return fetch(apiUrl)
-    .then(res=>res.json())
-    .then(data=>{
+    .then(res => res.json())
+    .then(data => {
       console.log("🖼️ Pixabay response:", data);
-      if (data.hits?.length){
-        const chosen = data.hits[Math.floor(Math.random()*data.hits.length)];
-        console.log("🖼️ Chosen image:", chosen.webformatURL, "for:", kw);
+      if (data.hits && data.hits.length > 0) {
+        const chosen = data.hits[Math.floor(Math.random() * data.hits.length)];
+        console.log("🖼️ Chosen image:", chosen.webformatURL, "for vocab:", kw);
         return { url: chosen.webformatURL, keyword: kw };
       }
-      console.warn("⚠️ No image found for:", kw);
+      console.warn("⚠️ No image found for keyword:", kw);
       return null;
     })
-    .catch(err=>{
-      console.error("❌ Pixabay error:", err);
+    .catch(err => {
+      console.error("❌ Lỗi fetch ảnh Pixabay:", err);
       return null;
     });
 }
 
-// Build items
-async function buildSpeaking3Items() {
-  const trainerClassRaw = localStorage.getItem("trainerClass")?.trim() || "";
-  const wordBankRaw = localStorage.getItem("wordBank");
-  const wordBank = wordBankRaw ? (JSON.parse(wordBankRaw) || []).map(w => normText(w)) : [];
+// ===== Rendering and scoring =====
+function renderSentence(autoSpeak = false, target = "", meaning = "") {
+  const { text } = sentences[sentenceIndex];
 
-  console.log("🧩 trainerClass:", trainerClassRaw);
-  console.log("🧩 wordBank:", wordBank);
+  const area = document.getElementById("sentenceArea");
+  const imageBox = document.getElementById("imageBox");
 
-  if (!trainerClassRaw) throw new Error("Thiếu trainerClass (vd: '3' hoặc 'Lớp 3').");
-  if (!wordBank.length) throw new Error("wordBank rỗng. Hãy set localStorage.wordBank là mảng từ vựng.");
+  const hint = firstTwoWordsHint(text);
 
-  const maxLessonCode = await getMaxLessonCode(trainerClassRaw);
-  console.log("🏁 MaxLessonCode:", maxLessonCode);
-  if (!maxLessonCode) throw new Error(`Không tìm thấy bài lớn nhất cho lớp "${trainerClassRaw}"`);
+  area.innerHTML = `
+    <div style="font-size:24px; margin-bottom:10px; text-align:center;">
+      🔤 <b style="color:#cc3333;">${target}</b>
+      <span style="font-size:18px;">${meaning ? `(${meaning})` : ""}</span>
+    </div>
+    <div style="font-size:28px; font-weight:bold; margin-bottom:18px; text-align:center;">
+      ${hint}
+    </div>
+    <div style="text-align:center;">
+      <button id="recordBtn" style="margin:0 8px;">
+        <img src="https://cdn-icons-png.flaticon.com/512/361/361998.png" alt="PokéBall" style="width:40px; vertical-align:middle;" />
+      </button>
+      <button id="nextBtn">⏩ Tiếp theo</button>
+    </div>
+    <div id="speechResult" style="margin-top:16px; text-align:center;"></div>
+  `;
 
-  const all = await fetchPresentationRows();
-  const classNum = normalizeTrainerClass(trainerClassRaw);
-
-  // Nhóm theo bài (cột B: unitStr)
-  const unitMap = new Map(); // key: unitStr, value: array of rows [{unitStr, unitNum, targets, presentation}]
-  for (const row of all) {
-    if (!unitMap.has(row.unitStr)) unitMap.set(row.unitStr, []);
-    unitMap.get(row.unitStr).push(row);
-  }
-
-  // Lọc bài hợp lệ: đúng lớp, trong khoảng <= maxLessonCode, có ít nhất 1 câu thuyết trình
-  const eligibleUnits = Array.from(unitMap.entries())
-    .filter(([unitStr, rows]) => {
-      const unitNum = normalizeUnitId(unitStr);
-      const inRange = unitNum >= MIN_UNIT_NUM && unitNum <= maxLessonCode;
-      const correctClass = classNum ? unitStr.startsWith(`${classNum}-`) : true;
-      const hasPresentation = rows.some(r => !!r.presentation);
-      return inRange && correctClass && hasPresentation;
-    })
-    .map(([unitStr, rows]) => ({ unitStr, unitNum: normalizeUnitId(unitStr), rows }));
-
-  console.log("📚 Eligible units:", eligibleUnits.length);
-  console.log("📚 Eligible units sample:", eligibleUnits.slice(0, 5).map(u => u.unitStr));
-
-  if (!eligibleUnits.length) {
-    console.warn("📊 Filter stats (units):", {
-      MIN_UNIT_NUM,
-      countMin: all.filter(it => it.unitNum >= MIN_UNIT_NUM).length,
-      countMax: all.filter(it => it.unitNum <= maxLessonCode).length,
-      countClass: all.filter(it => classNum ? it.unitStr.startsWith(`${classNum}-`) : true).length,
-      countPres: all.filter(it => !!it.presentation).length
-    });
-    throw new Error("Không có dữ liệu hợp lệ");
-  }
-
-  const speakingItems = [];
-
-  // 1) Câu đầu: nếu tìm được bài chứa từ vựng random trong wordBank, lấy một câu từ bài đó
-  const randomWord = pickRandom(wordBank);
-  console.log("🎯 Random word:", randomWord);
-
-  const unitWithWord = eligibleUnits.find(u => u.rows.some(r => r.targets.includes(randomWord)));
-  if (unitWithWord) {
-    const row = pickRandom(unitWithWord.rows.filter(r => r.presentation));
-    const firstTarget = (row.targets.find(t => wordBank.includes(t)) || row.targets[0] || "").trim();
-    const firstHint = makeHint(row.presentation);
-
-    console.log("🎯 First from unit:", unitWithWord.unitStr, {
-      target: firstTarget, hint: firstHint, text: row.presentation
-    });
-
-    const firstImage = await fetchImageForKeyword(firstTarget);
-    speakingItems.push({
-      fullText: row.presentation,
-      hint: firstHint,
-      target: firstTarget,
-      lesson: unitWithWord.unitStr,
-      imageUrl: firstImage?.url || ""
-    });
-
-    // Loại bài này khỏi pool để không trùng
-    const idx = eligibleUnits.findIndex(u => u.unitStr === unitWithWord.unitStr);
-    if (idx >= 0) eligibleUnits.splice(idx, 1);
-  } else {
-    console.warn("⚠️ Không tìm thấy bài chứa randomWord. Sẽ chọn toàn bộ từ pool ngẫu nhiên.");
-  }
-
-  // 2) Chọn 9 bài còn lại (mỗi bài 1 câu I)
-  const shuffledUnits = [...eligibleUnits].sort(() => Math.random() - 0.5);
-  const unitsPicked = shuffledUnits.slice(0, Math.max(0, 10 - speakingItems.length)); // để đủ 10 tổng
-
-  console.log("📌 Units picked:", unitsPicked.map(u => u.unitStr));
-
-  for (const u of unitsPicked) {
-    // Chỉ lấy 1 câu thuyết trình từ bài này
-    const rowsWithPresentation = u.rows.filter(r => r.presentation);
-    const chosenRow = pickRandom(rowsWithPresentation);
-    const target = (chosenRow.targets[0] || "").trim();
-    const hint = makeHint(chosenRow.presentation);
-
-    console.log("➕ Add from unit:", u.unitStr, { target, hint, text: chosenRow.presentation });
-
-    const img = target ? await fetchImageForKeyword(target) : null;
-    speakingItems.push({
-      fullText: chosenRow.presentation,
-      hint,
-      target,
-      lesson: u.unitStr,
-      imageUrl: img?.url || ""
-    });
-
-    if (speakingItems.length >= 10) break;
-  }
-
-  console.log("📦 Final speakingItems:", speakingItems.length);
-  console.log("📦 Sample:", speakingItems.slice(0, 3));
-
-  // Prefetch ảnh vào cache (nếu dùng cache)
-  const prefetchPromises = speakingItems.map(async it => {
-    const key = (it.target || it.fullText || "").trim().toLowerCase();
-    if (!imageCache[key] && it.target) {
-      const img = await fetchImageForKeyword(it.target);
-      if (img?.url) {
-        imageCache[key] = img;
-        if (!it.imageUrl) it.imageUrl = img.url;
-      }
-    }
-  });
-  await Promise.all(prefetchPromises);
-  console.log("🗃️ ImageCache keys:", Object.keys(imageCache));
-
-  return speakingItems;
-}
-
-
-// Render + scoring
-function setActiveProgress(i){
-  progressBalls.forEach((b, idx)=> b.classList.toggle('active', idx < i+1));
-}
-async function render(i){
-  const it = speakingItems[i];
-  if (!it) return;
-
-  hintEl.textContent = it.hint || "...";
-  targetEl.textContent = it.target || "...";
-  lessonEl.textContent = it.lesson || "...";
-
-  if (!it.imageUrl && it.target){
-    const key = (it.target || it.fullText || "").trim().toLowerCase();
+  // Load image (cache -> fetch)
+  const sentenceObj = sentences[sentenceIndex];
+  if (imageBox) {
+    imageBox.innerHTML = ""; // reset
+    const key = (sentenceObj.target || sentenceObj.text || "").trim().toLowerCase();
     const cached = imageCache[key];
-    if (cached?.url){
-      it.imageUrl = cached.url;
+    if (cached?.url) {
+      imageBox.innerHTML = `<img src="${cached.url}" alt="${sentenceObj.target}" style="max-width:60%;width:100%;height:auto;border-radius:8px;margin:6px 0;object-fit:cover;" />`;
       console.log("🖼️ Use cached image:", cached.url, "for:", key);
-    } else {
-      const img = await fetchImageForKeyword(it.target);
-      it.imageUrl = img?.url || "";
-      if (img) imageCache[key] = img;
+    } else if (sentenceObj.target) {
+      fetchImageForKeyword(sentenceObj.target).then(img => {
+        if (img?.url) {
+          imageCache[key] = img;
+          sentenceObj.imageUrl = img.url;
+          imageBox.innerHTML = `<img src="${img.url}" alt="${sentenceObj.target}" style="max-width:60%;width:100%;height:auto;border-radius:8px;margin:6px 0;object-fit:cover;" />`;
+        }
+      });
     }
   }
 
-  imgEl.src = it.imageUrl || "";
-  imgEl.alt = it.target || "vocab";
-  resultEl.innerHTML = 'Kết quả sẽ hiện ở đây.';
-  scoreEl.textContent = String(score);
-  setActiveProgress(i);
+  document.getElementById("nextBtn").onclick = () => {
+    sentenceIndex++;
+    if (sentenceIndex < sentences.length) {
+      startSentence();
+    } else {
+      showFinalResult();
+    }
+  };
 
-  pokemonEmoteEl.className = 'emote';
-  pokemonEmoteEl.textContent = '⚡️';
-}
-
-function checkAccuracy(userText, correctText, targetWord){
-  const tWords = normText(correctText).split(/\s+/).filter(Boolean);
-  const uSet = new Set(normText(userText).split(/\s+/).filter(Boolean));
-  let hit = 0;
-  for (const w of tWords) if (uSet.has(w)) hit++;
-  const percent = tWords.length ? Math.round((hit/tWords.length)*100) : 0;
-  const hasTarget = targetWord ? uSet.has(normText(targetWord)) : false;
-  const pass = percent >= 50 || hasTarget;
-  return { percent, hit, total: tWords.length, pass, hasTarget };
-}
-
-// SpeechRecognition (Speaking 2 style)
-let recognition = null;
-let isListening = false;
-function setupRecognition(){
+  // Recognition setup per render (Speaking 2 style)
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition){
-    console.warn("⚠️ Browser không hỗ trợ SpeechRecognition.");
+  if (!SpeechRecognition) {
+    alert("Thiết bị của bạn không hỗ trợ nhận giọng nói.");
     return;
   }
+
   recognition = new SpeechRecognition();
   recognition.lang = "en-US";
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
+  isListening = false;
 
-  recognition.onstart = ()=>{ isListening = true; resultEl.textContent = "🎙️ Đang nghe..."; };
-  recognition.onend = ()=>{ isListening = false; };
-  recognition.onerror = (e)=>{ isListening=false; console.error("❌ Rec error:", e.error); resultEl.textContent = `❌ Lỗi: ${e.error}`; try{ recognition.abort(); }catch{} };
-  recognition.onresult = (event)=>{
-    const transcript = event.results?.[0]?.[0]?.transcript?.toLowerCase()?.trim() || "";
-    const it = speakingItems[currentIndex];
-    const { percent, hit, total, pass, hasTarget } = checkAccuracy(transcript, it.fullText, it.target);
-    resultEl.innerHTML = `✅ Bạn nói: "<i>${transcript}</i>"<br>🎯 Đúng ${hit}/${total} từ → <b>${percent}%</b>${it.target ? `<br>🔑 Từ vựng: <b>${it.target}</b> (${hasTarget ? "✅ có" : "❌ không"})` : ""}`;
-
-    if (pass){
-      score++;
-      scoreEl.textContent = String(score);
-      pokemonEmoteEl.textContent = '✨';
-      pokemonEmoteEl.classList.add('react-good');
-    } else {
-      pokemonEmoteEl.textContent = '💧';
-      pokemonEmoteEl.classList.add('react-bad');
+  document.getElementById("recordBtn").onclick = () => {
+    document.getElementById("speechResult").textContent = "🎙️ Đang nghe...";
+    try {
+      isListening = true;
+      recognition.start();
+    } catch (err) {
+      console.warn("⚠️ start() failed, trying abort→start:", err);
+      try { recognition.abort(); } catch {}
+      setTimeout(() => {
+        try { isListening = true; recognition.start(); } catch (e2) {
+          document.getElementById("speechResult").innerText = "❌ Không thể bắt đầu nhận giọng. Kiểm tra quyền mic/HTTPS.";
+        }
+      }, 120);
     }
-    console.log("🧮 Score update:", { currentIndex, score, percent, pass });
+  };
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript.toLowerCase().trim();
+    console.log("🗣️ Transcript:", transcript);
+    checkAccuracy(transcript);
+    // Speak the correct sentence AFTER scoring
+    const correctSentence = sentences[sentenceIndex].text;
+    speak(correctSentence);
+  };
+
+  recognition.onerror = (event) => {
+    isListening = false;
+    document.getElementById("speechResult").innerText = `❌ Lỗi: ${event.error}`;
+    console.error("❌ Recognition error:", event.error);
+  };
+
+  recognition.onend = () => { isListening = false; };
+}
+
+function checkAccuracy(userText) {
+  const currentSentence = sentences[sentenceIndex].text.toLowerCase().replace(/[^a-z0-9'\s]/g, "");
+  const user = userText.toLowerCase().replace(/[^a-z0-9'\s]/g, "");
+  const targetWords = currentSentence.split(/\s+/).filter(Boolean);
+  const userWordsSet = new Set(user.split(/\s+/).filter(Boolean));
+
+  let correct = 0;
+  for (let word of targetWords) {
+    if (userWordsSet.has(word)) correct++;
+  }
+
+  const percent = targetWords.length ? Math.round((correct / targetWords.length) * 100) : 0;
+  if (percent >= 50) totalScore++;
+
+  const result = document.getElementById("speechResult");
+  result.innerHTML = `✅ Bạn nói: "<i>${userText}</i>"<br>🎯 Đúng ${correct}/${targetWords.length} từ → <b>${percent}%</b>`;
+  console.log("🧮 Sentence scoring:", { index: sentenceIndex, percent, correct, total: targetWords.length, totalScore });
+}
+
+// ===== Final stage: show result, then paragraph reading =====
+function showFinalResult() {
+  const area = document.getElementById("sentenceArea");
+  const percent = sentences.length > 0
+    ? Math.round((totalScore / sentences.length) * 100)
+    : 0;
+
+  // Save cumulative to localStorage
+  const prev = JSON.parse(localStorage.getItem("result_speaking")) || { score: 0, total: 0 };
+  const updated = {
+    score: prev.score + totalScore,
+    total: prev.total + sentences.length
+  };
+  localStorage.setItem("result_speaking", JSON.stringify(updated));
+
+  // UI result
+  area.innerHTML = `
+    <div style="font-size:24px;">🏁 Bạn đã luyện hết toàn bộ câu!</div>
+    <div style="margin-top:16px;">
+      📊 Tổng điểm: <b>${totalScore}/${sentences.length}</b> → <b>${percent}%</b>
+    </div>
+    <hr style="margin:16px 0; opacity:.35;">
+    <div style="font-size:20px; margin-bottom:8px;">🧩 Bước cuối: Đọc cả đoạn văn</div>
+    <div id="paragraphBox" style="margin-bottom:12px; color:#a7b1d0;"></div>
+    <div style="text-align:center;">
+      <button id="playParagraphBtn">🔊 Nghe mẫu đoạn</button>
+      <button id="recordParagraphBtn" style="margin-left:8px;">🎙️ Đọc cả đoạn</button>
+    </div>
+    <div id="paragraphResult" style="margin-top:12px; text-align:center;"></div>
+  `;
+
+  // Build the paragraph from all sentences
+  const fullParagraph = sentences.map(s => s.text).join(". ").replace(/\s+\./g, ".").trim() + ".";
+  document.getElementById("paragraphBox").textContent = fullParagraph;
+
+  // Play sample
+  document.getElementById("playParagraphBtn").onclick = () => speak(fullParagraph);
+
+  // Record entire paragraph
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    document.getElementById("paragraphResult").textContent = "⚠️ Thiết bị không hỗ trợ thu âm đoạn dài.";
+    return;
+  }
+
+  const longRec = new SpeechRecognition();
+  longRec.lang = "en-US";
+  longRec.interimResults = false;
+  longRec.maxAlternatives = 1;
+
+  document.getElementById("recordParagraphBtn").onclick = () => {
+    document.getElementById("paragraphResult").textContent = "🎙️ Đang nghe đoạn...";
+    try {
+      longRec.start();
+    } catch (err) {
+      try { longRec.abort(); } catch {}
+      setTimeout(() => {
+        try { longRec.start(); } catch (e2) {
+          document.getElementById("paragraphResult").textContent = "❌ Không thể bắt đầu thu đoạn. Kiểm tra mic/HTTPS.";
+        }
+      }, 120);
+    }
+  };
+
+  longRec.onresult = (event) => {
+    const transcript = event.results[0][0].transcript.toLowerCase().trim();
+    console.log("🗣️ Paragraph transcript:", transcript);
+
+    const targetWords = normText(fullParagraph).split(/\s+/).filter(Boolean);
+    const userWordsSet = new Set(normText(transcript).split(/\s+/).filter(Boolean));
+
+    let correct = 0;
+    for (let word of targetWords) {
+      if (userWordsSet.has(word)) correct++;
+    }
+    const percentPara = targetWords.length ? Math.round((correct / targetWords.length) * 100) : 0;
+
+    document.getElementById("paragraphResult").innerHTML =
+      `📣 Bạn đọc: "<i>${transcript}</i>"<br>🎯 Khớp ${correct}/${targetWords.length} từ → <b>${percentPara}%</b>`;
+
+    console.log("🧮 Paragraph scoring:", { percentPara, correct, total: targetWords.length });
+  };
+
+  longRec.onerror = (event) => {
+    document.getElementById("paragraphResult").innerText = `❌ Lỗi: ${event.error}`;
+    console.error("❌ Paragraph recognition error:", event.error);
   };
 }
 
-// Events
-prevBtn.addEventListener('click', async ()=>{
-  if (recognition && isListening) { try{ recognition.abort(); }catch{} }
-  if (currentIndex > 0){ currentIndex--; await render(currentIndex); }
-});
-nextBtn.addEventListener('click', async ()=>{
-  if (recognition && isListening) { try{ recognition.abort(); }catch{} }
-  if (currentIndex < speakingItems.length - 1){ currentIndex++; await render(currentIndex); }
-  else {
-    const percentTotal = speakingItems.length ? Math.round((score/speakingItems.length)*100) : 0;
-    if (percentTotal >= 50){
-      resultEl.innerHTML = `🎉 Hoàn thành! Điểm: <strong>${score}/${speakingItems.length}</strong> → <strong>${percentTotal}%</strong>`;
-    } else {
-      resultEl.innerHTML = `🚫 Chưa đạt. Điểm: <strong>${score}/${speakingItems.length}</strong> → <strong>${percentTotal}%</strong>`;
-    }
-  }
-});
-recordBtn.addEventListener('click', ()=>{
-  if (!recognition){ resultEl.textContent = "⚠️ Trình duyệt không hỗ trợ thu âm."; return; }
-  if (isListening) return;
-  try { recognition.start(); }
-  catch(err){
-    try{ recognition.abort(); }catch{}
-    setTimeout(()=>{ try{ recognition.start(); }catch(e2){ resultEl.textContent="❌ Không thể bắt đầu nhận giọng. Kiểm tra mic/HTTPS."; } }, 120);
-  }
-});
+// ===== Flow control =====
+function startSentence() {
+  const { text, target, meaning } = sentences[sentenceIndex];
+  renderSentence(false, target, meaning);
+}
 
-// Init
-(async function init(){
-  try {
-    console.log("🚀 Init Speaking 3");
-    setupRecognition();
-    speakingItems = await buildSpeaking3Items();
-    if (!speakingItems.length){
-      resultEl.textContent = "📭 Không có dữ liệu Speaking 3 hợp lệ.";
-      return;
-    }
-    currentIndex = 0;
-    score = 0;
-    await render(currentIndex);
-    console.log("✅ Ready. Items:", speakingItems.length);
-  } catch (e) {
-    console.error("❌ Init error:", e);
-    resultEl.textContent = "❌ Không thể khởi tạo Speaking 3. Kiểm tra dữ liệu.";
-  }
-})();
+// ===== Init =====
+getVoices().then(v => {
+  voice = v.find(v => v.lang === "en-US") || v[0];
+
+  const wordBank = JSON.parse(localStorage.getItem("wordBank"))?.map(w => w.toLowerCase().trim()) || [];
+  console.log("🧩 wordBank:", wordBank);
+
+  fetchGVizRows(SHEET_URL)
+    .then(rows => {
+      const items = extractPresentationData(rows);
+
+      sentences = [];
+      for (const it of items) {
+        const { lessonName, presentation, meaning, targets } = it;
+        const match = targets?.some(t => wordBank.includes(t));
+        if (match) {
+          const targetWord = targets.find(t => wordBank.includes(t)) || targets[0] || "";
+          sentences.push({
+            text: presentation,
+            target: targetWord,
+            meaning: meaning || "",
+            lesson: lessonName,
+            imageUrl: ""
+          });
+          console.log("➕ Sentence added:", { lesson: lessonName, target: targetWord, text: presentation });
+        }
+      }
+
+      sentenceIndex = 0;
+      if (sentences.length > 0) {
+        // Prefetch images for first render responsiveness
+        const prefetchPromises = sentences.map(s => {
+          if (!s.target) return Promise.resolve();
+          const key = s.target.trim().toLowerCase();
+          if (imageCache[key]) return Promise.resolve();
+          return fetchImageForKeyword(s.target).then(img => {
+            if (img?.url) {
+              imageCache[key] = img;
+              s.imageUrl = img.url;
+            }
+          });
+        });
+
+        Promise.all(prefetchPromises).then(() => {
+          startSentence();
+        });
+      } else {
+        document.getElementById("sentenceArea").innerHTML =
+          `<div style="font-size:20px;">📭 Không tìm thấy dữ liệu từ vựng đã học.</div>`;
+      }
+    })
+    .catch(err => {
+      console.error("❌ Init Speaking 3 error:", err);
+      const area = document.getElementById("sentenceArea");
+      if (area) area.innerHTML = `<div style="font-size:20px;">❌ Không thể khởi tạo Speaking 3. Kiểm tra dữ liệu.</div>`;
+    });
+});
