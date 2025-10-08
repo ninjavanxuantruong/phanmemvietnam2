@@ -84,24 +84,93 @@ async function fetchGVizRows(url) {
  * - I (index 8): presentation sentence
  * - Y (index 24): meaning (if available; same as Speaking 2)
  */
-function extractPresentationData(rows) {
-  const items = rows.map((r, idx) => {
+function normalizeUnitId(unitStr) {
+  if (!unitStr) return 0;
+  const parts = unitStr.split("-");
+  if (parts.length < 3) return 0;
+  const [cls, lesson, part] = parts;
+  return parseInt(cls) * 1000 + parseInt(lesson) * 10 + parseInt(part);
+}
+
+async function getMaxLessonCode() {
+  const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
+  const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
+
+  const res = await fetch(SHEET_BAI_HOC);
+  const text = await res.text();
+  const json = JSON.parse(text.substring(47).slice(0, -2));
+  const rows = json.table.rows;
+
+  const baiList = rows
+    .map(r => {
+      const lop = r.c[0]?.v?.toString().trim();
+      const bai = r.c[2]?.v?.toString().trim();
+      return lop === trainerClass && bai ? parseInt(bai, 10) : null;
+    })
+    .filter(v => typeof v === "number");
+
+  if (baiList.length === 0) {
+    console.warn("⚠️ Không tìm thấy bài học nào cho lớp", trainerClass);
+    return null;
+  }
+
+  const maxLessonCode = Math.max(...baiList);
+  console.log(`📈 Bài lớn nhất (normalize) của lớp ${trainerClass}: ${maxLessonCode}`);
+  return maxLessonCode;
+}
+
+
+
+function extractPresentationData(rows, maxLessonCode) {
+  const allItems = rows.map((r, idx) => {
     const lessonName = r.c?.[1]?.v?.toString().trim() || ""; // B
-    const vocabRaw = r.c?.[2]?.v?.toString().trim() || "";   // C
+    const vocabRaw   = r.c?.[2]?.v?.toString().trim() || ""; // C
     const presentation = r.c?.[8]?.v?.toString().trim() || ""; // I
-    const meaning = r.c?.[24]?.v?.toString().trim() || "";     // Y (optional)
+    const meaning    = r.c?.[24]?.v?.toString().trim() || ""; // Y
+    const targets    = splitTargets(vocabRaw);
+    const unitNum    = normalizeUnitId(lessonName);
 
-    const targets = splitTargets(vocabRaw);
-
-    // Log per-row for debugging
-    console.log("📖 Row", idx, { lessonName, vocabRaw, presentation, meaning, targets });
-
-    return { lessonName, vocabRaw, presentation, meaning, targets };
+    return { lessonName, unitNum, vocabRaw, presentation, meaning, targets };
   }).filter(it => it.lessonName && it.presentation);
 
-  console.log("✅ Presentation items count:", items.length);
-  return items;
+  console.log("📥 Tổng số câu thuyết trình lấy được:", allItems.length);
+  console.log("🏁 Bài lớn nhất:", maxLessonCode);
+
+  // Group theo bài
+  const unitMap = {};
+  allItems.forEach(it => {
+    if (it.unitNum >= 3011 && it.unitNum <= maxLessonCode) {
+      if (!unitMap[it.lessonName]) unitMap[it.lessonName] = [];
+      unitMap[it.lessonName].push(it);
+    }
+  });
+
+  // Random 6 bài
+  const unitNames = Object.keys(unitMap);
+  const shuffled = unitNames.sort(() => Math.random() - 0.5);
+  const pickedUnits = shuffled.slice(0, 6);
+
+  const selectedItems = [];
+  pickedUnits.forEach(u => {
+    const rows = unitMap[u];
+    const chosen = rows[Math.floor(Math.random() * rows.length)];
+    selectedItems.push(chosen);
+    console.log("🎯 Chọn từ bài:", u, "→", chosen.presentation, " / vocab:", chosen.vocabRaw);
+  });
+
+  // Sort theo unitNum
+  selectedItems.sort((a, b) => a.unitNum - b.unitNum);
+
+  console.log("📦 Danh sách câu cuối cùng:", selectedItems.map(it => ({
+    lesson: it.lessonName,
+    vocab: it.vocabRaw,
+    text: it.presentation
+  })));
+
+  return selectedItems;
 }
+
+
 
 // ===== Images: Pixabay fetch + cache =====
 function fetchImageForKeyword(keyword) {
@@ -386,16 +455,20 @@ getVoices().then(v => {
   const wordBank = JSON.parse(localStorage.getItem("wordBank"))?.map(w => w.toLowerCase().trim()) || [];
   console.log("🧩 wordBank:", wordBank);
 
+  // 👉 fetch dữ liệu sheet ở đây
   fetchGVizRows(SHEET_URL)
     .then(rows => {
-      const items = extractPresentationData(rows);
+      // 👉 lấy maxLessonCode trước
+      getMaxLessonCode().then(maxLessonCode => {
+        if (!maxLessonCode) return;
 
-      sentences = [];
-      for (const it of items) {
-        const { lessonName, presentation, meaning, targets } = it;
-        const match = targets?.some(t => wordBank.includes(t));
-        if (match) {
-          const targetWord = targets.find(t => wordBank.includes(t)) || targets[0] || "";
+        // 👉 lọc dữ liệu
+        const items = extractPresentationData(rows, maxLessonCode);
+
+        sentences = [];
+        for (const it of items) {
+          const { lessonName, presentation, meaning, targets } = it;
+          const targetWord = targets[0] || "";
           sentences.push({
             text: presentation,
             target: targetWord,
@@ -405,31 +478,30 @@ getVoices().then(v => {
           });
           console.log("➕ Sentence added:", { lesson: lessonName, target: targetWord, text: presentation });
         }
-      }
 
-      sentenceIndex = 0;
-      if (sentences.length > 0) {
-        // Prefetch images for first render responsiveness
-        const prefetchPromises = sentences.map(s => {
-          if (!s.target) return Promise.resolve();
-          const key = s.target.trim().toLowerCase();
-          if (imageCache[key]) return Promise.resolve();
-          return fetchImageForKeyword(s.target).then(img => {
-            if (img?.url) {
-              imageCache[key] = img;
-              s.imageUrl = img.url;
-            }
+        sentenceIndex = 0;
+        if (sentences.length > 0) {
+          // Prefetch ảnh
+          const prefetchPromises = sentences.map(s => {
+            if (!s.target) return Promise.resolve();
+            const key = s.target.trim().toLowerCase();
+            if (imageCache[key]) return Promise.resolve();
+            return fetchImageForKeyword(s.target).then(img => {
+              if (img?.url) {
+                imageCache[key] = img;
+                s.imageUrl = img.url;
+              }
+            });
           });
-        });
 
-        Promise.all(prefetchPromises).then(() => {
-          showIntroParagraph();
-        });
-
-      } else {
-        document.getElementById("sentenceArea").innerHTML =
-          `<div style="font-size:20px;">📭 Không tìm thấy dữ liệu từ vựng đã học.</div>`;
-      }
+          Promise.all(prefetchPromises).then(() => {
+            showIntroParagraph();
+          });
+        } else {
+          document.getElementById("sentenceArea").innerHTML =
+            `<div style="font-size:20px;">📭 Không tìm thấy dữ liệu phù hợp.</div>`;
+        }
+      });
     })
     .catch(err => {
       console.error("❌ Init Speaking 3 error:", err);
