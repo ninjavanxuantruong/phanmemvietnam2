@@ -2,453 +2,60 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Speaking 3 — Pokémon Stage</title>
+  <title>Speaking 3 Demo</title>
   <style>
-    :root{
-      --bg1:#0b1023;
-      --bg2:#171b35;
-      --accent:#ffcc00;
-      --accent2:#ff5757;
-      --accent3:#4dd0e1;
-      --text:#f5f7ff;
-      --muted:#a7b1d0;
-      --ok:#2ecc71;
-      --bad:#e74c3c;
-      --card:#1f2443;
-      --glow:#ffd54f;
+    body {
+      font-family: Arial, sans-serif;
+      background: #0b1023;
+      color: #f5f7ff;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
     }
-    *{box-sizing:border-box}
-    html,body{
-      height:100%;
-      background: radial-gradient(1200px 600px at 50% 10%, #1b2147 0%, var(--bg1) 35%, var(--bg2) 100%);
-      color: var(--text);
-      margin:0;
-      font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    #imageBox img {
+      max-width: 60%;
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      margin: 12px 0;
+      object-fit: cover;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.4);
     }
-    .app{
-      max-width: 1100px;
-      margin: 0 auto;
+    #sentenceArea {
+      margin-top: 20px;
       padding: 16px;
-    }
-
-    /* Header / top bar */
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:16px;
-      margin-bottom:16px;
-    }
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      font-weight:700;
-      letter-spacing:0.2px;
-    }
-    .brand .ball{
-      width:28px; height:28px; border-radius:50%;
-      background:
-        radial-gradient(circle at 50% 50%, #fff 0 35%, #ddd 36% 100%),
-        linear-gradient(0deg, var(--accent2) 0 50%, #fff 50% 100%);
-      border:2px solid #222;
-      box-shadow: 0 0 12px rgba(255,87,87,0.35);
-      position:relative;
-    }
-    .brand .ball::after{
-      content:"";
-      position:absolute; inset:0;
-      border-radius:50%;
-      background: radial-gradient(circle at 50% 50%, #222 0 15%, transparent 16% 100%);
-    }
-    .scoreboard{
-      display:flex; align-items:center; gap:12px;
+      border-radius: 12px;
       background: rgba(255,255,255,0.06);
-      border:1px solid rgba(255,255,255,0.08);
-      border-radius:12px;
-      padding:10px 14px;
-      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,0.1);
     }
-    .score{
-      font-weight:600;
+    button {
+      margin: 6px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
     }
-    .progress{
-      display:flex; gap:6px; align-items:center;
-    }
-    .ball-small{
-      width:18px; height:18px; border-radius:50%;
-      background:
-        radial-gradient(circle at 50% 50%, #fff 0 35%, #ddd 36% 100%),
-        linear-gradient(0deg, var(--accent2) 0 50%, #fff 50% 100%);
-      border:1px solid #222;
-      opacity:0.35;
-      transition: opacity .25s ease, transform .25s ease;
-    }
-    .ball-small.active{
-      opacity:1;
-      transform: translateY(-2px);
-      box-shadow: 0 0 8px rgba(255,87,87,.35);
-    }
-
-    /* Stage container */
-    .stage{
-      position:relative;
-      border-radius:18px;
-      padding:22px;
-      background:
-        radial-gradient(800px 300px at 50% 0%, rgba(255,213,79,0.35) 0%, transparent 65%),
-        linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
-      border:1px solid rgba(255,255,255,0.08);
-      box-shadow: 0 20px 50px rgba(0,0,0,0.55);
-      overflow:hidden;
-    }
-
-    /* LED screen */
-    .screen{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:16px;
-      background: linear-gradient(180deg, #101432, #0d1129);
-      border:1px solid rgba(255,255,255,0.1);
-      border-radius:14px;
-      padding:16px;
-      position:relative;
-      box-shadow: inset 0 0 25px rgba(0,0,0,0.35);
-    }
-    .screen::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      background:
-        repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 2px, transparent 3px 6px);
-      pointer-events:none;
-      border-radius:14px;
-      mix-blend-mode: screen;
-    }
-    .imgBox{
-      border-radius:12px;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,0.08);
-      background:#0b0f25;
-      min-height:220px;
-      display:flex; align-items:center; justify-content:center;
-    }
-    .imgBox img{
-      max-width:100%; max-height:280px; object-fit:cover;
-      border-radius:10px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
-    }
-    .hintBox{
-      display:flex; flex-direction:column; gap:12px;
-      justify-content:center;
-    }
-    .hintTitle{
-      font-weight:700; font-size:22px; letter-spacing:0.3px;
-    }
-    .hintText{
-      font-size:26px; font-weight:800;
-      color: var(--glow);
-      text-shadow: 0 0 20px rgba(255,213,79,0.45);
-    }
-    .targetChip{
-      display:inline-flex; align-items:center; gap:8px;
-      background: rgba(77,208,225,0.14);
-      color: #a9ecf1;
-      border:1px solid rgba(77,208,225,0.35);
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:14px;
-    }
-    .targetChip .dot{
-      width:8px; height:8px; border-radius:50%;
-      background: var(--accent3);
-      box-shadow: 0 0 8px rgba(77,208,225,0.65);
-    }
-    .lessonTag{
-      font-size:12px; color: var(--muted);
-    }
-
-    /* Stage floor + characters */
-    .floor{
-      margin-top:18px;
-      position:relative;
-      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
-      border:1px solid rgba(255,255,255,0.08);
-      border-radius:14px;
-      padding:14px;
-    }
-    .floorInner{
-      position:relative;
-      min-height:160px;
-      border-radius:10px;
-      background:
-        radial-gradient(500px 180px at 50% 0%, rgba(255,255,255,0.08) 0%, transparent 70%),
-        linear-gradient(180deg, #121531, #0c1027);
-      border:1px dashed rgba(255,255,255,0.08);
-      display:flex; align-items:flex-end; justify-content:space-between;
-      padding:18px;
-      overflow:hidden;
-    }
-    .spotlight{
-      position:absolute; left:50%; transform:translateX(-50%);
-      top:-30px; width:420px; height:420px; border-radius:50%;
-      background: radial-gradient(closest-side, rgba(255,213,79,0.55), rgba(255,213,79,0.15), transparent 65%);
-      filter: blur(2px);
-      pointer-events:none;
-    }
-    .trainer, .pokemon{
-      display:flex; flex-direction:column; align-items:center; gap:8px;
-    }
-    .sprite{
-      width:110px; height:110px; border-radius:12px;
-      background: linear-gradient(180deg, #20264c, #171d3b);
-      border:1px solid rgba(255,255,255,0.1);
-      box-shadow: 0 12px 25px rgba(0,0,0,0.55);
-      display:flex; align-items:center; justify-content:center;
-      position:relative;
-    }
-    .sprite::after{
-      content:"";
-      position:absolute; inset:0; border-radius:12px;
-      background: radial-gradient(350px 150px at 50% 20%, rgba(255,255,255,0.14), transparent 60%);
-      pointer-events:none;
-    }
-    .trainerName, .pokemonName{
-      font-size:13px; color: var(--muted);
-    }
-    .emote{
-      font-size:22px;
-      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4));
-    }
-    .react-good{ color: var(--ok); }
-    .react-bad{ color: var(--bad); }
-
-    /* Controls */
-    .controls{
-      margin-top:18px;
-      display:flex; align-items:center; justify-content:center; gap:12px;
-    }
-    .btn{
-      appearance:none; border:none; cursor:pointer;
-      background: linear-gradient(180deg, #ff7a7a, #e64c4c);
-      color:#fff; font-weight:700; letter-spacing:.2px;
-      padding:12px 16px; border-radius:12px;
-      box-shadow: 0 10px 20px rgba(230,76,76,.35);
-      transition: transform .12s ease;
-    }
-    .btn:hover{ transform: translateY(-1px); }
-    .btn.secondary{
+    #recordBtn {
       background: linear-gradient(180deg, #4dd0e1, #2a9fb0);
-      box-shadow: 0 10px 20px rgba(77,208,225,.35);
+      color: #fff;
     }
-    .btn.ghost{
-      background: rgba(255,255,255,0.08);
-      color: var(--text);
-      border:1px solid rgba(255,255,255,0.15);
-      box-shadow:none;
-    }
-
-    /* Speech result */
-    .result{
-      margin-top:14px;
-      text-align:center;
-      background: rgba(255,255,255,0.06);
-      border:1px solid rgba(255,255,255,0.08);
-      border-radius:12px;
-      padding:12px;
-      min-height:44px;
-      color: var(--muted);
-    }
-    .result strong{ color: var(--text); }
-
-    /* Footer */
-    .footer{
-      margin-top:16px;
-      display:flex; justify-content:space-between; align-items:center;
-      font-size:12px; color: var(--muted);
-    }
-
-    /* Responsive */
-    @media (max-width: 900px){
-      .screen{ grid-template-columns: 1fr; }
-      .imgBox img{ max-height:220px; }
-      .floorInner{ min-height:140px; }
-      .sprite{ width:96px; height:96px; }
+    #nextBtn {
+      background: linear-gradient(180deg, #ff7a7a, #e64c4c);
+      color: #fff;
     }
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="topbar">
-      <div class="brand">
-        <div class="ball"></div>
-        <div>Speaking 3 — Pokémon Stage</div>
-      </div>
-      <div class="scoreboard">
-        <div class="score">Điểm: <span id="scoreValue">0</span>/10</div>
-        <div class="progress" id="progressBar">
-          <!-- 10 pokéballs -->
-          <span class="ball-small"></span><span class="ball-small"></span><span class="ball-small"></span><span class="ball-small"></span><span class="ball-small"></span>
-          <span class="ball-small"></span><span class="ball-small"></span><span class="ball-small"></span><span class="ball-small"></span><span class="ball-small"></span>
-        </div>
-      </div>
-    </div>
+  <h2>Speaking 3 — Pokémon Stage (Demo)</h2>
 
-    <div class="stage">
-      <div class="screen">
-        <div class="imgBox">
-          <img id="vocabImage" src="" alt="Vocabulary image" />
-        </div>
-        <div class="hintBox">
-          <div class="hintTitle">Gợi ý thuyết trình</div>
-          <div class="hintText" id="hintText">loading...</div>
-          <div class="targetChip">
-            <span class="dot"></span>
-            Từ vựng: <strong id="targetWord">...</strong>
-          </div>
-          <div class="lessonTag">Bài: <span id="lessonCode">...</span></div>
-        </div>
-      </div>
+  <!-- Khung ảnh minh họa -->
+  <div id="imageBox"></div>
 
-      <div class="floor">
-        <div class="floorInner">
-          <div class="spotlight"></div>
+  <!-- Khung câu luyện tập -->
+  <div id="sentenceArea">Đang tải dữ liệu...</div>
 
-          <div class="trainer">
-            <div class="sprite" id="trainerSprite">
-              <div class="emote">🧑‍🏫</div>
-            </div>
-            <div class="trainerName">Trainer</div>
-          </div>
-
-          <div class="pokemon">
-            <div class="sprite" id="pokemonSprite">
-              <div class="emote" id="pokemonEmote">⚡️</div>
-            </div>
-            <div class="pokemonName">Companion</div>
-          </div>
-        </div>
-
-        <div class="controls">
-          <button class="btn ghost" id="prevBtn">⬅️ Trước</button>
-          <button class="btn secondary" id="recordBtn">🎙️ Bắt đầu nói</button>
-          <button class="btn" id="nextBtn">⏩ Tiếp theo</button>
-        </div>
-
-        <div class="result" id="speechResult">Kết quả sẽ hiện ở đây.</div>
-      </div>
-    </div>
-
-    <div class="footer">
-      <div>Pokemon hóa — Stage thuyết trình hiện đại</div>
-      <div>© Trainer App</div>
-    </div>
-  </div>
-
-  <script>
-    // ====== Minimal hooks (to be wired with your Speaking 3 logic) ======
-    // You will plug: buildSpeaking3Items(), fetch image (Pixabay/Openverse), recognition, scoring.
-
-    const progressBalls = Array.from(document.querySelectorAll('.ball-small'));
-    let currentIndex = 0;
-    let score = 0;
-    let items = []; // [{ fullText, hint, target, lesson, imageUrl } ... length ~ 10]
-
-    // Demo data placeholder (replace when wiring)
-    items = [
-      { fullText:"my name is Tinh", hint:"my name...", target:"name", lesson:"3-07-2", imageUrl:"" },
-      { fullText:"she likes reading books", hint:"she likes...", target:"reading", lesson:"3-06-1", imageUrl:"" },
-      { fullText:"we play soccer together", hint:"we play...", target:"soccer", lesson:"3-05-3", imageUrl:"" },
-      { fullText:"they are learning english", hint:"they are...", target:"english", lesson:"3-05-2", imageUrl:"" },
-      { fullText:"i eat breakfast at seven", hint:"i eat...", target:"breakfast", lesson:"3-04-2", imageUrl:"" },
-      { fullText:"the weather is beautiful today", hint:"the weather...", target:"weather", lesson:"3-04-1", imageUrl:"" },
-      { fullText:"my brother rides a bike", hint:"my brother...", target:"bike", lesson:"3-03-3", imageUrl:"" },
-      { fullText:"please close the window", hint:"please close...", target:"window", lesson:"3-03-2", imageUrl:"" },
-      { fullText:"open the door slowly", hint:"open the...", target:"door", lesson:"3-03-1", imageUrl:"" },
-      { fullText:"she drinks water after running", hint:"she drinks...", target:"water", lesson:"3-03-1", imageUrl:"" },
-    ];
-
-    function setActiveProgress(i){
-      progressBalls.forEach((b, idx)=> b.classList.toggle('active', idx < i));
-    }
-
-    function render(i){
-      const it = items[i];
-      document.getElementById('hintText').textContent = it.hint;
-      document.getElementById('targetWord').textContent = it.target;
-      document.getElementById('lessonCode').textContent = it.lesson;
-      const imgEl = document.getElementById('vocabImage');
-      imgEl.src = it.imageUrl || '';
-      imgEl.alt = it.target;
-      document.getElementById('speechResult').innerHTML = 'Kết quả sẽ hiện ở đây.';
-      setActiveProgress(i);
-      document.getElementById('scoreValue').textContent = score;
-      // Reset Pokémon emote
-      document.getElementById('pokemonEmote').className = 'emote';
-      document.getElementById('pokemonEmote').textContent = '⚡️';
-    }
-
-    function checkAccuracy(userText, correctText, targetWord){
-      const norm = s => s.toLowerCase().replace(/[^a-z0-9'\s]/g,'').trim();
-      const tWords = norm(correctText).split(/\s+/);
-      const uWords = new Set(norm(userText).split(/\s+/).filter(Boolean));
-      let hit = 0;
-      for (const w of tWords) if (uWords.has(w)) hit++;
-      const percent = Math.round((hit / tWords.length) * 100);
-      const hasTarget = uWords.has(norm(targetWord));
-      const pass = percent >= 50 || hasTarget;
-      return { percent, hit, total: tWords.length, pass };
-    }
-
-    // Wire buttons (replace record with actual SpeechRecognition in integration)
-    document.getElementById('prevBtn').addEventListener('click', ()=>{
-      if (currentIndex > 0) { currentIndex--; render(currentIndex); }
-    });
-
-    document.getElementById('nextBtn').addEventListener('click', ()=>{
-      if (currentIndex < items.length - 1) { currentIndex++; render(currentIndex); }
-      else {
-        // Final: show Pokémon victory if score >= 5
-        const percentTotal = Math.round((score / items.length) * 100);
-        const res = document.getElementById('speechResult');
-        if (percentTotal >= 50){
-          res.innerHTML = `🎉 Hoàn thành! Điểm: <strong>${score}/${items.length}</strong> → <strong>${percentTotal}%</strong>`;
-          // TODO: call showCatchEffect(area) or your victory effect
-        } else {
-          res.innerHTML = `🚫 Chưa đạt. Điểm: <strong>${score}/${items.length}</strong> → <strong>${percentTotal}%</strong>`;
-        }
-      }
-    });
-
-    document.getElementById('recordBtn').addEventListener('click', ()=>{
-      // Replace this mock with SpeechRecognition transcript
-      const mockTranscript = prompt('Nhập transcript demo (thay bằng nhận giọng):', '');
-      if (mockTranscript == null) return;
-      const it = items[currentIndex];
-      const { percent, hit, total, pass } = checkAccuracy(mockTranscript, it.fullText, it.target);
-      const res = document.getElementById('speechResult');
-      res.innerHTML = `📣 Bạn nói: "<i>${mockTranscript}</i>"<br>🎯 Đúng ${hit}/${total} từ → <strong>${percent}%</strong>`;
-
-      const emote = document.getElementById('pokemonEmote');
-      if (pass){
-        score++;
-        document.getElementById('scoreValue').textContent = score;
-        emote.textContent = '✨';
-        emote.classList.add('react-good');
-      } else {
-        emote.textContent = '💧';
-        emote.classList.add('react-bad');
-      }
-    });
-
-    // Init
-    render(currentIndex);
-  </script>
-
-  <!-- Remove the entire inline <script>...</script> block -->
+  <!-- Nạp script -->
   <script type="module" src="speaking3.js"></script>
-
-
 </body>
 </html>
