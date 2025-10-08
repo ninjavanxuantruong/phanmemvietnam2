@@ -148,7 +148,9 @@ function extractPresentationData(rows, maxLessonCode) {
   // Random 6 bài
   const unitNames = Object.keys(unitMap);
   const shuffled = unitNames.sort(() => Math.random() - 0.5);
-  const pickedUnits = shuffled.slice(0, 6);
+  const NUM_LESSONS = 8; // số bài muốn lấy
+  const pickedUnits = shuffled.slice(0, NUM_LESSONS);
+
 
   const selectedItems = [];
   pickedUnits.forEach(u => {
