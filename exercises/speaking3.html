@@ -2,22 +2,38 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <title>Speaking 3 Demo</title>
+  <title>Speaking 3 — Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: "Segoe UI", Arial, sans-serif;
       background: #0b1023;
       color: #f5f7ff;
       margin: 0;
-      padding: 20px;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
       text-align: center;
     }
+    header {
+      padding: 16px;
+      background: #141a33;
+      font-size: 1.3rem;
+      font-weight: bold;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    main {
+      flex: 1;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
     #imageBox img {
-      max-width: 60%;
-      width: 100%;
-      height: auto;
-      border-radius: 8px;
-      margin: 12px 0;
+      max-width: 90%;
+      border-radius: 12px;
+      margin: 16px 0;
       object-fit: cover;
       box-shadow: 0 6px 18px rgba(0,0,0,0.4);
     }
@@ -25,35 +41,30 @@
       margin-top: 20px;
       padding: 16px;
       border-radius: 12px;
-      background: rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.1);
+      width: 100%;
+      max-width: 600px;
+      min-height: 120px;
     }
-    button {
-      margin: 6px;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    #recordBtn {
-      background: linear-gradient(180deg, #4dd0e1, #2a9fb0);
-      color: #fff;
-    }
-    #nextBtn {
-      background: linear-gradient(180deg, #ff7a7a, #e64c4c);
-      color: #fff;
+    footer {
+      padding: 12px;
+      font-size: 0.85rem;
+      text-align: center;
+      opacity: 0.6;
     }
   </style>
 </head>
 <body>
-  <h2>Speaking 3 — Pokémon Stage (Demo)</h2>
+  <header>🎤 Speaking 3 — Pokémon Stage</header>
+  <main>
+    <!-- Khung ảnh minh họa -->
+    <div id="imageBox"></div>
 
-  <!-- Khung ảnh minh họa -->
-  <div id="imageBox"></div>
-
-  <!-- Khung câu luyện tập -->
-  <div id="sentenceArea">Đang tải dữ liệu...</div>
+    <!-- Khung câu luyện tập + nút sẽ do JS render -->
+    <div id="sentenceArea">Đang tải dữ liệu...</div>
+  </main>
+  <footer>© 2025 Speaking Demo</footer>
 
   <!-- Nạp script -->
   <script type="module" src="speaking3.js"></script>
