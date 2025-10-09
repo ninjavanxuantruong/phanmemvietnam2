@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>🎮 PokéCollection Training</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #fff;
+      min-height: 100vh;
+      background: #0b1e3b; /* sẽ bị backgroundgame.js ghi đè bằng ảnh */
+    }
+    header {
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0,0,0,0.35);
+      backdrop-filter: blur(4px);
+    }
+    .status {
+      display: flex;
+      gap: 16px;
+      font-size: 15px;
+    }
+    .status span { background: rgba(0,0,0,0.3); padding: 6px 10px; border-radius: 8px; }
+    .container {
+      max-width: 860px;
+      margin: 24px auto;
+      padding: 16px;
+      background: rgba(0,0,0,0.35);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      backdrop-filter: blur(4px);
+    }
+    h1 { margin: 0; font-size: 22px; }
+    #questionBox { margin-top: 8px; }
+    .option {
+      display: block;
+      margin: 10px 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.12);
+      cursor: pointer;
+    }
+    .option input { margin-right: 8px; }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #confirmBtn { background: #00c853; color: #fff; }
+    #nextBtn { background: #ff9800; color: #fff; }
+    #finishBtn { background: #3f51b5; color: #fff; display: none; }
+    .hint {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #ffd54f;
+    }
+    .divider { margin: 12px 0; border-top: 1px dashed rgba(255,255,255,0.25); }
+    .note { font-size: 13px; opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PokéCollection Training</h1>
+    <div class="status">
+      <span>👤 Học sinh: <strong id="studentName">...</strong></span>
+      <span>⭐ Sao: <strong id="starCount">0</strong></span>
+      <span>✅ Đúng: <strong id="correctCount">0</strong></span>
+      <span>❓ Câu: <strong id="currentIndex">0</strong>/20</span>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="introBox" class="note">
+      Trả lời lần lượt 20 câu trắc nghiệm nghĩa từ vựng. Mỗi câu trả lời sẽ kích hoạt hiệu ứng tấn công:
+      đúng thì Pokémon của bạn ra chiêu, sai thì Pokémon hoang dã ra chiêu. Kết thúc nếu đúng ≥ 15/20 bạn sẽ được cộng thêm 5 sao.
+    </div>
+
+    <div class="divider"></div>
+
+    <div id="quizBox">
+      <div id="questionBox"></div>
+      <div class="controls">
+        <button id="confirmBtn">Xác nhận đáp án</button>
+        <button id="nextBtn" disabled>Tiếp theo</button>
+        <button id="finishBtn">Hoàn tất</button>
+      </div>
+      <div id="hintBox" class="hint"></div>
+    </div>
+  </div>
+
+  <!-- Nền đấu (auto set background) -->
+  <script src="backgroundgame.js"></script>
+  <!-- Hiệu ứng trận đấu đứng yên và tung chiêu -->
+  <script type="module" src="effect-normal.js"></script>
+  <!-- Logic quiz và Firestore -->
+  <script type="module" src="collection-training.js"></script>
+</body>
+</html>
