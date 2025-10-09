@@ -3,16 +3,14 @@ import { initializeApp, getApp } from "https://www.gstatic.com/firebasejs/10.5.0
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 import { initNormalBattle, playerAttack, wildAttack } from "./effect-normal.js";
 
-// ————————————————————————————————————————————————
-// Firebase (project pokemon-capture-10d03) chỉ để đọc/ghi sao và pokemon đã chọn
-// ————————————————————————————————————————————————
+// Firebase config
 const pokemonConfig = {
   apiKey: "AIzaSyCCVdzWiiFvcWiHVJN-x33YKarsjyziS8E",
   authDomain: "pokemon-capture-10d03.firebaseapp.com",
   projectId: "pokemon-capture-10d03",
   storageBucket: "pokemon-capture-10d03.appspot.com",
   messagingSenderId: "1068125543917",
-  appId: "1:106812475288:web:57de4365ee56729ea8dbe4"
+  appId: "1:1068125543917:web:57de4365ee56729ea8dbe4"
 };
 
 let pokemonApp;
@@ -20,26 +18,23 @@ try { pokemonApp = initializeApp(pokemonConfig, "pokemonApp"); }
 catch { pokemonApp = getApp("pokemonApp"); }
 const dbPokemon = getFirestore(pokemonApp);
 
-// ————————————————————————————————————————————————
 // State
-// ————————————————————————————————————————————————
 const studentName = localStorage.getItem("trainerName") || "Không tên";
 const studentClass = localStorage.getItem("trainerClass") || "Chưa có lớp";
-document.getElementById("studentName").textContent = studentName;
 const docId = `${studentName}-${studentClass}`;
 
 let stars = 0;
 let myPokemonId = 25;
 let battle = null;
 
-let quizItems = [];       // { word, meaning }
+let quizItems = [];
 let currentIndex = 0;
 let correctCount = 0;
+let wrongCount = 0;
 const TOTAL_QUESTIONS = 20;
+let allRowsGlobal = [];
 
-// ————————————————————————————————————————————————
-// Helpers: fetch sheets theo đúng flow tham khảo
-// ————————————————————————————————————————————————
+// Helpers: fetch sheets
 async function fetchMaxLessonCode() {
   const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
   const res = await fetch(SHEET_BAI_HOC);
@@ -65,7 +60,7 @@ async function fetchVocabItems(maxLessonCode) {
   const res = await fetch(SHEET_TU_VUNG);
   const text = await res.text();
   const json = JSON.parse(text.substring(47).slice(0, -2));
-  const rows = json.table.rows.slice(1); // bỏ dòng đầu
+  const rows = json.table.rows.slice(1);
 
   const baiTuVung = {};
   rows.forEach(r => {
@@ -100,7 +95,7 @@ async function fetchVocabItems(maxLessonCode) {
   return { items, allRows: rows };
 }
 
-// Lấy selected + stars từ Firestore
+// Load player data
 async function loadPlayerData() {
   const ref = doc(dbPokemon, "bosuutap", docId);
   const snap = await getDoc(ref);
@@ -109,122 +104,123 @@ async function loadPlayerData() {
   const data = snap.data();
   stars = parseInt(data.stars || 0, 10);
   myPokemonId = data.selected || 25;
-  document.getElementById("starCount").textContent = stars;
+  const starEl = document.getElementById("starCount");
+  if (starEl) starEl.textContent = stars;
 }
 
-// ————————————————————————————————————————————————
-// Quiz rendering per-question
-// ————————————————————————————————————————————————
+// Quiz rendering
 function renderQuestion(item, index, allRows) {
-  document.getElementById("currentIndex").textContent = index + 1;
+  const qBox = document.getElementById("questionBox");
+  const optBox = document.getElementById("optionsBox");
 
-  // tạo 3 đáp án sai từ toàn bộ nghĩa khác
+  if (!qBox || !optBox) return; // phòng lỗi nếu thiếu DOM
+
+  qBox.textContent = `Câu ${index + 1}: Nghĩa của "${item.word}" là gì?`;
+  optBox.innerHTML = "";
+
   const allMeanings = allRows
     .map(r => r.c[24]?.v?.toString().trim())
     .filter(m => m && m !== item.meaning);
-  const wrongOptions = allMeanings.sort(() => Math.random() - 0.5).slice(0, 3);
-  const options = [...wrongOptions, item.meaning].sort(() => Math.random() - 0.5);
+  const wrongOptions = allMeanings.sort(() => Math.random() * 2 - 1).slice(0, 3);
+  const options = [...wrongOptions, item.meaning].sort(() => Math.random() * 2 - 1);
 
-  const box = document.getElementById("questionBox");
-  box.innerHTML = `
-    <div><strong>Câu ${index + 1}:</strong> Nghĩa của "<em>${item.word}</em>" là gì?</div>
-    ${options.map((opt, i) => `
-      <label class="option">
-        <input type="radio" name="q${index}" value="${opt}" data-correct="${item.meaning}" />
-        ${String.fromCharCode(65 + i)}. ${opt}
-      </label>
-    `).join("")}
-  `;
-
-  document.getElementById("hintBox").textContent = `Gợi ý: đáp án đúng nằm trong ${options.length} lựa chọn.`;
-  document.getElementById("nextBtn").disabled = true;
+  options.forEach(opt => {
+    const div = document.createElement("div");
+    div.className = "option";
+    div.textContent = opt;
+    div.onclick = () => handleAnswer(opt, item.meaning);
+    optBox.appendChild(div);
+  });
 }
 
-function getSelectedValue(index) {
-  const checked = document.querySelector(`input[name="q${index}"]:checked`);
-  if (!checked) return null;
-  return { value: checked.value, correct: checked.dataset.correct };
+function handleAnswer(selected, correct) {
+  const total = quizItems.length;
+
+  if (selected === correct) {
+    correctCount++;
+    const el = document.getElementById("correctCount");
+    if (el) el.textContent = correctCount;
+    playerAttack(battle);
+  } else {
+    wrongCount++;
+    const el = document.getElementById("wrongCount");
+    if (el) el.textContent = wrongCount;
+    wildAttack(battle);
+  }
+
+  currentIndex++;
+  if (currentIndex < total) {
+    renderQuestion(quizItems[currentIndex], currentIndex, allRowsGlobal);
+  } else {
+    finishQuiz();
+  }
 }
 
-// ————————————————————————————————————————————————
-// Flow: init → per-answer effect → next → finish
-// ————————————————————————————————————————————————
+async function finishQuiz() {
+  const total = quizItems.length;
+  if (correctCount >= 15) {
+    stars = stars + 5;
+    const starEl = document.getElementById("starCount");
+    if (starEl) starEl.textContent = stars;
+
+    const ref = doc(dbPokemon, "bosuutap", docId);
+    const snap = await getDoc(ref);
+    const data = snap.exists() ? snap.data() : {};
+    await setDoc(ref, { ...data, stars });
+
+    alert(`✅ Bạn đúng ${correctCount}/${total}. Được cộng thêm 5 sao! ⭐`);
+  } else {
+    alert(`❌ Bạn đúng ${correctCount}/${total}. Chưa đủ điều kiện để cộng sao.`);
+  }
+}
+
+// Main flow
 async function main() {
+  // Set basic status text (safe)
+  const nameEl = document.getElementById("studentName");
+  const starEl = document.getElementById("starCount");
+  const cEl = document.getElementById("correctCount");
+  const wEl = document.getElementById("wrongCount");
+  if (nameEl) nameEl.textContent = studentName;
+  if (starEl) starEl.textContent = 0;
+  if (cEl) cEl.textContent = 0;
+  if (wEl) wEl.textContent = 0;
+
   await loadPlayerData();
 
-  // Khởi tạo sân đấu Pokémon (đứng yên)
+  // Khởi tạo battlefield (2 Pokémon đứng ở trên)
   battle = initNormalBattle(myPokemonId);
 
-  // Lấy dữ liệu bài học và từ vựng
+  // Lấy dữ liệu quiz
   const maxLessonCode = await fetchMaxLessonCode();
   if (!maxLessonCode) {
     alert("⚠️ Không tìm thấy bài học hợp lệ cho lớp hiện tại.");
     return;
   }
-  const { items, allRows } = await fetchVocabItems(maxLessonCode);
-  if (!items || items.length === 0) {
-    alert("⚠️ Không có từ vựng hợp lệ để tạo quiz.");
-    return;
-  }
 
-  // Chốt 20 câu (hoặc ít hơn nếu dữ liệu hạn chế)
+  const { items, allRows } = await fetchVocabItems(maxLessonCode);
   quizItems = items.slice(0, TOTAL_QUESTIONS);
+  allRowsGlobal = allRows;
+
+  // Reset trạng thái
   currentIndex = 0;
   correctCount = 0;
+  wrongCount = 0;
+  if (cEl) cEl.textContent = 0;
+  if (wEl) wEl.textContent = 0;
 
-  renderQuestion(quizItems[currentIndex], currentIndex, allRows);
-
-  // Sự kiện xác nhận đáp án
-  document.getElementById("confirmBtn").onclick = () => {
-    const sel = getSelectedValue(currentIndex);
-    if (!sel) {
-      alert("Vui lòng chọn một đáp án.");
-      return;
-    }
-
-    const isCorrect = sel.value === sel.correct;
-    if (isCorrect) {
-      correctCount++;
-      document.getElementById("correctCount").textContent = correctCount;
-      playerAttack(battle); // đúng → Pokémon của mình tung chiêu
-    } else {
-      wildAttack(battle);   // sai → Pokémon hoang dã tung chiêu
-    }
-
-    // Cho phép Next hoặc Finish
-    const isLast = currentIndex === quizItems.length - 1;
-    document.getElementById("nextBtn").disabled = isLast;
-    document.getElementById("finishBtn").style.display = isLast ? "inline-block" : "none";
-  };
-
-  // Sự kiện sang câu tiếp theo
-  document.getElementById("nextBtn").onclick = () => {
-    currentIndex++;
-    renderQuestion(quizItems[currentIndex], currentIndex, allRows);
-  };
-
-  // Kết thúc: cộng sao nếu đạt
-  document.getElementById("finishBtn").onclick = async () => {
-    const total = quizItems.length;
-    if (correctCount >= 15) {
-      stars = stars + 5;
-      document.getElementById("starCount").textContent = stars;
-
-      const ref = doc(dbPokemon, "bosuutap", docId);
-      const snap = await getDoc(ref);
-      const data = snap.exists() ? snap.data() : {};
-      await setDoc(ref, { ...data, stars });
-
-      alert(`✅ Bạn đúng ${correctCount}/${total}. Được cộng thêm 5 sao! ⭐`);
-    } else {
-      alert(`❌ Bạn đúng ${correctCount}/${total}. Chưa đủ điều kiện để cộng sao.`);
-    }
-  };
+  // Render câu hỏi đầu tiên
+  if (quizItems.length > 0) {
+    renderQuestion(quizItems[currentIndex], currentIndex, allRowsGlobal);
+  } else {
+    alert("❌ Không có dữ liệu từ vựng để tạo quiz.");
+  }
 }
 
-// Start
-main().catch(err => {
-  console.error("Lỗi khởi tạo quiz:", err);
-  alert("❌ Có lỗi khi khởi tạo quiz. Vui lòng thử lại.");
+// Đợi DOM sẵn sàng rồi mới gọi main (tránh null)
+document.addEventListener("DOMContentLoaded", () => {
+  main().catch(err => {
+    console.error("Lỗi khởi tạo quiz:", err);
+    alert("❌ Có lỗi khi khởi tạo quiz. Vui lòng thử lại.");
+  });
 });
-
