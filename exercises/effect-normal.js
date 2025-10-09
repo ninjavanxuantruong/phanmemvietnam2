@@ -103,14 +103,14 @@ export function initNormalBattle(myId, container = document.body) {
   // Pokémon của mình (góc phải trên)
   const mySprite = createSprite(myId, "my");
   mySprite.style.position = "absolute";
-  mySprite.style.top = "10%";
+  mySprite.style.top = "30%";
   mySprite.style.right = "10%";
 
   // Pokémon hoang dã (góc trái trên)
   const wild = getRandomWildPokemon();
   const wildSprite = createSprite(wild.id, "wild");
   wildSprite.style.position = "absolute";
-  wildSprite.style.top = "10%";
+  wildSprite.style.top = "30%";
   wildSprite.style.left = "10%";
 
   field.append(mySprite, wildSprite);
