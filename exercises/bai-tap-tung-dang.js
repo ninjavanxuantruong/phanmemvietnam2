@@ -1,16 +1,19 @@
-const sheetUrl = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+// ===== Config =====
+const sheetUrl = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?sheet=2&tqx=out:json";
 
-const ranges = {
-  pronunciation: [10, 50],
-  verb: [51, 100],
-  article: [101, 150],
-  preposition: [151, 250],
-  pronoun: [251, 300],
-  connector: [301, 350],
-  rewrite: [351, 400],
-  plural: [401, 450],
-  wordform: [451, 500],
-  vocabulary: [501, 600],
+// Mỗi dạng chiếm 7 cột ngang: [question, A, B, C, D, correct, note]
+// offset = vị trí bắt đầu (0 = cột A, 7 = cột H, 14 = cột O, …)
+const typeOffsets = {
+  pronunciation: 0,   // A–G
+  verb: 7,            // H–N
+  article: 14,        // O–U
+  preposition: 21,    // V–AB
+  pronoun: 28,        // AC–AI
+  connector: 35,      // AJ–AP
+  rewrite: 42,        // AQ–AW
+  plural: 49,         // AX–BD
+  wordform: 56,       // BE–BK
+  vocabulary: 63      // BL–BR
 };
 
 let totalScore = 0;
@@ -18,8 +21,9 @@ let totalQuestions = 0;
 let correctCount = 0;
 let wrongCount = 0;
 
+// ===== Helpers =====
 function normalize(text) {
-  return text?.trim().toLowerCase().replace(/[:.,]/g, "");
+  return text?.trim().toLowerCase().replace(/[^a-z0-9'\s]/g, "");
 }
 
 function shuffleArray(array) {
@@ -42,16 +46,13 @@ function saveScoreToLocal(type) {
   const newScore = correctCount;
   const newTotal = totalQuestions;
 
-  // ✅ Lấy điểm cũ TRƯỚC khi ghi đè
   const oldData = JSON.parse(localStorage.getItem(`score_${type}_grade8`) || "{}");
   const oldScore = oldData.correct || 0;
   const oldTotal = oldData.total || 0;
 
-  // ✅ Ghi đè điểm mới
   const scoreData = { correct: newScore, total: newTotal };
   localStorage.setItem(`score_${type}_grade8`, JSON.stringify(scoreData));
 
-  // ✅ Cập nhật result_grade8
   const prevResult = JSON.parse(localStorage.getItem("result_grade8") || "{}");
   const updatedResult = {
     score: (prevResult.score || 0) - oldScore + newScore,
@@ -61,9 +62,6 @@ function saveScoreToLocal(type) {
   localStorage.setItem("result_grade8", JSON.stringify(updatedResult));
 }
 
-
-
-
 async function fetchSheetData() {
   const res = await fetch(sheetUrl);
   const text = await res.text();
@@ -71,81 +69,186 @@ async function fetchSheetData() {
   return json.table.rows;
 }
 
-async function loadExercise() {
-  const type = document.getElementById("exerciseType").value;
-  // ✅ Ghi lại thời điểm bắt đầu làm bài
-  localStorage.setItem("startTime_grade8", Date.now());
+// Tạo phân bổ số câu theo số khoảng
+function allocateCounts(totalNeeded, numRanges) {
+  if (numRanges <= 0) return [];
 
-
-  // Nếu là dạng reading → gọi file reading.js xử lý
-  if (type === "reading") {
-    if (typeof loadReadingExercise === "function") {
-      loadReadingExercise(); // gọi hàm bên reading.js
-    } else {
-      console.error("Không tìm thấy hàm loadReadingExercise trong reading.js");
-    }
-    return;
+  // Các mẫu phân bổ cố định theo yêu cầu
+  if (numRanges === 1) return [totalNeeded];
+  if (numRanges === 2) {
+    const half = Math.floor(totalNeeded / 2);
+    return [half, totalNeeded - half];
+  }
+  if (numRanges === 3) {
+    // 30% - 40% - 30%
+    const first = Math.round(totalNeeded * 0.3);
+    const second = Math.round(totalNeeded * 0.4);
+    let third = totalNeeded - first - second;
+    // Điều chỉnh để không âm
+    if (third < 0) third = 0;
+    return [first, second, third];
+  }
+  if (numRanges === 4) {
+    const q = Math.floor(totalNeeded / 4);
+    const a = q;
+    const b = q;
+    const c = q;
+    const d = totalNeeded - (a + b + c);
+    return [a, b, c, d];
   }
 
-  // Các phần còn lại giữ nguyên như anh đang dùng
+  // > 4 khoảng: chia đều, đảm bảo tổng đúng
+  const base = Math.floor(totalNeeded / numRanges);
+  const counts = Array(numRanges).fill(base);
+  let remainder = totalNeeded - base * numRanges;
+  for (let i = 0; i < counts.length && remainder > 0; i++) {
+    counts[i]++;
+    remainder--;
+  }
+  return counts;
+}
+
+// Cắt sheet thành các "khoảng" 30 dòng
+function buildRangesIndices(totalRows, startIndex = 1, blockSize = 30) {
+  // startIndex = 1 để bắt đầu từ dòng 2 (bỏ header)
+  const effectiveRows = totalRows - startIndex;
+  const numRanges = Math.ceil(effectiveRows / blockSize);
+  const ranges = [];
+  for (let r = 0; r < numRanges; r++) {
+    const start = startIndex + r * blockSize;
+    const end = Math.min(start + blockSize - 1, totalRows - 1);
+    ranges.push([start, end]);
+  }
+  return ranges;
+}
+
+// Đọc một câu hỏi từ row + offset
+function readQuestionRow(row, offset) {
+  const question = row?.c?.[offset]?.v || "";
+  const ansA = row?.c?.[offset + 1]?.v || "";
+  const ansB = row?.c?.[offset + 2]?.v || "";
+  const ansC = row?.c?.[offset + 3]?.v || "";
+  const ansD = row?.c?.[offset + 4]?.v || "";
+  const correct = normalize(row?.c?.[offset + 5]?.v || "");
+  const note = row?.c?.[offset + 6]?.v || "";
+
+  if (!question?.trim()) return null; // không lấy câu trống
+
+  return {
+    question,
+    answers: [
+      { letter: "A", text: ansA },
+      { letter: "B", text: ansB },
+      { letter: "C", text: ansC },
+      { letter: "D", text: ansD }
+    ],
+    correct,
+    note
+  };
+}
+
+// ===== Main =====
+async function loadExercise() {
+  const type = document.getElementById("exerciseType").value;
+  localStorage.setItem("startTime_grade8", Date.now());
+
+  // Reset điểm
   totalScore = 0;
   totalQuestions = 0;
   correctCount = 0;
   wrongCount = 0;
   updateStats();
 
-  const questionLimit = parseInt(document.getElementById("questionCount").value, 10);
-  const [start, end] = ranges[type];
-  const rows = await fetchSheetData();
-
-  const validRows = [];
-  for (let i = start - 1; i < end; i++) {
-    const row = rows[i];
-    const questionCell = row?.c[35]; // AJ
-    if (questionCell && questionCell.v?.trim()) {
-      validRows.push(row);
+  // Nếu là reading → gọi file reading.js
+  if (type === "reading") {
+    if (typeof loadReadingExercise === "function") {
+      loadReadingExercise();
+    } else {
+      console.error("Không tìm thấy hàm loadReadingExercise trong reading.js");
     }
+    return;
   }
 
-  const shuffledQuestions = shuffleArray(validRows).slice(0, questionLimit);
+  const questionLimit = parseInt(document.getElementById("questionCount").value, 10);
+  const offset = typeOffsets[type];
+  if (offset === undefined) {
+    console.error("❌ Không tìm thấy dạng bài:", type);
+    return;
+  }
+
+  const rows = await fetchSheetData();
+  const totalRows = rows.length;
+
+  // Xây “khoảng” 30 dòng, bắt đầu từ dòng 2 (index 1)
+  const rangeBlocks = buildRangesIndices(totalRows, 1, 30); // [[startIdx,endIdx], ...]
+  const numRanges = rangeBlocks.length;
+
+  // Phân bổ số câu cần lấy từ mỗi khoảng
+  const perRangeCounts = allocateCounts(questionLimit, numRanges);
+
+  // Gom câu hỏi theo từng khoảng
+  const selected = [];
+  for (let r = 0; r < numRanges; r++) {
+    const [startIdx, endIdx] = rangeBlocks[r];
+    const countNeeded = perRangeCounts[r];
+
+    // Lọc các row hợp lệ trong khoảng r
+    const pool = [];
+    for (let i = startIdx; i <= endIdx; i++) {
+      const q = readQuestionRow(rows[i], offset);
+      if (q) pool.push({ rowIndex: i, data: q });
+    }
+
+    if (pool.length === 0 || countNeeded <= 0) continue;
+
+    // Random và chọn theo countNeeded
+    const picked = shuffleArray(pool).slice(0, countNeeded);
+    selected.push(...picked.map(p => p.data));
+  }
+
+  // Nếu vì thiếu dữ liệu mà chưa đủ → bổ sung từ toàn bộ pool
+  if (selected.length < questionLimit) {
+    const globalPool = [];
+    for (let i = 1; i < totalRows; i++) {
+      const q = readQuestionRow(rows[i], offset);
+      if (q) globalPool.push(q);
+    }
+    const needed = questionLimit - selected.length;
+    const extra = shuffleArray(globalPool).slice(0, needed);
+    selected.push(...extra);
+  }
+
+  // Trộn lần nữa cho ngẫu nhiên toàn bộ
+  const questions = shuffleArray(selected).slice(0, questionLimit);
+
   const container = document.getElementById("quizContainer");
   container.innerHTML = "";
 
-  shuffledQuestions.forEach((row, index) => {
-    const question = row.c[35]?.v || "";
-    const rawAnswers = [
-      { letter: "A", text: row.c[36]?.v || "" },
-      { letter: "B", text: row.c[37]?.v || "" },
-      { letter: "C", text: row.c[38]?.v || "" },
-      { letter: "D", text: row.c[39]?.v || "" },
-    ];
-    const correctText = normalize(row.c[40]?.v || "");
-    const shuffledAnswers = shuffleArray(rawAnswers);
-
+  // Render từng câu hỏi
+  questions.forEach((q, index) => {
     const block = document.createElement("div");
     block.className = "question-block";
-    block.innerHTML = `<strong>Câu ${index + 1}:</strong> ${question}`;
+    block.innerHTML = `<strong>Câu ${index + 1}:</strong> ${q.question}`;
 
     const ul = document.createElement("ul");
     ul.className = "answers";
-    shuffledAnswers.forEach((opt, i) => {
+    // Shuffle thứ tự hiển thị đáp án
+    shuffleArray(q.answers).forEach((opt, i) => {
       if (opt.text?.trim()) {
         const li = document.createElement("li");
         li.innerText = `${String.fromCharCode(65 + i)}. ${opt.text}`;
         ul.appendChild(li);
       }
     });
-
     block.appendChild(ul);
 
     const input = document.createElement("input");
     input.placeholder = "Nhập đáp án ...";
     input.onblur = () => {
       const userAnswer = normalize(input.value);
-      const correctText = normalize(row.c[40]?.v || "");
 
       totalQuestions++;
-      if (userAnswer === correctText) {
+      if (userAnswer === q.correct) {
         input.classList.add("correct");
         totalScore++;
         correctCount++;
@@ -157,14 +260,19 @@ async function loadExercise() {
       input.disabled = true;
       updateStats();
 
-      // ✅ Nếu đã làm hết số câu → lưu điểm
-      if (totalQuestions === shuffledQuestions.length) {
+      // Lưu điểm khi làm xong hết
+      if (totalQuestions === questions.length) {
         saveScoreToLocal(type);
-
-       
       }
 
-
+      // Hiển thị chú thích nếu có
+      if (q.note) {
+        const noteEl = document.createElement("div");
+        noteEl.style.marginTop = "8px";
+        noteEl.style.color = "#666";
+        noteEl.innerHTML = `💡 Ghi chú: ${q.note}`;
+        block.appendChild(noteEl);
+      }
     };
 
     block.appendChild(input);
