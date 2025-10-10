@@ -120,25 +120,15 @@
       <img src="https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/goduck.gif" alt="Go Duck mascot" class="goDuck" id="goDuck" />
     </div>
   </div>
+  <!-- Hiệu ứng thắng -->
+  <script type="module" src="./effect-win.js"></script>
 
-  <!-- PokéBall Effect -->
-  <script type="module">
-    export function showCatchEffect(container) {
-      const ball = document.createElement("div");
-      ball.textContent = "🟠 PokéBall!";
-      ball.style.position = "absolute";
-      ball.style.fontSize = "32px";
-      ball.style.animation = "pop 1s ease-in";
-      ball.style.top = "50%";
-      ball.style.left = "50%";
-      ball.style.transform = "translate(-50%, -50%)";
-      container.appendChild(ball);
-      setTimeout(() => container.removeChild(ball), 1000);
-    }
-  </script>
+  <!-- Hiệu ứng thua -->
+  <script type="module" src="./effect-loose.js"></script>
 
   <!-- Script luyện nói -->
   <script type="module" src="./speaking-chunks.js"></script>
+
 
 </body>
 </html>
