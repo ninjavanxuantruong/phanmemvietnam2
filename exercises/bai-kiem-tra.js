@@ -242,7 +242,8 @@ async function startTest() {
             input.disabled = true;
 
             updateStats();
-            localStorage.setItem("score_kiemtra_grade8", JSON.stringify({ correct: correctCount, total: totalQuestions }));
+            saveKiemtraScore();
+
 
             // Ghi chú (nếu có)
             if (q.note) {
@@ -282,7 +283,8 @@ async function startTest() {
         ul.querySelectorAll("button").forEach(b => b.disabled = true);
 
         updateStats();
-        localStorage.setItem("score_kiemtra_grade8", JSON.stringify({ correct: correctCount, total: totalQuestions }));
+        saveKiemtraScore();
+
 
         if (q.note) {
           const noteEl = document.createElement("div");
@@ -367,7 +369,8 @@ async function startTest() {
               input.disabled = true;
 
               updateStats();
-              localStorage.setItem("score_kiemtra_grade8", JSON.stringify({ correct: correctCount, total: totalQuestions }));
+              saveKiemtraScore();
+
             };
 
             li.appendChild(btn);
@@ -399,7 +402,8 @@ async function startTest() {
           ul.querySelectorAll("button").forEach(b => b.disabled = true);
 
           updateStats();
-          localStorage.setItem("score_kiemtra_grade8", JSON.stringify({ correct: correctCount, total: totalQuestions }));
+          saveKiemtraScore();
+
         };
 
         block.appendChild(input);
@@ -409,3 +413,28 @@ async function startTest() {
       console.error("Lỗi tải dữ liệu Reading:", e);
     }
   }
+
+function saveKiemtraScore() {
+  const type = "kiemtra";
+  const newScore = correctCount;
+  const newTotal = totalQuestions;
+
+  // Lấy điểm cũ trước khi ghi đè
+  const oldData = JSON.parse(localStorage.getItem(`score_${type}_grade8`) || "{}");
+  const oldScore = oldData.correct || 0;
+  const oldTotal = oldData.total || 0;
+
+  // Ghi đè điểm mới
+  const scoreData = { correct: newScore, total: newTotal };
+  localStorage.setItem(`score_${type}_grade8`, JSON.stringify(scoreData));
+
+  // Cập nhật result_grade8 (cộng dồn)
+  const prevResult = JSON.parse(localStorage.getItem("result_grade8") || "{}");
+  const updatedResult = {
+    score: (prevResult.score || 0) - oldScore + newScore,
+    total: (prevResult.total || 0) - oldTotal + newTotal
+  };
+
+  localStorage.setItem("result_grade8", JSON.stringify(updatedResult));
+}
+
