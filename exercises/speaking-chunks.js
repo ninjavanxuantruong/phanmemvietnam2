@@ -107,7 +107,7 @@ function renderChunk(autoSpeak = true, target = "", meaning = "") {
       if (sentenceIndex < sentences.length) {
         startSentence();
       } else {
-        showFinalResult();
+        showFinalResult(1);
       }
     }
   };
@@ -143,7 +143,7 @@ function renderChunk(autoSpeak = true, target = "", meaning = "") {
 import { showVictoryEffect } from './effect-win.js';
 import { showDefeatEffect } from './effect-loose.js';
 
-function showFinalResult() {
+function showFinalResult(mode) {
   const area = document.getElementById("speakingArea");
   area.innerHTML = `<div style="font-size:24px;">🏁 Bạn đã luyện hết toàn bộ nội dung!</div>`;
 
@@ -151,13 +151,8 @@ function showFinalResult() {
     ? Math.round((totalScore / totalChunks) * 100)
     : 0;
 
-  // ✅ Ghi lại kết quả vào localStorage
-  const prev = JSON.parse(localStorage.getItem("result_speaking")) || { score: 0, total: 0 };
-  const updated = {
-    score: prev.score + totalScore,
-    total: prev.total + totalChunks
-  };
-  localStorage.setItem("result_speaking", JSON.stringify(updated));
+  // ✅ Ghi điểm vào localStorage theo dạng part (1,2,3)
+  setResultSpeakingPart(mode, totalScore, totalChunks);
 
   // ✅ Hiển thị kết quả
   area.innerHTML += `
@@ -168,12 +163,36 @@ function showFinalResult() {
 
   if (percent >= 50) {
     area.innerHTML += `<br>🎉 Chuẩn Legendary! Bạn đã bắt được Pokémon!`;
-    showVictoryEffect(area); // ✅ hiệu ứng thắng
+    showVictoryEffect(area); // hiệu ứng thắng
   } else {
     area.innerHTML += `<br>🚫 Bạn chưa bắt được Pokémon nào! Hãy luyện thêm để đạt tối thiểu 50%.`;
-    showDefeatEffect(area); // ✅ hiệu ứng thua
+    showDefeatEffect(area); // hiệu ứng thua
   }
 }
+
+function setResultSpeakingPart(mode, score, total) {
+  const raw = localStorage.getItem("result_speaking");
+  const prev = raw ? JSON.parse(raw) : {};
+
+  const updated = {
+    score1: mode === 1 ? score : prev.score1 || 0,
+    score2: mode === 2 ? score : prev.score2 || 0,
+    score3: mode === 3 ? score : prev.score3 || 0,
+    total1: mode === 1 ? total : prev.total1 || 0,
+    total2: mode === 2 ? total : prev.total2 || 0,
+    total3: mode === 3 ? total : prev.total3 || 0
+  };
+
+  const totalScore = (updated.score1 || 0) + (updated.score2 || 0) + (updated.score3 || 0);
+  const totalMax   = (updated.total1 || 0) + (updated.total2 || 0) + (updated.total3 || 0);
+
+  localStorage.setItem("result_speaking", JSON.stringify({
+    ...updated,
+    score: totalScore,
+    total: totalMax
+  }));
+}
+
 
 
 function startSentence() {
