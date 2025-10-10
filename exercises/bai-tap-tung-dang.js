@@ -144,6 +144,8 @@ function readQuestionRow(row, offset) {
     note
   };
 }
+
+// ===== Main =====
 // ===== Main =====
 async function loadExercise() {
   const type = document.getElementById("exerciseType").value;
@@ -155,16 +157,6 @@ async function loadExercise() {
   correctCount = 0;
   wrongCount = 0;
   updateStats();
-
-  // Nếu là reading → gọi file reading.js
-  if (type === "reading") {
-    if (typeof loadReadingExercise === "function") {
-      loadReadingExercise();
-    } else {
-      console.error("Không tìm thấy hàm loadReadingExercise trong reading.js");
-    }
-    return;
-  }
 
   const questionLimit = parseInt(document.getElementById("questionCount").value, 10);
   const offset = typeOffsets[type];
@@ -227,21 +219,62 @@ async function loadExercise() {
 
     const ul = document.createElement("ul");
     ul.className = "answers";
+
     // Shuffle thứ tự hiển thị đáp án
     shuffleArray(q.answers).forEach((opt, i) => {
       if (opt.text?.trim()) {
         const li = document.createElement("li");
-        li.innerText = `${String.fromCharCode(65 + i)}. ${opt.text}`;
+        const btn = document.createElement("button");
+        btn.className = "answer-btn";
+        btn.innerText = `${String.fromCharCode(65 + i)}. ${opt.text}`;
+
+        btn.onclick = () => {
+          totalQuestions++;
+          const userAnswer = normalize(opt.text);
+
+          if (q.correctArr.includes(userAnswer)) {
+            btn.classList.add("correct");
+            totalScore++;
+            correctCount++;
+          } else {
+            btn.classList.add("wrong");
+            wrongCount++;
+          }
+
+          // Disable tất cả nút sau khi chọn
+          ul.querySelectorAll("button").forEach(b => b.disabled = true);
+          input.disabled = true; // disable luôn ô nhập
+
+          updateStats();
+
+          if (totalQuestions === questions.length) {
+            saveScoreToLocal(type);
+          }
+
+          // Hiện ghi chú nếu có
+          if (q.note) {
+            const noteEl = document.createElement("div");
+            noteEl.style.marginTop = "8px";
+            noteEl.style.color = "#666";
+            noteEl.innerHTML = `💡 Ghi chú: ${q.note}`;
+            block.appendChild(noteEl);
+          }
+        };
+
+        li.appendChild(btn);
         ul.appendChild(li);
       }
     });
+
     block.appendChild(ul);
 
+    // ✅ Thêm ô input để nhập đáp án thủ công
     const input = document.createElement("input");
     input.placeholder = "Nhập đáp án ...";
     input.onblur = () => {
-      const userAnswer = normalize(input.value);
+      if (input.disabled) return; // nếu đã chọn bằng nút thì bỏ qua
 
+      const userAnswer = normalize(input.value);
       totalQuestions++;
       if (q.correctArr.includes(userAnswer)) {
         input.classList.add("correct");
@@ -253,14 +286,14 @@ async function loadExercise() {
       }
 
       input.disabled = true;
+      ul.querySelectorAll("button").forEach(b => b.disabled = true); // disable nút
+
       updateStats();
 
-      // Lưu điểm khi làm xong hết
       if (totalQuestions === questions.length) {
         saveScoreToLocal(type);
       }
 
-      // Hiển thị chú thích nếu có
       if (q.note) {
         const noteEl = document.createElement("div");
         noteEl.style.marginTop = "8px";
