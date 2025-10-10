@@ -70,10 +70,20 @@ function animateSkillEffect(attackerId, skills, container, targetId) {
 
 function castRandomSkill(attackerId, targetId, container) {
   const info = getPokemonInfo(attackerId);
-  const skills = Array.isArray(info.skills) && info.skills.length > 0 ? info.skills : ["Tackle"];
-  const skill = skills[Math.floor(Math.random() * skills.length)];
+  const allSkills = Array.isArray(info.skills) ? info.skills : ["Tackle"];
+
+  // Lọc ra các skill có hiệu ứng đã định nghĩa
+  const validSkills = allSkills.filter(name => typeof skillEffects[name] === "function");
+
+  if (validSkills.length === 0) {
+    console.warn(`Không có hiệu ứng nào cho các skill của ${info.name}`);
+    return;
+  }
+
+  const skill = validSkills[Math.floor(Math.random() * validSkills.length)];
   animateSkillEffect(attackerId, [skill], container, targetId);
 }
+
 
 // ————————————————————————————————————————————————
 // Public API
