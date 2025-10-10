@@ -158,6 +158,16 @@ async function loadExercise() {
   wrongCount = 0;
   updateStats();
 
+  // ✅ Nếu là dạng reading → gọi file reading.js xử lý riêng
+  if (type === "reading") {
+    if (typeof loadReadingExercise === "function") {
+      loadReadingExercise();
+    } else {
+      console.error("Không tìm thấy hàm loadReadingExercise trong reading.js");
+    }
+    return; // QUAN TRỌNG: dừng hàm tại đây
+  }
+
   const questionLimit = parseInt(document.getElementById("questionCount").value, 10);
   const offset = typeOffsets[type];
   if (offset === undefined) {
@@ -307,3 +317,4 @@ async function loadExercise() {
     container.appendChild(block);
   });
 }
+
