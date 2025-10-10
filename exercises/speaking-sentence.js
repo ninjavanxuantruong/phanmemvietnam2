@@ -1,4 +1,4 @@
-import { showCatchEffect } from './pokeball-effect.js';
+
 
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
@@ -34,7 +34,7 @@ function renderSentence(autoSpeak = true, target = "", meaning = "") {
     if (sentenceIndex < sentences.length) {
       startSentence();
     } else {
-      showFinalResult();
+      showFinalResult(2);
     }
   };
 
@@ -85,21 +85,16 @@ function checkAccuracy(userText) {
   // Không gọi hiệu ứng ở đây — chỉ gọi khi kết thúc toàn bộ
 }
 
+import { showVictoryEffect } from './effect-win.js';
+import { showDefeatEffect } from './effect-loose.js';
 function showFinalResult() {
   const area = document.getElementById("sentenceArea");
   const percent = sentences.length > 0
     ? Math.round((totalScore / sentences.length) * 100)
     : 0;
 
-  // ✅ Ghi điểm tổng vào localStorage (cộng dồn vào result_speaking)
-  const prev = JSON.parse(localStorage.getItem("result_speaking")) || { score: 0, total: 0 };
-  const updated = {
-    score: prev.score + totalScore,
-    total: prev.total + sentences.length
-  };
-  localStorage.setItem("result_speaking", JSON.stringify(updated));
-
-
+  // ✅ Ghi điểm vào localStorage theo dạng part 2
+  setResultSpeakingPart(2, totalScore, sentences.length);
 
   // ✅ Hiển thị kết quả UI
   area.innerHTML = `
@@ -111,10 +106,33 @@ function showFinalResult() {
 
   if (percent >= 50) {
     area.innerHTML += `<br>🎉 Chuẩn Legendary! Bạn đã bắt được Pokémon!`;
-    showCatchEffect(area);
+    showVictoryEffect(area);
   } else {
     area.innerHTML += `<br>🚫 Bạn chưa bắt được Pokémon nào! Hãy luyện thêm để đạt tối thiểu 50%.`;
+    showDefeatEffect(area);
   }
+}
+function setResultSpeakingPart(mode, score, total) {
+  const raw = localStorage.getItem("result_speaking");
+  const prev = raw ? JSON.parse(raw) : {};
+
+  const updated = {
+    score1: mode === 1 ? score : prev.score1 || 0,
+    score2: mode === 2 ? score : prev.score2 || 0,
+    score3: mode === 3 ? score : prev.score3 || 0,
+    total1: mode === 1 ? total : prev.total1 || 0,
+    total2: mode === 2 ? total : prev.total2 || 0,
+    total3: mode === 3 ? total : prev.total3 || 0
+  };
+
+  const totalScore = (updated.score1 || 0) + (updated.score2 || 0) + (updated.score3 || 0);
+  const totalMax   = (updated.total1 || 0) + (updated.total2 || 0) + (updated.total3 || 0);
+
+  localStorage.setItem("result_speaking", JSON.stringify({
+    ...updated,
+    score: totalScore,
+    total: totalMax
+  }));
 }
 
 
@@ -163,11 +181,14 @@ getVoices().then(v => {
         }
       }
 
-      sentenceIndex = 0;
+      totalScore = 0;       // reset điểm part 2
+      sentenceIndex = 0;    // reset vị trí câu đầu tiên
+
       if (sentences.length > 0) {
         startSentence();
       } else {
         document.getElementById("sentenceArea").innerHTML = `<div style="font-size:20px;">📭 Không tìm thấy dữ liệu từ vựng đã học.</div>`;
       }
+
     });
 });
