@@ -23,7 +23,7 @@ export const phonicsBank = [
   { unit: "groupE", key: "eer", ipa: "/ɪə/", word: "cheer" },
   { unit: "groupE", key: "ere", ipa: "/ɪə/", word: "here" },
   { unit: "groupE", key: "ew", ipa: "/juː/", word: "new" },
-  
+  { unit: "groupE", key: "er", ipa: "/ə/", word: "sister" },
 
   // 🔰 groupI: Tổ hợp bắt đầu bằng I (bao gồm Y)
   { unit: "groupI", key: "i", ipa: "/ɪ/", word: "insect" },
@@ -33,7 +33,7 @@ export const phonicsBank = [
   { unit: "groupI", key: "y", ipa: "/aɪ/", word: "fly" },
   { unit: "groupI", key: "ir", ipa: "/ɜː/", word: "bird" },
   { unit: "groupI", key: "ire", ipa: "/aɪə/", word: "fire" },
-  { unit: "groupI", key: "er", ipa: "/ə/", word: "sister" },
+  
 
   // 🔰 groupO: Tổ hợp bắt đầu bằng O
   { unit: "groupO", key: "o", ipa: "/ɒ/", word: "ostrich" },
