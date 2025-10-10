@@ -267,7 +267,10 @@ getVoices().then(v => {
         }
       }
 
-      sentenceIndex = 0;
+      totalScore = 0;      // reset điểm part 1
+      totalChunks = 0;     // reset số chunk
+      sentenceIndex = 0;   // reset vị trí câu đầu tiên
+
       if (sentences.length > 0) {
         startSentence();
       } else {
