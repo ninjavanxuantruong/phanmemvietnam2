@@ -2,7 +2,6 @@
 const sheetUrl = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?sheet=2&tqx=out:json";
 
 // Mỗi dạng chiếm 7 cột ngang: [question, A, B, C, D, correct, note]
-// offset = vị trí bắt đầu (0 = cột A, 7 = cột H, 14 = cột O, …)
 const typeOffsets = {
   pronunciation: 0,   // A–G
   verb: 7,            // H–N
@@ -73,31 +72,24 @@ async function fetchSheetData() {
 function allocateCounts(totalNeeded, numRanges) {
   if (numRanges <= 0) return [];
 
-  // Các mẫu phân bổ cố định theo yêu cầu
   if (numRanges === 1) return [totalNeeded];
   if (numRanges === 2) {
     const half = Math.floor(totalNeeded / 2);
     return [half, totalNeeded - half];
   }
   if (numRanges === 3) {
-    // 30% - 40% - 30%
     const first = Math.round(totalNeeded * 0.3);
     const second = Math.round(totalNeeded * 0.4);
     let third = totalNeeded - first - second;
-    // Điều chỉnh để không âm
     if (third < 0) third = 0;
     return [first, second, third];
   }
   if (numRanges === 4) {
     const q = Math.floor(totalNeeded / 4);
-    const a = q;
-    const b = q;
-    const c = q;
-    const d = totalNeeded - (a + b + c);
-    return [a, b, c, d];
+    return [q, q, q, totalNeeded - 3 * q];
   }
 
-  // > 4 khoảng: chia đều, đảm bảo tổng đúng
+  // >4 khoảng: chia đều
   const base = Math.floor(totalNeeded / numRanges);
   const counts = Array(numRanges).fill(base);
   let remainder = totalNeeded - base * numRanges;
@@ -110,7 +102,6 @@ function allocateCounts(totalNeeded, numRanges) {
 
 // Cắt sheet thành các "khoảng" 30 dòng
 function buildRangesIndices(totalRows, startIndex = 1, blockSize = 30) {
-  // startIndex = 1 để bắt đầu từ dòng 2 (bỏ header)
   const effectiveRows = totalRows - startIndex;
   const numRanges = Math.ceil(effectiveRows / blockSize);
   const ranges = [];
@@ -129,10 +120,17 @@ function readQuestionRow(row, offset) {
   const ansB = row?.c?.[offset + 2]?.v || "";
   const ansC = row?.c?.[offset + 3]?.v || "";
   const ansD = row?.c?.[offset + 4]?.v || "";
-  const correct = normalize(row?.c?.[offset + 5]?.v || "");
+
+  // ✅ Tách nhiều đáp án đúng bằng dấu phẩy
+  const correctRaw = row?.c?.[offset + 5]?.v || "";
+  const correctArr = correctRaw
+    .split(",")
+    .map(x => normalize(x))
+    .filter(Boolean);
+
   const note = row?.c?.[offset + 6]?.v || "";
 
-  if (!question?.trim()) return null; // không lấy câu trống
+  if (!question?.trim()) return null;
 
   return {
     question,
@@ -142,11 +140,10 @@ function readQuestionRow(row, offset) {
       { letter: "C", text: ansC },
       { letter: "D", text: ansD }
     ],
-    correct,
+    correctArr,
     note
   };
 }
-
 // ===== Main =====
 async function loadExercise() {
   const type = document.getElementById("exerciseType").value;
@@ -180,7 +177,7 @@ async function loadExercise() {
   const totalRows = rows.length;
 
   // Xây “khoảng” 30 dòng, bắt đầu từ dòng 2 (index 1)
-  const rangeBlocks = buildRangesIndices(totalRows, 1, 30); // [[startIdx,endIdx], ...]
+  const rangeBlocks = buildRangesIndices(totalRows, 1, 30);
   const numRanges = rangeBlocks.length;
 
   // Phân bổ số câu cần lấy từ mỗi khoảng
@@ -192,21 +189,19 @@ async function loadExercise() {
     const [startIdx, endIdx] = rangeBlocks[r];
     const countNeeded = perRangeCounts[r];
 
-    // Lọc các row hợp lệ trong khoảng r
     const pool = [];
     for (let i = startIdx; i <= endIdx; i++) {
       const q = readQuestionRow(rows[i], offset);
-      if (q) pool.push({ rowIndex: i, data: q });
+      if (q) pool.push(q);
     }
 
     if (pool.length === 0 || countNeeded <= 0) continue;
 
-    // Random và chọn theo countNeeded
     const picked = shuffleArray(pool).slice(0, countNeeded);
-    selected.push(...picked.map(p => p.data));
+    selected.push(...picked);
   }
 
-  // Nếu vì thiếu dữ liệu mà chưa đủ → bổ sung từ toàn bộ pool
+  // Nếu chưa đủ → bổ sung từ toàn bộ pool
   if (selected.length < questionLimit) {
     const globalPool = [];
     for (let i = 1; i < totalRows; i++) {
@@ -248,7 +243,7 @@ async function loadExercise() {
       const userAnswer = normalize(input.value);
 
       totalQuestions++;
-      if (userAnswer === q.correct) {
+      if (q.correctArr.includes(userAnswer)) {
         input.classList.add("correct");
         totalScore++;
         correctCount++;
