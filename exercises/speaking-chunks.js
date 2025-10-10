@@ -1,4 +1,4 @@
-import { showCatchEffect } from './pokeball-effect.js';
+
 
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
@@ -140,6 +140,9 @@ function renderChunk(autoSpeak = true, target = "", meaning = "") {
   if (autoSpeak) speak(phrase);
 }
 
+import { showVictoryEffect } from './effect-win.js';
+import { showDefeatEffect } from './effect-loose.js';
+
 function showFinalResult() {
   const area = document.getElementById("speakingArea");
   area.innerHTML = `<div style="font-size:24px;">🏁 Bạn đã luyện hết toàn bộ nội dung!</div>`;
@@ -156,7 +159,6 @@ function showFinalResult() {
   };
   localStorage.setItem("result_speaking", JSON.stringify(updated));
 
-
   // ✅ Hiển thị kết quả
   area.innerHTML += `
     <div style="margin-top:16px;">
@@ -166,9 +168,10 @@ function showFinalResult() {
 
   if (percent >= 50) {
     area.innerHTML += `<br>🎉 Chuẩn Legendary! Bạn đã bắt được Pokémon!`;
-    showCatchEffect(area);
+    showVictoryEffect(area); // ✅ hiệu ứng thắng
   } else {
     area.innerHTML += `<br>🚫 Bạn chưa bắt được Pokémon nào! Hãy luyện thêm để đạt tối thiểu 50%.`;
+    showDefeatEffect(area); // ✅ hiệu ứng thua
   }
 }
 
