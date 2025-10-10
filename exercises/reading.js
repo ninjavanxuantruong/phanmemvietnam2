@@ -97,24 +97,58 @@ async function loadReadingExercise() {
     const ul = document.createElement("ul");
     ul.className = "answers";
 
+    // ✅ Hỗ trợ nhiều đáp án đúng
+    const correctArr = (q.correct || "")
+      .split(",")
+      .map(x => normalize(x))
+      .filter(Boolean);
+
     const shuffledOptions = shuffleArray(q.options);
     shuffledOptions.forEach((opt, i) => {
       if (opt.text?.trim()) {
         const li = document.createElement("li");
-        li.innerText = `${String.fromCharCode(65 + i)}. ${opt.text}`;
+        const btn = document.createElement("button");
+        btn.className = "answer-btn";
+        btn.innerText = `${String.fromCharCode(65 + i)}. ${opt.text}`;
+
+        btn.onclick = () => {
+          totalQuestions++;
+          const userAnswer = normalize(opt.text);
+
+          if (correctArr.includes(userAnswer)) {
+            btn.classList.add("correct");
+            totalScore++;
+            correctCount++;
+          } else {
+            btn.classList.add("wrong");
+            wrongCount++;
+          }
+
+          ul.querySelectorAll("button").forEach(b => b.disabled = true);
+          input.disabled = true;
+
+          updateStats();
+          if (totalQuestions === questions.length) {
+            saveReadingScore();
+          }
+        };
+
+        li.appendChild(btn);
         ul.appendChild(li);
       }
     });
 
     block.appendChild(ul);
 
+    // ✅ Ô input nhập tay
     const input = document.createElement("input");
     input.placeholder = "Nhập đáp án ...";
     input.onblur = () => {
+      if (input.disabled) return;
       const userAnswer = normalize(input.value);
 
       totalQuestions++;
-      if (userAnswer === q.correct) {
+      if (correctArr.includes(userAnswer)) {
         input.classList.add("correct");
         totalScore++;
         correctCount++;
@@ -124,8 +158,9 @@ async function loadReadingExercise() {
       }
 
       input.disabled = true;
-      updateStats();
+      ul.querySelectorAll("button").forEach(b => b.disabled = true);
 
+      updateStats();
       if (totalQuestions === questions.length) {
         saveReadingScore();
       }
@@ -134,4 +169,5 @@ async function loadReadingExercise() {
     block.appendChild(input);
     questionsContainer.appendChild(block);
   });
+
 }
