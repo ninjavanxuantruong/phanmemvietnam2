@@ -267,7 +267,7 @@ function renderSentence(autoSpeak = false, target = "", meaning = "") {
     if (sentenceIndex < sentences.length) {
       startSentence();
     } else {
-      showFinalResult();
+      showFinalResult(3);
     }
   };
 
@@ -338,21 +338,19 @@ function checkAccuracy(userText) {
 }
 
 // ===== Final stage: show result, then paragraph reading =====
-function showFinalResult() {
+import { showVictoryEffect } from './effect-win.js';
+import { showDefeatEffect } from './effect-loose.js';
+
+function showFinalResult(mode) {
   const area = document.getElementById("sentenceArea");
   const percent = sentences.length > 0
     ? Math.round((totalScore / sentences.length) * 100)
     : 0;
 
-  // Save cumulative to localStorage
-  const prev = JSON.parse(localStorage.getItem("result_speaking")) || { score: 0, total: 0 };
-  const updated = {
-    score: prev.score + totalScore,
-    total: prev.total + sentences.length
-  };
-  localStorage.setItem("result_speaking", JSON.stringify(updated));
+  // ✅ Ghi điểm vào localStorage theo dạng part (1,2,3)
+  setResultSpeakingPart(mode, totalScore, sentences.length);
 
-  // UI result
+  // ✅ Hiển thị kết quả UI
   area.innerHTML = `
     <div style="font-size:24px;">🏁 Bạn đã luyện hết toàn bộ câu!</div>
     <div style="margin-top:16px;">
@@ -368,7 +366,7 @@ function showFinalResult() {
     <div id="paragraphResult" style="margin-top:12px; text-align:center;"></div>
   `;
 
-  // Build the paragraph from all sentences
+  // Build the paragraph
   const fullParagraph = sentences.map(s => s.text).join(". ").replace(/\s+\./g, ".").trim() + ".";
   document.getElementById("paragraphBox").textContent = fullParagraph;
 
@@ -420,13 +418,8 @@ function showFinalResult() {
     const grandTotal = sentences.length + 10;
     const percentTotal = Math.round((totalScore / grandTotal) * 100);
 
-    // Lưu localStorage
-    const prev = JSON.parse(localStorage.getItem("result_speaking")) || { score: 0, total: 0 };
-    const updated = {
-      score: prev.score + totalScore,
-      total: prev.total + grandTotal
-    };
-    localStorage.setItem("result_speaking", JSON.stringify(updated));
+    // ✅ Ghi đè lại điểm part 3 sau khi cộng thêm điểm đoạn văn
+    setResultSpeakingPart(3, totalScore, grandTotal);
 
     const resEl = document.getElementById("paragraphResult");
     resEl.innerHTML =
@@ -436,13 +429,37 @@ function showFinalResult() {
 
     if (percentTotal >= 50) {
       resEl.innerHTML += `<div style="margin-top:10px;">🎉 Chuẩn Legendary! Bạn đã bắt được Pokémon!</div>`;
-      try { showCatchEffect(area); } catch {}
+      showVictoryEffect(area);
     } else {
       resEl.innerHTML += `<div style="margin-top:10px;">🚫 Bạn đã thua! Hãy luyện thêm để đạt tối thiểu 50%.</div>`;
+      showDefeatEffect(area);
     }
   };
-
 }
+
+function setResultSpeakingPart(mode, score, total) {
+  const raw = localStorage.getItem("result_speaking");
+  const prev = raw ? JSON.parse(raw) : {};
+
+  const updated = {
+    score1: mode === 1 ? score : prev.score1 || 0,
+    score2: mode === 2 ? score : prev.score2 || 0,
+    score3: mode === 3 ? score : prev.score3 || 0,
+    total1: mode === 1 ? total : prev.total1 || 0,
+    total2: mode === 2 ? total : prev.total2 || 0,
+    total3: mode === 3 ? total : prev.total3 || 0
+  };
+
+  const totalScore = (updated.score1 || 0) + (updated.score2 || 0) + (updated.score3 || 0);
+  const totalMax   = (updated.total1 || 0) + (updated.total2 || 0) + (updated.total3 || 0);
+
+  localStorage.setItem("result_speaking", JSON.stringify({
+    ...updated,
+    score: totalScore,
+    total: totalMax
+  }));
+}
+
 
 // ===== Flow control =====
 function startSentence() {
