@@ -51,7 +51,7 @@ export const phonicsBank = [
   { unit: "groupU", key: "u-e", ipa: "/juː/", word: "cube" },
   { unit: "groupU", key: "ue", ipa: "/uː/", word: "blue" },
   { unit: "groupU", key: "ui", ipa: "/uː/", word: "fruit" },
-  { unit: "groupU", key: "ure", ipa: "/ʊə/", word: "pure" },
+  { unit: "groupU", key: "ure", ipa: "/ʊə/", word: "sure" },
   { unit: "groupU", key: "ur", ipa: "/ɜː/", word: "nurse" },
 
   // 🔴 Unit 1: Nguyên âm ngắn
