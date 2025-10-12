@@ -34,6 +34,9 @@ let wrongCount = 0;
 const TOTAL_QUESTIONS = 20;
 let allRowsGlobal = [];
 
+let quizFinished = false;
+
+
 // Helpers: fetch sheets
 async function fetchMaxLessonCode() {
   const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
@@ -151,9 +154,11 @@ function handleAnswer(selected, correct) {
   currentIndex++;
   if (currentIndex < total) {
     renderQuestion(quizItems[currentIndex], currentIndex, allRowsGlobal);
-  } else {
+  } else if (!quizFinished) {
+    quizFinished = true;
     finishQuiz();
   }
+
 }
 
 async function finishQuiz() {
