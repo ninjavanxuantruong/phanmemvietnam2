@@ -171,8 +171,7 @@
         tổng hợp học sinh- dành cho thầy
       </button>
 
- 
-
+  
         
       
       
@@ -278,7 +277,15 @@
 
     function handlePrecheckAnswer(selected, correct, word, key) {
       const status = document.getElementById("precheckStatus");
+      
       if (selected === correct) {
+        // 🔊 Đọc từ vựng khi trả lời đúng
+        speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(word);
+        utter.lang = "en-US";
+        utter.rate = 0.9;
+        speechSynthesis.speak(utter);
+
         const checkedWords = JSON.parse(localStorage.getItem("checkedWords") || "[]");
         if (!checkedWords.includes(word)) {
           checkedWords.push(word);
@@ -292,6 +299,7 @@
       } else {
         status.textContent = "❌ Sai rồi! Thử lại câu này.";
       }
+
     }
   </script>
 
