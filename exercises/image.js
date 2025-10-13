@@ -126,7 +126,8 @@ async function showD1() {
   const area = document.getElementById("exerciseArea");
   area.innerHTML = `
     <button id="playSoundD1">🔊 Nghe từ</button>
-    <div id="cardsD1" style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:20px;"></div>
+    
+    <div id="cardsD1" class="card-container-d1"></div>
     <p id="resultD1"></p>
   `;
 
