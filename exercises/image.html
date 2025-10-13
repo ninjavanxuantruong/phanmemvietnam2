@@ -59,6 +59,11 @@
       margin-top: 24px;
     }
 
+    .quiz-container {
+      margin-top: 24px;
+    }
+
+    /* ✅ Responsive cho nút chế độ trên điện thoại */
     @media (max-width: 600px) {
       .mode-btn {
         display: block;
@@ -66,6 +71,27 @@
         width: 90%;
       }
     }
+
+    /* ✅ Responsive cho dạng 1: thẻ ảnh */
+    .card-container-d1 {
+      display: grid;
+      gap: 12px;
+      margin: 20px;
+      justify-content: center;
+    }
+
+    @media (max-width: 600px) {
+      .card-container-d1 {
+        grid-template-columns: repeat(2, 1fr); /* mobile: 2 cột */
+      }
+    }
+
+    @media (min-width: 601px) {
+      .card-container-d1 {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 160px)); /* desktop: nhiều cột vừa khít */
+      }
+    }
+
   </style>
 </head>
 <body>
