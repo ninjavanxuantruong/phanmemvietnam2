@@ -171,7 +171,7 @@
         tổng hợp học sinh- dành cho thầy
       </button>
 
-      
+ 
 
         
       
@@ -229,6 +229,12 @@
       const options = [current.meaning, ...wrongChoices.slice(0, 3)].sort(() => Math.random() - 0.5);
 
       document.getElementById("questionWord").textContent = `🔤 Từ: ${current.word}`;
+      // 🔊 Đọc to từ tiếng Anh
+      const utter = new SpeechSynthesisUtterance(current.word);
+      utter.lang = "en-US";
+      utter.rate = 0.9;
+      speechSynthesis.speak(utter);
+
       
       const choicesArea = document.getElementById("choicesArea");
       choicesArea.innerHTML = "";
