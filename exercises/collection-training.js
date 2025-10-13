@@ -121,6 +121,12 @@ function renderQuestion(item, index, allRows) {
   qBox.textContent = `Câu ${index + 1}: Nghĩa của "${item.word}" là gì?`;
   optBox.innerHTML = "";
 
+  const utter = new SpeechSynthesisUtterance(item.word);
+  utter.lang = "en-US";
+  utter.rate = 0.9;
+  speechSynthesis.speak(utter);
+
+
   const allMeanings = allRows
     .map(r => r.c[24]?.v?.toString().trim())
     .filter(m => m && m !== item.meaning);
