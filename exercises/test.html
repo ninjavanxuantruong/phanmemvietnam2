@@ -6,11 +6,13 @@
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Arial; padding: 20px; }
     h2, h3 { margin: 8px 0; }
-    .controls { display: flex; gap: 12px; align-items: center; margin: 12px 0 20px; }
+    .controls { display: flex; gap: 12px; align-items: center; margin: 12px 0 20px; flex-wrap: wrap; }
     select, button { padding: 8px 12px; font-size: 14px; }
-    .sections { display: grid; grid-template-columns: 1fr; gap: 8px; }
-    .section { padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
+    .sections { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .section { padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
+    .section .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
     pre { background: #111; color: #0f0; padding: 12px; border-radius: 8px; overflow: auto; }
+    label { display: inline-flex; gap: 8px; align-items: center; }
   </style>
 </head>
 <body>
@@ -28,26 +30,82 @@
       </select>
     </label>
 
-    <label>Số câu trắc nghiệm:
-      <select id="mcqCount">
-        <option value="5">5</option>
-        <option value="10" selected>10</option>
-        <option value="15">15</option>
-        <option value="20">20</option>
-        <option value="30">30</option>
-      </select>
-    </label>
-
     <button id="saveTestBtn">💾 Lưu đề</button>
     <button id="viewTestBtn">📖 Xem nội dung</button>
   </div>
 
   <div class="sections">
-    <div class="section"><h3>Phần 1: Trắc nghiệm</h3></div>
-    <div class="section"><h3>Phần 2: Phát âm</h3></div>
-    <div class="section"><h3>Phần 3: Ghép từ thành câu</h3></div>
-    <div class="section"><h3>Phần 4: Nghe</h3></div>
-    <div class="section"><h3>Phần 5: Nói</h3></div>
+    <div class="section">
+      <h3>Phần 1: Trắc nghiệm</h3>
+      <div class="row">
+        <label>Số câu:
+          <select id="mcqCount">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Phần 2: Phát âm</h3>
+      <div class="row">
+        <label>Số câu:
+          <select id="pronunciationCount">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Phần 3: Ghép từ thành câu</h3>
+      <div class="row">
+        <label>Số câu:
+          <select id="sentenceCount">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Phần 4: Nghe</h3>
+      <div class="row">
+        <label>Số câu:
+          <select id="listeningCount">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Phần 5: Nói</h3>
+      <div class="row">
+        <label>Số câu:
+          <select id="speakingCount">
+            <option value="5">5</option>
+            <option value="6" selected>6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+          </select>
+        </label>
+      </div>
+    </div>
   </div>
 
   <h3>Kết quả đọc từ Firebase</h3>
