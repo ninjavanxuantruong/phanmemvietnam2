@@ -22,6 +22,8 @@ const SHEET_BAI_HOC =
 const SHEET_TU_VUNG =
   "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
+import { phonicsBank } from "./phonics-bank.js";
+
 // Helpers
 async function fetchGviz(url) {
   const res = await fetch(url);
@@ -243,6 +245,42 @@ function makeDocId(classId) {
   return `test-${classId}-${dd}${mm}${yyyy}`;
 }
 // file: test.js (phần 2/2)
+// file: test.js (phần 2/2)
+
+// ===== Phonics (Pronunciation) =====
+// Mỗi câu: prompt = "IPA của từ 'word' là gì?"; choices = 4 IPA khác nhau (1 đúng + 3 sai); correctIndex = vị trí IPA đúng
+function buildPhonics(phonicsBank, count) {
+  // Lọc bỏ unit7–unit11
+  const filtered = phonicsBank.filter(it => {
+    return !["unit7", "unit8", "unit9", "unit10", "unit11"].includes(it.unit);
+  });
+
+  // Tập IPA duy nhất (để chọn đáp án sai không trùng)
+  const allIpa = [...new Set(filtered.map(it => it.ipa).filter(Boolean))];
+
+  // Shuffle và chọn số lượng mục phonics
+  const shuffled = filtered.sort(() => Math.random() - 0.5);
+  const picked = shuffled.slice(0, count);
+
+  // Tạo MCQ IPA
+  return picked.map((item, idx) => {
+    const correct = item.ipa;
+    // Lấy 3 IPA sai, khác hoàn toàn IPA đúng
+    const wrongPool = allIpa.filter(ipa => ipa !== correct);
+    const wrongChoices = wrongPool.sort(() => Math.random() - 0.5).slice(0, 3);
+
+    // Ghép và trộn, đảm bảo 4 IPA đều khác nhau
+    const choices = [...wrongChoices, correct].sort(() => Math.random() - 0.5);
+    const correctIndex = choices.indexOf(correct);
+
+    return {
+      id: `p${idx + 1}`,
+      prompt: `IPA của từ "${item.word}" là gì?`,
+      choices,        // mảng 4 IPA không trùng nhau
+      correctIndex    // vị trí IPA đúng
+    };
+  });
+}
 
 async function saveTest() {
   const classId = document.getElementById("classSelect").value;
@@ -274,8 +312,9 @@ async function saveTest() {
   const sentence = buildSentence(filteredRows, sentenceCount);
   const speaking = buildSpeaking(filteredRows, speakingCount);
 
-  // Các dạng khác (placeholder)
-  const pronunciation = [];
+  // Phonics: tạo MCQ IPA (1 đúng + 3 sai, tất cả khác nhau)
+  // Lưu ý: cần có biến phonicsBank (đã import ở phần 1 nếu Anh đang tách file)
+  const phonics = buildPhonics(phonicsBank, pronunciationCount);
 
   // Lưu Firestore
   const docId = makeDocId(classId);
@@ -290,9 +329,9 @@ async function saveTest() {
     },
     mcq,
     listening,
-    pronunciation,
     sentence,
-    speaking
+    speaking,              // { paragraph, count }
+    pronunciation: phonics // [{ id, prompt, choices[4 IPA], correctIndex }]
   });
 
   alert(`✅ Đã lưu đề: ${docId}
@@ -300,7 +339,7 @@ async function saveTest() {
 - Listening: ${listening.length}/${listeningCount}
 - Sentence: ${sentence.length}/${sentenceCount}
 - Speaking: đoạn văn từ ${speaking.count} câu
-- Pronunciation: ${pronunciationCount}`);
+- Phonics: ${phonics.length}/${pronunciationCount}`);
 }
 
 function formatTimestamp(ts) {
@@ -375,10 +414,18 @@ async function viewTest() {
   } else {
     output += `   📄 (Chưa có đoạn văn)\n`;
   }
-
-  // Pronunciation
   output += `\n---------------------------------\n`;
-  output += `🔊 Phát âm: ${data.pronunciation?.length || 0} câu\n`;
+
+  // Phonics (Pronunciation)
+  output += `🔊 Phonics: ${data.pronunciation?.length || 0} câu\n`;
+  (data.pronunciation || []).forEach(p => {
+    const correct = p.choices[p.correctIndex];
+    output += `\n${p.id}: ${p.prompt}\n`;
+    p.choices.forEach((c, i) => {
+      output += `   ${i === p.correctIndex ? "👉" : "  "} ${String.fromCharCode(65+i)}. ${c}\n`;
+    });
+    output += `   ✅ Đáp án đúng: ${correct}\n`;
+  });
 
   box.textContent = output;
 }
