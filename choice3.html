@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Bài kiểm tra hôm nay</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { text-align: center; }
+    .question { margin: 15px 0; padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
+    .option { margin: 5px 0; padding: 6px; border: 1px solid #aaa; border-radius: 4px; cursor: pointer; }
+    .option.correct { background: #c8f7c5; }
+    .option.wrong { background: #f7c5c5; }
+    #speakingSection { margin-top: 20px; padding: 10px; border: 2px dashed #666; }
+    #resultBox { margin-top: 20px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>📘 Bài kiểm tra</h1>
+
+  <!-- Container hiển thị các phần MCQ, Listening, Sentence, Phonics -->
+  <div id="testContainer"></div>
+
+  <!-- Speaking đặt cuối -->
+  <div id="speakingSection">
+    <h2>🗣 Speaking</h2>
+    <p id="speakingParagraph"></p>
+    <button id="recordBtn">🎙 Ghi âm</button>
+    <p id="speakingResult"></p>
+  </div>
+
+  <!-- Kết quả tổng -->
+  <div id="resultBox"></div>
+
+  <!-- Chỉ load choice3.js -->
+  <script type="module" src="choice3.js"></script>
+</body>
+</html>
