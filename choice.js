@@ -49,7 +49,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btn3) {
     btn3.addEventListener("click", () => {
       console.log("🏆 Đã ấn nút cuộc thi cả lớp");
-      window.dispatchEvent(new CustomEvent("choice3:trigger"));
+      // lưu lại thông tin cần thiết
+      // ví dụ classId đã có trong localStorage
+      window.location.href = "choice3.html";
     });
   }
+
 });
