@@ -13,6 +13,8 @@ let hasCaught = false;
 let vocabVoice = null;
 let vocabData = [];
 
+let listenCount = 0;
+const REQUIRED_LISTENS = 1;
 
 // ===== Voice =====
 function getVocabVoice() {
@@ -37,12 +39,12 @@ async function fetchVocabularyData() {
   const rows = json.table.rows;
 
   const allWords = rows.map((row) => {
-    const word = row.c[2]?.v?.trim() || "";        // từ
-    const meaning = row.c[24]?.v?.trim() || "";     // nghĩa
-    const image1 = row.c[29]?.v?.trim() || "";      // AD
-    const extraNote = row.c[30]?.v?.trim() || "";   // ghi chú
-    const image2 = row.c[32]?.v?.trim() || "";      // AG
-    const imageKeyword = row.c[47]?.v?.trim() || word; // AV
+    const word = row.c[2]?.v?.trim() || "";
+    const meaning = row.c[24]?.v?.trim() || "";
+    const image1 = row.c[29]?.v?.trim() || "";
+    const extraNote = row.c[30]?.v?.trim() || "";
+    const image2 = row.c[32]?.v?.trim() || "";
+    const imageKeyword = row.c[47]?.v?.trim() || word;
     return { word, meaning, image1, extraNote, image2, imageKeyword };
   });
 
@@ -59,15 +61,12 @@ async function fetchVocabularyData() {
   return uniqueByWord;
 }
 
-// ===== Build image keywords from 3 columns =====
+// ===== Build image keywords =====
 function buildImageKeywords(data) {
   const set = new Set();
   for (const item of data) {
-    const k1 = (item.image1 || "").trim();
-    const k2 = (item.image2 || "").trim();
-    const k3 = (item.imageKeyword || item.word || "").trim();
-    [k1, k2, k3].forEach((k) => {
-      if (k) set.add(k.toLowerCase());
+    [item.image1, item.image2, item.imageKeyword, item.word].forEach((k) => {
+      if (k) set.add(k.toLowerCase().trim());
     });
   }
   return Array.from(set);
@@ -75,75 +74,64 @@ function buildImageKeywords(data) {
 
 // ===== Phonetic =====
 async function getPhonetic(word) {
-  const parts = word.toLowerCase().split(" ");
-  const phonetics = [];
-  for (const part of parts) {
-    try {
-      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${part}`);
-      const data = await res.json();
-      phonetics.push(data?.[0]?.phonetic || "");
-    } catch {
-      phonetics.push("");
-    }
+  try {
+    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+    const data = await res.json();
+    return data?.[0]?.phonetic || "";
+  } catch {
+    return "";
   }
-  return phonetics.join(" ").trim() || "";
 }
 
-// ===== Display word (ảnh đọc từ cache) =====
-// ===== Display word (ảnh đọc từ cache, chờ load xong) =====
+// ===== Hiển thị từ =====
 async function displayWord(wordObj) {
-  const upper = wordObj.word.toUpperCase();
-  document.getElementById("vocabWord").textContent = upper;
+  document.getElementById("vocabWord").textContent = wordObj.word.toUpperCase();
   document.getElementById("vocabMeaning").textContent = wordObj.meaning || "Không có nghĩa";
 
   const phonetic = await getPhonetic(wordObj.word);
   document.getElementById("vocabPhonetic").textContent = phonetic;
 
-  const mainImg = getImageFromMap(wordObj.imageKeyword || wordObj.word);
+  // Ẩn/hiện ảnh
   const imgEl = document.getElementById("vocabImage");
-
-  // ✅ Khoá nút Next trong lúc chờ ảnh load
-  const nextBtn = document.getElementById("nextBtn");
-  nextBtn.disabled = true;
-
-  await new Promise((resolve) => {
-    imgEl.onload = () => {
-      resolve();
-    };
-    imgEl.onerror = () => {
-      resolve();
-    };
+  const mainImg = getImageFromMap(wordObj.imageKeyword || wordObj.word);
+  if (mainImg) {
+    imgEl.style.display = "block";
     imgEl.src = mainImg;
-  });
+  } else {
+    imgEl.style.display = "none";
+  }
 
-  // ✅ Sau khi ảnh load xong thì mới cho phép Next (nhưng vẫn phải nghe ít nhất 1 lần)
-  nextBtn.disabled = false;
-
+  // Reset UI phụ
   document.getElementById("funContent").innerHTML = "";
   document.getElementById("closeFunBtn").style.display = "none";
+
+  // Reset trạng thái nghe
+  listenCount = 0;
+  document.getElementById("nextBtn").disabled = true;
 }
-
-
-
-// ===== Buttons =====
-let listenCount = 0;              // số lần đã nghe lại
-const REQUIRED_LISTENS = 1;       // chỉ cần nghe ít nhất 1 lần
 
 // ===== Nút nghe lại =====
 document.getElementById("playSound").onclick = () => {
   const word = document.getElementById("vocabWord").textContent;
+  if (!word) return;
+
   const utter = new SpeechSynthesisUtterance(word);
   utter.voice = vocabVoice || speechSynthesis.getVoices()[0] || null;
-  speechSynthesis.speak(utter);
 
-  listenCount++; // ✅ tăng số lần nghe
+  utter.onend = () => {
+    listenCount++;
+    if (listenCount >= REQUIRED_LISTENS) {
+      document.getElementById("nextBtn").disabled = false;
+    }
+  };
+
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utter);
 
   const img = document.querySelector("#playSound img");
   if (img) {
     img.style.animation = "shake 0.6s ease-in-out 1";
-    setTimeout(() => {
-      img.style.animation = "";
-    }, 700);
+    setTimeout(() => (img.style.animation = ""), 700);
   }
 };
 
@@ -154,18 +142,13 @@ document.getElementById("nextBtn").onclick = async () => {
     return;
   }
 
-  const btn = document.getElementById("nextBtn");
-  btn.disabled = true;
-
   currentIndex++;
   if (currentIndex >= vocabData.length) {
     currentIndex = 0;
     roundCount++;
   }
-  await displayWord(vocabData[currentIndex]);
 
-  // ✅ reset lại số lần nghe cho từ mới
-  listenCount = 0;
+  await displayWord(vocabData[currentIndex]);
 
   if (roundCount >= 2) {
     const completeBtn = document.getElementById("completeBtn");
@@ -174,11 +157,9 @@ document.getElementById("nextBtn").onclick = async () => {
     completeBtn.style.backgroundColor = "#2196f3";
     completeBtn.textContent = "🌟 Hoàn thành nhiệm vụ!";
   }
-
-  btn.disabled = false;
 };
 
-
+// ===== Hoàn thành =====
 document.getElementById("completeBtn").onclick = () => {
   if (roundCount >= 2 && !hasCaught) {
     showVictoryEffect();
@@ -207,8 +188,8 @@ document.getElementById("completeBtn").onclick = () => {
   }
 };
 
-// ===== Fun panel (ảnh từ cache) =====
-document.getElementById("funBtn").onclick = async () => {
+// ===== Fun panel =====
+document.getElementById("funBtn").onclick = () => {
   const wordObj = vocabData[currentIndex];
   const container = document.getElementById("funContent");
   const closeBtn = document.getElementById("closeFunBtn");
@@ -217,14 +198,15 @@ document.getElementById("funBtn").onclick = async () => {
   const img1 = getImageFromMap(wordObj.image1 || wordObj.word);
   const img2 = getImageFromMap(wordObj.image2 || wordObj.word);
 
+  let imgs = "";
+  if (img1) imgs += `<img src="${img1}" alt="Ảnh 1">`;
+  if (img2) imgs += `<img src="${img2}" alt="Ảnh 2">`;
+
   container.innerHTML = `
     <div style="padding:10px; border:2px dashed #ccc; border-radius:10px;">
       <h3>📌 Ghi chú thú vị:</h3>
       <p>${note}</p>
-      <div class="fun-wrapper">
-        <img src="${img1}" alt="Ảnh 1">
-        <img src="${img2}" alt="Ảnh 2">
-      </div>
+      <div class="fun-wrapper">${imgs}</div>
     </div>
   `;
   closeBtn.style.display = "inline-block";
@@ -235,6 +217,7 @@ document.getElementById("closeFunBtn").onclick = () => {
   document.getElementById("closeFunBtn").style.display = "none";
 };
 
+// ===== Init =====
 // ===== Init =====
 (async function init() {
   try {
@@ -247,9 +230,11 @@ document.getElementById("closeFunBtn").onclick = () => {
       return;
     }
 
+    // Cache trước ảnh để load nhanh hơn (nếu có)
     const keywords = buildImageKeywords(vocabData);
-    await prefetchImagesBatch(keywords); // GỌI BATCH 1 LẦN, cache vào localStorage
+    await prefetchImagesBatch(keywords);
 
+    // Hiển thị từ đầu tiên
     await displayWord(vocabData[currentIndex]);
   } catch (err) {
     console.error("Init error:", err);
