@@ -71,6 +71,7 @@ function isOlderThan8Days(dateCode) {
 async function cleanOldEntries() {
   console.log("🧹 Bắt đầu xoá dữ liệu cũ...");
 
+  // 1. Xoá học sinh cũ trong collection "hocsinh"
   const snapshot = await getDocs(collection(db, "hocsinh"));
   let totalRead = 0;
   let totalDeleted = 0;
@@ -93,7 +94,8 @@ async function cleanOldEntries() {
 
   console.log("📊 Đã xoá", totalDeleted, "học sinh cũ");
 
-  // ✅ Xoá trong summary chung
+  // 2. Xoá dữ liệu ngày cũ trong summary-<lớp>-recent
+  // 2. Xoá dữ liệu ngày cũ trong summary-<lớp>-recent
   const classes = ["2", "3", "4", "5", "6"];
   for (const className of classes) {
     const ref = doc(db, "tonghop", `summary-${className}-recent`);
@@ -101,12 +103,42 @@ async function cleanOldEntries() {
     if (!snap.exists()) continue;
 
     const data = snap.data();
-    for (const dateCode of deletedDates) {
-      delete data.dayData[dateCode];
-      data.days = data.days.filter(d => d !== dateCode);
+    const newDayData = {};
+    const newDays = [];
+
+    for (const dateCode of data.days || []) {
+      if (!isOlderThan8Days(dateCode)) {
+        newDayData[dateCode] = data.dayData[dateCode];
+        newDays.push(dateCode);
+      } else {
+        console.log(`🗑️ Xoá ngày ${dateCode} khỏi summary-${className}-recent`);
+      }
     }
+
+    data.dayData = newDayData;
+    data.days = newDays;
+
     await setDoc(ref, data);
-    console.log(`🗑️ Đã xoá ngày cũ khỏi summary-${className}-recent`);
+  }
+
+
+  // 3. Xoá hẳn các document summary-<lớp>-<dateCode> cũ
+  for (const className of classes) {
+    const tonghopRef = collection(db, "tonghop");
+    const tonghopSnap = await getDocs(tonghopRef);
+
+    for (const docSnap of tonghopSnap.docs) {
+      const id = docSnap.id;
+      // Kiểm tra dạng id: summary-<lớp>-<dateCode>
+      const match = id.match(/^summary-(\d+)-(\d{6})$/);
+      if (match) {
+        const dateCode = match[2];
+        if (isOlderThan8Days(dateCode)) {
+          await deleteDoc(doc(db, "tonghop", id));
+          console.log(`🗑️ Đã xoá document ${id} vì quá 8 ngày`);
+        }
+      }
+    }
   }
 
   alert("✅ Đã xoá dữ liệu cũ thành công.");
@@ -114,71 +146,8 @@ async function cleanOldEntries() {
 
 
 
-// ===============================
-// 🧠 PHẦN 2 — Đọc & ghi dữ liệu tổng hợp theo lớp + ngày
-// ===============================
-// ✅ Tổng hợp dữ liệu từ hocsinh -> summary-{class}-recent
-async function generateSummaryFromRawData() {
-  const selectedClass = document.getElementById("firebaseClassSelect").value;
-  const selectedDates = getSelectedDates();
-
-  if (!selectedClass || selectedDates.length === 0) {
-    alert("❌ Vui lòng chọn lớp và ít nhất một ngày.");
-    return;
-  }
-
-  console.log("📥 Đang đọc dữ liệu gốc từ collection 'hocsinh'...");
-
-  const snapshot = await getDocs(collection(db, "hocsinh"));
-  const classList = selectedClass === "all"
-    ? ["2", "3", "4", "5", "6"]
-    : [selectedClass];
-
-  let totalWritten = 0;
-
-  for (const className of classList) {
-    // Lấy doc summary chung
-    const ref = doc(db, "tonghop", `summary-${className}-recent`);
-    const snap = await getDoc(ref);
-    let data = snap.exists() ? snap.data() : { class: className, days: [], dayData: {} };
-
-    for (const dateCode of selectedDates) {
-      const students = {};
-
-      snapshot.forEach(docSnap => {
-        const d = docSnap.data();
-        if (d.class !== className || d.date !== dateCode) return;
-        students[d.name] = {
-          score: d.score ?? 0,
-          max: d.max ?? 0,
-          doneParts: d.doneParts ?? 0,
-          duration: d.duration ?? null,
-          rating: d.rating || "–"
-        };
-      });
-
-      if (Object.keys(students).length === 0) {
-        console.log(`⚠️ Không có dữ liệu để ghi: ${className} – ${dateCode}`);
-        continue;
-      }
-
-      // Ghi vào summary chung
-      data.dayData[dateCode] = students;
-      if (!data.days.includes(dateCode)) data.days.push(dateCode);
-
-      totalWritten++;
-    }
-
-    await setDoc(ref, data);
-    console.log(`✅ Đã cập nhật summary-${className}-recent`, data);
-  }
-
-  alert(`✅ Đã ghi ${totalWritten} ngày vào summary chung.`);
-}
-
-
 // ✅ Gắn sự kiện cho các nút
-document.getElementById("generateSummaryBtn").addEventListener("click", generateSummaryFromRawData);
+//document.getElementById("generateSummaryBtn").addEventListener("click", generateSummaryFromRawData);
 
 document.getElementById("cleanOldBtn").addEventListener("click", cleanOldEntries);
 
