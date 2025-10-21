@@ -90,6 +90,28 @@ async function showFlashcard(item, ballElement) {
   };
 }
 
+// ✅ Hàm lưu kết quả Vocabulary (V1, V2)
+function setResultVocabulary(part, score, total) {
+  const raw = localStorage.getItem("result_vocabulary");
+  const prev = raw ? JSON.parse(raw) : {};
+
+  const updated = {
+    scoreV1: prev.scoreV1 || 0,
+    totalV1: prev.totalV1 || 0,
+    scoreV2: part === "V2" ? score : prev.scoreV2 || 0,
+    totalV2: part === "V2" ? total : prev.totalV2 || 0
+  };
+
+  const totalScore = updated.scoreV1 + updated.scoreV2;
+  const totalMax = updated.totalV1 + updated.totalV2;
+
+  localStorage.setItem("result_vocabulary", JSON.stringify({
+    ...updated,
+    score: totalScore,
+    total: totalMax
+  }));
+}
+
 // ✅ Xử lý khi bắt được Pokéball
 function handleCatch() {
   caughtCount++;
@@ -107,17 +129,9 @@ function handleCatch() {
       showDefeatEffect();
     }
 
-    const prev = JSON.parse(localStorage.getItem("result_vocabulary") || {});
-    const prevScore = prev.score || 0;
-    const prevTotal = prev.total || 0;
+    // ✅ Lưu kết quả Vocabulary 2 (chỉ tính điểm nói, không cộng thêm 10)
+    setResultVocabulary("V2", speakingScore, speakingTotal);
 
-    const combinedScore = prevScore + speakingScore + 10;
-    const combinedTotal = prevTotal + speakingTotal + 10;
-
-    localStorage.setItem("result_vocabulary", JSON.stringify({
-      score: combinedScore,
-      total: combinedTotal
-    }));
 
     localStorage.removeItem("speaking_score");
   }
