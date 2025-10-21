@@ -1,4 +1,3 @@
-// vocabulary.js
 import { showVictoryEffect } from "./effect-win.js";
 import { prefetchImagesBatch, getImageFromMap } from "./imageCache.js";
 
@@ -159,12 +158,34 @@ document.getElementById("nextBtn").onclick = async () => {
   }
 };
 
+// ===== Hàm lưu kết quả Vocabulary =====
+function setResultVocabulary(part, score, total) {
+  const raw = localStorage.getItem("result_vocabulary");
+  const prev = raw ? JSON.parse(raw) : {};
+
+  const updated = {
+    scoreV1: part === "V1" ? score : prev.scoreV1 || 0,
+    totalV1: part === "V1" ? total : prev.totalV1 || 0,
+    scoreV2: part === "V2" ? score : prev.scoreV2 || 0,
+    totalV2: part === "V2" ? total : prev.totalV2 || 0
+  };
+
+  const totalScore = (updated.scoreV1 + updated.scoreV2);
+  const totalMax = (updated.totalV1 + updated.totalV2);
+
+  localStorage.setItem("result_vocabulary", JSON.stringify({
+    ...updated,
+    score: totalScore,
+    total: totalMax
+  }));
+}
+
 // ===== Hoàn thành =====
 document.getElementById("completeBtn").onclick = () => {
   if (roundCount >= 2 && !hasCaught) {
     showVictoryEffect();
     const score = vocabData.length > 0 ? 10 : 0;
-    localStorage.setItem("result_vocabulary", JSON.stringify({ score, total: 10 }));
+    setResultVocabulary("V1", score, 10); // ✅ Lưu kết quả Vocabulary 1
     hasCaught = true;
 
     const btn = document.getElementById("completeBtn");
@@ -188,7 +209,6 @@ document.getElementById("completeBtn").onclick = () => {
   }
 };
 
-// ===== Fun panel =====
 document.getElementById("funBtn").onclick = () => {
   const wordObj = vocabData[currentIndex];
   const container = document.getElementById("funContent");
@@ -217,7 +237,6 @@ document.getElementById("closeFunBtn").onclick = () => {
   document.getElementById("closeFunBtn").style.display = "none";
 };
 
-// ===== Init =====
 // ===== Init =====
 (async function init() {
   try {
