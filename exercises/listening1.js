@@ -178,12 +178,21 @@ function startListeningMode1() {
 }
 
 getVoices().then(voices => {
-  voiceMale = voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("david")) ||
-              voices.find(v => v.lang === "en-US");
+  // Tìm giọng nam
+  voiceMale =
+    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("david")) ||
+    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("alex")) ||
+    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("male")) ||
+    voices.find(v => v.lang === "en-US"); // fallback cuối cùng
 
-  voiceFemale = voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("zira")) ||
-                voices.find(v => v.lang === "en-US");
+  // Tìm giọng nữ
+  voiceFemale =
+    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("zira")) ||
+    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("samantha")) ||
+    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("female")) ||
+    voices.find(v => v.lang === "en-US"); // fallback cuối cùng
 
+  // Sau khi chọn giọng, load dữ liệu
   fetchListeningData().then(res => {
     listeningData = res;
     if (listeningData.length) {
@@ -193,3 +202,4 @@ getVoices().then(voices => {
     }
   });
 });
+
