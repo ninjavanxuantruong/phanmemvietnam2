@@ -27,10 +27,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   console.log("🧹 Đã reset localStorage, giữ lại thông tin học sinh");
 
-  // ✅ Gắn sự kiện các nút như cũ
+  // ✅ Gắn sự kiện các nút
   const btn1 = document.getElementById("btnLearnSuggested");
   const btn2 = document.getElementById("btnChooseOther");
   const btn3 = document.getElementById("btnClassCompetition");
+  const btn4 = document.getElementById("btnTopic");
 
   if (btn1) {
     btn1.addEventListener("click", () => {
@@ -49,10 +50,14 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btn3) {
     btn3.addEventListener("click", () => {
       console.log("🏆 Đã ấn nút cuộc thi cả lớp");
-      // lưu lại thông tin cần thiết
-      // ví dụ classId đã có trong localStorage
       window.location.href = "choice3.html";
     });
   }
 
+  if (btn4) {
+    btn4.addEventListener("click", () => {
+      console.log("🌀 Đã ấn nút học theo chủ đề");
+      window.location.href = "choice4.html";
+    });
+  }
 });
