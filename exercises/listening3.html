@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Listening 3 - Pokémon Style</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: "Comic Sans MS", "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #ffde59, #ff914d);
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      padding: 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+    }
+    .title {
+      text-align: center;
+      font-size: 26px;
+      font-weight: bold;
+      color: #e3350d; /* Pokémon red */
+      margin-bottom: 12px;
+      text-shadow: 1px 1px #ffcb05;
+    }
+    .score-board {
+      text-align: right;
+      font-weight: bold;
+      color: #2a75bb; /* Pokémon blue */
+      margin-bottom: 12px;
+    }
+    .paragraph-box {
+      background: #f6f7fb;
+      border: 3px solid #ffcb05;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 18px;
+      line-height: 1.5;
+      margin-bottom: 14px;
+      color: #333;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .inputs-area {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .input-row {
+      background: #fff8dc;
+      border: 2px solid #ffcb05;
+      border-radius: 10px;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .input-row label {
+      font-weight: bold;
+      color: #e3350d;
+    }
+    .input-row input {
+      flex: 1;
+      padding: 6px;
+      border: 2px solid #2a75bb;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    .btn {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 50px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      color: #fff;
+      transition: transform 0.1s ease, background 0.2s ease;
+    }
+    .btn:active { transform: scale(0.95); }
+    .btn.primary { background: #2a75bb; }
+    .btn.primary:hover { background: #1d4f7a; }
+    .btn.success { background: #3cba54; }
+    .btn.success:hover { background: #2e8b41; }
+    .result-box {
+      margin-top: 14px;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      color: #2a75bb;
+    }
+    .answers-box {
+      margin-top: 14px;
+      padding: 12px;
+      border: 2px dashed #ffcb05;
+      border-radius: 10px;
+      background: #fffdf5;
+      font-size: 16px;
+    }
+    /* Mobile tweaks */
+    @media (max-width: 600px) {
+      .title { font-size: 22px; }
+      .paragraph-box { font-size: 16px; }
+      .btn { font-size: 14px; padding: 8px 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h2 class="title">🎧 Listening 3: Điền từ còn thiếu</h2>
+      <div id="scoreBoard" class="score-board">🎯 Điểm: 0/0</div>
+
+      <div id="exerciseArea">
+        <div id="paragraphBox" class="paragraph-box"></div>
+        <div class="controls">
+          <button id="playParagraphBtn" class="btn primary">▶️ Nghe đoạn văn</button>
+          <button id="submitL3Btn" class="btn success">✅ Nộp bài</button>
+        </div>
+        <div id="inputsArea" class="inputs-area"></div>
+      </div>
+
+      <div id="resultBox" class="result-box"></div>
+      <div id="answersBox" class="answers-box" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Gắn file JS -->
+  <script type="module" src="listening3.js"></script>
+</body>
+</html>
