@@ -150,19 +150,21 @@ function setResultListeningPart(mode, score, total) {
   const raw = localStorage.getItem("result_listening");
   const prev = raw ? JSON.parse(raw) : {};
 
+  // Cập nhật điểm cho từng phần
   const updated = {
-    score1: mode === 1 ? score : prev.score1 || 0,
-    score2: mode === 2 ? score : prev.score2 || 0,
-    score3: mode === 3 ? score : prev.score3 || 0,
-    total1: mode === 1 ? total : prev.total1 || 0,
-    total2: mode === 2 ? total : prev.total2 || 0,
-    total3: mode === 3 ? total : prev.total3 || 0
+    score1: mode === 1 ? score : (prev.score1 || 0),
+    score2: mode === 2 ? score : (prev.score2 || 0),
+    score3: mode === 3 ? score : (prev.score3 || 0),
+    total1: mode === 1 ? total : (prev.total1 || 0),
+    total2: mode === 2 ? total : (prev.total2 || 0),
+    total3: mode === 3 ? total : (prev.total3 || 0)
   };
 
-
+  // Tính tổng điểm và tổng số câu
   const totalScore = updated.score1 + updated.score2 + updated.score3;
-  const totalMax = updated.total1 + updated.total2 + updated.total3;
+  const totalMax   = updated.total1 + updated.total2 + updated.total3;
 
+  // Lưu vào localStorage
   localStorage.setItem("result_listening", JSON.stringify({
     ...updated,
     score: totalScore,
