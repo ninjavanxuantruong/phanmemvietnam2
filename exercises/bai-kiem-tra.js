@@ -19,16 +19,16 @@ const typeOffsets = {
 
 // ===== Số lượng câu cho mỗi dạng + số bài đọc =====
 const config = {
-  pronunciation: 5,
-  verb: 5,
-  article: 3,
-  preposition: 3,
-  pronoun: 3,
-  connector: 3,
-  rewrite: 3,
-  plural: 3,
-  wordform: 3,
-  vocabulary: 3,
+  pronunciation: 2,
+  verb: 4,
+  article: 1,
+  preposition: 2,
+  pronoun: 1,
+  connector: 1,
+  rewrite: 6,
+  plural: 1,
+  wordform: 4,
+  vocabulary: 4,
   reading: 1
 };
 
