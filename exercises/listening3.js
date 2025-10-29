@@ -85,16 +85,20 @@ function extractPresentationData(rows, maxLessonCode) {
   // Cột:
   // B (1): lessonName, C (2): vocabRaw, I (8): presentation sentence
   const items = rows.map(r => {
-    const lessonName = r.c?.[1]?.v?.toString().trim() || ""; // B
-    const vocabRaw   = r.c?.[2]?.v?.toString().trim() || ""; // C
+    const lessonName   = r.c?.[1]?.v?.toString().trim() || ""; // B
+    const vocabRaw     = r.c?.[2]?.v?.toString().trim() || ""; // C
     const presentation = r.c?.[8]?.v?.toString().trim() || ""; // I
 
     const unitNum = normalizeUnitId(lessonName);
-    const targets = splitTargets(vocabRaw); // có thể nhiều từ, lấy từ đầu tiên làm chính
-    const mainTarget = targets[0] || ""; // chọn một từ đại diện
+    const targets = splitTargets(vocabRaw);
+    const mainTarget = targets[0] || "";
 
     return { lessonName, unitNum, presentation, mainTarget };
-  }).filter(it => it.lessonName && it.presentation && it.mainTarget);
+  })
+  // chỉ giữ những câu có đủ dữ liệu
+  .filter(it => it.lessonName && it.presentation && it.mainTarget)
+  // lọc thêm: mainTarget phải thực sự xuất hiện trong presentation
+  .filter(it => new RegExp(`\\b${escapeRegExp(it.mainTarget)}\\b`, "i").test(it.presentation));
 
   // Lọc phạm vi bài đã học
   const filtered = items.filter(it => it.unitNum >= 3011 && it.unitNum <= maxLessonCode);
@@ -124,6 +128,7 @@ function extractPresentationData(rows, maxLessonCode) {
   selected.sort((a, b) => a.unitNum - b.unitNum);
   return selected; // [{ lessonName, unitNum, presentation, mainTarget }]
 }
+
 
 function buildParagraphAndBlanks() {
   // L3_sentences: 8 câu, mỗi câu có text và target
@@ -292,8 +297,8 @@ async function startListeningMode3() {
     renderListening3();
 
     // Auto đọc NGUYÊN VĂN sau khi render
-    const fullParagraph = L3_sentences.map(s => s.text).join(". ").replace(/\s+\./g, ".").trim() + ".";
-    speak(fullParagraph, L3_voiceMale);
+    //const fullParagraph = L3_sentences.map(s => s.text).join(". ").replace(/\s+\./g, ".").trim() + ".";
+    //speak(fullParagraph, L3_voiceMale);
 
   } catch (err) {
     console.error("Listening 3 error:", err);
