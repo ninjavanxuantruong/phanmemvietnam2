@@ -1,5 +1,7 @@
 // ===== Config nguồn dữ liệu =====
-const sheetUrl = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?sheet=2&tqx=out:json";
+const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTZBSB2UBklxSCr3Q-g6DyJ731csJmsh2-GyZ8ajbdTuYWFrA3KLUdS8SsbHOcENX3PnMknXP2KRpqs/pub?gid=163446275&single=true&output=csv";
+
+
 const readingSheetUrl = "https://docs.google.com/spreadsheets/d/17JUJya5fIL3BfH4-Ysfm1MKbfFFtOmgYQ9C6aiCo5S0/gviz/tq?tqx=out:json";
 
 // ===== Offset dạng bài (mỗi dạng chiếm 7 cột ngang) =====
@@ -25,10 +27,10 @@ const config = {
   preposition: 2,
   pronoun: 1,
   connector: 1,
-  rewrite: 6,
+  rewrite: 4,
   plural: 1,
-  wordform: 4,
-  vocabulary: 4,
+  wordform: 1,
+  vocabulary: 3,
   reading: 1
 };
 
@@ -62,9 +64,13 @@ function updateStats() {
 async function fetchSheetData() {
   const res = await fetch(sheetUrl);
   const text = await res.text();
-  const json = JSON.parse(text.substring(47).slice(0, -2));
-  return json.table.rows;
+
+  const lines = text.split("\n").filter(line => line.trim());
+  const rows = lines.map(line => line.split(",").map(cell => cell.trim()));
+
+  return rows;
 }
+
 
 async function fetchReadingData() {
   const res = await fetch(readingSheetUrl);
@@ -111,23 +117,77 @@ function allocateCounts(totalNeeded, numRanges) {
   return counts;
 }
 
-// Đọc 1 câu hỏi từ một dòng theo offset dạng
-function readQuestionRow(row, offset) {
-  const question = row?.c?.[offset]?.v || "";
-  const ansA = row?.c?.[offset + 1]?.v || "";
-  const ansB = row?.c?.[offset + 2]?.v || "";
-  const ansC = row?.c?.[offset + 3]?.v || "";
-  const ansD = row?.c?.[offset + 4]?.v || "";
+// Parser CSV chuẩn, không bị tách sai khi có dấu phẩy trong ô
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
 
-  const correctRaw = row?.c?.[offset + 5]?.v || "";
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (inQuotes) {
+      if (char === '"' && next === '"') {
+        cell += '"';
+        i++;
+      } else if (char === '"') {
+        inQuotes = false;
+      } else {
+        cell += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ",") {
+        row.push(cell.trim());
+        cell = "";
+      } else if (char === "\n") {
+        row.push(cell.trim());
+        rows.push(row);
+        row = [];
+        cell = "";
+      } else if (char === "\r") {
+        // bỏ qua CR
+      } else {
+        cell += char;
+      }
+    }
+  }
+  if (cell.length > 0 || row.length > 0) {
+    row.push(cell.trim());
+    rows.push(row);
+  }
+  return rows;
+}
+
+async function fetchSheetData() {
+  const res = await fetch(sheetUrl);
+  const text = await res.text();
+  return parseCSV(text).filter(r => r.length > 0);
+}
+
+// Hàm đọc 1 câu hỏi theo offset
+function readQuestionRow(row, offset) {
+  if (!row || row.length < offset + 6) return null;
+
+  const question = row[offset] || "";
+  const ansA = row[offset + 1] || "";
+  const ansB = row[offset + 2] || "";
+  const ansC = row[offset + 3] || "";
+  const ansD = row[offset + 4] || "";
+
+  // Cho phép nhiều đáp án đúng, ngăn cách bởi dấu phẩy
+  const correctRaw = row[offset + 5] || "";
   const correctArr = correctRaw
     .split(",")
     .map(x => normalize(x))
     .filter(Boolean);
 
-  const note = row?.c?.[offset + 6]?.v || "";
+  const note = row[offset + 6] || "";
 
-  if (!question?.trim()) return null;
+  if (!question.trim()) return null;
 
   return {
     question,
@@ -141,6 +201,8 @@ function readQuestionRow(row, offset) {
     note
   };
 }
+
+
 
 // ===== Main: startTest (phần 1: reset, dạng thường) =====
 async function startTest() {
@@ -335,7 +397,7 @@ async function startTest() {
         }));
 
       // Render câu hỏi đọc hiểu
-      questions.forEach((q, index) => {
+      shuffleArray(questions).slice(0, 5).forEach((q, index) => {
         const block = document.createElement("div");
         block.className = "question-block";
         block.innerHTML = `<strong>Câu đọc hiểu ${index + 1}:</strong> ${q.question}`;
