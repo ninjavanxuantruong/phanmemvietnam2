@@ -92,6 +92,22 @@
       background-color: #ffeaa7;
     }
 
+    .answers {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;        /* khoảng cách giữa các đáp án */
+      list-style: none;/* bỏ dấu chấm mặc định */
+      padding: 0;      /* bỏ padding mặc định */
+      margin: 0;       /* bỏ margin mặc định */
+    }
+
+    .answers li {
+      flex: 0 0 48%;   /* mỗi đáp án chiếm khoảng nửa dòng */
+      list-style: none;/* chắc chắn không có ký hiệu */
+    }
+
+
+
     #score {
       font-size: 1.3rem;
       margin-top: 25px;
