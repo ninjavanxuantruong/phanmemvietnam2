@@ -147,33 +147,89 @@ function readQuestionRow(row, offset) {
 }
 
 // ===== Main =====
+function showOnly(visibleId) {
+  const ids = [
+    "quizContainer",
+    "writingContainer",
+    "listeningContainer",
+    "readingContainer"
+  ];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (id === visibleId) el.classList.remove("hidden");
+    else el.classList.add("hidden");
+  });
+}
+
 // ===== Main =====
+function teardownReading() {
+  if (typeof stopReadingExercise === "function") stopReadingExercise();
+  const rp = document.getElementById("readingPassageContainer");
+  const rq = document.getElementById("readingQuestionsContainer");
+  if (rp) rp.innerHTML = "";
+  if (rq) rq.innerHTML = "";
+}
+
+function teardownListening() {
+  if (typeof stopListeningCap2 === "function") stopListeningCap2();
+  ["exerciseArea_L2_1","listeningPassageContainer_L2_2","listeningQuestionsContainer_L2_2","exerciseArea_L2_3"]
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = "";
+    });
+}
+
+function teardownWriting() {
+  if (typeof stopWritingCap2 === "function") stopWritingCap2();
+  const w = document.getElementById("writingContainer");
+  if (w) w.innerHTML = "";
+}
+
+function teardownQuiz() {
+  const qz = document.getElementById("quizContainer");
+  if (qz) qz.innerHTML = "";
+}
+function teardownAll() {
+  teardownQuiz();
+  teardownWriting();
+  teardownListening();
+  teardownReading();
+}
+
 async function loadExercise() {
   const type = document.getElementById("exerciseType").value;
   localStorage.setItem("startTime_grade8", Date.now());
 
   // Reset điểm
-  totalScore = 0;
-  totalQuestions = 0;
-  correctCount = 0;
-  wrongCount = 0;
+  totalScore = 0; totalQuestions = 0; correctCount = 0; wrongCount = 0;
   updateStats();
 
-  // Reading / Listening / Writing xử lý riêng
+  // Dọn mọi state/dữ liệu cũ trước
+  teardownAll();
+
+  // Chọn chế độ và render
   if (type === "reading") {
+    showOnly("readingContainer");
     if (typeof loadReadingExercise === "function") loadReadingExercise();
     return;
   }
+
   if (type === "listeningcap2") {
+    showOnly("listeningContainer");
     if (typeof startListeningCap2 === "function") startListeningCap2();
     return;
   }
+
   if (type === "writingcap2") {
+    showOnly("writingContainer");
     if (typeof startWritingCap2 === "function") startWritingCap2();
     return;
   }
 
-  // Grammar/Vocab
+  // Grammar/Vocab (CSV)
+  showOnly("quizContainer");
+
   const questionLimit = parseInt(document.getElementById("questionCount").value, 10);
   const offset = typeOffsets[type];
   if (offset === undefined) {
@@ -184,11 +240,9 @@ async function loadExercise() {
   const rows = await fetchSheetData();
   const totalRows = rows.length;
 
-  // Chia thành các block 30 dòng
   const rangeBlocks = buildRangesIndices(totalRows, 1, 30);
   const perRangeCounts = allocateCounts(questionLimit, rangeBlocks.length);
 
-  // Gom câu hỏi
   const selected = [];
   for (let r = 0; r < rangeBlocks.length; r++) {
     const [startIdx, endIdx] = rangeBlocks[r];
@@ -203,7 +257,6 @@ async function loadExercise() {
     }
   }
 
-  // Nếu chưa đủ thì bổ sung từ toàn bộ pool
   if (selected.length < questionLimit) {
     const globalPool = [];
     for (let i = 1; i < totalRows; i++) {
@@ -214,10 +267,8 @@ async function loadExercise() {
     selected.push(...shuffleArray(globalPool).slice(0, needed));
   }
 
-  // Trộn lại toàn bộ
   const questions = shuffleArray(selected).slice(0, questionLimit);
 
-  // Render
   const container = document.getElementById("quizContainer");
   container.innerHTML = "";
 
@@ -229,13 +280,14 @@ async function loadExercise() {
     const ul = document.createElement("ul");
     ul.className = "answers";
 
-    // Shuffle đáp án
     shuffleArray(q.answers).forEach((opt, i) => {
       if (opt.text?.trim()) {
         const li = document.createElement("li");
         const btn = document.createElement("button");
         btn.className = "answer-btn";
         btn.innerText = `${String.fromCharCode(65 + i)}. ${opt.text}`;
+
+        let inputRef; // sẽ gán sau
 
         btn.onclick = () => {
           totalQuestions++;
@@ -250,9 +302,8 @@ async function loadExercise() {
             wrongCount++;
           }
 
-          // Disable tất cả nút sau khi chọn
           ul.querySelectorAll("button").forEach(b => b.disabled = true);
-          input.disabled = true;
+          if (inputRef) inputRef.disabled = true;
 
           updateStats();
 
@@ -276,7 +327,6 @@ async function loadExercise() {
 
     block.appendChild(ul);
 
-    // Ô input nhập đáp án thủ công
     const input = document.createElement("input");
     input.placeholder = "Nhập đáp án ...";
     input.onblur = () => {
@@ -310,6 +360,10 @@ async function loadExercise() {
         block.appendChild(noteEl);
       }
     };
+
+    // gán ref cho handler nút
+    // để khi bấm nút sẽ disable được input
+    inputRef = input;
 
     block.appendChild(input);
     container.appendChild(block);
