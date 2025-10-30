@@ -93,13 +93,15 @@ function extractPresentationData_L2_1(rows, maxLessonCode) {
 
     return { lessonName, unitNum, presentation, mainTarget };
   })
+  // chỉ giữ những câu có đủ dữ liệu
   .filter(it => it.lessonName && it.presentation && it.mainTarget)
-  .filter(it => new RegExp(`\\b${escapeRegExp(it.mainTarget)}\\b`, "i").test(it.presentation)); // target phải tồn tại trong câu
+  // lọc thêm: mainTarget phải thực sự xuất hiện trong presentation
+  .filter(it => new RegExp(`\\b${escapeRegExp(it.mainTarget)}\\b`, "i").test(it.presentation));
 
   // Giới hạn theo bài đã học
   const filtered = items.filter(it => it.unitNum >= 3011 && it.unitNum <= maxLessonCode);
 
-  // Group theo bài, random chọn 8 bài, mỗi bài lấy 1 câu
+  // Group theo bài, random chọn 12 bài, mỗi bài lấy 1 câu
   const unitMap = {};
   filtered.forEach(it => {
     if (!unitMap[it.lessonName]) unitMap[it.lessonName] = [];
@@ -110,7 +112,7 @@ function extractPresentationData_L2_1(rows, maxLessonCode) {
   if (unitNames.length === 0) return [];
 
   unitNames.sort(() => Math.random() - 0.5);
-  const NUM_LESSONS = Math.min(8, unitNames.length);
+  const NUM_LESSONS = Math.min(12, unitNames.length);
   const pickedUnits = unitNames.slice(0, NUM_LESSONS);
 
   const selected = [];
@@ -120,9 +122,17 @@ function extractPresentationData_L2_1(rows, maxLessonCode) {
     selected.push(chosen);
   });
 
-  selected.sort((a, b) => a.unitNum - b.unitNum);
-  return selected;
+  // 🔎 Bổ sung lọc an toàn: chỉ giữ những câu chắc chắn có thể tạo blank
+  const safeSelected = selected.filter(it => {
+    const rx = new RegExp(`\\b${escapeRegExp(it.mainTarget)}\\b`, "gi");
+    return rx.test(it.presentation);
+  });
+
+  // Sắp xếp theo unitNum để đoạn văn mượt
+  safeSelected.sort((a, b) => a.unitNum - b.unitNum);
+  return safeSelected;
 }
+
 
 function buildParagraphAndBlanks_L2_1() {
   L2_1_blankIndices = pickRandomIndices(L2_1_sentences.length, Math.min(5, L2_1_sentences.length));
@@ -244,36 +254,52 @@ function setResultListeningPart(mode, score, total) {
   const totalScore = (updated.score1 + updated.score2 + updated.score3);
   const totalMax = (updated.total1 + updated.total2 + updated.total3);
 
-  localStorage.setItem("result_listening", JSON.stringify({
+  // ✅ Lưu đúng key result_listeningcap2
+  localStorage.setItem("result_listeningcap2", JSON.stringify({
     ...updated,
     score: totalScore,
     total: totalMax
   }));
+
+  // ✅ Đồng bộ vào result_grade8 (tổng điểm chung)
+  const prevResult = JSON.parse(localStorage.getItem("result_grade8") || "{}");
+  const updatedResult = {
+    score: (prevResult.score || 0) - (prev.score || 0) + totalScore,
+    total: (prevResult.total || 0) - (prev.total || 0) + totalMax
+  };
+  localStorage.setItem("result_grade8", JSON.stringify(updatedResult));
 }
+
 
 // ===== Main: start + bootstrapping =====
 async function startListeningMode1_L2() {
   try {
+    const container = document.getElementById("exerciseArea_L2_1");
+    if (!container) {
+      console.error("❌ Không tìm thấy #exerciseArea_L2_1 trong HTML");
+      return;
+    }
+
     const maxLessonCode = await getMaxLessonCode();
     if (!maxLessonCode) {
-      document.getElementById("exerciseArea_L2_1").innerHTML = "⚠️ Không xác định được bài học lớn nhất cho lớp hiện tại.";
+      container.innerHTML = "⚠️ Không xác định được bài học lớn nhất cho lớp hiện tại.";
       return;
     }
 
     const rows = await fetchGVizRows(SHEET_URL_L2);
     const selected = extractPresentationData_L2_1(rows, maxLessonCode);
-    if (selected.length < 8) {
-      document.getElementById("exerciseArea_L2_1").innerHTML = "📭 Không đủ dữ liệu câu ở cột I để tạo đoạn văn.";
+    if (selected.length < 12) {
+      container.innerHTML = "📭 Không đủ dữ liệu câu ở cột I để tạo đoạn văn.";
       return;
     }
 
-    const eight = selected.slice(0, 8);
-    L2_1_sentences = eight.map(it => ({
+    L2_1_sentences = selected.map(it => ({
       text: it.presentation,
       target: it.mainTarget,
       lessonName: it.lessonName,
       unitNum: it.unitNum
     }));
+
 
     L2_1_targets = L2_1_sentences.map(s => s.target);
 
@@ -290,9 +316,13 @@ async function startListeningMode1_L2() {
 
   } catch (err) {
     console.error("Listening L2 Dạng 1 error:", err);
-    document.getElementById("exerciseArea_L2_1").innerHTML = "❌ Lỗi tải dữ liệu Listening cấp 2 - Dạng 1.";
+    const container = document.getElementById("exerciseArea_L2_1");
+    if (container) {
+      container.innerHTML = "❌ Lỗi tải dữ liệu Listening cấp 2 - Dạng 1.";
+    }
   }
 }
+
 
 // ===== Bootstrapping voices for L2 =====
 getVoices().then(voices => {
@@ -316,7 +346,7 @@ getVoices().then(voices => {
 
 
 // ===== Config =====
-const readingSheetUrl2 = "https://docs.google.com/spreadsheets/d/17JUJya5fIL3BfH4-Ysfm1MKbfFFtOmgYQ9C6aiCo5S0/gviz/tq?tqx=out:json";
+const listeningSheetUrl2 = "https://docs.google.com/spreadsheets/d/17JUJya5fIL3BfH4-Ysfm1MKbfFFtOmgYQ9C6aiCo5S0/gviz/tq?tqx=out:json";
 
 // ===== State =====
 let L2_2_totalQuestions = 0;
@@ -325,7 +355,7 @@ let L2_2_wrongCount = 0;
 
 // ===== Helpers =====
 async function fetchReadingData_L2_2() {
-  const res = await fetch(readingSheetUrl2);
+  const res = await fetch(listeningSheetUrl2);
   const text = await res.text();
   const json = JSON.parse(text.substring(47).slice(0, -2));
   return json.table.rows;
@@ -358,156 +388,168 @@ function saveListeningScore_L2_2(totalQ) {
 
 // ===== Main loader =====
 async function startListeningMode2_L2() {
-  // Reset stats
-  L2_2_totalQuestions = 0;
-  L2_2_correctCount = 0;
-  L2_2_wrongCount = 0;
-  updateStats_L2_2();
+  try {
+    // Reset stats
+    L2_2_totalQuestions = 0;
+    L2_2_correctCount = 0;
+    L2_2_wrongCount = 0;
+    updateStats_L2_2();
 
-  const rows = await fetchReadingData_L2_2();
+    const rows = await fetchReadingData_L2_2();
 
-  // Chọn một bài (lesson) ngẫu nhiên
-  const lessonNumbers = [...new Set(rows.map(r => r.c[0]?.v).filter(v => v !== undefined))];
-  const selectedLesson = lessonNumbers[Math.floor(Math.random() * lessonNumbers.length)];
-  const lessonRows = rows.filter(r => r.c[0]?.v === selectedLesson);
+    // Chọn một bài (lesson) ngẫu nhiên
+    const lessonNumbers = [...new Set(rows.map(r => r.c[0]?.v).filter(v => v !== undefined))];
+    const selectedLesson = lessonNumbers[Math.floor(Math.random() * lessonNumbers.length)];
+    const lessonRows = rows.filter(r => r.c[0]?.v === selectedLesson);
 
-  // Lấy passage (không hiển thị chữ, chỉ dùng để đọc)
-  const passageRow = lessonRows.find(r => r.c[1]?.v?.trim());
-  const passage = passageRow?.c[1]?.v || "";
+    // Lấy passage (không hiển thị chữ, chỉ dùng để đọc)
+    const passageRow = lessonRows.find(r => r.c[1]?.v?.trim());
+    const passage = passageRow?.c[1]?.v || "";
 
-  // Dựng câu hỏi
-  // Dựng câu hỏi
-  let allQuestions = lessonRows
-    .filter(r => r.c[2]?.v?.trim())
-    .map(r => ({
-      question: r.c[2]?.v || "",
-      options: [
-        { letter: "A", text: r.c[3]?.v || "" },
-        { letter: "B", text: r.c[4]?.v || "" },
-        { letter: "C", text: r.c[5]?.v || "" },
-        { letter: "D", text: r.c[6]?.v || "" },
-      ],
-      correct: (r.c[7]?.v || "")
-    }));
+    // Dựng câu hỏi
+    let allQuestions = lessonRows
+      .filter(r => r.c[2]?.v?.trim())
+      .map(r => ({
+        question: r.c[2]?.v || "",
+        options: [
+          { letter: "A", text: r.c[3]?.v || "" },
+          { letter: "B", text: r.c[4]?.v || "" },
+          { letter: "C", text: r.c[5]?.v || "" },
+          { letter: "D", text: r.c[6]?.v || "" },
+        ],
+        correct: (r.c[7]?.v || "")
+      }));
 
-  // Chọn ngẫu nhiên 5 câu nhưng giữ nguyên thứ tự
-  if (allQuestions.length > 5) {
-    // tạo mảng index
-    let indices = Array.from({ length: allQuestions.length }, (_, i) => i);
-    // xáo trộn
-    indices.sort(() => Math.random() - 0.5);
-    // lấy 5 index đầu
-    indices = indices.slice(0, 5);
-    // sắp xếp lại theo thứ tự tăng dần
-    indices.sort((a, b) => a - b);
-    // chọn câu hỏi theo index đã sort
-    allQuestions = indices.map(i => allQuestions[i]);
-  }
+    // Chọn ngẫu nhiên 5 câu nhưng giữ nguyên thứ tự
+    if (allQuestions.length > 5) {
+      let indices = Array.from({ length: allQuestions.length }, (_, i) => i);
+      indices.sort(() => Math.random() - 0.5);
+      indices = indices.slice(0, 5).sort((a, b) => a - b);
+      allQuestions = indices.map(i => allQuestions[i]);
+    }
 
-  const questions = allQuestions;
+    const questions = allQuestions;
 
+    // Vùng hiển thị
+    const passageContainer = document.getElementById("listeningPassageContainer_L2_2");
+    const questionsContainer = document.getElementById("listeningQuestionsContainer_L2_2");
 
-  // Vùng hiển thị
-  const passageContainer = document.getElementById("listeningPassageContainer_L2_2");
-  const questionsContainer = document.getElementById("listeningQuestionsContainer_L2_2");
+    if (!passageContainer || !questionsContainer) {
+      console.error("❌ Thiếu container listening L2_2 trong HTML");
+      return;
+    }
 
-  // Thay passage bằng nút nghe
-  passageContainer.innerHTML = `
-    <div style="margin-bottom:10px;">
-      <button id="playPassageBtn_L2_2" class="btn primary">▶️ Nghe đoạn văn</button>
-    </div>
-  `;
-  questionsContainer.innerHTML = "";
+    // Thay passage bằng nút nghe
+    passageContainer.innerHTML = `
+      <div style="margin-bottom:10px;">
+        <button id="playPassageBtn_L2_2" class="btn primary">▶️ Nghe đoạn văn</button>
+      </div>
+    `;
+    questionsContainer.innerHTML = "";
 
-  // Sự kiện phát âm
-  document.getElementById("playPassageBtn_L2_2").onclick = () => {
-    const u = new SpeechSynthesisUtterance(passage);
-    u.lang = "en-US";
-    speechSynthesis.speak(u);
-  };
-
-  // Render câu hỏi giống Reading
-  questions.forEach((q, index) => {
-    const block = document.createElement("div");
-    block.className = "question-block";
-    block.innerHTML = `<strong>Câu ${index + 1}:</strong> ${q.question}`;
-
-    const ul = document.createElement("ul");
-    ul.className = "answers";
-
-    // Hỗ trợ nhiều đáp án đúng (phân tách bằng dấu ,)
-    const correctArr = (q.correct || "")
-      .split(",")
-      .map(x => normalize_L2_2(x))
-      .filter(Boolean);
-
-    const shuffledOptions = shuffleArray_L2_2(q.options);
-    shuffledOptions.forEach((opt, i) => {
-      if (opt.text?.trim()) {
-        const li = document.createElement("li");
-        const btn = document.createElement("button");
-        btn.className = "answer-btn";
-        btn.innerText = `${String.fromCharCode(65 + i)}. ${opt.text}`;
-
-        btn.onclick = () => {
-          if (btn.disabled) return;
-          L2_2_totalQuestions++;
-          const userAnswer = normalize_L2_2(opt.text);
-
-          if (correctArr.includes(userAnswer)) {
-            btn.classList.add("correct");
-            L2_2_correctCount++;
-          } else {
-            btn.classList.add("wrong");
-            L2_2_wrongCount++;
-          }
-
-          ul.querySelectorAll("button").forEach(b => b.disabled = true);
-          if (input) input.disabled = true;
-
-          updateStats_L2_2();
-          if (L2_2_totalQuestions === questions.length) {
-            saveListeningScore_L2_2(questions.length);
-          }
-        };
-
-        li.appendChild(btn);
-        ul.appendChild(li);
-      }
-    });
-
-    block.appendChild(ul);
-
-    // Ô input nhập tay (tuỳ chọn, giữ nguyên như Reading)
-    const input = document.createElement("input");
-    input.placeholder = "Nhập đáp án ...";
-    input.onblur = () => {
-      if (input.disabled) return;
-      L2_2_totalQuestions++;
-      const userAnswer = normalize_L2_2(input.value);
-
-      if (correctArr.includes(userAnswer)) {
-        input.classList.add("correct");
-        L2_2_correctCount++;
-      } else {
-        input.classList.add("wrong");
-        L2_2_wrongCount++;
-      }
-
-      input.disabled = true;
-      ul.querySelectorAll("button").forEach(b => b.disabled = true);
-
-      updateStats_L2_2();
-      if (L2_2_totalQuestions === questions.length) {
-        saveListeningScore_L2_2(questions.length);
-      }
+    // Sự kiện phát âm
+    document.getElementById("playPassageBtn_L2_2").onclick = () => {
+      const u = new SpeechSynthesisUtterance(passage);
+      u.lang = "en-US";
+      speechSynthesis.speak(u);
     };
 
-    block.appendChild(input);
-    questionsContainer.appendChild(block);
-  });
+    // Render câu hỏi
+    questions.forEach((q, index) => {
+      const block = document.createElement("div");
+      block.className = "question-block";
+      block.innerHTML = `<strong>Câu ${index + 1}:</strong> ${q.question}`;
+
+      const ul = document.createElement("ul");
+      ul.className = "answers";
+
+      const correctArr = (q.correct || "")
+        .split(",")
+        .map(x => normalize_L2_2(x))
+        .filter(Boolean);
+
+      const shuffledOptions = shuffleArray_L2_2(q.options);
+      shuffledOptions.forEach((opt, i) => {
+        if (opt.text?.trim()) {
+          const li = document.createElement("li");
+          const btn = document.createElement("button");
+          btn.className = "answer-btn";
+          btn.innerText = `${String.fromCharCode(65 + i)}. ${opt.text}`;
+
+          btn.onclick = () => {
+            if (btn.disabled) return;
+            L2_2_totalQuestions++;
+            const userAnswer = normalize_L2_2(opt.text);
+
+            if (correctArr.includes(userAnswer)) {
+              btn.classList.add("correct");
+              L2_2_correctCount++;
+            } else {
+              btn.classList.add("wrong");
+              L2_2_wrongCount++;
+            }
+
+            ul.querySelectorAll("button").forEach(b => b.disabled = true);
+            if (input) input.disabled = true;
+
+            updateStats_L2_2();
+            if (L2_2_totalQuestions === questions.length) {
+              saveListeningScore_L2_2(questions.length);
+            }
+          };
+
+          li.appendChild(btn);
+          ul.appendChild(li);
+        }
+      });
+
+      block.appendChild(ul);
+
+      // Ô input nhập tay
+      const input = document.createElement("input");
+      input.placeholder = "Nhập đáp án ...";
+      input.onblur = () => {
+        if (input.disabled) return;
+        L2_2_totalQuestions++;
+        const userAnswer = normalize_L2_2(input.value);
+
+        if (correctArr.includes(userAnswer)) {
+          input.classList.add("correct");
+          L2_2_correctCount++;
+        } else {
+          input.classList.add("wrong");
+          L2_2_wrongCount++;
+        }
+
+        input.disabled = true;
+        ul.querySelectorAll("button").forEach(b => b.disabled = true);
+
+        updateStats_L2_2();
+        if (L2_2_totalQuestions === questions.length) {
+          saveListeningScore_L2_2(questions.length);
+        }
+      };
+
+      block.appendChild(input);
+      questionsContainer.appendChild(block);
+    });
+  } catch (err) {
+    console.error("Listening L2 Dạng 2 error:", err);
+    const passageContainer = document.getElementById("listeningPassageContainer_L2_2");
+    if (passageContainer) {
+      passageContainer.innerHTML = "❌ Lỗi tải dữ liệu Listening cấp 2 - Dạng 2.";
+    }
+  }
 }
+
 
 // Gọi startListeningMode2_L2() khi cần
 // Ví dụ: on tab "Listening Dạng 2" được mở:
 // startListeningMode2_L2();
+// Hàm tổng để gọi từ bai-tap-tung-dang.js
+function startListeningCap2() {
+  if (typeof startListeningMode1_L2 === "function") startListeningMode1_L2();
+  if (typeof startListeningMode2_L2 === "function") startListeningMode2_L2();
+  if (typeof startListeningMode3_L2 === "function") startListeningMode3_L2();
+}
+
