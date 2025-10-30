@@ -175,6 +175,9 @@
     <option value="wordform">Dạng đúng của từ</option>
     <option value="vocabulary">Trắc nghiệm từ vựng</option>
     <option value="reading">Đọc hiểu</option>
+    <option value="listeningcap2">Nghe</option>
+    <option value="writingcap2">Viết</option>
+
   </select>
 
   <label for="questionCount">🌿 Số lượng câu hỏi:</label>
@@ -192,6 +195,25 @@
 
   <!-- ✅ Container cho các dạng bài khác -->
   <div id="quizContainer"></div>
+  <div id="writingContainer"></div>
+  <!-- ✅ Container riêng cho Listening cấp 2 -->
+  <!-- Container tổng cho Listening -->
+  <!-- Container tổng cho Listening cấp 2 -->
+  <div id="listeningContainer">
+
+    <!-- Dạng 1: điền từ vào đoạn văn -->
+    <div id="exerciseArea_L2_1"></div>
+
+    <!-- Dạng 2: nghe đoạn văn + câu hỏi trắc nghiệm -->
+    <div id="listeningPassageContainer_L2_2"></div>
+    <div id="listeningQuestionsContainer_L2_2"></div>
+
+    <!-- Dạng 3: nếu có, cũng cần container riêng -->
+    <div id="exerciseArea_L2_3"></div>
+
+  </div>
+
+
 
   <!-- ✅ Container riêng cho phần bài đọc -->
   <div id="readingPassageContainer"></div>
@@ -199,5 +221,7 @@
 
   <script src="bai-tap-tung-dang.js"></script>
   <script src="reading.js"></script>
+  <script src="listening-cap2.js"></script>
+  <script src="writing-cap2.js"></script>
 </body>
 </html>
