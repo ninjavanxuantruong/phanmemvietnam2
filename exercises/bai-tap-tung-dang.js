@@ -147,6 +147,8 @@ function readQuestionRow(row, offset) {
 
 // ===== Main =====
 // ===== Main =====
+
+
 async function loadExercise() {
   const type = document.getElementById("exerciseType").value;
   localStorage.setItem("startTime_grade8", Date.now());
@@ -162,11 +164,24 @@ async function loadExercise() {
   if (type === "reading") {
     if (typeof loadReadingExercise === "function") {
       loadReadingExercise();
-    } else {
-      console.error("Không tìm thấy hàm loadReadingExercise trong reading.js");
     }
-    return; // QUAN TRỌNG: dừng hàm tại đây
+    return;
   }
+
+  if (type === "listeningcap2") {
+    if (typeof startListeningCap2 === "function") {
+      startListeningCap2(); // hàm trong listening-cap2.js
+    }
+    return;
+  }
+
+  if (type === "writingcap2") {
+    if (typeof startWritingCap2 === "function") {
+      startWritingCap2(); // hàm trong writing-cap2.js
+    }
+    return;
+  }
+
 
   const questionLimit = parseInt(document.getElementById("questionCount").value, 10);
   const offset = typeOffsets[type];
