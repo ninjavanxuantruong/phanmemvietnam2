@@ -38,6 +38,7 @@ let totalScore = 0;
 let totalQuestions = 0;
 let correctCount = 0;
 let wrongCount = 0;
+let totalGrammarQuestions = 0;
 
 // ===== Helpers chung =====
 function normalize(text) {
@@ -206,18 +207,17 @@ function readQuestionRow(row, offset) {
 
 // ===== Main: startTest (phần 1: reset, dạng thường) =====
 // ===== Main: startTest =====
-async function startTest() {
-  // Ghi thời điểm bắt đầu
+// ===== Main: startTest (phiên bản mới) =====
+// ===== Main: startTest (phiên bản mới) =====
+async function startTest(mode = "kiemtra") {
   localStorage.setItem("startTime_grade8", Date.now());
 
-  // Reset điểm
+  // Reset counters dùng cho Grammar hiển thị
   totalScore = 0;
   totalQuestions = 0;
   correctCount = 0;
   wrongCount = 0;
-  updateStats();
 
-  // Chuẩn bị container
   const container = document.getElementById("quizContainer");
   container.innerHTML = "";
   const readingPassageContainer = document.getElementById("readingPassageContainer");
@@ -225,19 +225,16 @@ async function startTest() {
   if (readingPassageContainer) readingPassageContainer.innerHTML = "";
   if (readingQuestionsContainer) readingQuestionsContainer.innerHTML = "";
 
-  // Lấy dữ liệu chính (CSV)
+  // ===== 1) Grammar/Vocab: render + tính tổng max =====
   const rows = await fetchSheetData();
   const totalRows = rows.length;
 
-  // ===== Render các dạng Grammar/Vocab =====
-  for (const type in config) {
-    if (type === "reading") continue; // reading xử lý riêng
+  let grammarTotal = 0; // tổng số câu Grammar/Vocab cố định của đề này
 
+  for (const type in config) {
+    if (type === "reading") continue;
     const offset = typeOffsets[type];
-    if (offset === undefined) {
-      console.error("❌ Không tìm thấy dạng bài:", type);
-      continue;
-    }
+    if (offset === undefined) continue;
 
     const questionLimit = config[type];
     const rangeBlocks = buildRangesIndices(totalRows, 1, 30);
@@ -267,8 +264,10 @@ async function startTest() {
     }
 
     const questions = shuffleArray(selected).slice(0, questionLimit);
+    grammarTotal += questionLimit;
 
-    // Render từng câu hỏi
+
+    // Render từng câu Grammar
     questions.forEach((q) => {
       const block = document.createElement("div");
       block.className = "question-block";
@@ -287,7 +286,6 @@ async function startTest() {
           btn.onclick = () => {
             totalQuestions++;
             const userAnswer = normalize(opt.text);
-
             if (q.correctArr.includes(userAnswer)) {
               btn.classList.add("correct");
               totalScore++;
@@ -296,20 +294,13 @@ async function startTest() {
               btn.classList.add("wrong");
               wrongCount++;
             }
-
             ul.querySelectorAll("button").forEach(b => b.disabled = true);
             input.disabled = true;
-
             updateStats();
-            saveKiemtraScore();
 
-            if (q.note) {
-              const noteEl = document.createElement("div");
-              noteEl.style.marginTop = "8px";
-              noteEl.style.color = "#666";
-              noteEl.innerHTML = `💡 Ghi chú: ${q.note}`;
-              block.appendChild(noteEl);
-            }
+            // Lưu điểm Grammar riêng + cập nhật tổng kiểm tra
+            saveGrammarScore(correctCount, grammarTotal);
+            saveKiemtraScore(); // chỉ cập nhật score tổng, total giữ nguyên
           };
 
           li.appendChild(btn);
@@ -319,12 +310,10 @@ async function startTest() {
 
       block.appendChild(ul);
 
-      // Ô nhập tay
       const input = document.createElement("input");
       input.placeholder = "Nhập đáp án ...";
       input.onblur = () => {
         if (input.disabled) return;
-
         const userAnswer = normalize(input.value);
         totalQuestions++;
         if (q.correctArr.includes(userAnswer)) {
@@ -335,20 +324,12 @@ async function startTest() {
           input.classList.add("wrong");
           wrongCount++;
         }
-
         input.disabled = true;
         ul.querySelectorAll("button").forEach(b => b.disabled = true);
-
         updateStats();
-        saveKiemtraScore();
 
-        if (q.note) {
-          const noteEl = document.createElement("div");
-          noteEl.style.marginTop = "8px";
-          noteEl.style.color = "#666";
-          noteEl.innerHTML = `💡 Ghi chú: ${q.note}`;
-          block.appendChild(noteEl);
-        }
+        saveGrammarScore(correctCount, grammarTotal);
+        saveKiemtraScore();
       };
 
       block.appendChild(input);
@@ -356,7 +337,8 @@ async function startTest() {
     });
   }
 
-  // ===== Reading =====
+  // ===== 2) Reading: load + render (5 câu) =====
+  let readingTotal = 0;
   try {
     const readingRows = await fetchReadingData();
     const lessonNumbers = [...new Set(readingRows.map(r => r.c[0]?.v).filter(v => v !== undefined))];
@@ -387,7 +369,12 @@ async function startTest() {
           .filter(Boolean)
       }));
 
-    shuffleArray(questions).slice(0, 5).forEach((q, index) => {
+    const picked = shuffleArray(questions).slice(0, 5);
+    readingTotal = picked.length;
+
+    let readingCorrect = 0;
+
+    picked.forEach((q, index) => {
       const block = document.createElement("div");
       block.className = "question-block";
       block.innerHTML = `<strong>Câu đọc hiểu ${index + 1}:</strong> ${q.question}`;
@@ -403,22 +390,17 @@ async function startTest() {
           btn.innerText = `${String.fromCharCode(65 + i)}. ${opt.text}`;
 
           btn.onclick = () => {
-            totalQuestions++;
             const userAnswer = normalize(opt.text);
-
             if (q.correctArr.includes(userAnswer)) {
               btn.classList.add("correct");
-              totalScore++;
-              correctCount++;
+              readingCorrect++;
             } else {
               btn.classList.add("wrong");
-              wrongCount++;
             }
-
             ul.querySelectorAll("button").forEach(b => b.disabled = true);
             input.disabled = true;
 
-            updateStats();
+            saveReadingScore(readingCorrect, readingTotal, "kiemtra");
             saveKiemtraScore();
           };
 
@@ -433,22 +415,17 @@ async function startTest() {
       input.placeholder = "Nhập đáp án ...";
       input.onblur = () => {
         if (input.disabled) return;
-
         const userAnswer = normalize(input.value);
-        totalQuestions++;
         if (q.correctArr.includes(userAnswer)) {
           input.classList.add("correct");
-          totalScore++;
-          correctCount++;
+          readingCorrect++;
         } else {
           input.classList.add("wrong");
-          wrongCount++;
         }
-
         input.disabled = true;
         ul.querySelectorAll("button").forEach(b => b.disabled = true);
 
-        updateStats();
+        saveReadingScore(readingCorrect, readingTotal, "kiemtra");
         saveKiemtraScore();
       };
 
@@ -459,54 +436,164 @@ async function startTest() {
     console.error("Lỗi tải dữ liệu Reading:", e);
   }
 
-  // ===== Listening =====
-    // ===== Listening =====
-    try {
-      const lc = document.getElementById("listeningContainer");
-      if (lc) lc.style.display = "block";
-      if (typeof startListeningCap2 === "function") {
-        // dùng lại logic trong listening-cap2.js
-        startListeningCap2();
-      }
-    } catch (e) {
-      console.error("Lỗi tải Listening:", e);
-    }
+  // ===== 3) Listening: khởi tạo tổng max cố định + gọi từng part =====
+  try {
+    const lc = document.getElementById("listeningContainer");
+    if (lc) lc.style.display = "block";
 
-    // ===== Writing =====
-    try {
-      const wc = document.getElementById("writingContainer");
-      if (wc) wc.style.display = "block";
-      if (typeof startWritingCap2 === "function") {
-        // dùng lại logic trong writing-cap2.js
-        startWritingCap2();
-      }
-    } catch (e) {
-      console.error("Lỗi tải Writing:", e);
-    }
+    // Khởi tạo tổng max cố định (Part1=5, Part2=5)
+    localStorage.setItem("result_listeningcap2", JSON.stringify({
+      score1: 0, score2: 0,
+      total1: 5, total2: 5,
+      score: 0, total: 10
+    }));
+
+    if (typeof startListeningMode1_L2 === "function") startListeningMode1_L2(mode);
+    if (typeof startListeningMode2_L2 === "function") startListeningMode2_L2(mode);
+  } catch (e) {
+    console.error("Lỗi tải Listening:", e);
   }
+
+  // ===== 4) Writing: khởi tạo và để file writing tự chấm onblur =====
+  try {
+    const wc = document.getElementById("writingContainer");
+    if (wc) wc.style.display = "block";
+    if (typeof startWritingCap2 === "function") {
+      startWritingCap2(mode); // writing sẽ tự set total + cập nhật điểm dần và gọi saveKiemtraScore()
+    }
+  } catch (e) {
+    console.error("Lỗi tải Writing:", e);
+  }
+
+  // ===== 5) Khởi tạo tổng max cho toàn bài kiểm tra ngay từ đầu =====
+  // GrammarTotal đã tính ở trên, ReadingTotal đã xác định (5), ListeningTotal = 10, WritingTotal lấy từ writing khi khởi tạo
+  // Để chắc chắn có totals ngay, set một bản ghi "khung" và để writing ghi đè phần viết sau:
+  const kiemtraTotals = {
+    grammarTotal: grammarTotal,
+    readingTotal: readingTotal || 5,
+    listeningTotal: 10,
+    // writingTotal sẽ được file writing cập nhật khi render (ghi đè lại kiemtra_totals)
+    writingTotal: 0
+  };
+  localStorage.setItem("kiemtra_totals", JSON.stringify(kiemtraTotals));
+
+  // Khởi tạo result_kiemtra: score=0, total = tổng max (tạm thời, writingTotal sẽ cộng thêm khi writing set lại)
+  const initialTotal = kiemtraTotals.grammarTotal + kiemtraTotals.readingTotal + kiemtraTotals.listeningTotal + kiemtraTotals.writingTotal;
+  localStorage.setItem("result_kiemtra", JSON.stringify({
+    score: 0,
+    total: initialTotal
+  }));
+}
+
+
+
 
 
 function saveKiemtraScore() {
-  const type = "kiemtra";
-  const newScore = correctCount;
-  const newTotal = totalQuestions;
+  const totals = JSON.parse(localStorage.getItem("kiemtra_totals") || "{}");
 
-  // Lấy điểm cũ trước khi ghi đè
-  const oldData = JSON.parse(localStorage.getItem(`score_${type}_grade8`) || "{}");
-  const oldScore = oldData.correct || 0;
-  const oldTotal = oldData.total || 0;
+  const grammar   = JSON.parse(localStorage.getItem("result_grammar") || "{}");
+  const reading   = JSON.parse(localStorage.getItem("result_reading") || "{}");
+  const listening = JSON.parse(localStorage.getItem("result_listeningcap2") || "{}");
+  const writing   = JSON.parse(localStorage.getItem("result_writingcap2") || "{}");
 
-  // Ghi đè điểm mới
-  const scoreData = { correct: newScore, total: newTotal };
-  localStorage.setItem(`score_${type}_grade8`, JSON.stringify(scoreData));
+  const scoreTotal =
+    (grammar.score || 0) +
+    (reading.score || 0) +
+    (listening.score || 0) +
+    (writing.score || 0);
 
-  // Cập nhật result_grade8 (cộng dồn)
-  const prevResult = JSON.parse(localStorage.getItem("result_grade8") || "{}");
-  const updatedResult = {
-    score: (prevResult.score || 0) - oldScore + newScore,
-    total: (prevResult.total || 0) - oldTotal + newTotal
-  };
+  const maxTotal =
+    (totals.grammarTotal || 0) +
+    (totals.readingTotal || 0) +
+    (totals.listeningTotal || 0) +
+    (totals.writingTotal || 0);
 
-  localStorage.setItem("result_grade8", JSON.stringify(updatedResult));
+  localStorage.setItem("result_kiemtra", JSON.stringify({
+    score: scoreTotal,
+    total: maxTotal
+  }));
 }
 
+
+
+function saveGrammarScore(score, total) {
+  localStorage.setItem("result_grammar", JSON.stringify({
+    score,
+    total
+  }));
+}
+
+
+
+
+
+
+// Hàm tính thời gian định dạng mm:ss
+function formatTime(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min} phút ${sec} giây`;
+}
+
+function finishTest() {
+  const start = parseInt(localStorage.getItem("startTime_grade8") || "0", 10);
+  const elapsed = start ? Date.now() - start : 0;
+
+  // Lấy điểm từng phần riêng biệt
+  const grammar   = JSON.parse(localStorage.getItem("result_grammar") || "{}");
+  const reading   = JSON.parse(localStorage.getItem("result_reading") || "{}");
+  const listening = JSON.parse(localStorage.getItem("result_listeningcap2") || "{}");
+  const writing   = JSON.parse(localStorage.getItem("result_writingcap2") || "{}");
+
+  // Tính tổng số câu đúng và tổng số câu tối đa
+  const totalCorrect = (grammar.score   || 0)
+                     + (reading.score   || 0)
+                     + (listening.score || 0)
+                     + (writing.score   || 0);
+
+  const totalMax = (grammar.total   || 0)
+                 + (reading.total   || 0)
+                 + (listening.total || 0)
+                 + (writing.total   || 0);
+
+  // Quy đổi ra thang điểm 10
+  const score10 = totalMax > 0 ? ((totalCorrect / totalMax) * 10).toFixed(2) : "0.00";
+
+  // Đánh giá xếp loại
+  let danhGia = "";
+  if (score10 >= 8.5) danhGia = "🎉 Giỏi";
+  else if (score10 >= 7) danhGia = "👍 Khá";
+  else if (score10 >= 5) danhGia = "🙂 Trung bình";
+  else danhGia = "⚠️ Yếu";
+
+  // Gợi ý phần cần học lại (chỉ khi có câu hỏi và tỉ lệ đúng < 60%)
+  const weaknesses = [];
+  if ((grammar.total || 0) > 0 && (grammar.score || 0) / grammar.total < 0.6) weaknesses.push("Grammar/Vocab");
+  if ((reading.total || 0) > 0 && (reading.score || 0) / reading.total < 0.6) weaknesses.push("Reading");
+  if ((listening.total || 0) > 0 && (listening.score || 0) / listening.total < 0.6) weaknesses.push("Listening");
+  if ((writing.total || 0) > 0 && (writing.score || 0) / writing.total < 0.6) weaknesses.push("Writing");
+
+  let advice = weaknesses.length > 0
+    ? "👉 Bạn nên tập trung học lại phần: " + weaknesses.join(", ") + "."
+    : "✅ Bạn làm tốt tất cả các phần, hãy tiếp tục phát huy!";
+
+  // Hiển thị kết quả
+  const resultDiv = document.getElementById("finalResult");
+  resultDiv.innerHTML = `
+    <h3>📊 Kết quả cuối cùng</h3>
+    <p>Grammar/Vocab: ${grammar.score || 0}/${grammar.total || 0}</p>
+    <p>Reading: ${reading.score || 0}/${reading.total || 0}</p>
+    <p>Listening: ${listening.score || 0}/${listening.total || 0}</p>
+    <p>Writing: ${writing.score || 0}/${writing.total || 0}</p>
+    <hr>
+    <p><strong>Tổng số câu đúng:</strong> ${totalCorrect}/${totalMax}</p>
+    <p><strong>Điểm quy đổi (thang 10):</strong> ${score10} (${danhGia})</p>
+    <p><strong>Lời khuyên:</strong> ${advice}</p>
+    <p><strong>Thời gian làm bài:</strong> ${formatTime(elapsed)}</p>
+  `;
+}
+
+// Gắn sự kiện cho nút
+document.getElementById("finishBtn").addEventListener("click", finishTest);
