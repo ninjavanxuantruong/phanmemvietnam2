@@ -33,7 +33,9 @@ function shuffleArray(array) {
 }
 
 function updateStats() {
-  document.getElementById("score").innerHTML = `
+  const el = document.getElementById("score");
+  if (!el) return;
+  el.innerHTML = `
     <strong>Điểm:</strong> ${totalScore} |
     <strong>Đã làm:</strong> ${totalQuestions} |
     <strong>Đúng:</strong> ${correctCount} |
@@ -41,24 +43,47 @@ function updateStats() {
   `;
 }
 
-function saveScoreToLocal(type) {
-  const newScore = correctCount;
-  const newTotal = totalQuestions;
+// ===== Tổng hợp Grade 8 từ mọi phần =====
+function recomputeGrade8() {
+  let sumCorrect = 0, sumTotal = 0;
 
-  const oldData = JSON.parse(localStorage.getItem(`score_${type}_grade8`) || "{}");
-  const oldScore = oldData.correct || 0;
-  const oldTotal = oldData.total || 0;
+  // Cộng Grammar/Vocab
+  Object.keys(typeOffsets).forEach(t => {
+    const data = JSON.parse(localStorage.getItem(`score_${t}_grade8`) || "{}");
+    if (typeof data.correct === "number" && typeof data.total === "number") {
+      sumCorrect += data.correct;
+      sumTotal   += data.total;
+    }
+  });
 
-  const scoreData = { correct: newScore, total: newTotal };
-  localStorage.setItem(`score_${type}_grade8`, JSON.stringify(scoreData));
+  // Cộng Reading
+  const reading = JSON.parse(localStorage.getItem("result_reading") || "{}");
+  sumCorrect += (reading.score || 0);
+  sumTotal   += (reading.total || 0);
 
-  const prevResult = JSON.parse(localStorage.getItem("result_grade8") || "{}");
-  const updatedResult = {
-    score: (prevResult.score || 0) - oldScore + newScore,
-    total: (prevResult.total || 0) - oldTotal + newTotal
-  };
+  // Cộng Listening
+  const listening = JSON.parse(localStorage.getItem("result_listeningcap2") || "{}");
+  sumCorrect += (listening.score || 0);
+  sumTotal   += (listening.total || 0);
 
-  localStorage.setItem("result_grade8", JSON.stringify(updatedResult));
+  // Cộng Writing
+  const writing = JSON.parse(localStorage.getItem("result_writingcap2") || "{}");
+  sumCorrect += (writing.score || 0);
+  sumTotal   += (writing.total || 0);
+
+  // Ghi lại tổng grade 8
+  localStorage.setItem("result_grade8", JSON.stringify({
+    score: sumCorrect,
+    total: sumTotal
+  }));
+}
+
+// ===== Lưu điểm từng dạng Grammar/Vocab + cập nhật tổng Grade 8 =====
+function saveScoreToLocal(type, correct, total) {
+  // 1) Lưu điểm dạng hiện tại (ghi đè)
+  localStorage.setItem(`score_${type}_grade8`, JSON.stringify({ correct, total }));
+  // 2) Tính lại tổng Grade 8 từ mọi phần
+  recomputeGrade8();
 }
 
 // ===== CSV Parser =====
@@ -146,7 +171,7 @@ function readQuestionRow(row, offset) {
   };
 }
 
-// ===== Main =====
+// ===== Hiển thị container =====
 function showOnly(visibleId) {
   const ids = [
     "quizContainer",
@@ -162,7 +187,7 @@ function showOnly(visibleId) {
   });
 }
 
-// ===== Main =====
+// ===== Teardown =====
 function teardownReading() {
   if (typeof stopReadingExercise === "function") stopReadingExercise();
   const rp = document.getElementById("readingPassageContainer");
@@ -197,37 +222,49 @@ function teardownAll() {
   teardownReading();
 }
 
+// ===== Main: Load Exercise =====
 async function loadExercise() {
   const type = document.getElementById("exerciseType").value;
   localStorage.setItem("startTime_grade8", Date.now());
 
-  // Reset điểm
+  // Reset điểm hiển thị tạm
   totalScore = 0; totalQuestions = 0; correctCount = 0; wrongCount = 0;
   updateStats();
 
   // Dọn mọi state/dữ liệu cũ trước
   teardownAll();
 
-  // Chọn chế độ và render
+  // === Reading ===
   if (type === "reading") {
     showOnly("readingContainer");
-    if (typeof loadReadingExercise === "function") loadReadingExercise();
+    // Truyền mode practice để file con lưu riêng và sau đó recompute tổng
+    if (typeof loadReadingExercise === "function") {
+      loadReadingExercise("practice", () => recomputeGrade8());
+    }
     return;
   }
 
+  // === Listening ===
   if (type === "listeningcap2") {
     showOnly("listeningContainer");
-    if (typeof startListeningCap2 === "function") startListeningCap2();
+    // Truyền mode practice để file con lưu riêng và sau đó recompute tổng
+    if (typeof startListeningCap2 === "function") {
+      startListeningCap2("practice", () => recomputeGrade8());
+    }
     return;
   }
 
+  // === Writing ===
   if (type === "writingcap2") {
     showOnly("writingContainer");
-    if (typeof startWritingCap2 === "function") startWritingCap2();
+    // Truyền mode practice để file con lưu riêng và sau đó recompute tổng
+    if (typeof startWritingCap2 === "function") {
+      startWritingCap2("practice", () => recomputeGrade8());
+    }
     return;
   }
 
-  // Grammar/Vocab (CSV)
+  // === Grammar/Vocab (CSV) ===
   showOnly("quizContainer");
 
   const questionLimit = parseInt(document.getElementById("questionCount").value, 10);
@@ -287,7 +324,7 @@ async function loadExercise() {
         btn.className = "answer-btn";
         btn.innerText = `${String.fromCharCode(65 + i)}. ${opt.text}`;
 
-        let inputRef; // sẽ gán sau
+        let inputRef;
 
         btn.onclick = () => {
           totalQuestions++;
@@ -307,8 +344,9 @@ async function loadExercise() {
 
           updateStats();
 
+          // Lưu khi làm xong toàn dạng để total khớp max
           if (totalQuestions === questions.length) {
-            saveScoreToLocal(type);
+            saveScoreToLocal(type, correctCount, totalQuestions);
           }
 
           if (q.note) {
@@ -348,8 +386,9 @@ async function loadExercise() {
 
       updateStats();
 
+      // Lưu khi làm xong toàn dạng để total khớp max
       if (totalQuestions === questions.length) {
-        saveScoreToLocal(type);
+        saveScoreToLocal(type, correctCount, totalQuestions);
       }
 
       if (q.note) {
@@ -361,11 +400,13 @@ async function loadExercise() {
       }
     };
 
-    // gán ref cho handler nút
-    // để khi bấm nút sẽ disable được input
+    // ref để disable input khi đã chọn đáp án
     inputRef = input;
 
     block.appendChild(input);
     container.appendChild(block);
   });
 }
+
+// ===== (Tuỳ chọn) Gắn sự kiện nút Load =====
+// document.getElementById("loadBtn").addEventListener("click", loadExercise);
