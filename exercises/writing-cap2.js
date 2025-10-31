@@ -4,6 +4,7 @@ const writingSheetUrl2 = "https://docs.google.com/spreadsheets/d/17JUJya5fIL3BfH
 // ===== State =====
 let writingInputs = [];
 let writingScore = 0;
+let writingTotal = 0;
 
 // ===== Helpers =====
 async function fetchWritingData() {
@@ -14,7 +15,7 @@ async function fetchWritingData() {
 }
 
 // ===== Main loader =====
-async function startWritingCap2() {
+async function startWritingCap2(mode = "practice") {
   const container = document.getElementById("writingContainer");
   container.innerHTML = "";
 
@@ -32,8 +33,30 @@ async function startWritingCap2() {
   container.appendChild(titleEl);
 
   writingInputs = [];
+  writingScore = 0;
+  writingTotal = lessonRows.length; // tổng số mục cố định
 
-  // Các mục (cột C) + gợi ý câu hỏi (cột D) + gợi ý câu trả lời (cột E)
+  // ✅ Cập nhật writingTotal vào kiemtra_totals
+  const totals = JSON.parse(localStorage.getItem("kiemtra_totals") || "{}");
+  totals.writingTotal = writingTotal;
+  localStorage.setItem("kiemtra_totals", JSON.stringify(totals));
+
+  // ✅ Đồng bộ lại result_kiemtra.total cho đủ 4 phần
+  const resultKiemtra = JSON.parse(localStorage.getItem("result_kiemtra") || "{}");
+  resultKiemtra.total = (totals.grammarTotal || 0)
+                      + (totals.readingTotal || 0)
+                      + (totals.listeningTotal || 0)
+                      + (totals.writingTotal || 0);
+  localStorage.setItem("result_kiemtra", JSON.stringify(resultKiemtra));
+
+  // ✅ Lưu điểm riêng cho Writing
+  localStorage.setItem("result_writingcap2", JSON.stringify({
+    score: 0,
+    total: writingTotal
+  }));
+
+
+  // Các mục (cột C) + gợi ý
   lessonRows.forEach((r) => {
     const label = r.c[2]?.v || "";
     const hintQ = r.c[3]?.v || "";
@@ -51,8 +74,28 @@ async function startWritingCap2() {
     input.style.width = "100%";
     input.style.marginTop = "8px";
     input.placeholder = "Viết câu trả lời tại đây...";
-    block.appendChild(input);
 
+    // ✅ Chấm điểm từng mục ngay khi blur
+    input.onblur = () => {
+      if (input.disabled) return;
+      const val = input.value?.trim();
+      if (val) {
+        writingScore++;
+        input.classList.add("correct");
+      } else {
+        input.classList.add("wrong");
+      }
+      input.disabled = true;
+      saveWritingScore(writingScore, writingTotal, mode);
+
+      // Cập nhật kết quả
+      const resultBox = document.getElementById("writingResultBox");
+      if (resultBox) {
+        resultBox.innerText = `🎯 Bạn đã hoàn thành ${writingScore}/${writingTotal} mục.`;
+      }
+    };
+
+    block.appendChild(input);
     writingInputs.push(input);
 
     // Container hiển thị gợi ý
@@ -60,7 +103,6 @@ async function startWritingCap2() {
     hintBox.style.marginTop = "8px";
     block.appendChild(hintBox);
 
-    // Nút gợi ý câu hỏi
     if (hintQ?.trim()) {
       const hintQBtn = document.createElement("button");
       hintQBtn.innerText = "💡 Gợi ý câu hỏi";
@@ -81,7 +123,6 @@ async function startWritingCap2() {
       hintBox.appendChild(hintQEl);
     }
 
-    // Nút gợi ý câu trả lời
     if (hintA?.trim()) {
       const hintABtn = document.createElement("button");
       hintABtn.innerText = "💡 Gợi ý câu trả lời";
@@ -104,59 +145,29 @@ async function startWritingCap2() {
     container.appendChild(block);
   });
 
-  const submitBtn = document.createElement("button");
-  submitBtn.innerText = "✅ Nộp bài viết";
-  submitBtn.className = "btn success";
-  submitBtn.style.marginTop = "20px";
-  submitBtn.onclick = () => {
-    gradeWritingCap2();
-  };
-  container.appendChild(submitBtn);
-}
-
-// ===== Grading =====
-function gradeWritingCap2() {
-  writingScore = 0;
-  const total = writingInputs.length;
-
-  writingInputs.forEach(input => {
-    const val = input.value?.trim();
-    if (val) writingScore++;
-    // 🔒 Khóa không cho sửa nữa
-    input.disabled = true;
-  });
-
-  // 🔒 Khóa nút nộp
-  const submitBtn = document.querySelector("#writingContainer .btn.success");
-  if (submitBtn) submitBtn.disabled = true;
-
-  // 🔒 Khóa các nút gợi ý
-  document.querySelectorAll("#writingContainer .btn.primary").forEach(btn => {
-    btn.disabled = true;
-  });
-
+  // Box hiển thị kết quả
   const resultBox = document.createElement("div");
+  resultBox.id = "writingResultBox";
   resultBox.style.marginTop = "20px";
   resultBox.style.fontWeight = "bold";
-  resultBox.innerText = `🎯 Bạn đã hoàn thành ${writingScore}/${total} mục.`;
-  document.getElementById("writingContainer").appendChild(resultBox);
+  resultBox.innerText = `🎯 Bạn đã hoàn thành 0/${writingTotal} mục.`;
+  container.appendChild(resultBox);
+}
 
-  // Lưu điểm riêng cho Writing cấp 2
+// ===== Hàm lưu điểm Writing =====
+function saveWritingScore(currentCorrect, totalQ, mode) {
   localStorage.setItem("result_writingcap2", JSON.stringify({
-    score: writingScore,
-    total: total
+    score: currentCorrect,
+    total: totalQ
   }));
 
-  // ✅ Đồng bộ vào tổng điểm chung result_grade8
-  const prevResult = JSON.parse(localStorage.getItem("result_grade8") || "{}");
-  const prevWriting = JSON.parse(localStorage.getItem("result_writingcap2") || "{}");
-
-  // Cập nhật tổng: trừ điểm cũ, cộng điểm mới
-  const updatedResult = {
-    score: (prevResult.score || 0) - (prevWriting.score || 0) + writingScore,
-    total: (prevResult.total || 0) - (prevWriting.total || 0) + total
-  };
-
-  localStorage.setItem("result_grade8", JSON.stringify(updatedResult));
-
+  if (mode === "kiemtra") {
+    // Gọi hàm tổng để cộng 4 phần
+    saveKiemtraScore();
+  } else if (mode === "practice") {
+    localStorage.setItem("result_grade8", JSON.stringify({
+      score: currentCorrect,
+      total: totalQ
+    }));
+  }
 }
