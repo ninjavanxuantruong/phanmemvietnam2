@@ -1,15 +1,19 @@
 // ===== Config =====
-const SHEET_URL_L2 = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json"; // dùng sheet tương tự, đổi nếu cần
+const SHEET_URL_L2 = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json"; 
 
 // ===== State =====
-let L2_1_sentences = [];     // [{ text, target, lessonName, unitNum }]
-let L2_1_targets = [];       // danh sách target
-let L2_1_blankIndices = [];  // index các câu bị che (5 trong 8)
+let L2_1_sentences = [];     
+let L2_1_targets = [];       
+let L2_1_blankIndices = [];  
 let L2_1_voiceMale = null;
 let L2_1_voiceFemale = null;
 let L2_1_score = 0;
 let L2_1_total = 0;
 let L2_1_ready = false;
+
+let L2_2_totalQuestions = 0;
+let L2_2_correctCount = 0;
+let L2_2_wrongCount = 0;
 
 // ===== Helpers =====
 function normalizeUnitId(unitStr) {
@@ -79,9 +83,38 @@ async function getMaxLessonCode() {
   return Math.max(...baiList);
 }
 
-// ===== Extract with filtering (target phải có trong câu) =====
+// ===== Hàm lưu điểm chung cho Listening =====
+function saveListeningScore(part, currentCorrect, mode) {
+  const prev = JSON.parse(localStorage.getItem("result_listeningcap2") || "{}");
+
+  const updated = {
+    score1: part === 1 ? currentCorrect : prev.score1 || 0,
+    score2: part === 2 ? currentCorrect : prev.score2 || 0,
+    total1: prev.total1 || 5,
+    total2: prev.total2 || 5
+  };
+
+  const totalScore = updated.score1 + updated.score2;
+  const totalMax   = updated.total1 + updated.total2;
+
+  localStorage.setItem("result_listeningcap2", JSON.stringify({
+    ...updated,
+    score: totalScore,
+    total: totalMax
+  }));
+
+  if (mode === "kiemtra") {
+    saveKiemtraScore(); // cộng tổng 4 kỹ năng
+  } else if (mode === "practice") {
+    localStorage.setItem("result_grade8", JSON.stringify({
+      score: totalScore,
+      total: totalMax
+    }));
+  }
+}
+
+// ===== Extract Dạng 1 =====
 function extractPresentationData_L2_1(rows, maxLessonCode) {
-  // B (1): lessonName, C (2): vocabRaw, I (8): presentation
   const items = rows.map(r => {
     const lessonName   = r.c?.[1]?.v?.toString().trim() || "";
     const vocabRaw     = r.c?.[2]?.v?.toString().trim() || "";
@@ -93,15 +126,11 @@ function extractPresentationData_L2_1(rows, maxLessonCode) {
 
     return { lessonName, unitNum, presentation, mainTarget };
   })
-  // chỉ giữ những câu có đủ dữ liệu
   .filter(it => it.lessonName && it.presentation && it.mainTarget)
-  // lọc thêm: mainTarget phải thực sự xuất hiện trong presentation
   .filter(it => new RegExp(`\\b${escapeRegExp(it.mainTarget)}\\b`, "i").test(it.presentation));
 
-  // Giới hạn theo bài đã học
   const filtered = items.filter(it => it.unitNum >= 3011 && it.unitNum <= maxLessonCode);
 
-  // Group theo bài, random chọn 12 bài, mỗi bài lấy 1 câu
   const unitMap = {};
   filtered.forEach(it => {
     if (!unitMap[it.lessonName]) unitMap[it.lessonName] = [];
@@ -122,25 +151,22 @@ function extractPresentationData_L2_1(rows, maxLessonCode) {
     selected.push(chosen);
   });
 
-  // 🔎 Bổ sung lọc an toàn: chỉ giữ những câu chắc chắn có thể tạo blank
   const safeSelected = selected.filter(it => {
     const rx = new RegExp(`\\b${escapeRegExp(it.mainTarget)}\\b`, "gi");
     return rx.test(it.presentation);
   });
 
-  // Sắp xếp theo unitNum để đoạn văn mượt
   safeSelected.sort((a, b) => a.unitNum - b.unitNum);
   return safeSelected;
 }
-
 
 function buildParagraphAndBlanks_L2_1() {
   L2_1_blankIndices = pickRandomIndices(L2_1_sentences.length, Math.min(5, L2_1_sentences.length));
   L2_1_total = L2_1_blankIndices.length;
 }
 
-// ===== Render UI =====
-function renderListeningL2_1() {
+// ===== Render UI Dạng 1 =====
+function renderListeningL2_1(mode) {
   const area = document.getElementById("exerciseArea_L2_1");
   const resultBox = document.getElementById("resultBox_L2_1");
 
@@ -177,6 +203,7 @@ function renderListeningL2_1() {
       <div style="margin-top:12px;">
         <button id="submitL2_1Btn" class="btn success">✅ Nộp bài</button>
       </div>
+      <div id="resultBox_L2_1" style="margin-top:10px; font-weight:bold;"></div>
     </div>
   `;
 
@@ -198,81 +225,104 @@ function renderListeningL2_1() {
     speak(paragraphOriginal, L2_1_voiceMale);
   };
 
-  // Nút nộp bài
-  document.getElementById("submitL2_1Btn").onclick = () => {
-    let correct = 0;
-    Object.entries(blankOrderMap).forEach(([idx, n]) => {
-      const inputVal = (document.getElementById(`blankInput_L2_1_${n}`).value || "").trim().toLowerCase();
-      const target = (L2_1_sentences[idx].target || "").trim().toLowerCase();
-      if (inputVal && inputVal === target) correct++;
-    });
-    L2_1_score = correct;
-    resultBox.textContent = `✅ Đúng ${correct}/${L2_1_total}`;
-    updateScoreBoardL2_1();
-    setResultListeningPart(1, L2_1_score, L2_1_total);
-    showL2_1Answers();
-  };
-}
+  // Lưu điểm từng ô nhập (onblur)
+  const totalBlanks = Object.keys(blankOrderMap).length;
+  L2_1_total = totalBlanks;
+  L2_1_score = 0;
 
-function showL2_1Answers() {
-  const area = document.getElementById("exerciseArea_L2_1");
-  const resolvedParts = L2_1_sentences.map((s, idx) => {
-    const target = s.target;
-    if (L2_1_blankIndices.includes(idx)) {
-      const highlighted = `<b style="color:#cc3333;">${target}</b>`;
-      const rx = new RegExp(`\\b${escapeRegExp(target)}\\b`, "gi");
-      return `${s.text.replace(rx, highlighted)}`;
-    }
-    return s.text;
+  Object.entries(blankOrderMap).forEach(([idx, n]) => {
+    const inputEl = document.getElementById(`blankInput_L2_1_${n}`);
+    const target = (L2_1_sentences[idx].target || "").trim().toLowerCase();
+
+    inputEl.onblur = () => {
+      if (inputEl.disabled) return;
+      const val = (inputEl.value || "").trim().toLowerCase();
+
+      // Chấm từng ô
+      if (val && val === target) {
+        inputEl.classList.add("correct");
+        L2_1_score++;
+      } else {
+        inputEl.classList.add("wrong");
+      }
+
+      inputEl.disabled = true;
+
+      // Cập nhật bảng điểm dạng 1 và lưu ngay
+      updateScoreBoardL2_1();
+      saveListeningScore(1, L2_1_score, L2_1_total, mode);
+    };
   });
-  const resolvedParagraph = resolvedParts.join(". ").replace(/\s+\./g, ".").trim() + ".";
-  const answerBox = document.createElement("div");
-  answerBox.style.marginTop = "10px";
-  answerBox.innerHTML = `
-    <div style="margin-top:10px; font-size:18px;">
-      🧠 Đáp án đầy đủ:
-      <div style="color:#333; margin-top:6px;">${resolvedParagraph}</div>
-    </div>
-  `;
-  area.appendChild(answerBox);
-}
 
-// ===== Lưu điểm tổng Listening (mode 1/2/3 chung một key) =====
-function setResultListeningPart(mode, score, total) {
-  const raw = localStorage.getItem("result_listeningcap2");
-  const prev = raw ? JSON.parse(raw) : {};
+  // Nút nộp bài: chấm các ô còn lại (nếu chưa blur), sau đó hiển thị đáp án đầy đủ
+  document.getElementById("submitL2_1Btn").onclick = () => {
+    Object.entries(blankOrderMap).forEach(([idx, n]) => {
+      const inputEl = document.getElementById(`blankInput_L2_1_${n}`);
+      const target = (L2_1_sentences[idx].target || "").trim().toLowerCase();
+      if (!inputEl.disabled) {
+        const val = (inputEl.value || "").trim().toLowerCase();
+        if (val && val === target) {
+          inputEl.classList.add("correct");
+          L2_1_score++;
+        } else {
+          inputEl.classList.add("wrong");
+        }
+        inputEl.disabled = true;
+      }
+    });
 
-  const updated = {
-    score1: mode === 1 ? score : prev.score1 || 0,
-    score2: mode === 2 ? score : prev.score2 || 0,
-    score3: mode === 3 ? score : prev.score3 || 0,
-    total1: mode === 1 ? total : prev.total1 || 0,
-    total2: mode === 2 ? total : prev.total2 || 0,
-    total3: mode === 3 ? total : prev.total3 || 0
+    // Cập nhật kết quả tổng dạng 1
+    const rb = document.getElementById("resultBox_L2_1");
+    if (rb) rb.textContent = `✅ Đúng ${L2_1_score}/${L2_1_total}`;
+
+    updateScoreBoardL2_1();
+    saveListeningScore(1, L2_1_score, L2_1_total, mode);
+
+    // Hiển thị đáp án đầy đủ
+    const resolvedParts = L2_1_sentences.map((s, idx) => {
+      const t = s.target;
+      if (L2_1_blankIndices.includes(idx)) {
+        const highlighted = `<b style="color:#cc3333;">${t}</b>`;
+        const rx = new RegExp(`\\b${escapeRegExp(t)}\\b`, "gi");
+        return `${s.text.replace(rx, highlighted)}`;
+      }
+      return s.text;
+    });
+    const resolvedParagraph = resolvedParts.join(". ").replace(/\s+\./g, ".").trim() + ".";
+    const answerBox = document.createElement("div");
+    answerBox.style.marginTop = "10px";
+    answerBox.innerHTML = `
+      <div style="margin-top:10px; font-size:18px;">
+        🧠 Đáp án đầy đủ:
+        <div style="color:#333; margin-top:6px;">${resolvedParagraph}</div>
+      </div>
+    `;
+    area.appendChild(answerBox);
+
+    // Disable nút nộp sau khi nộp
+    const submitBtn = document.getElementById("submitL2_1Btn");
+    if (submitBtn) submitBtn.disabled = true;
   };
-
-  const totalScore = (updated.score1 + updated.score2 + updated.score3);
-  const totalMax = (updated.total1 + updated.total2 + updated.total3);
-
-  // ✅ Lưu đúng key result_listeningcap2
-  localStorage.setItem("result_listeningcap2", JSON.stringify({
-    ...updated,
-    score: totalScore,
-    total: totalMax
-  }));
-
-  // ✅ Đồng bộ vào result_grade8 (tổng điểm chung)
-  const prevResult = JSON.parse(localStorage.getItem("result_grade8") || "{}");
-  const updatedResult = {
-    score: (prevResult.score || 0) - (prev.score || 0) + totalScore,
-    total: (prevResult.total || 0) - (prev.total || 0) + totalMax
-  };
-  localStorage.setItem("result_grade8", JSON.stringify(updatedResult));
 }
+// ===== Bootstrapping voices for L2 =====
+getVoices().then(voices => {
+  // Giọng nam
+  L2_1_voiceMale =
+    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("david")) ||
+    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("alex")) ||
+    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("male")) ||
+    voices.find(v => v.lang === "en-US");
 
+  // Giọng nữ
+  L2_1_voiceFemale =
+    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("zira")) ||
+    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("samantha")) ||
+    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("female")) ||
+    voices.find(v => v.lang === "en-US");
+});
 
-// ===== Main: start + bootstrapping =====
-async function startListeningMode1_L2() {
+// ===== Main: start Dạng 1 =====
+async function startListeningMode1_L2(mode) {
   try {
     const container = document.getElementById("exerciseArea_L2_1");
     if (!container) {
@@ -300,20 +350,14 @@ async function startListeningMode1_L2() {
       unitNum: it.unitNum
     }));
 
-
     L2_1_targets = L2_1_sentences.map(s => s.target);
-
     buildParagraphAndBlanks_L2_1();
 
     L2_1_ready = true;
     L2_1_score = 0;
     updateScoreBoardL2_1();
-    renderListeningL2_1();
 
-    // Không auto speak — chỉ đọc khi người dùng ấn nút
-    // const fullParagraph = L2_1_sentences.map(s => s.text).join(". ").replace(/\s+\./g, ".").trim() + ".";
-    // speak(fullParagraph, L2_1_voiceMale);
-
+    renderListeningL2_1(mode);
   } catch (err) {
     console.error("Listening L2 Dạng 1 error:", err);
     const container = document.getElementById("exerciseArea_L2_1");
@@ -323,37 +367,10 @@ async function startListeningMode1_L2() {
   }
 }
 
-
-// ===== Bootstrapping voices for L2 =====
-getVoices().then(voices => {
-  // Giọng nam
-  L2_1_voiceMale =
-    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("david")) ||
-    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("alex")) ||
-    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("male")) ||
-    voices.find(v => v.lang === "en-US");
-
-  // Giọng nữ
-  L2_1_voiceFemale =
-    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("zira")) ||
-    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("samantha")) ||
-    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("female")) ||
-    voices.find(v => v.lang === "en-US");
-
-  // Tùy Anh gọi start khi cần:
-  // startListeningMode1_L2();
-});
-
-
-// ===== Config =====
+// ===== Config Dạng 2 =====
 const listeningSheetUrl2 = "https://docs.google.com/spreadsheets/d/17JUJya5fIL3BfH4-Ysfm1MKbfFFtOmgYQ9C6aiCo5S0/gviz/tq?tqx=out:json";
 
-// ===== State =====
-let L2_2_totalQuestions = 0;
-let L2_2_correctCount = 0;
-let L2_2_wrongCount = 0;
-
-// ===== Helpers =====
+// ===== Helpers Dạng 2 =====
 async function fetchReadingData_L2_2() {
   const res = await fetch(listeningSheetUrl2);
   const text = await res.text();
@@ -381,13 +398,8 @@ function updateStats_L2_2() {
   }
 }
 
-// Lưu điểm vào result_listening (mode=2)
-function saveListeningScore_L2_2(totalQ) {
-  setResultListeningPart(2, L2_2_correctCount, totalQ);
-}
-
-// ===== Main loader =====
-async function startListeningMode2_L2() {
+// ===== Main: start Dạng 2 (phiên bản mới) =====
+async function startListeningMode2_L2(mode) {
   try {
     // Reset stats
     L2_2_totalQuestions = 0;
@@ -493,9 +505,8 @@ async function startListeningMode2_L2() {
             if (input) input.disabled = true;
 
             updateStats_L2_2();
-            if (L2_2_totalQuestions === questions.length) {
-              saveListeningScore_L2_2(questions.length);
-            }
+            // Lưu ngay sau mỗi câu
+            saveListeningScore(2, L2_2_correctCount, questions.length, mode);
           };
 
           li.appendChild(btn);
@@ -525,9 +536,8 @@ async function startListeningMode2_L2() {
         ul.querySelectorAll("button").forEach(b => b.disabled = true);
 
         updateStats_L2_2();
-        if (L2_2_totalQuestions === questions.length) {
-          saveListeningScore_L2_2(questions.length);
-        }
+        // Lưu ngay sau mỗi câu
+        saveListeningScore(2, L2_2_correctCount, questions.length, mode);
       };
 
       block.appendChild(input);
@@ -542,14 +552,27 @@ async function startListeningMode2_L2() {
   }
 }
 
+// ===== Hàm tổng để gọi khi cần =====
+function startListeningCap2(mode = "practice") {
+  // ✅ Khởi tạo điểm Listening với tổng max cố định ngay từ đầu
+  localStorage.setItem("result_listeningcap2", JSON.stringify({
+    score1: 0,
+    score2: 0,
+    total1: 5,   // Part 1 luôn 5 câu
+    total2: 5,   // Part 2 luôn 5 câu
+    score: 0,
+    total: 10    // Tổng cố định 10 câu
+  }));
 
-// Gọi startListeningMode2_L2() khi cần
-// Ví dụ: on tab "Listening Dạng 2" được mở:
-// startListeningMode2_L2();
-// Hàm tổng để gọi từ bai-tap-tung-dang.js
-function startListeningCap2() {
-  if (typeof startListeningMode1_L2 === "function") startListeningMode1_L2();
-  if (typeof startListeningMode2_L2 === "function") startListeningMode2_L2();
-  if (typeof startListeningMode3_L2 === "function") startListeningMode3_L2();
+  // Gọi các dạng bài nghe
+  if (typeof startListeningMode1_L2 === "function") {
+    startListeningMode1_L2(mode);
+  }
+  if (typeof startListeningMode2_L2 === "function") {
+    startListeningMode2_L2(mode);
+  }
+  // Nếu có Dạng 3 thì gọi thêm ở đây:
+  // if (typeof startListeningMode3_L2 === "function") {
+  //   startListeningMode3_L2(mode);
+  // }
 }
-
