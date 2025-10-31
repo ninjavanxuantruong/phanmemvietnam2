@@ -1,5 +1,10 @@
+// ===== Config =====
 const readingSheetUrl2 = "https://docs.google.com/spreadsheets/d/17JUJya5fIL3BfH4-Ysfm1MKbfFFtOmgYQ9C6aiCo5S0/gviz/tq?tqx=out:json";
 
+// ===== State =====
+let readingCorrect = 0; // số câu đúng riêng cho Reading
+
+// ===== Helpers =====
 async function fetchReadingData() {
   const res = await fetch(readingSheetUrl2);
   const text = await res.text();
@@ -20,55 +25,41 @@ function shuffleArray(array) {
 
 function updateStats() {
   document.getElementById("score").innerHTML = `
-    <strong>Điểm:</strong> ${totalScore} |
-    <strong>Đã làm:</strong> ${totalQuestions} |
-    <strong>Đúng:</strong> ${correctCount} |
-    <strong>Sai:</strong> ${wrongCount}
+    <strong>Điểm:</strong> ${readingCorrect}
   `;
 }
 
-function saveReadingScore() {
-  const type = "reading";
-  const newScore = correctCount;
-  const newTotal = totalQuestions;
+// ===== Lưu điểm Reading =====
+function saveReadingScore(currentCorrect, totalQ, mode) {
+  // ✅ Luôn lưu điểm riêng cho Reading
+  localStorage.setItem("result_reading", JSON.stringify({
+    score: currentCorrect,
+    total: totalQ
+  }));
 
-  // ✅ Lấy điểm cũ TRƯỚC khi ghi đè
-  const oldData = JSON.parse(localStorage.getItem(`score_${type}_grade8`) || "{}");
-  const oldScore = oldData.correct || 0;
-  const oldTotal = oldData.total || 0;
-
-  // ✅ Ghi đè điểm mới
-  const scoreData = { correct: newScore, total: newTotal };
-  localStorage.setItem(`score_${type}_grade8`, JSON.stringify(scoreData));
-
-  // ✅ Cập nhật result_grade8
-  const prevResult = JSON.parse(localStorage.getItem("result_grade8") || "{}");
-  const updatedResult = {
-    score: (prevResult.score || 0) - oldScore + newScore,
-    total: (prevResult.total || 0) - oldTotal + newTotal
-  };
-
-  localStorage.setItem("result_grade8", JSON.stringify(updatedResult));
+  // 👉 Không cộng dồn vào result_kiemtra ở đây nữa
+  // Việc cộng tổng sẽ do saveKiemtraScore() trong baikiemtra.js xử lý
 }
 
-
-async function loadReadingExercise() {
-  // ✅ Ghi lại thời điểm bắt đầu làm bài đọc
-  localStorage.setItem("startTime_grade8", Date.now());
-  totalScore = 0;
-  totalQuestions = 0;
-  correctCount = 0;
-  wrongCount = 0;
+// ===== Main loader =====
+async function loadReadingExercise(mode = "practice") {
+  // Reset điểm cho phần Reading
+  readingCorrect = 0;
   updateStats();
 
+  // Lấy dữ liệu Reading từ sheet
   const rows = await fetchReadingData();
 
+  // Chọn ngẫu nhiên một bài đọc
   const lessonNumbers = [...new Set(rows.map(r => r.c[0]?.v).filter(v => v !== undefined))];
   const selectedLesson = lessonNumbers[Math.floor(Math.random() * lessonNumbers.length)];
   const lessonRows = rows.filter(r => r.c[0]?.v === selectedLesson);
+
+  // Đoạn văn (cột 1)
   const passageRow = lessonRows.find(r => r.c[1]?.v?.trim());
   const passage = passageRow?.c[1]?.v || "";
 
+  // Câu hỏi (cột 2–7)
   const questions = lessonRows
     .filter(r => r.c[2]?.v?.trim())
     .map(r => ({
@@ -79,7 +70,10 @@ async function loadReadingExercise() {
         { letter: "C", text: r.c[5]?.v || "" },
         { letter: "D", text: r.c[6]?.v || "" },
       ],
-      correct: normalize(r.c[7]?.v || "")
+      correctArr: (r.c[7]?.v || "")
+        .split(",")
+        .map(x => normalize(x))
+        .filter(Boolean)
     }));
 
   // ✅ Tách vùng hiển thị
@@ -89,6 +83,7 @@ async function loadReadingExercise() {
   passageContainer.innerHTML = `<div class="passage"><strong>📘 Bài đọc:</strong><br>${passage}</div>`;
   questionsContainer.innerHTML = "";
 
+  // Render từng câu hỏi
   questions.forEach((q, index) => {
     const block = document.createElement("div");
     block.className = "question-block";
@@ -97,12 +92,7 @@ async function loadReadingExercise() {
     const ul = document.createElement("ul");
     ul.className = "answers";
 
-    // ✅ Hỗ trợ nhiều đáp án đúng
-    const correctArr = (q.correct || "")
-      .split(",")
-      .map(x => normalize(x))
-      .filter(Boolean);
-
+    // Shuffle đáp án
     const shuffledOptions = shuffleArray(q.options);
     shuffledOptions.forEach((opt, i) => {
       if (opt.text?.trim()) {
@@ -112,25 +102,22 @@ async function loadReadingExercise() {
         btn.innerText = `${String.fromCharCode(65 + i)}. ${opt.text}`;
 
         btn.onclick = () => {
-          totalQuestions++;
+          if (btn.disabled) return;
+
           const userAnswer = normalize(opt.text);
 
-          if (correctArr.includes(userAnswer)) {
+          if (q.correctArr.includes(userAnswer)) {
             btn.classList.add("correct");
-            totalScore++;
-            correctCount++;
+            readingCorrect++;   // ✅ mỗi câu đúng +1
           } else {
             btn.classList.add("wrong");
-            wrongCount++;
           }
 
           ul.querySelectorAll("button").forEach(b => b.disabled = true);
           input.disabled = true;
 
           updateStats();
-          if (totalQuestions === questions.length) {
-            saveReadingScore();
-          }
+          saveReadingScore(readingCorrect, questions.length, mode);
         };
 
         li.appendChild(btn);
@@ -145,29 +132,24 @@ async function loadReadingExercise() {
     input.placeholder = "Nhập đáp án ...";
     input.onblur = () => {
       if (input.disabled) return;
+
       const userAnswer = normalize(input.value);
 
-      totalQuestions++;
-      if (correctArr.includes(userAnswer)) {
+      if (q.correctArr.includes(userAnswer)) {
         input.classList.add("correct");
-        totalScore++;
-        correctCount++;
+        readingCorrect++;   // ✅ mỗi câu đúng +1
       } else {
         input.classList.add("wrong");
-        wrongCount++;
       }
 
       input.disabled = true;
       ul.querySelectorAll("button").forEach(b => b.disabled = true);
 
       updateStats();
-      if (totalQuestions === questions.length) {
-        saveReadingScore();
-      }
+      saveReadingScore(readingCorrect, questions.length, mode);
     };
 
     block.appendChild(input);
     questionsContainer.appendChild(block);
   });
-
 }
