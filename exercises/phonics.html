@@ -1,84 +1,135 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🔤 PokéGym Phonics</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(to right, #673ab7, #fbc02d);
-      color: #fff;
-      margin: 0;
-      padding: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .container {
-      text-align: center;
-      background-color: rgba(0,0,0,0.3);
-      padding: 30px;
-      border-radius: 18px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-      width: 90%;
-      max-width: 480px;
-    }
-
-    h1 {
-      font-size: 32px;
-      margin-bottom: 20px;
-      text-shadow: 2px 2px 6px #000;
-    }
-
-    .btn-group {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      margin-top: 20px;
-    }
-
-    .menu-btn {
-      padding: 16px;
-      font-size: 18px;
-      font-weight: bold;
-      background: linear-gradient(to right, #ffeb3b, #ffc107);
-      color: #3e2723;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      transition: background 0.3s ease, transform 0.2s ease;
-    }
-
-    .menu-btn:hover {
-      background: linear-gradient(to right, #fff176, #ffd54f);
-      transform: scale(1.05);
-    }
-
-    @media (max-width: 600px) {
-      h1 { font-size: 24px; }
-      .menu-btn { font-size: 16px; padding: 12px; }
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Phonics Word Builder – 7 Wheels (âm đơn)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root { --item-h: 48px; --wheel-h: calc(var(--item-h) * 5); }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f8ff; margin: 0; padding: 20px; color: #222; }
+  h1 { text-align: center; margin-bottom: 10px; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; max-width: 1100px; margin: 20px auto; }
+  .col { position: relative; }
+  .label { text-align: center; margin-top: 6px; font-weight: 600; color: #444; font-size: 13px; }
+  .wheel {
+    height: var(--wheel-h);
+    border: 2px solid #f4ca4d; border-radius: 12px; background: #fff6c0;
+    overflow-y: auto; scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+  }
+  .wheel::-webkit-scrollbar { display: none; }
+  .spacer { height: var(--item-h); }
+  .item {
+    height: var(--item-h); display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; scroll-snap-align: center;
+  }
+  .item.empty { color: #777; font-style: italic; font-weight: 500; }
+  .highlight-line {
+    position: absolute; top: calc(50% - var(--item-h)/2); height: var(--item-h);
+    left: 4px; right: 4px; border-radius: 8px; box-shadow: 0 0 0 2px rgba(244,202,77,0.85) inset; pointer-events: none;
+  }
+  .output { margin-top: 30px; text-align: center; font-size: 22px; }
+  .big-word { font-size: 64px; font-weight: 800; letter-spacing: 4px; }
+  .part { display: inline-block; min-width: 120px; }
+  .onset { color: #0b5394; }
+  .vowel { color: #d43f00; }
+  .coda  { color: #38761d; }
+</style>
 </head>
 <body>
-  <div class="container">
-    <h1>🔤 PokéGym Phonics</h1>
-    <p>Chọn phần bạn muốn luyện:</p>
-    <div class="btn-group">
-      <button class="menu-btn" onclick="goTo('phonics-theory.html')">🧠 Lý thuyết luyện âm</button>
-      <button class="menu-btn" onclick="goTo('phonics-practice.html')">🎮 Thực hành phát âm</button>
-      <button class="menu-btn" onclick="goTo('phonics-word.html')">Ghép từ</button>
+  <h1>⚡ Phonics Word Builder – 7 Wheels (âm đơn) ⚡</h1>
+  <div style="text-align:center;color:#333">Vuốt từng wheel để chọn ký tự. Ô trống có thể chọn được nhưng không thêm ký tự.</div>
+
+  <div class="grid">
+    <div class="col"><div class="wheel" id="w1"></div><div class="highlight-line"></div><div class="label">Phụ âm 1</div></div>
+    <div class="col"><div class="wheel" id="w2"></div><div class="highlight-line"></div><div class="label">Phụ âm 2</div></div>
+    <div class="col"><div class="wheel" id="w3"></div><div class="highlight-line"></div><div class="label">Nguyên âm 1</div></div>
+    <div class="col"><div class="wheel" id="w4"></div><div class="highlight-line"></div><div class="label">Nguyên âm 2</div></div>
+    <div class="col"><div class="wheel" id="w5"></div><div class="highlight-line"></div><div class="label">Phụ âm 3</div></div>
+    <div class="col"><div class="wheel" id="w6"></div><div class="highlight-line"></div><div class="label">Phụ âm 4</div></div>
+    <div class="col"><div class="wheel" id="w7"></div><div class="highlight-line"></div><div class="label">Magic‑e</div></div>
+  </div>
+
+  <div class="output">
+    <div class="big-word">
+      <span class="part onset" id="outOnset">—</span>
+      <span class="part vowel" id="outVowel">—</span>
+      <span class="part coda"  id="outCoda">—</span>
     </div>
   </div>
 
-  <script>
-    function goTo(page) {
-      window.location.href = page;
-    }
-  </script>
+<script>
+  // Âm đơn (có thêm y)
+  const CONSONANTS_SINGLE = ['', 'b','c','d','f','g','h','j','k','l','m','n','p','q','r','s','t','v','w','x','y','z',''];
+  const VOWELS_SINGLE    = ['', 'a','e','i','o','u','y',''];
+  const MAGIC_E          = ['', 'e',''];
+
+  function createWheel(el, items) {
+    el.innerHTML = '';
+    const top = document.createElement('div'); top.className = 'spacer'; el.appendChild(top);
+    items.forEach(txt => {
+      const div = document.createElement('div');
+      const isEmpty = (txt === '');
+      div.className = 'item' + (isEmpty ? ' empty' : '');
+      div.textContent = isEmpty ? '(trống)' : txt;
+      el.appendChild(div);
+    });
+    const bottom = document.createElement('div'); bottom.className = 'spacer'; el.appendChild(bottom);
+  }
+
+  const w1=document.getElementById('w1');
+  const w2=document.getElementById('w2');
+  const w3=document.getElementById('w3');
+  const w4=document.getElementById('w4');
+  const w5=document.getElementById('w5');
+  const w6=document.getElementById('w6');
+  const w7=document.getElementById('w7');
+
+  createWheel(w1, CONSONANTS_SINGLE);
+  createWheel(w2, CONSONANTS_SINGLE);
+  createWheel(w3, VOWELS_SINGLE);
+  createWheel(w4, VOWELS_SINGLE);
+  createWheel(w5, CONSONANTS_SINGLE);
+  createWheel(w6, CONSONANTS_SINGLE);
+  createWheel(w7, MAGIC_E);
+
+  function getSelected(wheel) {
+    const rect = wheel.getBoundingClientRect();
+    const centerY = rect.top + rect.height/2;
+    let nearest = null, dist = 1e9;
+    wheel.querySelectorAll('.item').forEach(it => {
+      const r = it.getBoundingClientRect();
+      const c = r.top + r.height/2;
+      const d = Math.abs(c - centerY);
+      if (d < dist) { dist = d; nearest = it; }
+    });
+    if (!nearest) return '';
+    const val = nearest.textContent.trim();
+    return val === '(trống)' ? '' : val;
+  }
+
+  const outOnset=document.getElementById('outOnset');
+  const outVowel=document.getElementById('outVowel');
+  const outCoda=document.getElementById('outCoda');
+
+  function updateWord() {
+    const onset = getSelected(w1)+getSelected(w2);
+    const vowel = getSelected(w3)+getSelected(w4);
+    const coda  = getSelected(w5)+getSelected(w6)+getSelected(w7);
+
+    outOnset.textContent = onset || '—';
+    outVowel.textContent = vowel || '—';
+    outCoda.textContent  = coda  || '—';
+  }
+
+  [w1,w2,w3,w4,w5,w6,w7].forEach(w=>{
+    let t;
+    w.addEventListener('scroll',()=>{
+      if(t) clearTimeout(t);
+      t=setTimeout(updateWord,120);
+    });
+  });
+
+  updateWord();
+</script>
 </body>
 </html>
