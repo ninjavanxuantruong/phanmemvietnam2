@@ -265,6 +265,11 @@ async function startTest(mode = "kiemtra") {
 
     const questions = shuffleArray(selected).slice(0, questionLimit);
     grammarTotal += questionLimit;
+    localStorage.setItem("result_grammar", JSON.stringify({
+      score: 0,
+      total: grammarTotal
+    }));
+
 
 
     // Render từng câu Grammar
@@ -371,6 +376,11 @@ async function startTest(mode = "kiemtra") {
 
     const picked = shuffleArray(questions).slice(0, 5);
     readingTotal = picked.length;
+    localStorage.setItem("result_reading", JSON.stringify({
+      score: 0,
+      total: readingTotal
+    }));
+
 
     let readingCorrect = 0;
 
