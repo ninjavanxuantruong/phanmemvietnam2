@@ -27,7 +27,31 @@
     position: absolute; top: calc(50% - var(--item-h)/2); height: var(--item-h);
     left: 4px; right: 4px; border-radius: 8px; box-shadow: 0 0 0 2px rgba(244,202,77,0.85) inset; pointer-events: none;
   }
-  .output { margin-top: 20px; text-align: center; font-size: 18px; }
+  .output {
+    margin-top: 30px;
+    text-align: center;
+    font-size: 18px;
+  }
+  .word-display {
+    font-size: 64px;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .touch {
+    min-width: 60px;
+    text-align: center;
+    cursor: pointer;
+    padding: 8px 0;
+    border-radius: 8px;
+  }
+  .onset { color: #0b5394; }
+  .vowel { color: #d43f00; }
+  .coda  { color: #0b5394; }
+  .magic { color: #f1c232; }
 </style>
 </head>
 <body>
@@ -45,26 +69,31 @@
   </div>
 
   <div class="output">
-    <div>Từ ghép: <span id="wordPreview">—</span></div>
+    <div>Từ ghép:</div>
+    <div class="word-display">
+      <span id="part1" class="touch onset">—</span>
+      <span id="part2" class="touch onset">—</span>
+      <span id="part3" class="touch vowel">—</span>
+      <span id="part4" class="touch vowel">—</span>
+      <span id="part5" class="touch coda">—</span>
+      <span id="part6" class="touch coda">—</span>
+      <span id="part7" class="touch magic">—</span>
+    </div>
   </div>
 
 <script>
-  // Âm đơn
   const CONSONANTS_SINGLE = ['', 'b','c','d','f','g','h','j','k','l','m','n','p','q','r','s','t','v','w','x','y','z'];
   const VOWELS_SINGLE    = ['', 'a','e','i','o','u','y'];
   const MAGIC_E          = ['', 'e'];
 
-  // Tăng khả năng "chọn trống" bằng cách rải nhiều mục (trống) trong danh sách
   function withEmptySlots(items) {
-    const empties = ['', '', '']; // 3 ô trống để dễ snap vào khoảng trống
+    const empties = ['', '', ''];
     return [''].concat(items, empties);
   }
 
   function createWheel(el, items) {
     el.innerHTML = '';
-    // spacer đầu
     const top = document.createElement('div'); top.className = 'spacer'; el.appendChild(top);
-    // render danh sách (có nhiều ô trống)
     withEmptySlots(items).forEach(txt => {
       const div = document.createElement('div');
       const isEmpty = (txt === '');
@@ -72,7 +101,6 @@
       div.textContent = isEmpty ? '(trống)' : txt;
       el.appendChild(div);
     });
-    // spacer cuối
     const bottom = document.createElement('div'); bottom.className = 'spacer'; el.appendChild(bottom);
   }
 
@@ -107,27 +135,35 @@
     return val === '(trống)' ? '' : val;
   }
 
-  const wordPreview = document.getElementById('wordPreview');
+  const part1 = document.getElementById('part1');
+  const part2 = document.getElementById('part2');
+  const part3 = document.getElementById('part3');
+  const part4 = document.getElementById('part4');
+  const part5 = document.getElementById('part5');
+  const part6 = document.getElementById('part6');
+  const part7 = document.getElementById('part7');
 
   function updateWord() {
-    const word = [
-      getSelected(w1), getSelected(w2), // onset
-      getSelected(w3), getSelected(w4), // vowel core
-      getSelected(w5), getSelected(w6), // coda
-      getSelected(w7)                   // magic-e
-    ].join('');
-    wordPreview.textContent = word || '—';
-  }
+    part1.textContent = getSelected(w1) || '—';
+    part2.textContent = getSelected(w2) || '—';
+    part3.textContent = getSelected(w3) || '—';
+    part4.textContent = getSelected(w4) || '—';
+    part5.textContent = getSelected(w5) || '—';
+    part6.textContent = getSelected(w6) || '—';
+      part7.textContent = getSelected(w7) || '—';
+    }
 
-  [w1,w2,w3,w4,w5,w6,w7].forEach(w => {
-    let t;
-    w.addEventListener('scroll', () => {
-      if (t) clearTimeout(t);
-      t = setTimeout(updateWord, 120);
+    // Gắn sự kiện cuộn để cập nhật từ
+    [w1, w2, w3, w4, w5, w6, w7].forEach(wheel => {
+      let timeout;
+      wheel.addEventListener('scroll', () => {
+        if (timeout) clearTimeout(timeout);
+        timeout = setTimeout(updateWord, 120);
+      });
     });
-  });
 
-  updateWord();
-</script>
-</body>
-</html>
+    // Khởi động ban đầu
+    updateWord();
+    </script>
+    </body>
+    </html>
