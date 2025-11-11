@@ -248,7 +248,10 @@ function handleD2(selected) {
 }
 
 // ------------------ DẠNG 3 ------------------
-async function showD3() {
+let answered = false; // thêm biến toàn cục cho dạng 3
+
+function showD3() {
+  answered = false; // reset mỗi lần hiển thị câu mới
   const area = document.getElementById("exerciseArea");
   area.innerHTML = `
     <button id="playSoundD3">🔊 Nghe từ</button>
@@ -259,20 +262,29 @@ async function showD3() {
   `;
 
   const current = vocabData[currentIndex];
-  const imgUrl = getImageFromMap(current.word); // ✅ dùng cache/proxy
+  const imgUrl = getImageFromMap(current.word);
   const img = document.getElementById("imageD3");
   img.src = imgUrl;
   img.classList.add("blur");
 
-  document.getElementById("submitD3").onclick = () => handleD3(current);
+  document.getElementById("submitD3").onclick = () => {
+    if (!answered) { // chỉ cho phép xử lý 1 lần
+      answered = true;
+      handleD3(current);
+    }
+  };
   document.getElementById("playSoundD3").onclick = () => speak(current.word);
 }
+
 
 function handleD3(current) {
   const input = document.getElementById("inputD3").value.trim().toLowerCase();
   const correct = current.word.toLowerCase();
   const resultBox = document.getElementById("resultD3");
   const img = document.getElementById("imageD3");
+
+  // disable nút ngay khi xử lý
+  document.getElementById("submitD3").disabled = true;
 
   if (input === correct) {
     score++;
@@ -299,6 +311,7 @@ function handleD3(current) {
     }
   }, 2000);
 }
+
 
 // ------------------ TỔNG KẾT & HIỆU ỨNG ------------------
 function checkGameEnd() {
