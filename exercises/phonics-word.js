@@ -21,17 +21,44 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ====== Ánh xạ chữ cái → IPA ======
   const ipaMap = {
-    // nguyên âm đơn
-    'a':'æ','e':'ɛ','i':'ɪ','o':'ɒ','u':'ʌ','y':'j',
-    // phụ âm đơn
-    'b':'b','c':'k','d':'d','f':'f','g':'g','h':'h','j':'ʤ','k':'k',
-    'l':'l','m':'m','n':'n','p':'p','q':'k','r':'r','s':'s','t':'t',
-    'v':'v','w':'w','x':'ks','z':'z',
-    // cụm phụ âm phổ biến (onset/coda)
-    'ng':'ŋ','ch':'ʧ','sh':'ʃ','th':'θ','ph':'f','wh':'w',
-    // nguyên âm đôi (chỉ xử lý 2 nguyên âm liền nhau như yêu cầu giai đoạn này)
-    'ai':'eɪ','ay':'eɪ','ea':'iː','ee':'iː','ie':'aɪ','oa':'oʊ','oo':'uː','ou':'aʊ','oi':'ɔɪ','oy':'ɔɪ'
+    // ===== Nguyên âm ngắn =====
+    'a':'æ','e':'ɛ','i':'ɪ','o':'ɒ','u':'ʌ',
+
+    // ===== Nguyên âm + r =====
+    'ar':'ɑː','or':'ɔː','ir':'ɜː','ur':'ɜː','er':'ə',
+
+    // ===== Nguyên âm đôi dài =====
+    'ai':'eɪ','a-e':'eɪ','ay':'eɪ',
+    'ee':'iː','ea':'iː','e-e':'iː','ey':'iː',
+    'i-e':'aɪ','ie':'aɪ','igh':'aɪ','y':'aɪ',
+    'o-e':'oʊ','oa':'oʊ','ow':'oʊ',
+    'u-e':'juː','ew':'juː','ue':'uː','ui':'uː','oo':'uː',
+
+    // ===== Nguyên âm mở rộng =====
+    'oi':'ɔɪ','oy':'ɔɪ','ou':'aʊ',
+    'air':'eə','are':'eə',
+    'ear':'ɪə','eer':'ɪə','ere':'ɪə',
+    'ure':'ʊə','our':'ʊə',
+    'aw':'ɔː','au':'ɔː','al':'ɔː',
+    'ire':'aɪə',
+
+    // ===== Phụ âm vô thanh =====
+    'p':'p','t':'t','k':'k','c':'k','f':'f','th':'θ','s':'s','h':'h','sh':'ʃ','ch':'ʧ',
+
+    // ===== Phụ âm hữu thanh =====
+    'b':'b','d':'d','g':'g','v':'v','th_voiced':'ð','z':'z','zh':'ʒ','j':'ʤ','ge':'ʤ',
+    'm':'m','n':'n','ng':'ŋ','l':'l','r':'r','w':'w','y':'j',
+
+    // ===== Phụ âm ghép đặc biệt =====
+    'ph':'f','wh':'w','ck':'k','gn':'n','kn':'n','wr':'r','mb':'m','ce':'s',
+
+    // ===== Đuôi từ đặc biệt =====
+    'tion':'ʃn','sion':'ʒn','cian':'ʃn',
+    'ture':'ʧə','sure':'ʒə',
+    'cial':'ʃl','tial':'ʃl',
+    'ous':'əs','age':'ɪʤ'
   };
+
 
   // ====== Helpers ======
   function withEmptySlots(items) { return [''].concat(items, ['', '']); }
@@ -141,12 +168,24 @@ document.addEventListener("DOMContentLoaded", () => {
   function getVowelKey() {
     const v1 = normalize(part3.textContent.trim());
     const v2 = normalize(part4.textContent.trim());
-    if (v1 && v2) {
-      const combo = v1 + v2;
-      if (ipaMap[combo]) return combo;
+    const mE = normalize(part7.textContent.trim()); // magic-e
+
+    // Ưu tiên magic-e khi ô 4 trống và ô 7 là e
+    if (v1 && !v2 && mE === 'e') {
+      const comboME = `${v1}-e`;
+      if (ipaMap[comboME]) return comboME;
     }
+
+    // Hai nguyên âm liền nhau (ai, ea, ou, ie…)
+    if (v1 && v2) {
+      const comboVV = v1 + v2;
+      if (ipaMap[comboVV]) return comboVV;
+    }
+
+    // Fallback: đọc nguyên âm đơn nếu có
     return v1 || v2 || '';
   }
+
 
   function getCodaKey() {
     const c1 = normalize(part5.textContent.trim());
@@ -157,6 +196,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return c1 || c2 || '';
   }
+
+  function getRControlledKey() {
+    const v = normalize(part3.textContent.trim());
+    const c5 = normalize(part5.textContent.trim());
+    const c6 = normalize(part6.textContent.trim());
+    const mE = normalize(part7.textContent.trim());
+
+    // chọn phụ âm r nếu có ở ô 5 hoặc 6
+    const c = (c5 === 'r' ? c5 : (c6 === 'r' ? c6 : ''));
+
+    if (v && c && mE === 'e') {
+      const combo = v + c + 'e'; // ví dụ are, ure, ere
+      if (ipaMap[combo]) return combo;
+    }
+    if (v && c) {
+      const combo = v + c; // ví dụ ar, or, ur
+      if (ipaMap[combo]) return combo;
+    }
+    return '';
+  }
+
 
   // ====== Phát âm theo key ======
   function speakKey(key, label) {
@@ -178,16 +238,35 @@ document.addEventListener("DOMContentLoaded", () => {
   part1.addEventListener('click', () => speakKey(getOnsetKey(), 'Onset (1–2)'));
   part2.addEventListener('click', () => speakKey(getOnsetKey(), 'Onset (1–2)'));
 
-  part3.addEventListener('click', () => speakKey(getVowelKey(), 'Vowel (3–4)'));
-  part4.addEventListener('click', () => speakKey(getVowelKey(), 'Vowel (3–4)'));
+  // ====== Gắn click: dùng cặp tương ứng ======
+  part3.addEventListener('click', () => {
+    // thử cụm r-controlled trước, nếu không có thì fallback về nguyên âm/magic-e
+    const key = getRControlledKey() || getVowelKey();
+    speakKey(key, 'Vowel/R-controlled (3–4–5–6–7)');
+  });
 
-  part5.addEventListener('click', () => speakKey(getCodaKey(), 'Coda (5–6)'));
-  part6.addEventListener('click', () => speakKey(getCodaKey(), 'Coda (5–6)'));
+  part4.addEventListener('click', () => {
+    const key = getRControlledKey() || getVowelKey();
+    speakKey(key, 'Vowel/R-controlled (3–4–5–6–7)');
+  });
+
+  part5.addEventListener('click', () => {
+    const key = getRControlledKey() || getCodaKey();
+    speakKey(key, 'Coda/R-controlled (5–6)');
+  });
+
+  part6.addEventListener('click', () => {
+    const key = getRControlledKey() || getCodaKey();
+    speakKey(key, 'Coda/R-controlled (5–6)');
+  });
 
   part7.addEventListener('click', () => {
-    const m = normalize(part7.textContent.trim());
-    speakKey(m, 'Magic‑e (7)');
+    // magic-e có thể tạo cụm như are, ure, ere
+    const key = getRControlledKey() || getVowelKey();
+    speakKey(key, 'Vowel/Magic-e/R-controlled (3–4–7)');
   });
+
+
 
   // (Giữ UX chặn double-tap zoom nếu cần)
   [part1, part2, part3, part4, part5, part6, part7].forEach(el => {
