@@ -273,3 +273,60 @@ document.addEventListener("DOMContentLoaded", () => {
     el.addEventListener('touchend', e => { e.preventDefault(); }, { passive: false });
   });
 });
+// ====== Đọc toàn bộ từ ======
+// ====== Helper: Lấy text từ phần (bỏ dấu —) ======
+function getPartText(el) {
+  const t = el.textContent.trim();
+  return (t && t !== '—') ? t : '';
+}
+
+// ====== Ghép từ từ 7 ô ======
+function buildWordString() {
+  const s1 = getPartText(part1);
+  const s2 = getPartText(part2);
+  const s3 = getPartText(part3);
+  const s4 = getPartText(part4);
+  const s5 = getPartText(part5);
+  const s6 = getPartText(part6);
+  const s7 = getPartText(part7);
+
+  // Ghép đơn giản theo thứ tự 1–7
+  const raw = [s1, s2, s3, s4, s5, s6, s7].join('');
+  // Nếu trống hết, trả về chuỗi rỗng
+  return raw || '';
+}
+
+// ====== Đọc bằng TTS (SpeechSynthesis) ======
+function speakTextTTS(text, lang = 'en-US', rate = 0.95, pitch = 1.0) {
+  if (!text) {
+    console.warn('⚠️ Không có từ để đọc.');
+    return;
+  }
+  if (!('speechSynthesis' in window)) {
+    console.warn('⚠️ Trình duyệt không hỗ trợ SpeechSynthesis.');
+    alert('Trình duyệt của bạn chưa hỗ trợ đọc giọng nói (SpeechSynthesis).');
+    return;
+  }
+
+  // Hủy các phát hiện đang chờ
+  window.speechSynthesis.cancel();
+
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = lang;   // có thể đổi 'en-GB', 'en-US', 'vi-VN' tùy ý
+  utter.rate = rate;   // tốc độ đọc
+  utter.pitch = pitch; // cao độ
+
+  console.log(`🔊 TTS đọc: "${text}" (${lang}, rate=${rate}, pitch=${pitch})`);
+  window.speechSynthesis.speak(utter);
+}
+
+// ====== Nút đọc toàn bộ từ ======
+document.getElementById('readWordBtn').addEventListener('click', () => {
+  const word = buildWordString();
+  if (!word) {
+    console.warn('⚠️ Từ trống, hãy chọn ký tự trên các wheel.');
+    return;
+  }
+  // Đọc thẳng chuỗi ký tự ghép thành từ bằng TTS
+  speakTextTTS(word, 'en-US', 0.95, 1.0);
+});
