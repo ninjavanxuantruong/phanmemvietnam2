@@ -1,136 +1,196 @@
-import { phonicsBank } from './phonics-bank.js';
-
-// Nhóm nguyên âm và phụ âm để ưu tiên tra
-const vowelUnits = new Set(['groupA','groupE','groupI','groupO','groupU','unit1','unit2','unit3','unit4','unit5','unit6']);
-const consonantUnits = new Set(['unit7','unit8','unit9','unit10','unit11']);
-
-// ===== Helpers =====
-function findPhonic(key, preferVowel = false, preferConsonant = false) {
-  const lowerKey = key.toLowerCase();
-  if (preferVowel) {
-    const hit = phonicsBank.find(x => x.key.toLowerCase() === lowerKey && vowelUnits.has(x.unit));
-    if (hit) return hit;
+// ====== Hàm phát âm từ file mp3 trên GitHub (chuẩn tham khảo) ======
+function playIPAFromText(text) {
+  const match = text.match(/\/([^/]+)\//); // lấy phần giữa dấu gạch chéo
+  const ipa = match?.[1];
+  if (ipa) {
+    const url = `https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/${encodeURIComponent(ipa)}.mp3`;
+    const audio = new Audio(url);
+    audio.play();
+  } else {
+    console.warn("Không tìm thấy IPA trong nút:", text);
   }
-  if (preferConsonant) {
-    const hit = phonicsBank.find(x => x.key.toLowerCase() === lowerKey && consonantUnits.has(x.unit));
-    if (hit) return hit;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("📦 Khởi động Phonics Word Builder");
+
+  // ====== Danh sách âm ======
+  const CONSONANTS_SINGLE = ['', 'b','c','d','f','g','h','j','k','l','m','n','p','q','r','s','t','v','w','x','y','z'];
+  const VOWELS_SINGLE    = ['', 'a','e','i','o','u','y'];
+  const MAGIC_E          = ['', 'e'];
+
+  // ====== Ánh xạ chữ cái → IPA ======
+  const ipaMap = {
+    // nguyên âm đơn
+    'a':'æ','e':'ɛ','i':'ɪ','o':'ɒ','u':'ʌ','y':'j',
+    // phụ âm đơn
+    'b':'b','c':'k','d':'d','f':'f','g':'g','h':'h','j':'ʤ','k':'k',
+    'l':'l','m':'m','n':'n','p':'p','q':'k','r':'r','s':'s','t':'t',
+    'v':'v','w':'w','x':'ks','z':'z',
+    // cụm phụ âm phổ biến (onset/coda)
+    'ng':'ŋ','ch':'ʧ','sh':'ʃ','th':'θ','ph':'f','wh':'w',
+    // nguyên âm đôi (chỉ xử lý 2 nguyên âm liền nhau như yêu cầu giai đoạn này)
+    'ai':'eɪ','ay':'eɪ','ea':'iː','ee':'iː','ie':'aɪ','oa':'oʊ','oo':'uː','ou':'aʊ','oi':'ɔɪ','oy':'ɔɪ'
+  };
+
+  // ====== Helpers ======
+  function withEmptySlots(items) { return [''].concat(items, ['', '']); }
+  function createWheel(el, items) {
+    el.innerHTML = '';
+    const top = document.createElement('div'); top.className = 'spacer'; el.appendChild(top);
+    withEmptySlots(items).forEach(txt => {
+      const div = document.createElement('div');
+      const isEmpty = (txt === '');
+      div.className = 'item' + (isEmpty ? ' empty' : '');
+      div.textContent = isEmpty ? '(trống)' : txt;
+      el.appendChild(div);
+    });
+    const bottom = document.createElement('div'); bottom.className = 'spacer'; el.appendChild(bottom);
   }
-  return phonicsBank.find(x => x.key.toLowerCase() === lowerKey);
-}
-
-// Phát file mp3 IPA từ GitHub
-function playIPA(ipa) {
-  if (!ipa || !ipa.startsWith('/') || !ipa.endsWith('/')) return;
-  const core = ipa.slice(1, -1); // bỏ dấu "/"
-  const url = `https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/${encodeURIComponent(core)}.mp3`;
-  const audio = new Audio(url);
-  audio.play();
-}
-
-// Đọc cả từ bằng TTS
-function speakWord(word) {
-  if (!word) return;
-  const utter = new SpeechSynthesisUtterance(word);
-  utter.lang = 'en-US';
-  speechSynthesis.speak(utter);
-}
-
-// ===== Lấy giá trị từ wheel =====
-function getSelectedFromWheel(el) {
-  const wheelRect = el.getBoundingClientRect();
-  const centerY = wheelRect.top + wheelRect.height / 2;
-  let nearest = null, nearestDist = Infinity;
-  el.querySelectorAll('.item').forEach(item => {
-    const r = item.getBoundingClientRect();
-    const itemCenter = r.top + r.height / 2;
-    const d = Math.abs(itemCenter - centerY);
-    if (d < nearestDist) { nearestDist = d; nearest = item; }
-  });
-  if (!nearest) return '';
-  const val = nearest.textContent.trim();
-  return val === '(trống)' ? '' : val;
-}
-
-// ===== Build cụm =====
-function buildOnsetKey(w1, w2) {
-  const c1 = getSelectedFromWheel(w1);
-  const c2 = getSelectedFromWheel(w2);
-  const pair = `${c1}${c2}`;
-  if (pair && findPhonic(pair, false, true)) return pair;
-  return c1 || c2 || '';
-}
-
-function buildVowelKey(w3, w4, w7) {
-  const v1 = getSelectedFromWheel(w3);
-  const v2 = getSelectedFromWheel(w4);
-  const e7 = getSelectedFromWheel(w7);
-  const simpleVowel = new Set(['a','e','i','o','u']);
-
-  if (e7 === 'e' && v2 === '' && simpleVowel.has(v1)) {
-    const key = `${v1}-e`;
-    if (findPhonic(key, true, false)) return key;
+  function getSelected(wheel) {
+    const rect = wheel.getBoundingClientRect();
+    const centerY = rect.top + rect.height / 2;
+    let nearest = null, dist = 1e9;
+    wheel.querySelectorAll('.item').forEach(it => {
+      const r = it.getBoundingClientRect();
+      const c = r.top + r.height / 2;
+      const d = Math.abs(c - centerY);
+      if (d < dist) { dist = d; nearest = it; }
+    });
+    if (!nearest) return '';
+    const val = nearest.textContent.trim();
+    return val === '(trống)' ? '' : val;
   }
-  const cluster = `${v1}${v2}`;
-  if (cluster && findPhonic(cluster, true, false)) return cluster;
-  return v1 || '';
-}
 
-function buildCodaKey(w5, w6) {
-  const c3 = getSelectedFromWheel(w5);
-  const c4 = getSelectedFromWheel(w6);
-  const pair = `${c3}${c4}`;
-  if (pair && findPhonic(pair, false, true)) return pair;
-  return c3 || c4 || '';
-}
+  // ====== Wheel elements ======
+  const w1 = document.getElementById('w1');
+  const w2 = document.getElementById('w2');
+  const w3 = document.getElementById('w3');
+  const w4 = document.getElementById('w4');
+  const w5 = document.getElementById('w5');
+  const w6 = document.getElementById('w6');
+  const w7 = document.getElementById('w7');
 
-function buildWholeWord(w1,w2,w3,w4,w5,w6,w7) {
-  return `${getSelectedFromWheel(w1)}${getSelectedFromWheel(w2)}${getSelectedFromWheel(w3)}${getSelectedFromWheel(w4)}${getSelectedFromWheel(w5)}${getSelectedFromWheel(w6)}${getSelectedFromWheel(w7)}`;
-}
+  // Tạo nội dung cho từng wheel
+  createWheel(w1, CONSONANTS_SINGLE);
+  createWheel(w2, CONSONANTS_SINGLE);
+  createWheel(w3, VOWELS_SINGLE);
+  createWheel(w4, VOWELS_SINGLE);
+  createWheel(w5, CONSONANTS_SINGLE);
+  createWheel(w6, CONSONANTS_SINGLE);
+  createWheel(w7, MAGIC_E);
 
-// ===== Gắn sự kiện nút =====
-export function initPhonicsWord(wheels, outputs) {
-  const {w1,w2,w3,w4,w5,w6,w7} = wheels;
-  const {outOnset,ipaOnset,outVowel,ipaVowel,outCoda,ipaCoda,wordPreview} = outputs;
+  // ====== 7 ô hiển thị ======
+  const part1 = document.getElementById('part1');
+  const part2 = document.getElementById('part2');
+  const part3 = document.getElementById('part3');
+  const part4 = document.getElementById('part4');
+  const part5 = document.getElementById('part5');
+  const part6 = document.getElementById('part6');
+  const part7 = document.getElementById('part7');
 
-  document.getElementById('btnOnset').addEventListener('click', () => {
-    const key = buildOnsetKey(w1,w2);
-    outOnset.textContent = key || '—';
-    ipaOnset.textContent = '';
-    if (!key) return;
-    const hit = findPhonic(key, false, true);
-    if (hit?.ipa) {
-      ipaOnset.textContent = hit.ipa;
-      playIPA(hit.ipa);
+  // ====== Cập nhật hiển thị chữ và log ======
+  function updateWord() {
+    const v1 = getSelected(w1) || '—';
+    const v2 = getSelected(w2) || '—';
+    const v3 = getSelected(w3) || '—';
+    const v4 = getSelected(w4) || '—';
+    const v5 = getSelected(w5) || '—';
+    const v6 = getSelected(w6) || '—';
+    const v7 = getSelected(w7) || '—';
+
+    part1.textContent = v1;
+    part2.textContent = v2;
+    part3.textContent = v3;
+    part4.textContent = v4;
+    part5.textContent = v5;
+    part6.textContent = v6;
+    part7.textContent = v7;
+
+    console.log(`🔁 updateWord -> part1:${v1} | part2:${v2} | part3:${v3} | part4:${v4} | part5:${v5} | part6:${v6} | part7:${v7}`);
+  }
+
+  // Cập nhật khi cuộn
+  [w1, w2, w3, w4, w5, w6, w7].forEach((wheel, idx) => {
+    let t;
+    wheel.addEventListener('scroll', () => {
+      console.log(`🌀 scroll wheel ${idx+1} (${wheel.getAttribute('aria-label')})`);
+      if (t) clearTimeout(t);
+      t = setTimeout(updateWord, 120);
+    }, { passive: true });
+  });
+
+  // Khởi động lần đầu
+  updateWord();
+
+  // ====== Gộp cặp: onset (1–2), vowel (3–4), coda (5–6) ======
+  function normalize(val) {
+    return (val && val !== '—') ? val.toLowerCase() : '';
+  }
+
+  function getOnsetKey() {
+    const p1 = normalize(part1.textContent.trim());
+    const p2 = normalize(part2.textContent.trim());
+    if (p1 && p2) {
+      const combo = p1 + p2;
+      if (ipaMap[combo]) return combo;
     }
-  });
+    return p1 || p2 || '';
+  }
 
-  document.getElementById('btnVowel').addEventListener('click', () => {
-    const key = buildVowelKey(w3,w4,w7);
-    outVowel.textContent = key || '—';
-    ipaVowel.textContent = '';
-    if (!key) return;
-    const hit = findPhonic(key, true, false);
-    if (hit?.ipa) {
-      ipaVowel.textContent = hit.ipa;
-      playIPA(hit.ipa);
+  function getVowelKey() {
+    const v1 = normalize(part3.textContent.trim());
+    const v2 = normalize(part4.textContent.trim());
+    if (v1 && v2) {
+      const combo = v1 + v2;
+      if (ipaMap[combo]) return combo;
     }
-  });
+    return v1 || v2 || '';
+  }
 
-  document.getElementById('btnCoda').addEventListener('click', () => {
-    const key = buildCodaKey(w5,w6);
-    outCoda.textContent = key || '—';
-    ipaCoda.textContent = '';
-    if (!key) return;
-    const hit = findPhonic(key, false, true);
-    if (hit?.ipa) {
-      ipaCoda.textContent = hit.ipa;
-      playIPA(hit.ipa);
+  function getCodaKey() {
+    const c1 = normalize(part5.textContent.trim());
+    const c2 = normalize(part6.textContent.trim());
+    if (c1 && c2) {
+      const combo = c1 + c2;
+      if (ipaMap[combo]) return combo;
     }
+    return c1 || c2 || '';
+  }
+
+  // ====== Phát âm theo key ======
+  function speakKey(key, label) {
+    if (!key) {
+      console.warn(`⚠️ ${label}: trống, không đọc`);
+      return;
+    }
+    const ipa = ipaMap[key];
+    if (!ipa) {
+      console.warn(`❓ ${label}: không có IPA cho "${key}"`);
+      return;
+    }
+    const fakeText = `${key} - /${ipa}/`;
+    console.log(`🔊 ${label}: ${fakeText} -> /${ipa}.mp3`);
+    playIPAFromText(fakeText);
+  }
+
+  // ====== Gắn click: dùng cặp tương ứng ======
+  part1.addEventListener('click', () => speakKey(getOnsetKey(), 'Onset (1–2)'));
+  part2.addEventListener('click', () => speakKey(getOnsetKey(), 'Onset (1–2)'));
+
+  part3.addEventListener('click', () => speakKey(getVowelKey(), 'Vowel (3–4)'));
+  part4.addEventListener('click', () => speakKey(getVowelKey(), 'Vowel (3–4)'));
+
+  part5.addEventListener('click', () => speakKey(getCodaKey(), 'Coda (5–6)'));
+  part6.addEventListener('click', () => speakKey(getCodaKey(), 'Coda (5–6)'));
+
+  part7.addEventListener('click', () => {
+    const m = normalize(part7.textContent.trim());
+    speakKey(m, 'Magic‑e (7)');
   });
 
-  document.getElementById('btnWhole').addEventListener('click', () => {
-    const word = buildWholeWord(w1,w2,w3,w4,w5,w6,w7);
-    wordPreview.textContent = word || '—';
-    if (word) speakWord(word);
+  // (Giữ UX chặn double-tap zoom nếu cần)
+  [part1, part2, part3, part4, part5, part6, part7].forEach(el => {
+    el.addEventListener('touchend', e => { e.preventDefault(); }, { passive: false });
   });
-}
+});
