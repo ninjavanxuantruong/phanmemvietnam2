@@ -304,9 +304,11 @@ async function saveTodayResult() {
   const entryBase = getTodayEntry();
   const selectedLesson = localStorage.getItem("selectedLesson") || "Chưa chọn bài học";
 
+  // 👇 đảm bảo giữ cả duration từ entryBase
   const entry = {
     ...entryBase,
-    lesson: selectedLesson
+    lesson: selectedLesson,
+    duration: entryBase.duration   // thêm rõ ràng để chắc chắn ghi lên Firebase
   };
 
   // Lưu local history (giữ nguyên)
@@ -320,11 +322,17 @@ async function saveTodayResult() {
   }
   localStorage.setItem(historyKey, JSON.stringify(history));
 
-  // Ghi Firebase (giữ nguyên)
+  // Ghi Firebase
   if (window.saveStudentResultToFirebase) {
     try {
       await window.saveStudentResultToFirebase(entry);
-      alert("✅ Kết quả đã được ghi lên hệ thống thành công!");
+
+      const scoreText = `${entry.score}/${entry.max}`;
+      const partText = `${entry.doneParts} phần`;
+      const timeText = entry.duration ? `${entry.duration} phút` : "–";
+
+      alert(`✅ Đã ghi kết quả lên hệ thống:\n• Điểm: ${scoreText}\n• Số phần: ${partText}\n• Thời gian: ${timeText}`);
+
     } catch (err) {
       console.error("❌ Lỗi khi ghi Firebase:", err.message);
       alert("❌ Ghi không thành công. Vui lòng kiểm tra mạng hoặc ấn gửi lại kết quả.");
@@ -333,6 +341,8 @@ async function saveTodayResult() {
     alert("⚠️ Hệ thống chưa sẵn sàng để ghi kết quả. Vui lòng thử lại hoặc báo cho giáo viên.");
   }
 }
+
+
 
 // ================== BẢNG TUẦN TỪ FIREBASE ==================
 async function renderStudentWeekSummary() {
@@ -395,6 +405,7 @@ async function renderStudentWeekSummary() {
         <td>${e.rating}</td>
       </tr>
     `;
+
     tbody.innerHTML += row;
   });
 
