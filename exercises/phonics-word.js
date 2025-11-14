@@ -89,6 +89,24 @@ document.addEventListener("DOMContentLoaded", () => {
     return val === '(trống)' ? '' : val;
   }
 
+  function getVowelConsonantKey() {
+    const v1 = normalize(part3.textContent.trim());
+    const v2 = normalize(part4.textContent.trim());
+    const c5 = normalize(part5.textContent.trim());
+    const c6 = normalize(part6.textContent.trim());
+
+    const v = v1 || v2;      // ưu tiên nguyên âm đang hiển thị
+    const c = c5 || c6;      // phụ âm liền sau
+
+    if (!v || !c) return '';
+
+    const combo = v + c;     // ví dụ: a+w -> "aw", o+w -> "ow", a+l -> "al"
+    if (ipaMap[combo]) return combo;
+
+    return '';
+  }
+
+
   // ====== Wheel elements ======
   const w1 = document.getElementById('w1');
   const w2 = document.getElementById('w2');
@@ -199,23 +217,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function getRControlledKey() {
     const v = normalize(part3.textContent.trim());
+    const v2 = normalize(part4.textContent.trim());
     const c5 = normalize(part5.textContent.trim());
     const c6 = normalize(part6.textContent.trim());
     const mE = normalize(part7.textContent.trim());
 
-    // chọn phụ âm r nếu có ở ô 5 hoặc 6
+    // phụ âm r ở ô 5 hoặc 6
     const c = (c5 === 'r' ? c5 : (c6 === 'r' ? c6 : ''));
 
-    if (v && c && mE === 'e') {
-      const combo = v + c + 'e'; // ví dụ are, ure, ere
-      if (ipaMap[combo]) return combo;
+    if (!v && !v2) return '';
+
+    // ===== Ưu tiên cụm 3 chữ cái =====
+    if (v && v2 && c) {
+      const combo3 = v + v2 + c; // ear, eer
+      if (ipaMap[combo3]) return combo3;
     }
-    if (v && c) {
-      const combo = v + c; // ví dụ ar, or, ur
-      if (ipaMap[combo]) return combo;
+
+    // ===== Ưu tiên cụm có magic-e =====
+    if ((v || v2) && c && mE === 'e') {
+      const comboME = (v || v2) + c + 'e'; // are, ure, ere
+      if (ipaMap[comboME]) return comboME;
     }
+
+    // ===== Fallback: nguyên âm + r =====
+    if ((v || v2) && c) {
+      const combo2 = (v || v2) + c; // ar, or, ur, er
+      if (ipaMap[combo2]) return combo2;
+    }
+
     return '';
   }
+
 
 
   // ====== Phát âm theo key ======
@@ -240,31 +272,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ====== Gắn click: dùng cặp tương ứng ======
   part3.addEventListener('click', () => {
-    // thử cụm r-controlled trước, nếu không có thì fallback về nguyên âm/magic-e
-    const key = getRControlledKey() || getVowelKey();
-    speakKey(key, 'Vowel/R-controlled (3–4–5–6–7)');
+    const key = getRControlledKey() || getVowelConsonantKey() || getVowelKey();
+    speakKey(key, 'Vowel (R/VC/V/Magic-e)');
   });
 
   part4.addEventListener('click', () => {
-    const key = getRControlledKey() || getVowelKey();
-    speakKey(key, 'Vowel/R-controlled (3–4–5–6–7)');
+    const key = getRControlledKey() || getVowelConsonantKey() || getVowelKey();
+    speakKey(key, 'Vowel (R/VC/V/Magic-e)');
   });
 
   part5.addEventListener('click', () => {
-    const key = getRControlledKey() || getCodaKey();
-    speakKey(key, 'Coda/R-controlled (5–6)');
+    const key = getRControlledKey() || getVowelConsonantKey() || getCodaKey();
+    speakKey(key, 'Coda (R/VC/C)');
   });
 
   part6.addEventListener('click', () => {
-    const key = getRControlledKey() || getCodaKey();
-    speakKey(key, 'Coda/R-controlled (5–6)');
+    const key = getRControlledKey() || getVowelConsonantKey() || getCodaKey();
+    speakKey(key, 'Coda (R/VC/C)');
   });
 
   part7.addEventListener('click', () => {
-    // magic-e có thể tạo cụm như are, ure, ere
-    const key = getRControlledKey() || getVowelKey();
-    speakKey(key, 'Vowel/Magic-e/R-controlled (3–4–7)');
+    const key = getRControlledKey() || getVowelConsonantKey() || getVowelKey();
+    speakKey(key, 'Magic-e (R/VC/V)');
   });
+
 
 
 
