@@ -228,7 +228,19 @@ window.renderStudentSummary = async function () {
     for (const name in students) {
       const key = `${normalizeName(name)}_${selectedClass}`;
       if (!studentMap[key]) studentMap[key] = [];
-      studentMap[key].push({ ...students[name], date, name });
+      const raw = students[name];
+      const duration = raw.total?.duration || 0;
+
+      studentMap[key].push({
+        score: raw.score,
+        max: raw.max,
+        doneParts: raw.doneParts,
+        rating: raw.rating,
+        date,
+        name,
+        duration   // ✅ thêm dòng này để đưa duration vào entry
+      });
+
     }
   }
 
@@ -241,17 +253,28 @@ window.renderStudentSummary = async function () {
   for (const key in studentMap) {
     const [nameKey, className] = key.split("_");
     const entries = studentMap[key];
+    console.log(`📦 Dữ liệu của học sinh ${key}:`, entries);
+
     const scores = calculateScores(entries);
 
     const dayCells = allDates.map(date => {
       const entry = entries.find(e => e.date === date);
-      if (entry) {
-        const durationText = entry.duration ? `${entry.duration} phút` : "–";
-        return `<td>${entry.score}/${entry.max} – ${entry.doneParts} phần – ${durationText} – ${entry.rating}</td>`;
-      } else {
-        return `<td>–</td>`;
-      }
+      if (!entry) return `<td>–</td>`;
+
+      const scoreText = `${entry.score}/${entry.max}`;
+      const partText = `${entry.doneParts} phần`;
+      const timeText = (typeof entry.duration === "number" && entry.duration > 0)
+        ? `${entry.duration} phút`
+        : "–";
+      const ratingText = entry.rating || "–";
+
+      return `<td>${scoreText} – ${partText} – ${timeText} ${ratingText}</td>`;
     });
+
+
+
+
+
 
     let summaryRating = "–";
     if (scores.daysDone >= 7) summaryRating = "Tuyệt vời";
@@ -332,8 +355,9 @@ async function fetchStudentListFromSheet() {
 
 // ✅ Hàm hiển thị báo cáo theo ngày
 // ✅ Đọc từ summary-{class}-recent và hiển thị đầy đủ: đã làm / chưa làm / điểm kém
+// ✅ Hiển thị báo cáo theo ngày + thống kê đặc biệt
+// ✅ Hàm hiển thị báo cáo theo ngày
 async function showDailyParticipationFromSummary(className) {
-  // Lấy doc summary chung
   const ref = doc(db, "tonghop", `summary-${className}-recent`);
   const snap = await getDoc(ref);
   const reportBox = document.getElementById("dailyReportContent");
@@ -386,7 +410,7 @@ async function showDailyParticipationFromSummary(className) {
       weakTracker[item.name].push({ date: item.date, type: item.type });
     }
 
-    // ✅ Hiển thị báo cáo từng ngày
+    // ✅ Hiển thị báo cáo từng ngày (có nút copy)
     const formattedDate = formatDM(dateCode);
     const section = document.createElement("div");
     section.style.marginTop = "20px";
@@ -394,21 +418,21 @@ async function showDailyParticipationFromSummary(className) {
       <h4>📅 Ngày ${formattedDate}</h4>
 
       <p>✅ Đã làm bài (${classStudents.filter(s => doneSet.has(normalizeName(s.name))).length}): 
-        <span id="done-${dateCode}" data-class="${className}" data-date="${formattedDate}" data-type="done">
+        <span id="done-${dateCode}" data-class="${className}" data-date="${formattedDate}" data-type="done" data-raw="${classStudents.filter(s => doneSet.has(normalizeName(s.name))).map(s => s.name).join(", ")}">
           ${classStudents.filter(s => doneSet.has(normalizeName(s.name))).map(s => s.name).join(", ") || "Không có"}
         </span>
         <button onclick="copyToClipboard('done-${dateCode}')">📋 Sao chép</button>
       </p>
 
       <p>❌ Chưa làm bài (${notDoneList.length}): 
-        <span id="notdone-${dateCode}" data-class="${className}" data-date="${formattedDate}" data-type="notdone">
+        <span id="notdone-${dateCode}" data-class="${className}" data-date="${formattedDate}" data-type="notdone" data-raw="${notDoneList.join(", ")}">
           ${notDoneList.join(", ") || "Không có"}
         </span>
         <button onclick="copyToClipboard('notdone-${dateCode}')">📋 Sao chép</button>
       </p>
 
       <p>⚠️ Điểm kém (${needImprove.length}): 
-        <span id="needimprove-${dateCode}" data-class="${className}" data-date="${formattedDate}" data-type="needimprove">
+        <span id="needimprove-${dateCode}" data-class="${className}" data-date="${formattedDate}" data-type="needimprove" data-raw="${needImprove.join(", ")}">
           ${needImprove.join(", ") || "Không có"}
         </span>
         <button onclick="copyToClipboard('needimprove-${dateCode}')">📋 Sao chép</button>
@@ -422,6 +446,7 @@ async function showDailyParticipationFromSummary(className) {
   // 🔔 Tổng hợp danh sách đặc biệt
   const needAttention = [];   // >= 3 ngày yếu
   const notDoneTwoDays = [];  // hôm nay + hôm qua đều chưa làm bài
+  const continuousWeak = [];  // chuỗi liên tục nhiều ngày chưa làm bài
 
   const todayCode = allDates[0];
   const yesterdayCode = allDates[1] || null;
@@ -436,23 +461,26 @@ async function showDailyParticipationFromSummary(className) {
       grouped[h.type].push(h.date);
     }
 
-    const parts = [];
-    for (const type in grouped) {
-      const dates = grouped[type]
-        .sort((a,b)=>b.localeCompare(a))
-        .map(formatDM);
-      parts.push(`${type} (${dates.join(", ")})`);
-    }
-    const detail = parts.join(" - ");
-
     // ✅ Danh sách 1: học sinh có >= 3 ngày yếu
     if (history.length >= 3) {
-      needAttention.push({
-        name,
-        count: history.length,
-        detail
-      });
+      const grouped = {};
+      for (const h of history) {
+        if (!grouped[h.type]) grouped[h.type] = [];
+        grouped[h.type].push(h.date);
+      }
+
+      const parts = [];
+      for (const type in grouped) {
+        const dates = grouped[type]
+          .sort((a,b)=>b.localeCompare(a))
+          .map(formatDM);
+        parts.push(`${type} (${dates.join(", ")})`);
+      }
+
+      const detail = parts.join(" - ");
+      needAttention.push({ name, count: history.length, detail });
     }
+
 
     // ✅ Danh sách 2: hôm nay và hôm qua đều "chưa làm bài"
     if (todayCode && yesterdayCode) {
@@ -462,8 +490,32 @@ async function showDailyParticipationFromSummary(className) {
         notDoneTwoDays.push(name);
       }
     }
+
+    // ✅ Danh sách 3: chuỗi liên tục nhiều ngày chưa làm bài
+    const notDoneDates = history.filter(h => h.type === "chưa làm bài").map(h => h.date).sort((a,b)=>b.localeCompare(a));
+    let streak = 0, prevDate = null;
+    for (const date of notDoneDates) {
+      if (!prevDate) {
+        streak = 1;
+        prevDate = date;
+      } else {
+        const d1 = new Date(2000+parseInt(prevDate.slice(4)), parseInt(prevDate.slice(2,4))-1, parseInt(prevDate.slice(0,2)));
+        const d2 = new Date(2000+parseInt(date.slice(4)), parseInt(date.slice(2,4))-1, parseInt(date.slice(0,2)));
+        const diffDays = Math.round((d1 - d2)/(1000*60*60*24));
+        if (diffDays === 1) {
+          streak++;
+          prevDate = date;
+        } else {
+          break;
+        }
+      }
+    }
+    if (streak >= 2) {
+      continuousWeak.push({ name, streak });
+    }
   }
 
+  // Hiển thị danh sách cần quan tâm (có nút copy)
   // Sắp xếp danh sách cần quan tâm theo số ngày yếu giảm dần
   needAttention.sort((a, b) => b.count - a.count);
 
@@ -471,9 +523,10 @@ async function showDailyParticipationFromSummary(className) {
   if (needAttention.length > 0) {
     for (let i = 0; i < needAttention.length; i += 10) {
       const chunk = needAttention.slice(i, i + 10);
-      const lines = chunk.map(item => 
-        `• ${item.name} ${item.count} ngày yếu: ${item.detail}`
-      );
+      const lines = chunk.map(item => {
+        // item.detail đã chứa chi tiết: ví dụ "chưa làm bài (12/11, 13/11) - điểm kém (10/11)"
+        return `• ${item.name} ${item.count} ngày yếu: ${item.detail}`;
+      });
       const section = document.createElement("div");
       section.innerHTML = `
         <h4>🔔 Học sinh cần quan tâm (${chunk.length}/${needAttention.length})</h4>
@@ -487,7 +540,8 @@ async function showDailyParticipationFromSummary(className) {
     }
   }
 
-  // Hiển thị danh sách 2: Học sinh chưa làm bài qua nay (chỉ tên, 1 dòng)
+
+  // Hiển thị danh sách chưa làm bài hôm nay + hôm qua (có nút copy)
   if (notDoneTwoDays.length > 0) {
     const section2 = document.createElement("div");
     section2.innerHTML = `
@@ -501,27 +555,67 @@ async function showDailyParticipationFromSummary(className) {
     reportBox.prepend(section2);
   }
 
-  reportBox.scrollIntoView({ behavior: "smooth" });
-  console.log("📋 Đã hiển thị báo cáo theo summary chung.");
-}
+  // Hiển thị danh sách chuỗi liên tục nhiều ngày chưa làm bài (có nút copy)
+                       // Hiển thị danh sách chuỗi liên tục nhiều ngày chưa làm bài (có nút copy)
+  // Hiển thị danh sách chuỗi liên tục nhiều ngày chưa làm bài (chia 2 bảng)
+  if (continuousWeak.length > 0) {
+    // Phân loại
+    const twoDays = continuousWeak.filter(item => item.streak === 2);
+    const moreThanTwo = continuousWeak.filter(item => item.streak > 2)
+                                      .sort((a, b) => b.streak - a.streak);
+
+    // Bảng 1: đúng 2 ngày liên tục
+    if (twoDays.length > 0) {
+      const sectionA = document.createElement("div");
+      const linesA = twoDays.map(item => `• ${item.name}: ${item.streak} ngày liên tục`);
+      sectionA.innerHTML = `
+        <h4>📊 Học sinh chưa làm bài đúng 2 ngày liên tục (${twoDays.length})</h4>
+        <p id="continuous-weak-2days" data-class="${className}" data-type="continuousWeak" data-raw="${linesA.join("\n")}">
+          ${linesA.join("<br>")}
+        </p>
+        <button onclick="copyToClipboard('continuous-weak-2days')">📋 Sao chép</button>
+        <hr>
+      `;
+      reportBox.prepend(sectionA);
+    }
+
+    // Bảng 2: nhiều hơn 2 ngày liên tục, sắp xếp giảm dần
+    if (moreThanTwo.length > 0) {
+      const sectionB = document.createElement("div");
+      const linesB = moreThanTwo.map(item => `• ${item.name}: ${item.streak} ngày liên tục`);
+      sectionB.innerHTML = `
+        <h4>📊 Học sinh chưa làm bài >2 ngày liên tục (${moreThanTwo.length})</h4>
+        <p id="continuous-weak-more" data-class="${className}" data-type="continuousWeak" data-raw="${linesB.join("\n")}">
+          ${linesB.join("<br>")}
+        </p>
+        <button onclick="copyToClipboard('continuous-weak-more')">📋 Sao chép</button>
+        <hr>
+      `;
+      reportBox.prepend(sectionB);
+    }
+  }
 
 
+                       reportBox.scrollIntoView({ behavior: "smooth" });
+                       console.log("📋 Đã hiển thị báo cáo theo summary chung.");
+                     }
 
-
-
-// ✅ Hàm sao chép danh sách (bản mới)
+// ✅ Hàm sao chép danh sách
 window.copyToClipboard = function(id) {
   const el = document.getElementById(id);
-  if (!el) return;
+  if (!el) {
+    console.warn(`❗ Không tìm thấy phần tử có id="${id}" để sao chép.`);
+    return;
+  }
 
+  // Lấy dữ liệu từ thuộc tính data-* hoặc nội dung text
   const rawNames = el.getAttribute("data-raw") || el.textContent.trim();
-
   const className = el.getAttribute("data-class") || "";
   const date = el.getAttribute("data-date") || "";
   const type = el.getAttribute("data-type");
 
+  // Định dạng nội dung cần sao chép theo loại
   let formatted = "";
-
   if (type === "done") {
     formatted = `Danh sách học sinh lớp ${className} đã làm bài ngày ${date}: ${rawNames}`;
   } else if (type === "notdone") {
@@ -532,15 +626,43 @@ window.copyToClipboard = function(id) {
     formatted = `🔔 Học sinh lớp ${className} cần quan tâm:\n${rawNames}`;
   } else if (type === "notdone2days") {
     formatted = `❌ Học sinh lớp ${className} chưa làm bài qua nay: ${rawNames}`;
+  } else if (type === "continuousWeak") {
+    formatted = `📊 Học sinh chưa làm bài nhiều ngày liên tục:\n${rawNames}`;
   } else {
     formatted = rawNames;
   }
 
-  navigator.clipboard.writeText(formatted);
-  console.log(`📋 Đã sao chép: ${formatted}`);
+  // Sao chép bằng Clipboard API (nếu khả dụng)
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(formatted)
+      .then(() => {
+        console.log(`📋 Đã sao chép: ${formatted}`);
+      })
+      .catch(err => {
+        console.warn("⚠️ Sao chép thất bại, thử fallback.", err);
+        fallbackCopy(formatted);
+      });
+  } else {
+    // Fallback cho trình duyệt không hỗ trợ Clipboard API
+    fallbackCopy(formatted);
+  }
+
+  // Fallback: tạo textarea tạm để copy
+  function fallbackCopy(text) {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
+      const ok = document.execCommand("copy");
+      console.log(ok ? `📋 Đã sao chép (fallback): ${text}` : "⚠️ Fallback copy không thành công.");
+    } catch (e) {
+      console.error("❗ Không thể sao chép văn bản.", e);
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  }
 };
-
-
-document.addEventListener("DOMContentLoaded", () => {
-  // renderDateCheckboxes(generateRecentDateCodes());
-});
