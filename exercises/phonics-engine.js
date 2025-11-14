@@ -128,6 +128,9 @@ function showIPA1() {
     btn.onclick = () => {
       if (ipa === correctIPA) {
         scoreIPA1++;
+        localStorage.setItem("scoreIPA1", scoreIPA1);
+        localStorage.setItem("totalIPA1", filteredBank.length); // tổng số câu IPA1
+
         document.getElementById("result").textContent = "✅ Chính xác!";
       } else {
         document.getElementById("result").textContent = `❌ Sai rồi! Đáp án là: ${correctIPA}`;
@@ -235,6 +238,9 @@ function handleMatchClick(card) {
       const word = c1.dataset.type === "word" ? c1.textContent : c2.textContent;
       speakWordCustom(word);
       scoreIPA2++;
+      localStorage.setItem("scoreIPA2", scoreIPA2);
+      localStorage.setItem("totalIPA2", filteredBank.length); // tổng số cặp IPA2
+
       const resultBox = document.getElementById("result");
       if (resultBox) resultBox.textContent = "✅ Chính xác!";
     } else {
@@ -336,6 +342,9 @@ function showIPA3() {
       const resultBox = document.getElementById("result");
       if (item.word === correctWord.word) {
         scoreIPA3++;
+        localStorage.setItem("scoreIPA3", scoreIPA3);
+        localStorage.setItem("totalIPA3", filteredBank.length); // tổng số câu IPA3
+
         if (resultBox) resultBox.textContent = "✅ Chính xác!";
       } else {
         if (resultBox) resultBox.textContent = `❌ Sai rồi! Đáp án là: ${correctWord.word}`;
@@ -358,16 +367,35 @@ function showCompletedMessage(mode) {
   if (mode === 1) {
     finalBox.innerHTML = `<p style="color:green;">🎉 Đã hoàn tất dạng 1 (Chọn IPA). Điểm: ${scoreIPA1}</p>`;
     document.querySelector("[data-mode='1']").disabled = true;
+
+    // ✅ Lưu điểm IPA1 ngay khi xong
+    localStorage.setItem("scoreIPA1", scoreIPA1);
+    localStorage.setItem("totalIPA1", filteredBank.length);
+    savePhonics2Result();
   }
   if (mode === 2) {
     finalBox.innerHTML = `<p style="color:blue;">🎉 Đã hoàn tất dạng 2 (Ghép IPA). Điểm: ${scoreIPA2}</p>`;
     document.querySelector("[data-mode='2']").disabled = true;
+
+    // ✅ Lưu điểm IPA2 ngay khi xong
+    localStorage.setItem("scoreIPA2", scoreIPA2);
+    localStorage.setItem("totalIPA2", filteredBank.length);
+    savePhonics2Result();
   }
   if (mode === 3) {
     finalBox.innerHTML = `<p style="color:purple;">🎉 Đã hoàn tất dạng 3 (Nghe âm → chọn từ). Điểm: ${scoreIPA3}</p>`;
     document.querySelector("[data-mode='3']").disabled = true;
+
+    // ✅ Lưu điểm IPA3 ngay khi xong
+    localStorage.setItem("scoreIPA3", scoreIPA3);
+    localStorage.setItem("totalIPA3", filteredBank.length);
+    savePhonics2Result();
   }
 }
+
+
+
+
 
 function checkTotalScore() {
   const totalScore = scoreIPA1 + scoreIPA2 + scoreIPA3; // ✅ điểm đúng thực hành
@@ -378,12 +406,30 @@ function checkTotalScore() {
   const finalTotal = maxScore + theoryScore;            // ✅ điểm tối đa có thể đạt
 
 
+  // Đọc dữ liệu cũ để giữ Phonics 1 và 3
+  const prevRaw = localStorage.getItem("result_phonics");
+  const prev = prevRaw ? JSON.parse(prevRaw) : {};
+
+  // Ghi đè chính nó cho Phonics 2
+  const updated = {
+    score1: prev.score1 || 0,
+    total1: prev.total1 || 0,
+    score2: totalScore,   // tổng điểm IPA1+IPA2+IPA3
+    total2: maxScore,     // tổng tối đa IPA1+IPA2+IPA3
+    score3: prev.score3 || 0,
+    total3: prev.total3 || 0
+  };
+
+  // Tính cộng dồn
+  const sumScore = (updated.score1 || 0) + (updated.score2 || 0) + (updated.score3 || 0);
+  const sumTotal = (updated.total1 || 0) + (updated.total2 || 0) + (updated.total3 || 0);
+
   localStorage.setItem("result_phonics", JSON.stringify({
-    score: finalScore,       // ✅ điểm thực tế đạt được
-    quiz: totalScore,        // điểm thực hành đúng
-    theory: theoryScore,     // điểm lý thuyết
-    total: finalTotal        // ✅ điểm tối đa có thể đạt
+    ...updated,
+    score: sumScore,
+    total: sumTotal
   }));
+
 
 
   const container = document.querySelector(".quiz-container");
@@ -434,4 +480,40 @@ function playIPAFromText(text) {
   } else {
     console.warn("Không tìm thấy IPA trong chuỗi:", text);
   }
+}
+function savePhonics2Result() {
+  const score1 = parseInt(localStorage.getItem("scoreIPA1") || "0");
+  const score2 = parseInt(localStorage.getItem("scoreIPA2") || "0");
+  const score3 = parseInt(localStorage.getItem("scoreIPA3") || "0");
+
+  const total1 = parseInt(localStorage.getItem("totalIPA1") || "0");
+  const total2 = parseInt(localStorage.getItem("totalIPA2") || "0");
+  const total3 = parseInt(localStorage.getItem("totalIPA3") || "0");
+
+  const scorePhonics2 = score1 + score2 + score3;
+  const totalPhonics2 = total1 + total2 + total3;
+
+  // Đọc dữ liệu cũ để giữ Phonics 1 và 3
+  const prevRaw = localStorage.getItem("result_phonics");
+  const prev = prevRaw ? JSON.parse(prevRaw) : {};
+
+  // Ghi đè chính nó cho Phonics 2
+  const updated = {
+    score1: prev.score1 || 0,
+    total1: prev.total1 || 0,
+    score2: scorePhonics2,
+    total2: totalPhonics2,
+    score3: prev.score3 || 0,
+    total3: prev.total3 || 0
+  };
+
+  // Tính cộng dồn
+  const sumScore = (updated.score1 || 0) + (updated.score2 || 0) + (updated.score3 || 0);
+  const sumTotal = (updated.total1 || 0) + (updated.total2 || 0) + (updated.total3 || 0);
+
+  localStorage.setItem("result_phonics", JSON.stringify({
+    ...updated,
+    score: sumScore,
+    total: sumTotal
+  }));
 }
