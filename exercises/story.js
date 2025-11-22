@@ -21,6 +21,8 @@ let totalPages = 0;
 let zoomScale = DEFAULT_SCALE;
 let renderedPages = [];    // array of canvas per page
 let currentPageIndex = 0;  // 0-based
+let displayDiv = null;
+
 
 // ====== HELPERS ======
 function logInfo(msg) {
@@ -30,7 +32,6 @@ function logInfo(msg) {
 }
 
 function parseGvizResponse(text) {
-  // GViz returns: "/*O_o*/\ngoogle.visualization.Query.setResponse({...})"
   const jsonStr = text.replace(/^[^\(]*\(/, "").replace(/\);?$/, "");
   const obj = JSON.parse(jsonStr);
   const rows = obj.table.rows || [];
@@ -39,8 +40,10 @@ function parseGvizResponse(text) {
     const age = c[0]?.v ? String(c[0].v).trim() : "";
     const title = c[1]?.v ? String(c[1].v).trim() : "";
     const link = c[2]?.v ? String(c[2].v).trim() : "";
-    return { age, title, link };
-  }).filter(x => x.age && x.title && x.link);
+    const english = c[3]?.v ? String(c[3].v).trim() : "";
+    const vietnamese = c[4]?.v ? String(c[4].v).trim() : "";
+    return { age, title, link, english, vietnamese };
+  }).filter(x => x.age && x.title);
   return items;
 }
 
@@ -227,97 +230,46 @@ async function openStory(item) {
     clearFlipbook();
     logInfo(`Đang mở truyện: ${item.title}`);
 
+    // Nếu vẫn muốn hiển thị PDF thì giữ phần PDF.js render
     const pdfUrl = makeDriveDownloadUrl(item.link);
-    if (!pdfUrl) {
-      logInfo("Link Google Drive không hợp lệ.");
-      return;
-    }
+    if (pdfUrl) {
+      const loadingTask = pdfjsLib.getDocument({ url: pdfUrl });
+      currentPDF = await loadingTask.promise;
+      totalPages = Math.min(currentPDF.numPages, MAX_PAGES);
+      document.getElementById("pageTotal").textContent = String(totalPages);
+      renderedPages = [];
+      for (let p = 1; p <= totalPages; p++) {
+        const page = await currentPDF.getPage(p);
+        const viewport = page.getViewport({ scale: zoomScale });
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const renderTask = page.render({ canvasContext: ctx, viewport });
+        await renderTask.promise;
+        const wrapper = document.createElement("div");
+        wrapper.className = "page";
+        wrapper.style.position = "relative"; // thêm dòng này
+        wrapper.style.display = "flex";
+        wrapper.style.flexDirection = "column";
+        wrapper.style.alignItems = "center";
+        wrapper.appendChild(canvas);
+        renderedPages.push(wrapper);
 
-    const loadingTask = pdfjsLib.getDocument({ url: pdfUrl });
-    currentPDF = await loadingTask.promise;
-
-    totalPages = Math.min(currentPDF.numPages, MAX_PAGES);
-    document.getElementById("pageTotal").textContent = String(totalPages);
-
-    renderedPages = [];
-
-    // OCR tất cả các trang
-    let ocrPages = [];
-    for (let p = 1; p <= totalPages; p++) {
-      const page = await currentPDF.getPage(p);
-      const viewport = page.getViewport({ scale: zoomScale });
-
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-
-      const renderTask = page.render({ canvasContext: ctx, viewport });
-      await renderTask.promise;
-
-      const textContent = await page.getTextContent();
-      if (textContent.items.length > 0) {
-        let rawText = textContent.items.map(i => i.str).join(" ");
-        rawText = rawText.replace(/\s+/g, " ").trim();
-        ocrPages.push(rawText);
-      } else {
-        logInfo(`Trang ${p}: không có text layer, đang OCR…`);
-        const result = await Tesseract.recognize(canvas, 'eng');
-        let ocrText = result.data.text;
-        ocrPages.push(ocrText);
       }
-
-      // Lưu canvas để hiển thị trang
-      const wrapper = document.createElement("div");
-      wrapper.className = "page";
-      wrapper.style.display = "flex";
-      wrapper.style.flexDirection = "column";
-      wrapper.style.alignItems = "center";
-      wrapper.appendChild(canvas);
-      renderedPages.push(wrapper);
     }
 
-    // Gom toàn bộ OCR thành một bản
-    let allOcrText = ocrPages.join("\n\n");
-    allOcrText = allOcrText.replace(/[^a-zA-Z0-9\s.,!?']/g, " ");
+    // Tách câu từ cột 4 và 5
+    const enSentences = item.english.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+    const viSentences = item.vietnamese.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
 
-    // Gọi AI một lần duy nhất
-    const aiOutput = await callOpenRouter(allOcrText);
-    if (!aiOutput) {
-      logInfo("❌ Không nhận được phản hồi từ AI.");
-      return;
+    const allPairs = [];
+    const len = Math.min(enSentences.length, viSentences.length);
+    for (let i = 0; i < len; i++) {
+      allPairs.push({ english: enSentences[i], vietnamese: viSentences[i] });
     }
 
-    console.log("📥 Kết quả AI trả về:");
-    console.log(aiOutput);
-
-    // Parse JSON từ AI
-    let sentencesData = [];
-    try {
-      // Loại bỏ các token thừa như <s> hoặc đoạn đầu không phải JSON
-      let cleanedOutput = aiOutput.trim()
-        .replace(/^<s>\s*/i, "")        // bỏ token <s>
-        .replace(/```json/i, "")        // bỏ ```json
-        .replace(/```/g, "")            // bỏ ```
-        .trim();
-
-      if (cleanedOutput.startsWith("{") || cleanedOutput.startsWith("[")) {
-        sentencesData = JSON.parse(cleanedOutput);
-      } else {
-        console.warn("⚠️ AI không trả về JSON. Dữ liệu thô:");
-        console.log(aiOutput);
-        return;
-      }
-    } catch (err) {
-      console.error("❌ Lỗi parse JSON:", err);
-      console.log("📄 Dữ liệu thô từ AI:");
-      console.log(aiOutput);
-      return;
-    }
-
-
-
-    // Panel số độc lập
+    // Panel số
     const sentencePanel = document.createElement("div");
     sentencePanel.className = "sentence-panel";
     sentencePanel.style.marginTop = "12px";
@@ -326,17 +278,11 @@ async function openStory(item) {
     sentencePanel.style.gap = "8px";
     sentencePanel.style.justifyContent = "center";
 
-    // Vùng hiển thị câu EN + VI
-    const displayDiv = document.createElement("div");
+    displayDiv = document.createElement("div"); // KHÔNG dùng const
+
     displayDiv.id = "sentenceDisplay";
     displayDiv.style.marginTop = "20px";
     displayDiv.style.textAlign = "center";
-
-    let allPairs = [];
-    sentencesData.forEach(item => {
-      const pairs = splitSentencesPair(item);
-      allPairs.push(...pairs);
-    });
 
     allPairs.forEach((item, i) => {
       const btn = document.createElement("button");
@@ -351,14 +297,21 @@ async function openStory(item) {
       btn.style.cursor = "pointer";
 
       btn.onclick = () => {
+        // bỏ active ở tất cả nút khác
+        sentencePanel.querySelectorAll("button").forEach(b => {
+          b.style.background = "#2a3156";
+        });
+
+        // đánh dấu nút hiện tại
+        btn.style.background = "#ff5ea6";
+
+        // đọc câu
         speechSynthesis.cancel();
         const utter = new SpeechSynthesisUtterance(item.english);
-        btn.style.background = "#ff5ea6";
-        utter.onend = () => {
-          btn.style.background = "#2a3156";
-        };
+        utter.lang = "en-US"; // ép giọng đọc tiếng Anh
         speechSynthesis.speak(utter);
 
+        // hiển thị EN–VI
         displayDiv.innerHTML = `<p><b>EN:</b> ${item.english}</p><p><b>VI:</b> ${item.vietnamese}</p>`;
       };
 
@@ -366,20 +319,28 @@ async function openStory(item) {
     });
 
 
-    // Gắn panel + display vào container chung
     const container = document.getElementById("flipbookContainer");
     container.appendChild(sentencePanel);
-    container.appendChild(displayDiv);
 
     currentPageIndex = 0;
     showPage(currentPageIndex);
+
+    // gắn overlay sau khi showPage để không bị xóa
+    const fb = document.getElementById("flipbook");
+    const currentWrapper = fb.querySelector(".page");
+    if (currentWrapper) {
+      currentWrapper.style.position = "relative";
+      currentWrapper.appendChild(displayDiv);
+    }
+
     logInfo(`Đã mở "${item.title}" (${totalPages} trang, ${allPairs.length} câu).`);
 
   } catch (err) {
-    console.error("PDF load error:", err);
-    logInfo("Không thể tải PDF. Kiểm tra quyền chia sẻ hoặc thử lại.");
+    console.error("Error:", err);
+    logInfo("Không thể tải truyện.");
   }
 }
+
 
 
 
@@ -389,11 +350,22 @@ async function openStory(item) {
 // ====== HIỂN THỊ TRANG HIỆN TẠI ======
 function showPage(index) {
   if (!renderedPages.length) return;
+
   const fb = document.getElementById("flipbook");
   fb.innerHTML = "";
-  fb.appendChild(renderedPages[index]);
+
+  const wrapper = renderedPages[index];
+  wrapper.style.position = "relative";
+
+  if (displayDiv) {
+    wrapper.appendChild(displayDiv); // gắn lại overlay nếu đã tạo
+  }
+
+  fb.appendChild(wrapper);
   document.getElementById("pageCurrent").textContent = String(index + 1);
 }
+
+
 
 // ====== NAVIGATION ======
 function setupNavigation() {
@@ -539,7 +511,17 @@ async function rerenderCurrentBook() {
 
   currentPageIndex = Math.min(prevIndex, renderedPages.length - 1);
   showPage(currentPageIndex);
+
+  // gắn lại overlay sau khi showPage
+  const fb = document.getElementById("flipbook");
+  const currentWrapper = fb.querySelector(".page");
+  if (currentWrapper && displayDiv) {
+    currentWrapper.style.position = "relative";
+    currentWrapper.appendChild(displayDiv);
+  }
+
   document.getElementById("pageTotal").textContent = String(pages);
+
 }
 
 
