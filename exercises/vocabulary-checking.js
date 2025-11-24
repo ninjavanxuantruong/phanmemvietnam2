@@ -35,6 +35,7 @@ let allRowsGlobal = [];
 
 let quizFinished = false;
 
+
 // Helpers: fetch sheets
 async function fetchMaxLessonCode() {
   const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
@@ -68,33 +69,31 @@ async function fetchVocabItems(maxLessonCode) {
     const rawCode = r.c[1]?.v?.toString().trim();
     const word = r.c[2]?.v?.toString().trim();
     const meaning = r.c[24]?.v?.toString().trim();
+    const subTopic = r.c[5]?.v?.toString().trim(); // cột F
+    const mainTopic = r.c[6]?.v?.toString().trim(); // cột G
     const normalizedCode = parseInt(rawCode?.replace(/\D/g, ""), 10);
 
     if (!normalizedCode || normalizedCode > maxLessonCode || !word || !meaning) return;
     if (!baiTuVung[normalizedCode]) baiTuVung[normalizedCode] = [];
-    baiTuVung[normalizedCode].push({ word, meaning });
+    baiTuVung[normalizedCode].push({ word, meaning, subTopic, mainTopic });
   });
 
   const allCodes = Object.keys(baiTuVung).map(c => parseInt(c, 10));
-  const shuffledCodes = allCodes.sort(() => Math.random() - 0.5); // lấy hết
-
-  const usedMeanings = new Set();
   const items = [];
 
-  shuffledCodes.forEach(code => {
+  allCodes.forEach(code => {
     const words = baiTuVung[code];
     if (!words || words.length === 0) return;
-
-    const candidates = words.filter(w => !usedMeanings.has(w.meaning));
-    if (candidates.length === 0) return;
-
-    const item = candidates[Math.floor(Math.random() * candidates.length)];
-    usedMeanings.add(item.meaning);
-    items.push(item);
+    words.forEach(w => items.push(w));
   });
 
-  return { items, allRows: rows };
+  // random thứ tự
+  const shuffledItems = items.sort(() => Math.random() - 0.5);
+
+  return { items: shuffledItems, allRows: rows };
 }
+
+
 
 // Load player data
 async function loadPlayerData() {
@@ -108,6 +107,36 @@ async function loadPlayerData() {
   const starEl = document.getElementById("starCount");
   if (starEl) starEl.textContent = stars;
 }
+
+async function showCurrentReport() {
+  const ref = doc(dbPokemon, "vocabulary", docId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+  const { overall, mainTopics, subTopics, masteredWords, unmasteredWords } = data;
+
+  let report = `📊 Kết quả gần nhất:\n`;
+  report += `• Tổng: ${overall.correct}/${overall.total} (${overall.percent}%) → ${overall.level}\n\n`;
+
+  report += renderTopicStats("Chủ đề lớn", mainTopics) + "\n";
+  report += renderTopicStats("Chủ đề nhỏ", subTopics) + "\n";
+
+  report += "\n✅ Đã thuộc:\n";
+  masteredWords.forEach(w => {
+    report += `- ${w}\n`;
+  });
+
+  report += "\n❌ Chưa thuộc:\n";
+  unmasteredWords.forEach(raw => {
+    const [word, meaning] = raw.split(";");
+    report += `- ${word} → ${meaning}\n`;
+  });
+
+  const box = document.getElementById("currentReport");
+  if (box) box.textContent = report;
+}
+
 
 // Quiz rendering
 function renderQuestion(item, index, allRows) {
@@ -139,16 +168,60 @@ function renderQuestion(item, index, allRows) {
   });
 }
 
+function startQuiz() {
+  currentIndex = 0;
+  correctCount = 0;
+  wrongCount = 0;
+  quizFinished = false;
+  masteredWords = [];
+  unmasteredWords = [];
+  stats = { subTopics: {}, mainTopics: {} };
+
+  const cEl = document.getElementById("correctCount");
+  const wEl = document.getElementById("wrongCount");
+  if (cEl) cEl.textContent = 0;
+  if (wEl) wEl.textContent = 0;
+
+  if (quizItems.length > 0) {
+    renderQuestion(quizItems[currentIndex], currentIndex, allRowsGlobal);
+  } else {
+    alert("❌ Không có dữ liệu từ vựng để tạo quiz.");
+  }
+}
+
+
+// Khai báo global
+// Khai báo global thêm 2 mảng
+let stats = { subTopics: {}, mainTopics: {} };
+let masteredWords = [];   // các từ đã thuộc (đúng)
+let unmasteredWords = []; // các từ chưa thuộc (sai)
+
 function handleAnswer(selected, correct) {
+  const item = quizItems[currentIndex]; // câu hỏi hiện tại
   const total = quizItems.length;
+
+  // cập nhật thống kê
+  if (item.subTopic) {
+    if (!stats.subTopics[item.subTopic]) stats.subTopics[item.subTopic] = { correct: 0, total: 0 };
+    stats.subTopics[item.subTopic].total++;
+  }
+  if (item.mainTopic) {
+    if (!stats.mainTopics[item.mainTopic]) stats.mainTopics[item.mainTopic] = { correct: 0, total: 0 };
+    stats.mainTopics[item.mainTopic].total++;
+  }
 
   if (selected === correct) {
     correctCount++;
+    masteredWords.push(item); // thêm vào danh sách đã thuộc
     const el = document.getElementById("correctCount");
     if (el) el.textContent = correctCount;
     playerAttack(battle);
+
+    if (item.subTopic) stats.subTopics[item.subTopic].correct++;
+    if (item.mainTopic) stats.mainTopics[item.mainTopic].correct++;
   } else {
     wrongCount++;
+    unmasteredWords.push(item); // thêm vào danh sách chưa thuộc
     const el = document.getElementById("wrongCount");
     if (el) el.textContent = wrongCount;
     wildAttack(battle);
@@ -163,13 +236,36 @@ function handleAnswer(selected, correct) {
   }
 }
 
+
+
+function getLevel(percent) {
+  if (percent >= 90) return "Rất tốt";
+  if (percent >= 75) return "Tốt";
+  if (percent >= 60) return "Khá";
+  if (percent >= 40) return "Trung bình";
+  return "Yếu";
+}
+
+function renderTopicStats(title, topicStats) {
+  let output = `📊 ${title}:\n`;
+  for (const [topic, data] of Object.entries(topicStats)) {
+    const percent = Math.round((data.correct / data.total) * 100);
+    const level = getLevel(percent);
+    output += `• ${topic}: ${data.correct}/${data.total} (${percent}%) → ${level}\n`;
+  }
+  return output;
+}
+
 async function finishQuiz() {
   const total = quizItems.length;
   const scorePercent = Math.round((correctCount / total) * 100);
 
-  // Lưu sao nếu đạt yêu cầu
+  // Đánh giá tổng thể
+  let overallLevel = getLevel(scorePercent);
+
+  // Cộng sao nếu đạt yêu cầu
   if (scorePercent >= 75) {
-    stars = stars + 5;
+    stars += 5;
     const starEl = document.getElementById("starCount");
     if (starEl) starEl.textContent = stars;
 
@@ -177,21 +273,101 @@ async function finishQuiz() {
     const snap = await getDoc(ref);
     const data = snap.exists() ? snap.data() : {};
     await setDoc(ref, { ...data, stars });
-
-    alert(`✅ Bạn đúng ${correctCount}/${total} (${scorePercent}%). Được cộng thêm 5 sao! ⭐`);
-  } else {
-    alert(`❌ Bạn đúng ${correctCount}/${total} (${scorePercent}%). Chưa đủ điều kiện để cộng sao.`);
   }
 
-  // Đánh giá trình độ theo % đúng
-  let level = "";
-  if (scorePercent >= 90) level = "Xuất sắc (A1/A2 vững)";
-  else if (scorePercent >= 75) level = "Khá (A1/A2 đạt)";
-  else if (scorePercent >= 50) level = "Trung bình (cần ôn thêm)";
-  else level = "Yếu (cần học lại từ vựng cơ bản)";
+  // Chuẩn bị báo cáo hiển thị
+  let report = `📊 Tổng thể: ${correctCount}/${total} (${scorePercent}%) → ${overallLevel}\n\n`;
+  report += renderTopicStats("Chủ đề lớn", stats.mainTopics) + "\n";
+  report += renderTopicStats("Chủ đề nhỏ", stats.subTopics) + "\n\n";
 
-  alert(`📊 Đánh giá: ${level}`);
+  report += "✅ Các từ đã thuộc:\n";
+  masteredWords.forEach(w => {
+    report += `- ${w.word}\n`; // chỉ hiển thị từ tiếng Anh
+  });
+
+  report += "\n❌ Các từ chưa thuộc (cần ôn tập):\n";
+  unmasteredWords.forEach(w => {
+    report += `- ${w.word} → ${w.meaning}\n`;
+  });
+
+  // In ra khung kết quả
+  const resultBox = document.getElementById("resultBox");
+  if (resultBox) resultBox.textContent = report;
+
+  // Khóa không cho chọn đáp án nữa
+  const optBox = document.getElementById("optionsBox");
+  if (optBox) {
+    const options = optBox.querySelectorAll(".option");
+    options.forEach(opt => {
+      opt.onclick = null;
+      opt.style.pointerEvents = "none";
+      opt.style.opacity = "0.6";
+    });
+  }
+
+  // Chuẩn bị dữ liệu để lưu vào Firestore
+  const vocabReport = {
+    student: studentName,
+    class: studentClass,
+    overall: {
+      correct: correctCount,
+      total: total,
+      percent: scorePercent,
+      level: overallLevel
+    },
+    mainTopics: stats.mainTopics,
+    subTopics: stats.subTopics,
+    masteredWords: masteredWords.map(w => w.word), // chỉ lưu từ tiếng Anh
+    unmasteredWords: unmasteredWords.map(w => `${w.word};${w.meaning};${w.subTopic};${w.mainTopic}`) // lưu dạng chuỗi
+  };
+
+  // Ghi đè document vào collection "vocabulary"
+  const vocabRef = doc(dbPokemon, "vocabulary", docId);
+  await setDoc(vocabRef, vocabReport);
+
+  const redoBtn = document.getElementById("redoBtn");
+  if (redoBtn) {
+    redoBtn.style.display = "inline-block";
+    redoBtn.onclick = () => redoQuiz();
+  }
 }
+
+
+async function redoQuiz() {
+  // Lấy dữ liệu từ Firestore
+  const ref = doc(dbPokemon, "vocabulary", docId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    alert("⚠️ Chưa có dữ liệu để làm lại.");
+    return;
+  }
+
+  const data = snap.data();
+  const unmastered = data.unmasteredWords || [];
+
+  if (unmastered.length === 0) {
+    alert("🎉 Không còn từ chưa thuộc, bạn đã hoàn thành!");
+    return;
+  }
+
+  // 👉 Đảm bảo allRowsGlobal có dữ liệu để tạo lựa chọn sai
+  if (allRowsGlobal.length === 0) {
+    const maxLessonCode = await fetchMaxLessonCode();
+    const { allRows } = await fetchVocabItems(maxLessonCode);
+    allRowsGlobal = allRows;
+  }
+
+  // Chuyển chuỗi thành object để quiz lại
+  quizItems = unmastered.map(raw => {
+    const [word, meaning, subTopic, mainTopic] = raw.split(";");
+    return { word, meaning, subTopic, mainTopic };
+  });
+
+  startQuiz(); // reset và bắt đầu quiz
+}
+
+
+
 
 // Main flow
 // Main flow
@@ -207,36 +383,47 @@ async function main() {
   if (wEl) wEl.textContent = 0;
 
   await loadPlayerData();
+  await showCurrentReport();
+
 
   // Khởi tạo battlefield (2 Pokémon đứng ở trên)
   battle = initNormalBattle(myPokemonId);
 
-  // Lấy dữ liệu quiz
-  const maxLessonCode = await fetchMaxLessonCode();
-  if (!maxLessonCode) {
-    alert("⚠️ Không tìm thấy bài học hợp lệ cho lớp hiện tại.");
-    return;
+  // Lấy 2 nút chế độ
+  const btnAll = document.getElementById("btnAll");
+  const btnRedo = document.getElementById("btnRedo");
+
+  const currentBox = document.getElementById("currentReport");
+
+  if (btnAll) {
+    btnAll.onclick = async () => {
+      // Ẩn phần kết quả hiện tại
+      if (currentBox) currentBox.style.display = "none";
+      btnAll.style.display = "none";
+      if (btnRedo) btnRedo.style.display = "none";
+
+      const maxLessonCode = await fetchMaxLessonCode();
+      const { items, allRows } = await fetchVocabItems(maxLessonCode);
+      quizItems = items;
+      allRowsGlobal = allRows;
+
+      startQuiz();
+    };
   }
 
-  const { items, allRows } = await fetchVocabItems(maxLessonCode);
-  quizItems = items; // lấy toàn bộ từ vựng đến bài học max
-  allRowsGlobal = allRows;
+  if (btnRedo) {
+    btnRedo.onclick = async () => {
+      // Ẩn phần kết quả hiện tại
+      if (currentBox) currentBox.style.display = "none";
+      btnRedo.style.display = "none";
+      if (btnAll) btnAll.style.display = "none";
 
-  // Reset trạng thái
-  currentIndex = 0;
-  correctCount = 0;
-  wrongCount = 0;
-  quizFinished = false;
-  if (cEl) cEl.textContent = 0;
-  if (wEl) wEl.textContent = 0;
-
-  // Render câu hỏi đầu tiên
-  if (quizItems.length > 0) {
-    renderQuestion(quizItems[currentIndex], currentIndex, allRowsGlobal);
-  } else {
-    alert("❌ Không có dữ liệu từ vựng để tạo quiz.");
+      await redoQuiz();
+    };
   }
+
 }
+
 
 // Đợi DOM sẵn sàng rồi mới gọi main
 document.addEventListener("DOMContentLoaded", () => {
