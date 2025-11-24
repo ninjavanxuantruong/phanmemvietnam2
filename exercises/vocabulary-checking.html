@@ -75,7 +75,22 @@
 
     <div id="questionBox">Câu hỏi sẽ hiển thị ở đây</div>
     <div id="optionsBox"></div>
+  
+
+    <!-- Khung kết quả cuối bài -->
+    <div id="resultBox" style="margin-top:20px; white-space:pre-line;"></div>
+
+    <!-- 👉 Thêm 2 nút lựa chọn chế độ ngay dưới resultBox -->
+    <div style="margin:20px 0;">
+      <button id="btnAll" style="padding:10px 16px; margin-right:10px;">📘 Làm toàn bộ</button>
+      <button id="btnRedo" style="padding:10px 16px;">🔄 Làm lại từ chưa thuộc</button>
+    </div>
+    <!-- Khung kết quả hiện tại -->
+    <div id="currentReport" style="margin-bottom:20px; white-space:pre-line; background:#1a1f35; padding:12px; border-radius:8px;"></div>
+
   </main>
+
+
 
   <!-- Script quiz -->
   <script type="module" src="./vocabulary-checking.js"></script>
