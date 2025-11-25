@@ -57,7 +57,7 @@ function makeDriveDownloadUrl(driveLink) {
   const fileId = extractDriveFileId(driveLink);
   if (!fileId) return null;
   // Gọi API trên dự án Replit đang chạy
-  return `https://docpdf.onrender.com/pdf/${fileId}`;
+  return `https://docpdf-4k5t.onrender.com/pdf/${fileId}`;
 }
 
 function clearFlipbook() {
