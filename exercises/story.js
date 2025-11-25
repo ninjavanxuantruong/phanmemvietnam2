@@ -230,7 +230,7 @@ async function openStory(item) {
     clearFlipbook();
     logInfo(`Đang mở truyện: ${item.title}`);
 
-    // Nếu vẫn muốn hiển thị PDF thì giữ phần PDF.js render
+    // ====== Load PDF ======
     const pdfUrl = makeDriveDownloadUrl(item.link);
     if (pdfUrl) {
       const loadingTask = pdfjsLib.getDocument({ url: pdfUrl });
@@ -238,30 +238,40 @@ async function openStory(item) {
       totalPages = Math.min(currentPDF.numPages, MAX_PAGES);
       document.getElementById("pageTotal").textContent = String(totalPages);
       renderedPages = [];
+
       for (let p = 1; p <= totalPages; p++) {
         const page = await currentPDF.getPage(p);
         const viewport = page.getViewport({ scale: zoomScale });
+
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
         canvas.width = viewport.width;
         canvas.height = viewport.height;
+
         const renderTask = page.render({ canvasContext: ctx, viewport });
         await renderTask.promise;
+
         const wrapper = document.createElement("div");
         wrapper.className = "page";
-        wrapper.style.position = "relative"; // thêm dòng này
+        wrapper.style.position = "relative";
         wrapper.style.display = "flex";
         wrapper.style.flexDirection = "column";
         wrapper.style.alignItems = "center";
         wrapper.appendChild(canvas);
-        renderedPages.push(wrapper);
 
+        renderedPages.push(wrapper);
       }
     }
 
-    // Tách câu từ cột 4 và 5
-    const enSentences = item.english.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
-    const viSentences = item.vietnamese.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+    // ====== Tách câu EN/VI ======
+    const enSentences = (item.english || "")
+      .split(/(?<=[.!?])\s+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    const viSentences = (item.vietnamese || "")
+      .split(/(?<=[.!?])\s+/)
+      .map(s => s.trim())
+      .filter(Boolean);
 
     const allPairs = [];
     const len = Math.min(enSentences.length, viSentences.length);
@@ -269,7 +279,12 @@ async function openStory(item) {
       allPairs.push({ english: enSentences[i], vietnamese: viSentences[i] });
     }
 
-    // Panel số
+    // ====== Xóa sentence-panel cũ nếu có ======
+    const container = document.getElementById("flipbookContainer");
+    const oldPanel = container.querySelector(".sentence-panel");
+    if (oldPanel) oldPanel.remove();
+
+    // ====== Tạo sentence-panel mới ======
     const sentencePanel = document.createElement("div");
     sentencePanel.className = "sentence-panel";
     sentencePanel.style.marginTop = "12px";
@@ -278,16 +293,16 @@ async function openStory(item) {
     sentencePanel.style.gap = "8px";
     sentencePanel.style.justifyContent = "center";
 
-    displayDiv = document.createElement("div"); // KHÔNG dùng const
-
+    // Overlay hiển thị EN/VI
+    displayDiv = document.createElement("div");
     displayDiv.id = "sentenceDisplay";
     displayDiv.style.marginTop = "20px";
     displayDiv.style.textAlign = "center";
 
-    allPairs.forEach((item, i) => {
+    allPairs.forEach((pair, i) => {
       const btn = document.createElement("button");
       btn.textContent = i + 1;
-      btn.title = item.english;
+      btn.title = pair.english;
       btn.style.padding = "6px 10px";
       btn.style.borderRadius = "50%";
       btn.style.fontSize = "14px";
@@ -301,27 +316,25 @@ async function openStory(item) {
         sentencePanel.querySelectorAll("button").forEach(b => {
           b.style.background = "#2a3156";
         });
-
         // đánh dấu nút hiện tại
         btn.style.background = "#ff5ea6";
 
         // đọc câu
         speechSynthesis.cancel();
-        const utter = new SpeechSynthesisUtterance(item.english);
-        utter.lang = "en-US"; // ép giọng đọc tiếng Anh
+        const utter = new SpeechSynthesisUtterance(pair.english);
+        utter.lang = "en-US";
         speechSynthesis.speak(utter);
 
         // hiển thị EN–VI
-        displayDiv.innerHTML = `<p><b>EN:</b> ${item.english}</p><p><b>VI:</b> ${item.vietnamese}</p>`;
+        displayDiv.innerHTML = `<p><b>EN:</b> ${pair.english}</p><p><b>VI:</b> ${pair.vietnamese}</p>`;
       };
 
       sentencePanel.appendChild(btn);
     });
 
-
-    const container = document.getElementById("flipbookContainer");
     container.appendChild(sentencePanel);
 
+    // ====== Hiển thị trang đầu tiên ======
     currentPageIndex = 0;
     showPage(currentPageIndex);
 
@@ -334,7 +347,6 @@ async function openStory(item) {
     }
 
     logInfo(`Đã mở "${item.title}" (${totalPages} trang, ${allPairs.length} câu).`);
-
   } catch (err) {
     console.error("Error:", err);
     logInfo("Không thể tải truyện.");
@@ -368,6 +380,7 @@ function showPage(index) {
 
 
 // ====== NAVIGATION ======
+// ====== NAVIGATION ======
 function setupNavigation() {
   const prevBtn = document.getElementById("prevBtn");
   const nextBtn = document.getElementById("nextBtn");
@@ -386,15 +399,31 @@ function setupNavigation() {
     }
   };
 
-  // Swipe support
+  // Swipe/drag support (mobile + PC)
   const container = document.getElementById("flipbook");
   let startX = 0;
+
+  // Mobile (touch)
   container.addEventListener("touchstart", e => {
     startX = e.touches[0].clientX;
   });
   container.addEventListener("touchend", e => {
     const endX = e.changedTouches[0].clientX;
     const delta = endX - startX;
+    handleSwipe(delta);
+  });
+
+  // PC (mouse)
+  container.addEventListener("mousedown", e => {
+    startX = e.clientX;
+  });
+  container.addEventListener("mouseup", e => {
+    const endX = e.clientX;
+    const delta = endX - startX;
+    handleSwipe(delta);
+  });
+
+  function handleSwipe(delta) {
     if (Math.abs(delta) > 50) {
       if (delta < 0 && currentPageIndex < renderedPages.length - 1) {
         currentPageIndex++;
@@ -404,7 +433,7 @@ function setupNavigation() {
         showPage(currentPageIndex);
       }
     }
-  });
+  }
 
   // Zoom controls (re-render current book with new scale)
   document.getElementById("zoomInBtn")?.addEventListener("click", async () => {
@@ -416,6 +445,7 @@ function setupNavigation() {
     await rerenderCurrentBook();
   });
 }
+
 
 // ====== RENDER LẠI KHI ZOOM ======
 async function rerenderCurrentBook() {
