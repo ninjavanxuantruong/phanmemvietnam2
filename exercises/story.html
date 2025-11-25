@@ -41,11 +41,13 @@
       font-size: 14px;
       cursor: pointer;
     }
+
     main {
       display: grid;
       grid-template-columns: 300px 1fr;
       gap: 16px;
       padding: 16px;
+      transition: grid-template-columns 0.25s ease;
     }
     .panel {
       background: #151a2c;
@@ -72,16 +74,12 @@
       justify-content: center;
       align-items: center;
     }
-
     .page canvas {
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
-      z-index: 1; /* THÊM DÒNG NÀY để canvas nằm dưới */
+      z-index: 1;
     }
-
-
-
     .page {
       width: 100%;
       height: 100%;
@@ -95,14 +93,14 @@
       left: 0;
       color: transparent;
       user-select: none;
-      pointer-events: auto; /* Cho phép click */
+      pointer-events: auto;
     }
     #sentenceDisplay {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: rgba(0,0,0,0.6); /* nền mờ */
+      background: rgba(0,0,0,0.6);
       color: #fff;
       padding: 12px 16px;
       border-radius: 8px;
@@ -110,16 +108,13 @@
       max-width: 80%;
       font-size: 16px;
       line-height: 1.4;
-      z-index: 10; /* ép lên trên canvas PDF */
+      z-index: 10;
     }
-
-
     .sentence {
       background-color: rgba(255, 255, 0, 0.2);
       cursor: pointer;
       pointer-events: auto;
     }
-
     .sentence.active {
       background-color: rgba(255, 165, 0, 0.4);
     }
@@ -127,9 +122,6 @@
       display: inline-block;
       margin: 4px;
     }
-
-
-
     #flipbookControls {
       text-align: center;
       margin: 10px 0;
@@ -140,77 +132,50 @@
       font-size: 13px;
     }
 
+    /* Sidebar collapse (desktop) */
+    main.collapsed {
+      grid-template-columns: 0 1fr;
+    }
+    main.collapsed #catalogPanel {
+      transform: translateX(-12px);
+      opacity: 0;
+      pointer-events: none;
+    }
+    #catalogPanel {
+      transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+
     /* Responsive cho tablet và mobile */
     @media (max-width: 768px) {
       main {
-        grid-template-columns: 1fr; /* Chỉ 1 cột */
-        padding: 8px;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
       }
-
-      header {
-        flex-direction: column;
-        align-items: flex-start;
+      #catalogPanel {
+        position: fixed;
+        left: 0; top: 60px; bottom: 0;
+        width: 80vw;
+        z-index: 20;
+        transform: translateX(-100%);
+        opacity: 1;
+        pointer-events: auto;
       }
-
-      header h1 {
-        font-size: 16px;
-        margin-bottom: 8px;
+      #catalogPanel.open {
+        transform: translateX(0);
       }
-
-      select, button {
-        font-size: 13px;
-        padding: 6px 10px;
-      }
-
-      .panel {
-        margin-bottom: 16px;
-      }
-
-      #flipbookControls {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        justify-content: center;
-      }
-
-      #flipbook {
-        position: relative; /* để overlay bám vào */
-      }
-
-      #sentenceDisplay {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0,0,0,0.6); /* nền mờ */
-        color: #fff;
-        padding: 12px 16px;
-        border-radius: 8px;
-        text-align: center;
-        max-width: 80%;
-        font-size: 16px;
-        line-height: 1.4;
-        z-index: 10; /* ép lên trên canvas PDF */
-      }
-
-
     }
-
     @media (max-width: 480px) {
       header h1 {
         font-size: 14px;
       }
-
       select, button {
         font-size: 12px;
         padding: 5px 8px;
       }
-
       #flipbookControls span {
         font-size: 12px;
       }
     }
-
   </style>
 </head>
 <body>
@@ -224,16 +189,15 @@
       <option value="4">4</option>
       <option value="5">5</option>
     </select>
+    <button id="toggleCatalog">📚 Mục lục</button>
     <span id="infoBar">Chọn lứa tuổi để hiện danh sách truyện.</span>
   </header>
 
   <main>
     <!-- Left: story catalog -->
-    <section class="panel">
+    <section id="catalogPanel" class="panel">
       <h2>Stories</h2>
-      <div id="storyList">
-        <!-- Danh sách truyện sẽ hiện ở đây -->
-      </div>
+      <div id="storyList"><!-- Danh sách truyện sẽ hiện ở đây --></div>
     </section>
 
     <!-- Right: flipbook viewer -->
@@ -245,22 +209,29 @@
         <span style="margin-left:16px;">Page: <b id="pageCurrent">0</b>/<b id="pageTotal">0</b></span>
       </div>
       <div id="flipbookContainer">
-        <div id="flipbook">
-          <!-- Các trang PDF sẽ render ở đây -->
-        </div>
+        <div id="flipbook"><!-- Các trang PDF sẽ render ở đây --></div>
       </div>
-
     </section>
   </main>
 
   <!-- JS logic -->
-  <!-- PDF.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <!-- Tesseract.js -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <!-- JS logic -->
-  <script type="module" src="story.js"></script>
+  <script src="story.js" type="module"></script>
+  <script>
+    const toggleBtn = document.getElementById('toggleCatalog');
+    const mainEl = document.querySelector('main');
+    const catalogPanel = document.getElementById('catalogPanel');
 
-
+    function updateToggleBehavior() {
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      if (isMobile) {
+        toggleBtn.onclick = () => catalogPanel.classList.toggle('open');
+      } else {
+        toggleBtn.onclick = () => mainEl.classList.toggle('collapsed');
+        catalogPanel.classList.remove('open');
+      }
+    }
+    updateToggleBehavior();
+    window.addEventListener('resize', updateToggleBehavior);
+  </script>
 </body>
 </html>
