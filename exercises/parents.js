@@ -29,6 +29,24 @@ let appTonghop; try { appTonghop = initApp2(firebaseConfigTonghop, "tonghopApp")
 const dbTonghop = getFirestore2(appTonghop);
 
 
+// =============== Firebase C: vocabulary (từ vựng học sinh) ===============
+import { initializeApp as initApp3, getApp as getApp3 } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+import { getFirestore as getFirestore3, doc as doc3, getDoc as getDoc3 } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+
+const firebaseConfigVocabulary = {
+  apiKey: "AIzaSyCCVdzWiiFvcWiHVJN-x33YKarsjyziS8E",
+  authDomain: "pokemon-capture-10d03.firebaseapp.com",
+  projectId: "pokemon-capture-10d03",
+  storageBucket: "pokemon-capture-10d03.appspot.com",
+  messagingSenderId: "1068125543917",
+  appId: "1:1068125543917:web:57de4365ee56729ea8dbe4"
+};
+let appVocabulary; 
+try { appVocabulary = initApp3(firebaseConfigVocabulary, "vocabularyApp"); } 
+catch { appVocabulary = getApp3("vocabularyApp"); }
+const dbVocabulary = getFirestore3(appVocabulary);
+
+
 // =============== DOM ===============
 const infoBox = document.getElementById("infoBox");
 const monthsBox = document.getElementById("monthsBox");
@@ -247,6 +265,41 @@ async function fetchTeacherComment(className, nickname) {
   }
   return "";
 }
+
+function getLevel(percent) {
+  if (percent >= 90) return "Rất tốt";
+  if (percent >= 75) return "Tốt";
+  if (percent >= 60) return "Khá";
+  if (percent >= 40) return "Trung bình";
+  return "Yếu";
+}
+
+async function fetchVocabularyResult() {
+  const ref = doc3(dbVocabulary, "vocabulary", docId);
+  const snap = await getDoc3(ref);
+  if (!snap.exists()) return "(chưa có dữ liệu từ vựng)";
+
+  const data = snap.data();
+  let html = `<p><b>Kết quả từ vựng:</b><br>`;
+  html += `Tổng quan: ${data.overall.correct}/${data.overall.total} (${data.overall.percent}%) → ${data.overall.level}<br>`;
+
+  html += `<u>Chủ đề lớn:</u><br>`;
+  for (const [topic, d] of Object.entries(data.mainTopics)) {
+    const percent = Math.round((d.correct / d.total) * 100);
+    html += `${topic}: ${d.correct}/${d.total} (${percent}%) → ${getLevel(percent)}<br>`;
+  }
+
+  html += `<u>Chủ đề nhỏ:</u><br>`;
+  for (const [topic, d] of Object.entries(data.subTopics)) {
+    const percent = Math.round((d.correct / d.total) * 100);
+    html += `${topic}: ${d.correct}/${d.total} (${percent}%) → ${getLevel(percent)}<br>`;
+  }
+
+  html += `</p>`;
+  return html;
+}
+
+
 // =============== Load Parent Data ===============
 async function loadParentData() {
   if (!trainerName || !trainerClass) {
@@ -309,6 +362,10 @@ async function loadParentData() {
     // 3) Đánh giá của thầy (Google Sheet)
     const teacherComment = await fetchTeacherComment(trainerClass, trainerName);
 
+    // 4) Đọc kết quả từ vựng (Firebase C)
+    const vocabHtml = await fetchVocabularyResult();
+
+
     // Render phần thông tin chung
     infoBox.innerHTML = `
       <h2>Thông tin học sinh</h2>
@@ -317,8 +374,10 @@ async function loadParentData() {
       <p><b>Phụ huynh:</b> ${parentName}</p>
       <p><b>Đánh giá mức độ tham gia:</b><br>${metricsHtml}</p>
       <p><b>Đánh giá của thầy:</b> ${teacherComment || "(chưa có)"}</p>
+      <p><b>Kết quả từ vựng:</b><br>${vocabHtml}</p>
       <p class="summary">💰 Tiền chưa nộp:<br>${unpaidText}</p>
     `;
+
 
     // Render chi tiết từng tháng
     monthsBox.innerHTML = "";
