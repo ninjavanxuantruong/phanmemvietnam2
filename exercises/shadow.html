@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Shadow — Pokémon Teleprompter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --poke-red: #ff1c1c; --poke-white: #ffffff; --poke-yellow: #ffeb3b;
+      --poke-black: #1b1b1b; --poke-blue: #3b4cca;
+    }
+    html, body {
+      height: 100%; margin: 0; padding: 0;
+      background:
+        radial-gradient(circle at 50% 25%, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 40%),
+        linear-gradient(180deg, var(--poke-red) 50%, var(--poke-white) 50%);
+      font-family: 'Press Start 2P', system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color: var(--poke-black);
+    }
+    .wrap { display: grid; grid-template-rows: auto auto 1fr auto; min-height: 100%; gap: 12px; }
+    header { text-align: center; padding-top: 12px; color: #fff; text-shadow: 0 3px 0 #b10303, 0 6px 12px rgba(0,0,0,.4); }
+    header .title { font-size: 26px; letter-spacing: 1px; }
+    header .subtitle { font-size: 11px; opacity: .92; margin-top: 6px; }
+    .panel { display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; padding: 8px 16px; }
+    .panel label { color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.35); font-size: 12px; }
+    select, button, input[type="range"] {
+      font-family: inherit; font-size: 12px; padding: 8px 10px; border-radius: 8px;
+      border: 2px solid var(--poke-blue); background: #fff; color: var(--poke-black); box-shadow: 0 4px 10px rgba(0,0,0,.2);
+    }
+    button { cursor: pointer; background: linear-gradient(90deg, var(--poke-blue), #5b6efc); color: #fff; border: none; }
+    button:disabled { opacity: .6; cursor: default; }
+    .status { text-align: center; color: #fff; font-size: 11px; text-shadow: 0 2px 8px rgba(0,0,0,.35); min-height: 18px; }
+
+    /* Teleprompter line */
+    /* Teleprompter line */
+    #shadowLine {
+      position: fixed;
+      top: 60%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      text-align: center;
+      padding: 0 12px;
+      z-index: 10;
+    }
+
+    #shadowLine .line {
+      font-size: clamp(32px, 8vw, 72px);
+      line-height: 1.4;
+      display: inline-flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+
+    #shadowLine .word {
+      margin: 0 12px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      transition: all 160ms ease;
+      color: #111;
+      background: rgba(255,255,255,0.35);
+      box-shadow: 0 5px 14px rgba(0,0,0,.18);
+      opacity: .45;
+    }
+
+    #shadowLine .word.upcoming {
+      opacity: .85;
+      background: rgba(255,255,255,0.6);
+    }
+
+    #shadowLine .word.active {
+      background: var(--poke-yellow);
+      color: #000;
+      opacity: 1;
+      box-shadow: 0 0 14px var(--poke-yellow), 0 3px 10px rgba(0,0,0,.25);
+      transform: scale(1.08);
+    }
+
+
+    footer { text-align: center; padding-bottom: 16px; color: #333; font-size: 10px; }
+    .pokeball {
+      position: fixed; right: 14px; bottom: 14px; width: 64px; height: 64px; border-radius: 50%;
+      background:
+        radial-gradient(circle at 50% 50%, #fff 14px, #333 16px, #fff 18px, transparent 19px),
+        linear-gradient(180deg, var(--poke-red) 50%, var(--poke-white) 50%);
+      border: 4px solid #333; box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    }
+    #shadowToast {
+      position: fixed; left: 50%; transform: translateX(-50%); bottom: 20px;
+      background: rgba(0,0,0,.8); color: #fff; padding: 10px 16px; border-radius: 10px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.35); font: 12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      display: none; z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">SHADOW — Pokémon Teleprompter</div>
+      <div class="subtitle">Giọng chuẩn • chữ chạy mượt • tập trung ở giữa</div>
+    </header>
+
+    <div class="panel">
+      <label>Chủ đề:
+        <select id="topicSelect"></select>
+      </label>
+      <label>Số câu:
+        <select id="countSelect">
+          <option value="5">5 câu</option>
+          <option value="10">10 câu</option>
+          <option value="15">15 câu</option>
+          <option value="20">20 câu</option>
+        </select>
+      </label>
+      <label>Tốc độ:
+        <input id="speedControl" type="range" min="0.7" max="1.6" step="0.1" value="1" />
+      </label>
+      <button id="startBtn">Bắt đầu SHADOW</button>
+      <button id="stopBtn" disabled>Dừng</button>
+    </div>
+
+    <div class="status" id="statusLine"></div>
+
+    <div id="shadowLine"><div class="line" id="lineInner"></div></div>
+
+    <footer>Shadow theme Pokémon • chữ to, dễ đọc • highlight Pikachu ⚡</footer>
+  </div>
+
+  <div class="pokeball" aria-hidden="true"></div>
+  <div id="shadowToast"></div>
+
+  <!-- JS xử lý -->
+  <script src="shadow.js"></script>
+</body>
+</html>
