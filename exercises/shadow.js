@@ -8,7 +8,7 @@
 
 // ===== Config =====
 // Service TTS
-const TTS_BASE = "https://googlevoice-wot6.onrender.com";
+const TTS_BASE = "https://googlevoice-tinh.onrender.com";
 
 // Sheet chính (giống Speaking 3)
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
