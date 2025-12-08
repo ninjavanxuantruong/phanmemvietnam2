@@ -5,7 +5,7 @@ const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6Z
 const COL = {
   lessonName: 1,   // B
   vocab: 2,        // C
-  topic: 6,        // G
+  topic: 5,        // G
   meaning: 24      // Y
 };
 
@@ -40,18 +40,37 @@ const countdownOverlay = document.getElementById("countdown");
 const countdownDigit = document.getElementById("countdownDigit");
 
 const toastEl = document.getElementById("flashToast");
-
+function bindControls() {
+  startBtn.onclick = startFlashcard;
+  stopBtn.onclick = stopFlashcard;
+  // Nếu muốn lưu lựa chọn topic:
+  topicSelect.onchange = () => {
+    localStorage.setItem("flash_topic", topicSelect.value);
+  };
+}
 // ===== Init =====
 document.addEventListener("DOMContentLoaded", initFlashcard);
 
 async function initFlashcard() {
   bindControls();
-  status("Sẵn sàng."); // không cần tải dropdown chủ đề nữa
+  status("Đang tải chủ đề...");
+  try {
+    const rows = await fetchGVizRows(SHEET_URL);
+    buildTopicDropdown(rows);
+    status("Sẵn sàng.");
+  } catch (e) {
+    console.error("❌ Init error:", e);
+    status("Không thể tải dữ liệu.");
+  }
 }
-function bindControls() {
-  startBtn.onclick = startFlashcard;
-  stopBtn.onclick = stopFlashcard;
+
+function buildTopicDropdown(rows) {
+  const topics = [...new Set(rows.map(r => safeStr(r.c?.[COL.topic]?.v)).filter(Boolean))];
+  topics.sort();
+  topicSelect.innerHTML = `<option value="ALL">-- Tất cả --</option>` +
+    topics.map(t => `<option value="${escapeHTML(t)}">${escapeHTML(t)}</option>`).join("");
 }
+
 
 // ===== Core flow =====
 async function startFlashcard() {
@@ -141,6 +160,12 @@ function filterByTopic(rows, topic) {
 }
 
 function buildWords(rows, count, maxLessonCode) {
+  const selectedTopic = topicSelect.value || "ALL";
+
+  // Lọc theo topic nếu không chọn ALL
+  if (selectedTopic !== "ALL") {
+    rows = rows.filter(r => safeStr(r.c?.[COL.topic]?.v) === selectedTopic);
+  }
   // Map lessonName -> list items
   const unitMap = new Map();
 
