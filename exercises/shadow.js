@@ -595,9 +595,10 @@ function extractPresentationData(rows, maxLessonCode) {
     if (!lessonName || !presentation) continue;
 
     // Áp giới hạn giống Speaking 3: từ LOWER_BOUND_UNIT đến maxLessonCode
-    if (unitNum >= LOWER_BOUND_UNIT && unitNum <= maxLessonCode) {
+    if (unitNum <= maxLessonCode) {
       items.push({ lessonName, unitNum, presentation, meaning, targets });
     }
+
   }
   // Log nhanh các bài hợp lệ
   const lessonSet = [...new Set(items.map(i => i.lessonName))];
