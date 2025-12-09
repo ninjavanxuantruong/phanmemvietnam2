@@ -61,14 +61,18 @@
     .stage {
       position: relative;
       width: 100%;
-      height: calc(100vh - 210px); /* leave space for header/panel/footer */
+      height: auto;              /* bỏ chiều cao cứng */
+      min-height: calc(100vh - 210px);
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 12px;
     }
+
     .card {
       width: min(900px, 94vw);
+      max-height: calc(100vh - 260px); /* giới hạn chiều cao để không trùm panel */
+      overflow-y: auto;                /* nếu nội dung dài thì cuộn */
       background: rgba(255,255,255,.88);
       border-radius: 18px;
       box-shadow: 0 10px 30px rgba(0,0,0,.25);
@@ -78,6 +82,7 @@
       gap: clamp(10px, 2.5vw, 16px);
       text-align: center;
     }
+
     .imageBox {
       width: 100%;
       aspect-ratio: 4/3;
