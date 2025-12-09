@@ -5,164 +5,88 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PokeVocabulary Hub</title>
   <style>
-    :root {
-      --blue:#1e90ff;
-      --blue-dark:#1769c9;
-      --red:#ff4757;
-      --red-dark:#d93643;
-      --dark:#2f3542;
-      --card:#ffffffee;
-    }
-    *{box-sizing:border-box;margin:0;padding:0}
     body {
       font-family: system-ui, sans-serif;
       background: linear-gradient(135deg,#fff6e5,#e3f2fd);
-      color: var(--dark);
-      min-height:100vh;
-      display:flex;flex-direction:column;
+      color: #2f3542;
+      margin:0;
+      padding:20px;
     }
-    .container {flex:1;max-width:1000px;margin:0 auto;padding:20px}
-
-    /* Header + Pokéball */
-    header {display:flex;align-items:center;gap:12px;margin-bottom:20px}
-    .logo {width:50px;height:50px;border-radius:50%;border:4px solid #222;position:relative;overflow:hidden}
-    .logo::before,.logo::after{content:"";position:absolute;left:0;right:0;height:50%}
-    .logo::before{top:0;background:#e74c3c}
-    .logo::after{bottom:0;background:#fff}
-    .logo span{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-      width:14px;height:14px;border-radius:50%;background:#fff;border:4px solid #222}
-    .title{font-size:clamp(22px,5vw,32px);font-weight:800}
-    .subtitle{font-size:14px;color:#555;margin-top:4px}
-
-    /* Hero */
-    .hero{background:#fff8dc;border:2px dashed #f1c40f;border-radius:12px;padding:12px;margin-bottom:20px;font-size:14px}
-
-    /* Grid */
-    .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
-
-    /* Base card */
-    .card{
-      background:var(--card);
-      border-radius:18px;
-      overflow:hidden;
-      box-shadow:0 8px 18px rgba(0,0,0,.1);
-      display:flex;flex-direction:column;
+    header {
+      text-align:center;
+      margin-bottom:20px;
     }
-    .card-header{display:flex;align-items:center;gap:12px;padding:16px;color:#fff}
-    .card-body{padding:0 16px 16px 16px;font-size:13px;color:#444}
-    .card-footer{padding:12px;background:#fafafa;border-top:1px dashed #eee}
-
-    /* Variant: BLUE */
-    .card-blue {border:2px solid rgba(30,144,255,.25)}
-    .card-blue .card-header{
-      background:linear-gradient(90deg,var(--blue),#6fb3ff);
-      box-shadow: inset 0 -8px 20px rgba(255,255,255,.15);
+    .title {font-size:28px;font-weight:800}
+    .subtitle {font-size:14px;color:#555}
+    .hero {
+      background:#fff8dc;border:2px dashed #f1c40f;border-radius:12px;
+      padding:12px;margin-bottom:20px;font-size:14px;text-align:center;
     }
-    .card-blue .btn{
-      background:linear-gradient(90deg,var(--blue),#6fb3ff);
-      box-shadow:0 4px 10px rgba(30,144,255,.25);
+    .cards {
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+      max-width:500px;
+      margin:0 auto;
     }
-
-    /* Variant: RED */
-    .card-red {border:2px solid rgba(255,71,87,.25)}
-    .card-red .card-header{
-      background:linear-gradient(90deg,var(--red),#ff7b89);
-      box-shadow: inset 0 -8px 20px rgba(255,255,255,.15);
+    .card {
+      border-radius:12px;
+      padding:16px;
+      color:#fff;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
     }
-    .card-red .btn{
-      background:linear-gradient(90deg,var(--red),#ff7b89);
-      box-shadow:0 4px 10px rgba(255,71,87,.25);
+    .card h3 {margin:0;font-size:18px;font-weight:700}
+    .card p {margin:0;font-size:13px}
+    .btn {
+      display:block;text-align:center;padding:10px;border-radius:8px;
+      font-weight:700;color:#fff;text-decoration:none;
     }
-
-    /* Shared small UI */
-    .poke-icon{
-      width:36px;height:36px;border-radius:50%;border:3px solid #222;position:relative;overflow:hidden;flex:0 0 auto
-    }
-    .poke-icon::before,.poke-icon::after{content:"";position:absolute;left:0;right:0;height:50%}
-    .poke-icon::before{top:0;background:#e74c3c}
-    .poke-icon::after{bottom:0;background:#fff}
-    .poke-icon i{
-      position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-      width:10px;height:10px;border-radius:50%;background:#fff;border:3px solid #222
-    }
-    .card-title{font-weight:800;font-size:18px}
-    .small{font-size:13px;opacity:.95}
-    .features{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-    .chip{background:#f1f5f9;border:1px solid #e6edf5;border-radius:999px;padding:4px 8px;font-size:12px}
-    .status{margin-top:10px;color:#2b2b2b;font-size:12px;display:flex;align-items:center;gap:6px}
-    .dot{width:8px;height:8px;border-radius:50%;background:#22c55e}
-    .btn{display:block;width:100%;text-align:center;padding:12px;border-radius:12px;
-      font-weight:800;color:#fff;text-decoration:none;transition:transform .15s}
-    .btn:hover{transform:translateY(-2px)}
-
-    /* Mobile tweaks */
+    /* 3 màu khác nhau */
+    .blue {background:linear-gradient(135deg,#1e90ff,#6fb3ff);}
+    .red {background:linear-gradient(135deg,#ff4757,#ff7b89);}
+    .green {background:linear-gradient(135deg,#2ecc71,#6fdc9b);}
+    .blue .btn {background:#1769c9;}
+    .red .btn {background:#d93643;}
+    .green .btn {background:#27ae60;}
+    footer {margin-top:30px;text-align:center;font-size:12px;color:#555}
+    /* Responsive */
     @media(max-width:480px){
-      .card-title{font-size:16px}
-      .btn{padding:14px;font-size:15px}
+      .title{font-size:22px}
+      .card h3{font-size:16px}
+      .btn{padding:12px;font-size:14px}
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="logo"><span></span></div>
-      <div>
-        <div class="title">PokeVocabulary Hub</div>
-        <div class="subtitle">Chọn chế độ bạn muốn luyện</div>
-      </div>
-    </header>
+  <header>
+    <div class="title">PokeVocabulary Hub</div>
+    <div class="subtitle">Chọn chế độ bạn muốn luyện</div>
+  </header>
 
-    <div class="hero">🎯 <b>Mục tiêu hôm nay:</b> hoàn thành cả 2 chế độ để cộng điểm và mở hiệu ứng đặc biệt.</div>
+  <div class="hero">🎯 <b>Mục tiêu hôm nay:</b> hoàn thành cả 3 chế độ để cộng điểm và mở hiệu ứng đặc biệt.</div>
 
-    <div class="grid">
-      <!-- Vocabulary 1 — BLUE -->
-      <div class="card card-blue">
-        <div class="card-header">
-          <div class="poke-icon"><i></i></div>
-          <div>
-            <div class="card-title">Vocabulary 1 — Flashcards</div>
-            <div class="small">Ôn từ vựng theo thẻ, xem ảnh minh họa, phiên âm và phát âm.</div>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="features">
-            <span class="chip">Ảnh minh họa</span>
-            <span class="chip">Phiên âm</span>
-            <span class="chip">Phát âm</span>
-            <span class="chip">Ghi chú thú vị</span>
-          </div>
-          <div class="status"><span class="dot"></span> Sẵn sàng</div>
-        </div>
-        <div class="card-footer">
-          <a class="btn" href="vocabulary.html">Bắt đầu luyện</a>
-        </div>
-      </div>
-
-      <!-- Vocabulary 2 — RED -->
-      <div class="card card-red">
-        <div class="card-header">
-          <div class="poke-icon"><i></i></div>
-          <div>
-            <div class="card-title">Vocabulary 2 — Pokéball Speaking</div>
-            <div class="small">Đuổi bắt Pokéball để mở thẻ, luyện nói và cộng điểm.</div>
-          </div>
-        </div>
-        <div class="card-body">
-          <div class="features">
-            <span class="chip">Pokéball di chuyển</span>
-            <span class="chip">Flashcard</span>
-            <span class="chip">Luyện nói</span>
-            <span class="chip">Hiệu ứng thắng/thua</span>
-          </div>
-          <div class="status"><span class="dot"></span> Sẵn sàng</div>
-        </div>
-        <div class="card-footer">
-          <a class="btn" href="vocabulary2.html">Bắt đầu bắt bóng</a>
-        </div>
-      </div>
+  <div class="cards">
+    <div class="card blue">
+      <h3>Vocabulary 1 — Flashcards</h3>
+      <p>Ôn từ vựng theo thẻ, xem ảnh minh họa và phát âm.</p>
+      <a class="btn" href="vocabulary.html">Bắt đầu luyện</a>
     </div>
 
-    <footer>© 2025 PokeVocabulary — Học vui như chơi.</footer>
+    <div class="card red">
+      <h3>Vocabulary 2 — Pokéball Speaking</h3>
+      <p>Bắt Pokéball để mở thẻ, luyện nói và cộng điểm.</p>
+      <a class="btn" href="vocabulary2.html">Bắt đầu bắt bóng</a>
+    </div>
+
+    <div class="card green">
+      <h3>Vocabulary 3 — Conversation</h3>
+      <p>Thực hành hội thoại với Pokémon, luyện nói tự nhiên.</p>
+      <a class="btn" href="conversation.html">Bắt đầu hội thoại</a>
+    </div>
   </div>
+
+  <footer>© 2025 PokeVocabulary — Học vui như chơi.</footer>
 </body>
 </html>
