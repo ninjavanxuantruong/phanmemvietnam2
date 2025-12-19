@@ -17,5 +17,11 @@ const backgrounds = [
 // Chọn ngẫu nhiên một ảnh nền
 const randomBackground = backgrounds[Math.floor(Math.random() * backgrounds.length)];
 
-// Gán ảnh nền vào body
-document.body.style.background = `url('${randomBackground}') center/cover no-repeat`;
+// Gán ảnh nền vào body, đảm bảo phủ kín màn hình
+document.documentElement.style.height = "100%";
+document.body.style.height = "100%";
+document.body.style.margin = "0";
+document.body.style.backgroundImage = `url('${randomBackground}')`;
+document.body.style.backgroundSize = "cover";       // phủ kín toàn bộ
+document.body.style.backgroundPosition = "center";  // căn giữa
+document.body.style.backgroundRepeat = "no-repeat"; // không lặp lại
