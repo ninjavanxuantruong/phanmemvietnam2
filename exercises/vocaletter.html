@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>VocaLetter – Thống kê từ vựng</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 20px; color: #111; }
+    h1 { margin: 0 0 12px; font-size: 22px; }
+    #vocaControls { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+    #letterInput { width: 48px; text-transform: uppercase; text-align: center; font-weight: 700; }
+    #runBtn { padding: 6px 10px; border: 1px solid #222; border-radius: 8px; background: #fff; cursor: pointer; font-weight: 600; }
+    #status { margin: 8px 0 12px; color: #555; font-size: 14px; }
+
+    table { border-collapse: collapse; width: 100%; max-width: 860px; }
+    th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+    th { background: #f7f7f7; font-weight: 700; }
+    tbody tr:nth-child(even) { background: #fafafa; }
+
+    .count-line { margin: 10px 0; font-weight: 600; }
+    .muted { color: #777; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>📊 VocaLetter</h1>
+
+  <div id="vocaControls">
+    <label>Chữ cái đầu:
+      <input id="letterInput" type="text" maxlength="1" placeholder="A-Z" />
+    </label>
+    <button id="runBtn">Thống kê</button>
+    <button id="reviewBtn">Ôn tập</button>
+    <span id="status" class="muted"></span>
+  </div>
+
+  <div id="vocaResult"></div>
+  <div id="reviewArea" style="margin-top:20px;"></div>
+
+
+  <script type="module" src="./vocaletter.js"></script>
+</body>
+</html>
