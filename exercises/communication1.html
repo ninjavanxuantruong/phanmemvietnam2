@@ -79,16 +79,23 @@
   </style>
 </head>
 <body>
+  
   <div class="container">
+    <label for="topicSelect">📂 cách 1: Chọn chủ đề:</label>
+    <select id="topicSelect">
+      <option value="">-- Chọn chủ đề --</option>
+    </select>
 
-    <h2>📘 Ấn vào đây để tạo bài tự động</h2>
+
+    
+    <h2>📘 cách 2: chọn bài tự động</h2>
     
     <!-- ✅ Nút tự động -->
     <button id="autoBtn" style="margin-bottom:20px; background:linear-gradient(to right,#4caf50,#81c784); color:white;">
       ⚡ Tạo bài
     </button>
     
-    <h2>📘 chế độ thủ công</h2>
+    
 
     <label for="startLessonSelect">🔰 Bài bắt đầu:</label>
     <select id="startLessonSelect">
@@ -110,66 +117,131 @@
   </div>
 
   <script>
+    let globalRows = [];
+
     document.addEventListener("DOMContentLoaded", function() {
       populateVoiceList(); // ✅ Gọi để nạp giọng
 
       const sheetUrl = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
       fetch(sheetUrl)
-        .then(response => response.text())
-        .then(text => {
-          const jsonString = text.substring(47).slice(0, -2);
-          const data = JSON.parse(jsonString);
-          const rows = data.table.rows;
+      .then(response => response.text())
+      .then(text => {
+        const jsonString = text.substring(47).slice(0, -2);
+        const data = JSON.parse(jsonString);
+        const rows = data.table.rows;
+        globalRows = rows; // ✅ lưu lại để dùng sau
 
-          let allUnits = [];
-          rows.forEach(row => {
-            if (row.c && row.c[1] && row.c[1].v) {
-              const unit = row.c[1].v.trim();
-              if (unit !== "") {
-                allUnits.push(unit);
-              }
+        // ===== Nạp danh sách bài học (cột B) =====
+        let allUnits = [];
+        rows.forEach(row => {
+          if (row.c && row.c[1] && row.c[1].v) {
+            const unit = row.c[1].v.trim();
+            if (unit !== "") {
+              allUnits.push(unit);
             }
-          });
-
-          const uniqueUnits = allUnits.filter((unit, index, arr) => {
-            return index === arr.findIndex(item => item.toLowerCase() === unit.toLowerCase());
-          });
-
-          const startSelect = document.getElementById("startLessonSelect");
-          const endSelect = document.getElementById("endLessonSelect");
-
-          uniqueUnits.forEach(unit => {
-            const option1 = document.createElement("option");
-            option1.value = unit;
-            option1.textContent = unit;
-            startSelect.appendChild(option1);
-
-            const option2 = document.createElement("option");
-            option2.value = unit;
-            option2.textContent = unit;
-            endSelect.appendChild(option2);
-          });
+          }
         });
+
+        const uniqueUnits = allUnits.filter((unit, index, arr) => {
+          return index === arr.findIndex(item => item.toLowerCase() === unit.toLowerCase());
+        });
+
+        const startSelect = document.getElementById("startLessonSelect");
+        const endSelect = document.getElementById("endLessonSelect");
+
+        uniqueUnits.forEach(unit => {
+          const option1 = document.createElement("option");
+          option1.value = unit;
+          option1.textContent = unit;
+          startSelect.appendChild(option1);
+
+          const option2 = document.createElement("option");
+          option2.value = unit;
+          option2.textContent = unit;
+          endSelect.appendChild(option2);
+        });
+
+        // ===== Nạp danh sách chủ đề (cột G) =====
+        const topicSelect = document.getElementById("topicSelect");
+        let allTopics = [];
+
+        rows.forEach(row => {
+          if (row.c && row.c[6] && row.c[6].v) { // cột G = index 6 (0-based)
+            const topic = row.c[6].v.trim();
+            if (topic !== "") {
+              allTopics.push(topic);
+            }
+          }
+        });
+
+        const uniqueTopics = [...new Set(allTopics)];
+        uniqueTopics.forEach(topic => {
+          const option = document.createElement("option");
+          option.value = topic;
+          option.textContent = topic;
+          topicSelect.appendChild(option);
+        });
+        // ===== Ràng buộc giao diện: chỉ chọn 1 cách =====
+        const autoBtn = document.getElementById("autoBtn");
+        
+
+        // Khi chọn chủ đề
+        topicSelect.addEventListener("change", function() {
+          if (topicSelect.value) {
+            // Có chủ đề → disable nút Auto và clear bài
+            autoBtn.disabled = true;
+            startSelect.value = "";
+            endSelect.value = "";
+          } else {
+            // Không chọn chủ đề → enable lại nút Auto
+            autoBtn.disabled = false;
+          }
+        });
+
+        // Khi bấm Auto → clear dropdown chủ đề
+        autoBtn.addEventListener("click", function() {
+          topicSelect.value = "";
+        });
+
+      });
+
 
       document.getElementById("confirmBtn").addEventListener("click", function() {
         const startLesson = document.getElementById("startLessonSelect").value;
         const endLesson = document.getElementById("endLessonSelect").value;
+        const selectedVoice = document.getElementById("voiceSelect").value;
+        const selectedTopic = document.getElementById("topicSelect").value;
 
-        if (!startLesson || !endLesson) {
-          alert("Vui lòng chọn đầy đủ bài bắt đầu và bài kết thúc.");
-          return;
+        if (selectedTopic) {
+          localStorage.setItem("selectionMode", "topic");
+          localStorage.setItem("selectedTopic", selectedTopic);
+
+          // ✅ dùng globalRows thay vì rows
+          const topicUnits = globalRows
+            .filter(r => r.c[6]?.v?.trim() === selectedTopic)
+            .map(r => r.c[1]?.v?.trim())
+            .filter(Boolean);
+          localStorage.setItem("topicUnits", JSON.stringify(topicUnits));
+
+          localStorage.setItem("selectedLesson", `Chủ đề: ${selectedTopic}`);
+        } else {
+          if (!startLesson || !endLesson) {
+            alert("Vui lòng chọn đầy đủ bài bắt đầu và bài kết thúc.");
+            return;
+          }
+          localStorage.setItem("selectionMode", "auto");
+          localStorage.setItem("startLesson", startLesson);
+          localStorage.setItem("endLesson", endLesson);
+          localStorage.setItem("selectedLesson", `${startLesson} → ${endLesson}`);
         }
 
-        localStorage.setItem("startLesson", startLesson);
-        localStorage.setItem("endLesson", endLesson);
-        localStorage.setItem("selectedLesson", `${startLesson} → ${endLesson}`);
-
-        const selectedVoice = document.getElementById("voiceSelect").value;
         localStorage.setItem("selectedVoice", selectedVoice);
-
         window.location.href = "communication2.html";
       });
+
+
+
 
 
       // ✅ Helper: chuyển "4-09-2" → 4092 (cùng cách normalize như code quiz)
@@ -280,10 +352,12 @@
           if (chosenVoice) document.getElementById("voiceSelect").value = chosenVoice.name;
 
           // 7) Lưu tạm vào localStorage để nút Bắt đầu dùng luôn
+          localStorage.setItem("selectionMode", "auto");   // thêm dòng này
           localStorage.setItem("startLesson", startLesson);
           localStorage.setItem("endLesson", endLesson);
           localStorage.setItem("selectedLesson", `${startLesson} → ${endLesson}`);
           if (chosenVoice) localStorage.setItem("selectedVoice", chosenVoice.name);
+
 
           // 8) Log/Alert rõ ràng
           console.log(`👉 MaxLessonCode(lớp ${trainerClass}) = ${maxLessonCode}`);
@@ -328,28 +402,46 @@
       voiceSelect.innerHTML = "";
 
       getVocabVoice().then(voices => {
-        // Lọc chỉ lấy en-US, en-GB, en-AU
-        const allowed = voices.filter(v => /(en-US|en-GB|en-AU)/.test(v.lang));
+        // ✅ Giữ lại các giọng dễ nghe trên mobile và PC
+        const preferredNames = [
+          "Samantha", "Karen", "Alex", "Daniel", "Moira", "Tessa",
+          "Microsoft David - English (United States)",
+          "Microsoft Mark - English (United States)",
+          "Microsoft Zira - English (United States)",
+          "Google US English",
+          "Google UK English Female",
+          "Google UK English Male"
+        ];
 
-        allowed.forEach(voice => {
+        const allowed = voices.filter(v =>
+          /(en-US|en-GB|en-AU)/.test(v.lang) && preferredNames.includes(v.name)
+        );
+
+        // Nếu không có giọng phù hợp thì fallback sang en-* hoặc toàn bộ
+        const finalList = allowed.length > 0
+          ? allowed
+          : voices.filter(v => /^en(-|_)/i.test(v.lang)).length > 0
+            ? voices.filter(v => /^en(-|_)/i.test(v.lang))
+            : voices;
+
+        finalList.forEach(voice => {
           const option = document.createElement("option");
           option.value = voice.name;
           option.textContent = `${voice.name} (${voice.lang})`;
           voiceSelect.appendChild(option);
         });
 
-        // Nếu trước đó đã lưu giọng thì chọn lại
         const savedVoice = localStorage.getItem("selectedVoice");
-        if (savedVoice && allowed.some(v => v.name === savedVoice)) {
+        if (savedVoice && finalList.some(v => v.name === savedVoice)) {
           voiceSelect.value = savedVoice;
         }
 
-        // Khi đổi giọng → lưu lại
         voiceSelect.onchange = () => {
           localStorage.setItem("selectedVoice", voiceSelect.value);
         };
       });
     }
+
 
   </script>
 
