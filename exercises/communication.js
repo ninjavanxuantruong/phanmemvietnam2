@@ -1,7 +1,13 @@
+import { startTalking, stopTalking } from "./pikachuTalk.js";
+
 document.addEventListener("DOMContentLoaded", function () {
+  const selectionMode = localStorage.getItem("selectionMode"); // thêm
   const selectedUnit = localStorage.getItem("selectedLesson");
   const startUnit = localStorage.getItem("startLesson");
   const endUnit = localStorage.getItem("endLesson");
+  const selectedTopic = localStorage.getItem("selectedTopic"); // thêm
+  const topicUnits = JSON.parse(localStorage.getItem("topicUnits") || "[]"); // thêm
+
 
   const sheetUrl = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
   const chatContainer = document.getElementById("chatContainer");
@@ -104,8 +110,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = "en-US";
     utter.voice = vocabVoice;
+
+    // 👉 thêm hiệu ứng Pikachu
+    utter.onstart = startTalking;
+    utter.onend = stopTalking;
+
     speechSynthesis.speak(utter);
   }
+
 
   function addMessage(sender, text) {
     const msg = document.createElement("div");
@@ -166,51 +178,58 @@ document.addEventListener("DOMContentLoaded", function () {
     return word.replace(/[.,!?]/g, "").toLowerCase();
   }
 
-  fetch(sheetUrl)
-    .then(response => response.text())
-    .then(text => {
-      const jsonString = text.substring(47).slice(0, -2);
-      const data = JSON.parse(jsonString);
-      const rows = data.table.rows;
+      fetch(sheetUrl)
+      .then(response => response.text())
+      .then(text => {
+        const jsonString = text.substring(47).slice(0, -2);
+        const data = JSON.parse(jsonString);
+        const rows = data.table.rows;
 
-      const startCode = extractUnitCode(startUnit);
-      const endCode = extractUnitCode(endUnit);
+        let rawQuestions = [];
 
-      let rawQuestions = [];
-      const unitsSeen = new Set();
+        rows.forEach(row => {
+          if (row.c && row.c[1]?.v && row.c[9]?.v && row.c[10]?.v) {
+            const fullUnit = row.c[1].v.trim();
+            const unitCode = extractUnitCode(fullUnit);
+            const question = row.c[9].v.trim();
+            const answer = row.c[10].v.trim();
+            const suggestion = row.c[11]?.v?.trim() || "";
 
-      rows.forEach(row => {
-        if (row.c && row.c[1]?.v && row.c[9]?.v && row.c[10]?.v) {
-          const fullUnit = row.c[1].v.trim();
-          const unitCode = extractUnitCode(fullUnit);
-          const question = row.c[9].v.trim();
-          const answer = row.c[10].v.trim();
-          const suggestion = row.c[11]?.v?.trim() || "";
+            // ✅ Lấy từ vựng ở cột AV (index 47)
+            const vocabRaw = row.c[47]?.v?.trim() || "";
+            const vocabList = vocabRaw
+              ? vocabRaw.split(",").map(s => s.trim()).filter(Boolean)
+              : [];
 
-          // ✅ Lấy từ vựng ở cột AV: index 47 (AV là cột số 48, 0-based = 47)
-          const vocabRaw = row.c[47]?.v?.trim() || "";
-          const vocabList = vocabRaw
-            ? vocabRaw.split(",").map(s => s.trim()).filter(Boolean)
-            : [];
-          console.log("👉 Vocab for question:", question, "=>", vocabList); // ✅ log
-
-
-          if (unitCode >= startCode && unitCode <= endCode) {
-            rawQuestions.push({ unit: fullUnit, question, answer, suggestion, vocabList });
-          }
-
-          const userQuestion = row.c[8]?.v?.trim();
-          const botAnswer = row.c[11]?.v?.trim();
-          if (userQuestion && botAnswer) {
-            const key = normalize(userQuestion);
-            if (!questionAnswerMap[key]) {
-              questionAnswerMap[key] = [];
+            // 👉 Phân nhánh theo selectionMode
+            if (selectionMode === "topic") {
+              // lọc theo danh sách unit thuộc chủ đề
+              if (topicUnits.includes(fullUnit)) {
+                rawQuestions.push({ unit: fullUnit, question, answer, suggestion, vocabList });
+              }
+            } else {
+              // lọc theo dải bài liên tục (auto)
+              const startCode = extractUnitCode(startUnit);
+              const endCode = extractUnitCode(endUnit);
+              if (unitCode >= startCode && unitCode <= endCode) {
+                rawQuestions.push({ unit: fullUnit, question, answer, suggestion, vocabList });
+              }
             }
-            questionAnswerMap[key].push(botAnswer);
-          }
-        }
-      });
 
+            // ✅ Map userQuestion → botAnswer để dùng cho chat
+            const userQuestion = row.c[8]?.v?.trim();
+            const botAnswer = row.c[11]?.v?.trim();
+            if (userQuestion && botAnswer) {
+              const key = normalize(userQuestion);
+              if (!questionAnswerMap[key]) {
+                questionAnswerMap[key] = [];
+              }
+              questionAnswerMap[key].push(botAnswer);
+            }
+          }
+        });
+
+      
       // Gom câu hỏi theo từng unit
       const unitMap = new Map();
       rawQuestions.forEach(item => {
@@ -379,4 +398,63 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     };
   }
+});
+
+
+const popup = document.getElementById("pikachuPopup");
+const toggleBtn = document.getElementById("togglePikachuBtn");
+
+if (toggleBtn && popup) {
+  toggleBtn.onclick = () => {
+    if (popup.style.display === "none") {
+      popup.style.display = "flex"; // hiện lại
+    } else {
+      popup.style.display = "none"; // ẩn đi
+    }
+  };
+}
+
+let isDragging = false;
+let offsetX, offsetY;
+
+// PC: kéo bằng chuột
+popup.addEventListener("mousedown", (e) => {
+  isDragging = true;
+  offsetX = e.clientX - popup.offsetLeft;
+  offsetY = e.clientY - popup.offsetTop;
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (isDragging) {
+    popup.style.left = (e.clientX - offsetX) + "px";
+    popup.style.top = (e.clientY - offsetY) + "px";
+    popup.style.bottom = "auto";
+    popup.style.right = "auto";
+  }
+});
+
+document.addEventListener("mouseup", () => {
+  isDragging = false;
+});
+
+// Mobile: kéo bằng tay
+popup.addEventListener("touchstart", (e) => {
+  isDragging = true;
+  const touch = e.touches[0];
+  offsetX = touch.clientX - popup.offsetLeft;
+  offsetY = touch.clientY - popup.offsetTop;
+});
+
+document.addEventListener("touchmove", (e) => {
+  if (isDragging) {
+    const touch = e.touches[0];
+    popup.style.left = (touch.clientX - offsetX) + "px";
+    popup.style.top = (touch.clientY - offsetY) + "px";
+    popup.style.bottom = "auto";
+    popup.style.right = "auto";
+  }
+});
+
+document.addEventListener("touchend", () => {
+  isDragging = false;
 });
