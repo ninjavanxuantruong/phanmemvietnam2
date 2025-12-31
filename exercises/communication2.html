@@ -124,6 +124,30 @@
 
 
   </div>
+  <button id="togglePikachuBtn">🐭 Ẩn/Hiện Pikachu</button>
+
+  <!-- Pop-up Pikachu -->
+  <div id="pikachuPopup" style="
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 180px;
+      height: 180px;
+      /* ❌ bỏ nền */
+      background: transparent;
+      /* ❌ bỏ viền */
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    ">
+      <img id="pikachuImg" src="pikachuclose.png" alt="Pikachu" style="width:150px;">
+  </div>
+
+
 
   <script type="module">
     import { showVictoryEffect } from './effect-win.js';
@@ -135,7 +159,8 @@
 
 
 
-  <script src="communication.js"></script>
+  <script type="module" src="communication.js"></script>
+
   
 </body>
 </html>
