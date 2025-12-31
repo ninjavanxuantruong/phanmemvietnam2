@@ -395,7 +395,8 @@ async function renderStudentWeekSummary() {
   const tbody = document.getElementById("weeklySummaryBody");
   tbody.innerHTML = "";
   recentEntries.forEach(e => {
-    const date = `${e.date.slice(0,2)}-${e.date.slice(2,4)}-${e.date.slice(4)}`;
+    const dateCode = e.date;
+    const date = `${dateCode.slice(0,2)}-${dateCode.slice(2,4)}-${dateCode.slice(4)}`;
     const row = `
       <tr>
         <td>${date}</td>
@@ -403,14 +404,58 @@ async function renderStudentWeekSummary() {
         <td>${e.max}</td>
         <td>${e.doneParts}</td>
         <td>${e.rating}</td>
+        <td><button onclick="deleteStudentDayResult('${dateCode}')">🗑️ Xoá</button></td>
       </tr>
     `;
-
     tbody.innerHTML += row;
   });
 
+
   document.getElementById("weeklySummarySection").style.display = "block";
 }
+async function deleteStudentDayResult(dateCode) {
+  // Hiện popup nhập mật khẩu
+  const password = prompt("🔑 Nhập mật khẩu để xoá kết quả:");
+
+  if (password !== "1111") {
+    alert("❌ Mật khẩu sai. Không thể xoá kết quả.");
+    return; // dừng lại, không xoá
+  }
+
+  const entryToday = getTodayEntry();
+
+  const { initializeApp, getApp } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js");
+  const { getFirestore, doc, getDoc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js");
+
+  const firebaseConfig = window.__FIREBASE_CONFIG__ || {};
+  let app;
+  try { app = initializeApp(firebaseConfig); } catch { app = getApp(); }
+  const db = getFirestore(app);
+
+  const ref = doc(db, "tonghop", `summary-${entryToday.class}-recent`);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    alert("⚠️ Không tìm thấy dữ liệu để xoá.");
+    return;
+  }
+
+  const data = snap.data();
+  const dayData = data.dayData || {};
+
+  if (dayData[dateCode] && dayData[dateCode][entryToday.name]) {
+    delete dayData[dateCode][entryToday.name]; // xoá học sinh khỏi ngày đó
+
+    await updateDoc(ref, { dayData });
+    alert(`✅ Đã xoá kết quả ngày ${dateCode} của ${entryToday._displayName}`);
+    // Refresh lại bảng
+    renderStudentWeekSummary();
+  } else {
+    alert("⚠️ Không có dữ liệu của bạn trong ngày này.");
+  }
+}
+
+// 👇 để HTML gọi được
+window.deleteStudentDayResult = deleteStudentDayResult;
 
 // ================== GẮN SỰ KIỆN ==================
 document.getElementById("saveResultBtn").addEventListener("click", saveTodayResult);
