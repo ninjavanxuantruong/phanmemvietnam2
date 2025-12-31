@@ -1,4 +1,5 @@
 // ===== VocaLetter – Full JS =====
+import { startTalking, stopTalking } from "./pikachuTalk.js";
 
 // ===== Config =====
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
@@ -23,7 +24,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const reviewOnlyUnchecked = document.getElementById("reviewOnlyUnchecked"); // optional checkbox if present
 
   runBtn.onclick = runVocaLetter;
-  if (reviewBtn) reviewBtn.onclick = () => startReview(reviewOnlyUnchecked?.checked === true);
+  if (reviewBtn) {
+    reviewBtn.onclick = () => {
+      // Bắt đầu ôn tập
+      startReview(reviewOnlyUnchecked?.checked === true);
+
+      // Gọi thử Pikachu nói câu mở đầu (đảm bảo TTS được kích hoạt bởi thao tác click)
+      speakWithPikachu("reviewing!", "en-US");
+    };
+  }
+
 });
 
 // ===== Main flow =====
@@ -203,6 +213,33 @@ function updateTickSummary(container) {
 }
 
 // ===== Review (Ôn tập 6s/từ, gợi ý + ảnh) =====
+// Nói một câu đơn và gọi callback khi kết thúc
+
+
+function speakWithPikachu(text, lang = "en-US") {
+  if (!text) return;
+  const sentences = text.split(/[.?!]/).map(s => s.trim()).filter(Boolean);
+  let i = 0;
+
+  function speakNext() {
+    if (i >= sentences.length) return;
+    const utter = new SpeechSynthesisUtterance(sentences[i]);
+    utter.lang = lang;
+    utter.onstart = startTalking; // bật hiệu ứng Pikachu
+    utter.onend = () => {
+      stopTalking();              // tắt hiệu ứng Pikachu
+      i++;
+      if (i < sentences.length) {
+        setTimeout(speakNext, 500); // nghỉ 0.5s rồi đọc câu tiếp
+      }
+    };
+    speechSynthesis.speak(utter);
+  }
+
+  speechSynthesis.cancel();
+  speakNext();
+}
+
 function startReview(onlyUnchecked = false) {
   if (!currentReviewList || currentReviewList.length === 0) {
     alert("Hãy thống kê trước rồi mới ôn tập!");
@@ -225,25 +262,59 @@ function startReview(onlyUnchecked = false) {
     return;
   }
 
-  if (reviewTimer) clearInterval(reviewTimer);
+  if (reviewTimer) clearTimeout(reviewTimer);
 
   async function showWord() {
+    if (idx >= reviewList.length) {
+      area.innerHTML = `<p class="count-line">🎉 Hoàn thành một vòng ôn tập!</p>`;
+      return;
+    }
+
     const item = reviewList[idx];
+
+    // nếu chưa có ảnh thì fetch
+    if (!item.imgUrl) {
+      item.imgUrl = await fetchImageForKeyword(item.word);
+    }
+
     const hint = buildHint(item.word);
-    const imgUrl = await fetchImageForKeyword(item.word);
+    const imgUrl = item.imgUrl;
 
     area.innerHTML = `
       <div style="font-size:22px; margin-bottom:10px;">🔤 ${hint}</div>
-      <div style="margin-bottom:10px;">📖 Nghĩa: ${escapeHTML(item.meanings.join("; "))}</div>
-      ${imgUrl ? `<img src="${imgUrl}" alt="${escapeAttr(item.word)}" style="max-width:70vw;max-height:40vh;border-radius:8px;">` : `<div class="muted">Không có minh hoạ</div>`}
+      <div style="margin-bottom:10px;" class="muted">❓ What is it?</div>
+      ${imgUrl ? `<img src="${imgUrl}" alt="${escapeAttr(item.word)}" style="width:300px;height:200px;object-fit:contain;border-radius:8px;">` : `<div class="muted">Không có minh hoạ</div>`}
     `;
 
-    idx = (idx + 1) % reviewList.length;
+    speakWithPikachu("What is it?", "en-US");
+
+    // preload ảnh cho từ tiếp theo
+    if (idx + 1 < reviewList.length && !reviewList[idx + 1].imgUrl) {
+      fetchImageForKeyword(reviewList[idx + 1].word).then(url => {
+        reviewList[idx + 1].imgUrl = url;
+      });
+    }
+
+    setTimeout(() => {
+      area.innerHTML = `
+        <div style="font-size:22px; margin-bottom:10px;">🔤 ${hint}</div>
+        <div style="margin-bottom:10px;">✅ Answer: <b>${escapeHTML(item.word)}</b></div>
+        ${imgUrl ? `<img src="${imgUrl}" alt="${escapeAttr(item.word)}" style="width:300px;height:200px;object-fit:contain;border-radius:8px;">` : `<div class="muted">Không có minh hoạ</div>`}
+      `;
+      speakWithPikachu(item.word, "en-US");
+
+      idx++;
+      reviewTimer = setTimeout(showWord, 2000);
+    }, 6000);
   }
 
+
   showWord();
-  reviewTimer = setInterval(showWord, 6000); // 6s mỗi từ
 }
+
+
+
+
 
 // ===== Image fetch (Pixabay) =====
 async function fetchImageForKeyword(keyword) {
