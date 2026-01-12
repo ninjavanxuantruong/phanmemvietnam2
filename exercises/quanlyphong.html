@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Quản lý phòng từ vựng</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 20px; }
+    #controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    #roomSelect { min-width: 220px; }
+    #canvasWrapper { position: relative; width: 900px; max-width: 100%; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+    #bgImage {
+      width: 100%;
+      max-height: 600px;
+      object-fit: contain;
+      display: block;
+    }
+
+    #layer { position: absolute; inset: 0; }
+    .hotspot {
+      position: absolute;
+      transform: translate(0, -50%); /* mốc là cạnh trái-giữa, không phải tâm */
+      background: #ff6f61;
+      color: #fff;
+      border-radius: 12px;
+      padding: 2px 6px;
+      font-weight: 500;
+      font-size: 12px;
+      cursor: grab;
+      user-select: none;
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+
+      /* cho phép resize bằng chuột */
+      resize: both;
+      overflow: auto;
+    }
+
+    .hotspot input {
+      border: none;
+      outline: none;
+      background: yellow;   /* nền vàng */
+      color: #000;          /* chữ đen để dễ đọc */
+      font-weight: 600;
+      font-size: 12px;
+      width: 80px;          /* rộng vừa đủ để nhập chữ */
+      padding: 2px 4px;
+      border-radius: 6px;
+    }
+
+    /* nút màu đỏ rực */
+    .hotspot .btn-red {
+      background: red;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .hotspot .btn-red:hover {
+      background: darkred;
+    }
+
+    .hotspot button {
+      border: none;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 4px 6px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    /* điểm đỏ hiển thị ở đầu ô input */
+    .hotspot .hotspot-dot {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: red;
+      border-radius: 50%;
+      top: 50%;
+      left: 0; /* đầu ô bên trái */
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.9), 0 2px 6px rgba(0,0,0,0.25);
+      pointer-events: none;
+    }
+
+    .bar { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .bar button { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; background: #f7f7f7; cursor: pointer; }
+    .hint { color: #666; font-size: 13px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <h2>Quản lý phòng từ vựng</h2>
+
+  <div id="controls">
+    <select id="roomSelect">
+      <option value="">-- Chọn phòng từ Google Sheet --</option>
+    </select>
+    <button id="loadRoomsBtn">Tải danh sách phòng</button>
+    <button id="loadRoomDataBtn">Tải hotspot đã lưu</button>
+    <button id="createHotspotBtn">Tạo ô</button>
+    <button id="saveBtn">Lưu lên Firestore</button>
+  </div>
+
+  <div id="canvasWrapper">
+    <img id="bgImage" src="" alt="Ảnh phòng" style="width:100%; display:block;">
+    <div id="layer"></div>
+  </div>
+
+  <div class="hint">Nhập nhãn ở ô: có thể là số (AJ) hoặc từ vựng. Kéo thả để đặt vị trí chính xác.</div>
+
+  <script type="module" src="./quanlyphong.js"></script>
+</body>
+</html>
