@@ -33,7 +33,8 @@ const layer = document.getElementById("layer");
 // ================== State ==================
 const state = {
   currentRoom: null,
-  hotspots: [] // [{ id, label, x, y }]
+  hotspots: [], // [{ id, label, x, y, linkedRoom }]
+  allRooms: []  // Danh sách tất cả phòng từ Google Sheet
 };
 
 // ================== Helpers ==================
@@ -63,16 +64,93 @@ function extractRoomsFromRows(rows) {
     if (name && imageUrl) rooms.push({ name, imageUrl });
   }
   const seen = new Set();
-  return rooms.filter(r => {
+  const uniqueRooms = rooms.filter(r => {
     const ok = !seen.has(r.name);
     if (ok) seen.add(r.name);
     return ok;
   });
+
+  // Lưu danh sách phòng vào state
+  state.allRooms = uniqueRooms;
+  return uniqueRooms;
 }
 
 function makeId(prefix = "hs") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+// Tạo dropdown chọn phòng liên kết
+function createLinkedRoomMenu(currentHotspot) {
+  const wrapper = document.createElement("div");
+  wrapper.style.position = "relative";
+
+  // Nút bấm hiển thị phòng đã chọn hoặc mặc định
+  const btn = document.createElement("button");
+  btn.textContent = currentHotspot.linkedRoom || "Chọn phòng liên kết";
+  btn.style.fontSize = "12px";
+  btn.style.padding = "4px 8px";
+  btn.style.cursor = "pointer";
+
+  // Menu popup
+  const menu = document.createElement("div");
+  menu.style.position = "absolute";
+  menu.style.top = "100%";
+  menu.style.left = "0";
+  menu.style.background = "#fff";
+  menu.style.border = "1px solid #ccc";
+  menu.style.borderRadius = "4px";
+  menu.style.boxShadow = "0 2px 6px rgba(0,0,0,0.2)";
+  menu.style.display = "none";
+  menu.style.zIndex = "9999";
+  menu.style.minWidth = "150px";
+
+  // Tạo danh sách phòng
+  if (state.allRooms && state.allRooms.length > 0) {
+    state.allRooms.forEach(room => {
+      const item = document.createElement("div");
+      item.textContent = room.name;
+      item.style.padding = "6px 10px";
+      item.style.cursor = "pointer";
+      item.style.color = "#000";
+      item.style.background = "#fff";
+
+      // Hover
+      item.addEventListener("mouseover", () => {
+        item.style.background = "#f0f0f0";
+      });
+      item.addEventListener("mouseout", () => {
+        item.style.background = "#fff";
+      });
+
+      // Click chọn phòng
+      item.addEventListener("click", () => {
+        currentHotspot.linkedRoom = room.name;
+        btn.textContent = room.name;
+        menu.style.display = "none";
+      });
+
+      menu.appendChild(item);
+    });
+  } else {
+    const empty = document.createElement("div");
+    empty.textContent = "Chưa có danh sách phòng";
+    empty.style.padding = "6px 10px";
+    empty.style.color = "red";
+    menu.appendChild(empty);
+  }
+
+  // Toggle menu khi bấm nút
+  btn.addEventListener("click", () => {
+    menu.style.display = menu.style.display === "none" ? "block" : "none";
+  });
+
+  wrapper.appendChild(btn);
+  wrapper.appendChild(menu);
+  return wrapper;
+}
+
+
+
 
 // Đồng bộ layer khít ảnh
 function syncLayerToImage() {
@@ -103,6 +181,16 @@ function renderHotspots() {
       if (idx >= 0) state.hotspots[idx].label = input.value.trim();
     });
 
+    // Thêm mũi tên và dropdown liên kết
+    const linkLabel = document.createElement("span");
+    linkLabel.textContent = " → ";
+    linkLabel.style.marginLeft = "4px";
+    linkLabel.style.color = "#666";
+    linkLabel.style.fontSize = "12px";
+
+    const linkedMenu = createLinkedRoomMenu(h);
+
+
     const btnEdit = document.createElement("button");
     btnEdit.textContent = "Sửa";
     btnEdit.addEventListener("click", () => {
@@ -125,6 +213,9 @@ function renderHotspots() {
 
     el.appendChild(dot);
     el.appendChild(input);
+    el.appendChild(linkLabel);
+    el.appendChild(linkedMenu);
+
     el.appendChild(btnEdit);
     el.appendChild(btnDel);
 
@@ -167,19 +258,52 @@ function renderHotspots() {
   });
 }
 
-// ================== Events ==================
-loadRoomsBtn.addEventListener("click", async () => {
+// ================== Khởi tạo tự động tải danh sách phòng ==================
+async function loadRoomsOnStartup() {
   try {
+    // Tải dữ liệu từ Google Sheet
     const rows = await fetchGvizRows();
     const rooms = extractRoomsFromRows(rows);
-    roomSelect.innerHTML = `<option value="">-- Chọn phòng từ Google Sheet --</option>`;
+
+    // Cập nhật state và cache
+    state.allRooms = rooms;
+    localStorage.setItem('cached_rooms', JSON.stringify(rooms));
+
+    // Cập nhật dropdown chọn phòng chính
+    roomSelect.innerHTML = `<option value="">-- Chọn phòng --</option>`;
     rooms.forEach(r => {
       const opt = document.createElement("option");
       opt.value = JSON.stringify(r);
       opt.textContent = r.name;
       roomSelect.appendChild(opt);
     });
-    alert("✅ Đã tải danh sách phòng.");
+
+    // QUAN TRỌNG: render lại hotspots để dropdown liên kết có dữ liệu
+    if (state.hotspots.length > 0) {
+      renderHotspots();
+    }
+
+    console.log(`✅ Đã tải ${rooms.length} phòng từ Google Sheet`);
+  } catch (e) {
+    console.error("❌ Lỗi tải Google Sheet:", e);
+    alert("⚠️ Không thể tải danh sách phòng. Kiểm tra kết nối internet.");
+  }
+}
+
+
+// Gọi hàm khởi tạo khi trang load
+loadRoomsOnStartup();
+
+// ================== Events ==================
+loadRoomsBtn.addEventListener("click", async () => {
+  try {
+    await loadRoomsOnStartup();
+    alert("✅ Đã làm mới danh sách phòng.");
+
+    // Render lại hotspots để dropdown liên kết cập nhật
+    if (state.currentRoom) {
+      renderHotspots();
+    }
   } catch (e) {
     console.error("Sheet load error:", e);
     alert("❌ Lỗi tải Google Sheet.");
@@ -232,7 +356,7 @@ loadRoomDataBtn.addEventListener("click", async () => {
       console.log("✅ Ảnh đã load thành công:", bgImage.src);
       // đồng bộ layer khít ảnh
       syncLayerToImage();
-      // gán hotspots từ Firestore
+      // gán hotspots từ Firestore (bao gồm linkedRoom nếu có)
       state.hotspots = Array.isArray(data.hotspots) ? data.hotspots : [];
       // render lại
       renderHotspots();
@@ -248,14 +372,19 @@ loadRoomDataBtn.addEventListener("click", async () => {
     alert("❌ Lỗi tải Firestore.");
   }
 });
-// ================== Events tiếp ==================
 
 // Tạo ô mới
 createHotspotBtn.addEventListener("click", () => {
   if (!state.currentRoom?.name) return alert("Chọn phòng trước đã.");
   const id = makeId();
   const label = prompt("Nhập nhãn ô (số AJ hoặc từ vựng):") || "";
-  const hs = { id, label: label.trim(), x: 0.5, y: 0.5 }; // mặc định giữa ảnh
+  const hs = { 
+    id, 
+    label: label.trim(), 
+    x: 0.5, 
+    y: 0.5,
+    linkedRoom: ""  // Thêm field liên kết, mặc định rỗng
+  };
   state.hotspots.push(hs);
   renderHotspots();
 });
@@ -268,7 +397,8 @@ saveBtn.addEventListener("click", async () => {
     id: h.id,
     label: (h.label || "").trim(),
     x: Math.max(0, Math.min(h.x, 1)),
-    y: Math.max(0, Math.min(h.y, 1))
+    y: Math.max(0, Math.min(h.y, 1)),
+    linkedRoom: h.linkedRoom || ""  // Lưu cả linkedRoom
   }));
 
   const payload = {
@@ -286,6 +416,18 @@ saveBtn.addEventListener("click", async () => {
     alert("❌ Lỗi lưu Firestore.");
   }
 });
+// ... các hàm và events ở trên ...
+
+// ================== Thêm event cho nút làm mới ==================
+document.getElementById('refreshLinkedBtn').addEventListener('click', function() {
+  if (state.currentRoom) {
+    renderHotspots();
+    alert("✅ Đã làm mới danh sách phòng liên kết");
+  } else {
+    alert("⚠️ Chọn phòng trước đã");
+  }
+});
+// ================== TEST: Tạo hotspot với dropdown rõ ràng ==================
 
 // ================== Đồng bộ layer khi resize ==================
 window.addEventListener("resize", () => {
