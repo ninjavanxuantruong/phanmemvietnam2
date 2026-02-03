@@ -80,7 +80,7 @@
 
     
     <div style="font-weight:bold; font-size:18px; color:#ffeb3b; text-shadow:1px 1px 2px #000; text-align:left;">
-      📌 HỌC TỪ TRÊN XUỐNG DƯỚI THEO THỨ TỰ, ĐỦ CÁC PHẦN. NẾU NHIỀU HƠN 8 TỪ VỰNG THÌ CHỈ CẦN HỌC 01 DẠNG Ở MỖI PHẦN CŨNG ĐƯỢC
+      📌 PHẦN CẦN HỌC
     </div>
 
     <div id="exercise-buttons">
@@ -135,12 +135,12 @@
       </button>
 
       <div style="font-weight:bold; font-size:18px; color:#ffeb3b; text-shadow:1px 1px 2px #000; text-align:left;">
-        📌 PHẦN PHỤ TRỢ HỌC SINH
+        📌 PHẦN QUẢN LÝ HỌC SINH
       </div>
 
         <button onclick="startExercise('summary.html')">
           <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/249.png" alt="Lugia">
-          Result - Kết quả - Học sinh ấn vào đây sau khi học hết
+          Result - Ghi kết quả
         </button>
 
         <button onclick="startExercise('collection.html')">
@@ -152,6 +152,9 @@
         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/48.png" alt="Dragonite">
         dành cho phụ huynh
       </button>
+      <div style="font-weight:bold; font-size:18px; color:#ffeb3b; text-shadow:1px 1px 2px #000; text-align:left;">
+        📌 PHẦN PHỤ TRỢ HỌC SINH
+      </div>
        
 
       <button onclick="startExercise('fight.html')">
@@ -184,14 +187,17 @@
         Flashcard nhanh
       </button>
 
-      <button onclick="startExercise('stickerstopic.html')">
-        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/255.png" alt="Dragonite">
-        Sticker
-      </button>
+      
       <button onclick="startExercise('vocaletter.html')">
         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/555.png" alt="Dragonite">
         từ vựng theo chữ cái
       </button>
+      
+      <button onclick="window.open('https://ai.studio/apps/drive/1TziNuPoEdwd1Ve9_myK5YBCMyIaw3AXl?fullscreenApplet=true', '_blank')">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/566.png" alt="Dragonite">
+        chém hoa quả
+      </button>
+
 
       
 
@@ -210,9 +216,10 @@
         link
       </button>
       <button onclick="startExercise('phongtuvung.html')">
-        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/147.png" alt="Dragonite">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/247.png" alt="Dragonite">
         phongtuvung
       </button>
+      
 
   
 
@@ -247,7 +254,7 @@
     }
 
     async function loadPrecheck(partName, page, key) {
-      const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+      const SHEET_URL = "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
       const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
       const checkedWords = JSON.parse(localStorage.getItem("checkedWords") || "[]");
 
