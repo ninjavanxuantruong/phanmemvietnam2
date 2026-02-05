@@ -42,8 +42,23 @@ async function startApp() {
   localStorage.setItem("startTime_global", Date.now());
 
   if (matchedStudent) {
+    const sheetPassword = (matchedStudent.password || "").trim();
+
+    // Nếu sheet có mật khẩu thì phải nhập đúng
+    if (sheetPassword) {
+      if (!password) {
+        errorBox.textContent = "⚠️ Vui lòng nhập mật khẩu.";
+        return;
+      }
+      if (normalize(password) !== normalize(sheetPassword)) {
+        errorBox.textContent = "❌ Mật khẩu không đúng.";
+        return;
+      }
+    }
+
+    // Nếu không có mật khẩu hoặc mật khẩu đúng
     localStorage.setItem("isVerifiedStudent", "true");
-    localStorage.setItem("studentPassword", matchedStudent.password || "");
+    localStorage.setItem("studentPassword", sheetPassword);
 
     // Lưu cả bản chuẩn hóa để dùng khi ghi Firebase
     localStorage.setItem("normalizedTrainerName", cleanedName);
