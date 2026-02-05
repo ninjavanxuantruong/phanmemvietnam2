@@ -386,9 +386,8 @@ function showChunkTranslate() {
   }
 
   const item = dataChunks[currentIndex]; // { enChunks, viChunks }
-  let answered = false; // ✅ cờ trạng thái
 
-  // Render từng cặp VI–EN theo hàng
+  // Render từng cặp VI–EN theo hàng, mỗi hàng có 1 vi-block và 1 en-input
   const rowsHTML = item.viChunks.map((viBlock, i) => {
     const enAns = item.enChunks[i];
     return `
@@ -410,22 +409,32 @@ function showChunkTranslate() {
   `;
 
   const resultEl = document.getElementById("resultChunk");
-  const submitBtn = document.getElementById("submitChunk");
 
-  // Hàm căn chiều rộng input bằng vi-block
+  // Hàm căn chiều rộng input bằng vi-block tương ứng
   function alignPairs() {
     const pairs = Array.from(document.querySelectorAll(".pair-row"));
     pairs.forEach(row => {
       const vi = row.querySelector(".vi-block");
       const en = row.querySelector(".en-input");
       if (!vi || !en) return;
+
+      // Lấy chiều rộng thật của block VI
       const viRect = vi.getBoundingClientRect();
-      en.style.width = Math.ceil(viRect.width) + "px";
-      en.style.height = Math.ceil(viRect.height) + "px";
-      en.style.lineHeight = (Math.ceil(viRect.height) - 16) + "px";
+      const viWidth = Math.ceil(viRect.width);
+
+      // Đặt chiều rộng input EN bằng block VI
+      en.style.width = viWidth + "px";
+
+      // Căn chiều cao tương đương (nếu cần)
+      const viH = Math.ceil(viRect.height);
+      en.style.height = viH + "px";
+      en.style.lineHeight = (viH - 16) + "px"; // 16 ~ padding tổng (8+8), tránh chữ dính viền
     });
   }
+
+  // Căn ngay khi render xong
   requestAnimationFrame(alignPairs);
+  // Căn lại khi thay đổi kích thước cửa sổ
   window.addEventListener("resize", alignPairs, { passive: true });
 
   document.getElementById("skipChunk").addEventListener("click", () => {
@@ -434,11 +443,10 @@ function showChunkTranslate() {
     showChunkTranslate();
   });
 
-  submitBtn.addEventListener("click", () => {
-    if (answered) return;   // ✅ chặn spam
-    answered = true;
-    submitBtn.disabled = true; // ✅ disable nút
+  let answered = false;  // khai báo trong showChunkTranslate
 
+  document.getElementById("submitChunk").addEventListener("click", () => {
+    if (answered) return;   // nếu đã chấm rồi thì bỏ qua
     const inputs = Array.from(document.querySelectorAll(".en-input"));
     let correctBlocks = 0;
 
@@ -464,13 +472,14 @@ function showChunkTranslate() {
       resultEl.textContent = `❌ Đúng ${correctBlocks}/${inputs.length} (<70%)`;
     }
 
+    answered = true;   // đánh dấu đã chấm
     setTimeout(() => {
       window.removeEventListener("resize", alignPairs);
       currentIndex++;
       showChunkTranslate();
     }, 1100);
   });
-}
 
+}
 
 
