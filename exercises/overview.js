@@ -3,7 +3,7 @@ import { showVictoryEffect } from './effect-win.js';
 import { showDefeatEffect } from './effect-loose.js';
 
 // Google Sheets
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
 // Trạng thái phiên (reset 1 lần khi tải trang)
 if (!localStorage.getItem("overview_isSessionStarted")) {
