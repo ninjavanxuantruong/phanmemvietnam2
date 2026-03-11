@@ -9,9 +9,11 @@ let allData = [];
 let topics = [];
 let selectedTopic = '';
 let questionCount = 15;
+let gameMode = 'pvp'; // pvp, pve
 let gameState = 'loading'; // loading, setup, playing, winner
 let winner = null;
 let ropePosition = 0; // -3 to 3
+let aiTimer = null;
 
 let team1 = { score: 0, currentIndex: 0, questions: [], isFinished: false };
 let team2 = { score: 0, currentIndex: 0, questions: [], isFinished: false };
@@ -19,6 +21,7 @@ let team2 = { score: 0, currentIndex: 0, questions: [], isFinished: false };
 // DOM Elements
 const loadingScreen = document.getElementById('loading-screen');
 const gameContainer = document.getElementById('game-container');
+const modeSelect = document.getElementById('mode-select');
 const topicSelect = document.getElementById('topic-select');
 const countSelect = document.getElementById('count-select');
 const startBtn = document.getElementById('start-btn');
@@ -55,7 +58,7 @@ async function init() {
         const response = await fetch(CSV_URL);
         if (!response.ok) throw new Error('Không thể tải dữ liệu');
         const csvText = await response.text();
-
+        
         Papa.parse(csvText, {
             complete: (results) => {
                 const data = results.data;
@@ -101,12 +104,14 @@ function setGameState(state) {
     gameState = state;
     loadingScreen.classList.toggle('hidden', state !== 'loading');
     gameContainer.classList.toggle('hidden', state === 'loading');
-
+    
     if (state === 'setup') {
         startBtn.disabled = false;
+        modeSelect.disabled = false;
         topicSelect.disabled = false;
         countSelect.disabled = false;
         winnerMessage.classList.add('hidden');
+        if (aiTimer) clearTimeout(aiTimer);
         team1Elements.placeholder.classList.remove('hidden');
         team2Elements.placeholder.classList.remove('hidden');
         team1Elements.options.innerHTML = '';
@@ -115,6 +120,7 @@ function setGameState(state) {
         team2Elements.question.textContent = 'Sẵn sàng?';
     } else if (state === 'playing') {
         startBtn.disabled = true;
+        modeSelect.disabled = true;
         topicSelect.disabled = true;
         countSelect.disabled = true;
         team1Elements.placeholder.classList.add('hidden');
@@ -137,9 +143,9 @@ function generateQuestions(pool, count) {
             .sort(() => 0.5 - Math.random())
             .slice(0, 3)
             .map(p => p.english);
-
+        
         const options = [...distractors, item.english].sort(() => 0.5 - Math.random());
-
+        
         return {
             vietnamese: item.vietnamese,
             correctAnswer: item.english,
@@ -151,7 +157,8 @@ function generateQuestions(pool, count) {
 function startGame() {
     selectedTopic = topicSelect.value;
     questionCount = Number(countSelect.value);
-
+    gameMode = modeSelect.value;
+    
     const pool = allData.filter(item => item.topic === selectedTopic);
     if (pool.length < 4) {
         alert('Chủ đề này không đủ từ vựng (cần ít nhất 4 từ).');
@@ -160,24 +167,52 @@ function startGame() {
 
     team1 = { score: 0, currentIndex: 0, questions: generateQuestions(pool, questionCount), isFinished: false };
     team2 = { score: 0, currentIndex: 0, questions: generateQuestions(pool, questionCount), isFinished: false };
-
+    
     ropePosition = 0;
     winner = null;
-
+    
     updateUI();
     setGameState('playing');
     renderQuestion(1);
     renderQuestion(2);
+
+    if (gameMode === 'pve') {
+        scheduleAIAnswer();
+    }
+}
+
+function scheduleAIAnswer() {
+    if (gameState !== 'playing' || team2.isFinished) return;
+    
+    // AI "thinks" for 3-6 seconds
+    const delay = 3000 + Math.random() * 3000;
+    aiTimer = setTimeout(() => {
+        if (gameState !== 'playing' || team2.isFinished) return;
+        
+        const q = team2.questions[team2.currentIndex];
+        // AI accuracy: 75%
+        const isCorrect = Math.random() < 0.75;
+        let selectedOption;
+        
+        if (isCorrect) {
+            selectedOption = q.correctAnswer;
+        } else {
+            const wrongs = q.options.filter(opt => opt !== q.correctAnswer);
+            selectedOption = wrongs[Math.floor(Math.random() * wrongs.length)];
+        }
+        
+        handleAnswer(2, selectedOption);
+    }, delay);
 }
 
 function updateUI() {
     scoreTeam1.textContent = team1.score;
     scoreTeam2.textContent = team2.score;
     ropeBar.style.left = `calc(50% + (${ropePosition} * 12%))`;
-
+    
     team1Elements.progress.textContent = `${team1.currentIndex + 1}/${questionCount}`;
     team2Elements.progress.textContent = `${team2.currentIndex + 1}/${questionCount}`;
-
+    
     footerRound.textContent = `Vòng ${Math.max(team1.currentIndex, team2.currentIndex) + 1}/${questionCount}`;
     footerTopic.textContent = `Chủ đề: ${selectedTopic}`;
 }
@@ -185,7 +220,7 @@ function updateUI() {
 function renderQuestion(teamNum) {
     const team = teamNum === 1 ? team1 : team2;
     const elements = teamNum === 1 ? team1Elements : team2Elements;
-
+    
     if (team.isFinished) {
         elements.question.textContent = 'Xong!';
         elements.options.innerHTML = '';
@@ -194,7 +229,7 @@ function renderQuestion(teamNum) {
 
     const q = team.questions[team.currentIndex];
     elements.question.textContent = q.vietnamese;
-
+    
     elements.options.innerHTML = q.options.map(opt => `
         <button class="option-btn p-5 rounded-[20px] border-3 border-[#333] font-black transition-all text-xl uppercase tracking-wide bg-white text-[#333] shadow-[0_4px_0_#333] hover:-translate-y-1 active:translate-y-0.5" data-option="${opt}">
             ${opt}
@@ -209,13 +244,13 @@ function renderQuestion(teamNum) {
 
 function handleAnswer(teamNum, selectedOption) {
     if (gameState !== 'playing') return;
-
+    
     const team = teamNum === 1 ? team1 : team2;
     if (team.isFinished) return;
 
     const q = team.questions[team.currentIndex];
     const isCorrect = selectedOption === q.correctAnswer;
-
+    
     // Visual feedback
     const elements = teamNum === 1 ? team1Elements : team2Elements;
     const buttons = elements.options.querySelectorAll('.option-btn');
@@ -237,15 +272,18 @@ function handleAnswer(teamNum, selectedOption) {
                 setGameState('winner');
             }
         }
-
+        
         team.currentIndex++;
         if (team.currentIndex >= questionCount) {
             team.isFinished = true;
         }
-
+        
         updateUI();
         if (gameState === 'playing') {
             renderQuestion(teamNum);
+            if (teamNum === 2 && gameMode === 'pve') {
+                scheduleAIAnswer();
+            }
         }
     }, 800);
 }
