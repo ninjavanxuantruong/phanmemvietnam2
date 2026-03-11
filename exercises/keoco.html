@@ -96,7 +96,7 @@
 
         <!-- Main Game Container -->
         <div id="game-container" class="bg-white/95 rounded-[50px] p-8 shadow-2xl w-full max-w-[1300px] border-[5px] border-[#ffcb05] relative z-10 hidden">
-
+            
             <!-- Header -->
             <div class="flex justify-center items-center gap-5 mb-5">
                 <div class="animate-spin-slow">
@@ -112,6 +112,17 @@
 
             <!-- Control Panel (Top) -->
             <div class="flex flex-wrap gap-4 justify-center items-center p-6 bg-gradient-to-r from-[#f8f9fa] to-[#e9ecef] rounded-[40px] mb-8 border-4 border-[#3b4cca] shadow-lg">
+                <div class="flex items-center gap-3">
+                    <div class="bg-[#3b4cca] p-2 rounded-full">
+                        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rare-candy.png" alt="Topic" class="w-6 h-6 invert">
+                    </div>
+                    <label class="text-lg font-black text-[#3b4cca] uppercase tracking-tight">Chế độ:</label>
+                    <select id="mode-select" class="text-lg font-bold px-6 py-2.5 rounded-[30px] border-3 border-[#3b4cca] bg-white cursor-pointer focus:outline-none hover:bg-slate-50 transition-colors">
+                        <option value="pvp">2 Người chơi</option>
+                        <option value="pve">Đấu với Máy</option>
+                    </select>
+                </div>
+
                 <div class="flex items-center gap-3">
                     <div class="bg-[#3b4cca] p-2 rounded-full">
                         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rare-candy.png" alt="Topic" class="w-6 h-6 invert">
@@ -140,7 +151,7 @@
                     <button id="start-btn" class="text-lg px-8 py-3 rounded-[30px] bg-gradient-to-r from-[#ff0000] to-[#cc0000] text-white font-black uppercase tracking-widest shadow-[0_5px_0_#800000] transition-all hover:-translate-y-1 active:translate-y-0.5">
                         🏆 Bắt đầu
                     </button>
-
+                    
                     <button id="reset-btn" class="flex items-center gap-2 bg-[#ffcb05] text-[#3b4cca] px-8 py-3 rounded-[30px] text-lg font-black uppercase tracking-widest shadow-[0_5px_0_#c79a00] transition-all hover:-translate-y-1 active:translate-y-0.5">
                         <i data-lucide="rotate-ccw" style="width: 22px; height: 22px; stroke-width: 3px;"></i> Chơi lại
                     </button>
@@ -167,7 +178,7 @@
                 <div class="absolute right-0 top-0 h-full w-1/2 bg-gradient-to-l from-[#4ecdc44d] to-transparent flex items-center justify-end">
                     <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/9.png" alt="Blastoise" class="w-30 h-30 mr-5 drop-shadow-lg">
                 </div>
-
+                
                 <!-- Tug Bar -->
                 <div id="rope-bar" class="rope-transition absolute left-1/2 -translate-x-1/2 w-[100px] h-full bg-gradient-to-br from-[#ffe066] to-[#fcc419] rounded-[50px] shadow-lg z-20 border-3 border-[#e67700] flex items-center justify-center">
                     <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png" alt="Master Ball" class="w-15 h-15 animate-pulse-slow">
@@ -195,7 +206,7 @@
                             <span id="progress-team1">0/0</span>
                         </div>
                     </div>
-
+                    
                     <!-- Pokeball Container -->
                     <div class="relative overflow-hidden rounded-[40px] border-4 border-[#333] shadow-2xl bg-white mb-6">
                         <div class="bg-[#ff0000] pt-10 pb-12 px-6 text-center border-b-8 border-[#333]">
@@ -229,7 +240,7 @@
                             <span id="progress-team2">0/0</span>
                         </div>
                     </div>
-
+                    
                     <!-- Pokeball Container -->
                     <div class="relative overflow-hidden rounded-[40px] border-4 border-[#333] shadow-2xl bg-white mb-6">
                         <div class="bg-[#ff0000] pt-10 pb-12 px-6 text-center border-b-8 border-[#333]">
