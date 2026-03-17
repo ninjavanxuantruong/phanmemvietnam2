@@ -1,5 +1,5 @@
 // imageCache.js
-const PROXY_BASE = "https://pexel-proxy.onrender.com";
+const PROXY_BASE = "https://pexel-proxy-43p3.onrender.com";
 
 // Key lưu cache trong localStorage
 const IMAGE_MAP_CACHE_KEY = "pexels_image_map";
