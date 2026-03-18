@@ -119,7 +119,42 @@
 <body>
   <div class="container">
     <div class="card">
+      <!-- Thêm vào sau dòng <h2 class="title">...</h2> và trước <div id="scoreBoard"> -->
       <h2 class="title">🎧 Listening 3: Điền từ còn thiếu</h2>
+
+      <!-- THÊM DROPDOWN Ở ĐÂY -->
+      <div style="background: #fff3cd; border: 2px solid #ffcb05; border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+        <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; justify-content: center;">
+          <div>
+            <label for="totalSentences" style="font-weight: bold; color: #e3350d; margin-right: 8px;">📚 Tổng số câu:</label>
+            <select id="totalSentences" style="padding: 8px 12px; border: 2px solid #2a75bb; border-radius: 8px; font-size: 16px; background: white;">
+              <option value="5">5 câu</option>
+              <option value="6">6 câu</option>
+              <option value="7">7 câu</option>
+              <option value="8" selected>8 câu</option>
+              <option value="9">9 câu</option>
+              <option value="10">10 câu</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="blankCount" style="font-weight: bold; color: #e3350d; margin-right: 8px;">✏️ Số từ cần điền:</label>
+            <select id="blankCount" style="padding: 8px 12px; border: 2px solid #2a75bb; border-radius: 8px; font-size: 16px; background: white;">
+              <option value="3">3 từ</option>
+              <option value="4">4 từ</option>
+              <option value="5" selected>5 từ</option>
+              <option value="6">6 từ</option>
+            </select>
+          </div>
+
+          <button id="applySettingsBtn" class="btn primary" style="padding: 8px 20px;">🔄 Tạo bài mới</button>
+        </div>
+        <div style="text-align: center; margin-top: 8px; font-size: 14px; color: #666;">
+          <i>⚡ Chọn số câu và số từ cần điền, sau đó nhấn "Tạo bài mới"</i>
+        </div>
+      </div>
+      <!-- KẾT THÚC DROPDOWN -->
+
       <div id="scoreBoard" class="score-board">🎯 Điểm: 0/0</div>
 
       <div id="exerciseArea">
