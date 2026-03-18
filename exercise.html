@@ -9,13 +9,25 @@
       margin: 0;
       padding: 0;
       font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #3b4cca, #ffcc00);
       color: #fff;
       min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
+      transition: background 0.5s ease;
     }
+
+    /* Thêm class cho các màu nền khác nhau */
+    .bg-gradient-1 { background: linear-gradient(135deg, #3b4cca, #ffcc00); }
+    .bg-gradient-2 { background: linear-gradient(135deg, #667eea, #764ba2); }
+    .bg-gradient-3 { background: linear-gradient(135deg, #f093fb, #f5576c); }
+    .bg-gradient-4 { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+    .bg-gradient-5 { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+    .bg-gradient-6 { background: linear-gradient(135deg, #fa709a, #fee140); }
+    .bg-gradient-7 { background: linear-gradient(135deg, #30cfd0, #330867); }
+    .bg-gradient-8 { background: linear-gradient(135deg, #a8edea, #fed6e3); }
+    .bg-gradient-9 { background: linear-gradient(135deg, #ff9a9e, #fad0c4); }
+    .bg-gradient-10 { background: linear-gradient(135deg, #a1c4fd, #c2e9fb); }
 
     .container {
       text-align: center;
@@ -262,7 +274,7 @@
     }
 
     async function loadPrecheck(partName, page, key) {
-      const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+      const SHEET_URL = "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
       const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
       const checkedWords = JSON.parse(localStorage.getItem("checkedWords") || "[]");
 
@@ -360,6 +372,58 @@
       }
 
     }
+  </script>
+  <script>
+    (function() {
+      const bgClasses = [
+        'bg-gradient-1', 'bg-gradient-2', 'bg-gradient-3',
+        'bg-gradient-4', 'bg-gradient-5', 'bg-gradient-6',
+        'bg-gradient-7', 'bg-gradient-8', 'bg-gradient-9',
+        'bg-gradient-10'
+      ];
+
+      function getRandomClass() {
+        return bgClasses[Math.floor(Math.random() * bgClasses.length)];
+      }
+
+      function applyBackground(className) {
+        bgClasses.forEach(cls => document.body.classList.remove(cls));
+        document.body.classList.add(className);
+      }
+
+      // Kiểm tra sessionStorage để biết có phải vừa back từ trang khác không
+      const lastBg = sessionStorage.getItem('pokeword_last_bg');
+      const lastVisit = sessionStorage.getItem('pokeword_last_visit');
+      const now = Date.now();
+
+      if (lastBg && lastVisit && (now - parseInt(lastVisit)) < 5000) {
+        // Nếu back trong vòng 5 giây, giữ nguyên màu
+        applyBackground(lastBg);
+        console.log(`🎨 Giữ background: ${lastBg}`);
+      } else {
+        // Random màu mới
+        const newBg = getRandomClass();
+        applyBackground(newBg);
+        sessionStorage.setItem('pokeword_last_bg', newBg);
+        console.log(`🎨 Background mới: ${newBg}`);
+      }
+
+      // Luôn cập nhật thời gian truy cập
+      sessionStorage.setItem('pokeword_last_visit', now.toString());
+
+      // Bắt sự kiện pageshow để đổi màu khi back
+      window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+          // Back từ trang khác - đổi màu
+          const newBg = getRandomClass();
+          applyBackground(newBg);
+          sessionStorage.setItem('pokeword_last_bg', newBg);
+          sessionStorage.setItem('pokeword_last_visit', Date.now().toString());
+          console.log(`🎨 Back - đổi sang: ${newBg}`);
+        }
+      });
+
+    })();
   </script>
 
 
