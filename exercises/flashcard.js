@@ -1,6 +1,7 @@
 // ===== Config =====
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1PbWWqgKDBDorh525uecKaGZD21FGSoCeR/gviz/tq?tqx=out:json";
+
 
 const COL = {
   lessonName: 1,   // B
@@ -11,13 +12,14 @@ const COL = {
 
 const LOWER_BOUND_UNIT = 3011; // giống Speaking 3
 const COUNTDOWN_SECONDS = 6;
-const IMAGE_API_KEY = "51268254-554135d72f1d226beca834413"; // API key Pixabay anh đưa
+//const IMAGE_API_KEY = "51268254-554135d72f1d226beca834413"; // API key Pixabay anh đưa
 
 // ===== State =====
 let isRunning = false;
 let currentIndex = 0;
 let wordsList = [];      // [{ word, meaning, lessonName }]
-let imageCache = new Map(); // word -> imageURL
+// Sửa dòng 16-17 thành:
+
 let tickOscillator = null;
 let tickGain = null;
 let audioCtx = null;
@@ -274,49 +276,42 @@ async function getMaxLessonCode() {
 // ===== Topic dropdown =====
 
 // ===== Image fetch (Pixabay) =====
-function fetchImageForKeyword(keyword) {
-  const searchTerm = `${keyword} cartoon`; // gợi ý phong cách minh hoạ
-  const apiUrl = `https://pixabay.com/api/?key=${IMAGE_API_KEY}&q=${encodeURIComponent(searchTerm)}&image_type=illustration&safesearch=true&per_page=5`;
-  return fetch(apiUrl)
-    .then(res => res.json())
-    .then(data => {
-      if (data.hits && data.hits.length > 0) {
-        const chosen = data.hits[Math.floor(Math.random() * data.hits.length)];
-        return chosen.webformatURL;
-      }
-      return null;
-    })
-    .catch(err => {
-      console.error("❌ Lỗi fetch ảnh Pixabay:", err);
-      return null;
-    });
-}
-
+// ===== Image fetch (sử dụng imagecache2.js) =====
 async function prefetchImages(list) {
-  for (const item of list) {
-    const w = item.word;
-    if (imageCache.has(w)) continue;
-    try {
-      const imgUrl = await fetchImageForKeyword(w);
-      if (imgUrl) imageCache.set(w, imgUrl);
-    } catch {}
-  }
+  const words = list.map(item => item.word);
+
+  status(`Đang tải ảnh (0/${words.length})...`);
+
+  await imageCache.prefetchImages(words, {
+    concurrency: 3,
+    onProgress: (completed, total) => {
+      status(`Đang tải ảnh (${completed}/${total})...`);
+    }
+  });
+
+  status("Đã tải xong ảnh.");
 }
 
 // ===== Render card / hint / answer =====
 async function renderWordCard(word) {
-  // Ảnh: nếu chưa có, fetch; nếu có rồi, dùng cache
-  let imgUrl = imageCache.get(word);
-  if (!imgUrl) {
-    try {
-      imgUrl = await fetchImageForKeyword(word);
-      if (imgUrl) imageCache.set(word, imgUrl);
-    } catch {}
-  }
-  flashImage.src = imgUrl || "";
-  flashImage.alt = imgUrl ? `Illustration for ${word}` : "No illustration";
+  // Hiển thị loading
+  flashImage.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f0f0f0"/%3E%3Ccircle cx="50" cy="40" r="15" fill="%23cccccc"/%3E%3Crect x="40" y="60" width="20" height="30" fill="%23cccccc"/%3E%3C/svg%3E';
 
-  // Gợi ý: chữ cái đầu, phần còn lại underscore
+  // Lấy ảnh từ cache manager
+  try {
+    const imageData = await imageCache.getImage(word);
+
+    if (imageData) {
+      flashImage.src = imageData.url;
+      flashImage.alt = `${word} - Ảnh từ ${imageData.source}`;
+      flashImage.title = `Nguồn: ${imageData.source}`;
+    }
+  } catch (e) {
+    console.error("❌ Lỗi load ảnh:", e);
+    flashImage.src = '';
+  }
+
+  // Gợi ý
   hintText.textContent = buildHint(word);
 
   // Xoá đáp án cũ
