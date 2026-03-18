@@ -2,9 +2,9 @@
 import { startTalking, stopTalking } from "./pikachuTalk.js";
 
 // ===== Config =====
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
-const IMAGE_API_KEY = "51268254-554135d72f1d226beca834413"; // Pixabay key
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1PbWWqgKDBDorh525uecKaGZD21FGSoCeR/gviz/tq?tqx=out:json";
+//const IMAGE_API_KEY = "51268254-554135d72f1d226beca834413"; // Pixabay key
 
 const COL = {
   lessonName: 1,   // B
@@ -273,8 +273,18 @@ function startReview(onlyUnchecked = false) {
     const item = reviewList[idx];
 
     // nếu chưa có ảnh thì fetch
+    // nếu chưa có ảnh thì fetch từ imageCache2
     if (!item.imgUrl) {
-      item.imgUrl = await fetchImageForKeyword(item.word);
+      try {
+        const imageData = await imageCache.getImage(item.word);
+        item.imgUrl = imageData?.url || null;
+        if (imageData) {
+          console.log(`📸 Ảnh từ ${imageData.source} cho: ${item.word}`);
+        }
+      } catch (e) {
+        console.warn(`⚠️ Không lấy được ảnh cho ${item.word}:`, e);
+        item.imgUrl = null;
+      }
     }
 
     const hint = buildHint(item.word);
@@ -289,9 +299,12 @@ function startReview(onlyUnchecked = false) {
     speakWithPikachu("What is it?", "en-US");
 
     // preload ảnh cho từ tiếp theo
+    // preload ảnh cho từ tiếp theo
     if (idx + 1 < reviewList.length && !reviewList[idx + 1].imgUrl) {
-      fetchImageForKeyword(reviewList[idx + 1].word).then(url => {
-        reviewList[idx + 1].imgUrl = url;
+      imageCache.getImage(reviewList[idx + 1].word).then(imageData => {
+        if (imageData) {
+          reviewList[idx + 1].imgUrl = imageData.url;
+        }
       });
     }
 
@@ -317,21 +330,7 @@ function startReview(onlyUnchecked = false) {
 
 
 // ===== Image fetch (Pixabay) =====
-async function fetchImageForKeyword(keyword) {
-  const searchTerm = `${keyword} cartoon`;
-  const apiUrl = `https://pixabay.com/api/?key=${IMAGE_API_KEY}&q=${encodeURIComponent(searchTerm)}&image_type=illustration&safesearch=true&per_page=5`;
-  try {
-    const res = await fetch(apiUrl, { cache: "no-store" });
-    const data = await res.json();
-    if (data.hits && data.hits.length > 0) {
-      const chosen = data.hits[Math.floor(Math.random() * data.hits.length)];
-      return chosen.webformatURL;
-    }
-  } catch (err) {
-    console.warn("❌ Pixabay error:", err);
-  }
-  return null;
-}
+
 
 // ===== Hint builder: "cat" → "c _ _"
 function buildHint(word) {
@@ -381,4 +380,10 @@ function tickKey(word) {
   if (!word) return "voca_empty";
   return "voca_" + word.toLowerCase().trim();
 }
-
+// ===== Clear image cache =====
+function clearImageCache() {
+  if (window.imageCache) {
+    imageCache.clearCache();
+    alert("🧹 Đã xóa cache ảnh");
+  }
+}
