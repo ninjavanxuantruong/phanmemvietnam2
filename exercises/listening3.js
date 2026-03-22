@@ -1,6 +1,6 @@
 // ===== Config =====
 const SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+  "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
 // ===== State =====
 // ===== State =====
@@ -71,7 +71,7 @@ async function fetchGVizRows(url) {
 
 async function getMaxLessonCode() {
   const SHEET_BAI_HOC =
-    "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1PbWWqgKDBDorh525uecKaGZD21FGSoCeR/gviz/tq?tqx=out:json";
+    "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
   const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
 
   const res = await fetch(SHEET_BAI_HOC);
