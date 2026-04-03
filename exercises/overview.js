@@ -3,7 +3,7 @@ import { showVictoryEffect } from './effect-win.js';
 import { showDefeatEffect } from './effect-loose.js';
 
 // Google Sheets
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
 // Trạng thái phiên (reset 1 lần khi tải trang)
 if (!localStorage.getItem("overview_isSessionStarted")) {
@@ -282,24 +282,36 @@ function showArrange() {
     showArrange();
   });
 
+  // Trong hàm showArrange()
+  let isChecking = false; // Thêm biến cờ ở đầu hàm
+
   document.getElementById("submitBtn").addEventListener("click", () => {
-    const user = normSentence(picked.join(" "));
-    const ans = normSentence(item.answer);
-    if (!user) {
-      resultEl.textContent = "⚠️ Hãy ghép câu trước đã.";
-      return;
-    }
-    if (user === ans) {
-      score++;
-      resultEl.style.color = "green";
-      resultEl.textContent = "✅ Chính xác!";
-      speakEN(item.answer);
-    } else {
-      resultEl.style.color = "red";
-      resultEl.textContent = `❌ Sai. Đáp án: "${item.answer}"`;
-    }
-    // chuyển câu
-    setTimeout(() => { currentIndex++; showArrange(); }, 900);
+      if (isChecking) return; // Nếu đang trong quá trình chuyển câu thì chặn nhấn tiếp
+
+      const user = normSentence(picked.join(" "));
+      const ans = normSentence(item.answer);
+      if (!user) {
+          resultEl.textContent = "⚠️ Hãy ghép câu trước đã.";
+          return;
+      }
+
+      isChecking = true; // Khóa ngay lập tức
+      document.getElementById("submitBtn").disabled = true; // Disable nút cứng luôn cho chắc
+
+      if (user === ans) {
+          score++;
+          resultEl.style.color = "green";
+          resultEl.textContent = "✅ Chính xác!";
+          speakEN(item.answer);
+      } else {
+          resultEl.style.color = "red";
+          resultEl.textContent = `❌ Sai. Đáp án: "${item.answer}"`;
+      }
+
+      setTimeout(() => { 
+          currentIndex++; 
+          showArrange(); 
+      }, 900);
   });
 }
 
@@ -337,27 +349,32 @@ function showWordVI2EN() {
   const resultEl = document.getElementById("resultWord");
   const submitBtn = document.getElementById("submitWord");
 
-  submitBtn.addEventListener("click", () => {
-    if (answered) return;   // ✅ chặn spam
-    answered = true;
-    submitBtn.disabled = true; // ✅ disable nút
+  // Trong hàm showWordVI2EN()
+ 
 
-    const user = normSentence(inputEl.value);
-    const ans = normSentence(item.en);
-    if (!user) {
-      resultEl.textContent = "⚠️ Hãy nhập câu trả lời.";
-      return;
-    }
-    if (user === ans) {
-      score++;
-      resultEl.style.color = "green";
-      resultEl.textContent = "✅ Chính xác!";
-      speakEN(item.en);
-    } else {
-      resultEl.style.color = "red";
-      resultEl.textContent = `❌ Sai. Đáp án: "${item.en}"`;
-    }
-    setTimeout(() => { currentIndex++; showWordVI2EN(); }, 900);
+  submitBtn.addEventListener("click", () => {
+      if (answered) return; 
+
+      const user = normSentence(inputEl.value);
+      if (!user) {
+          resultEl.textContent = "⚠️ Hãy nhập câu trả lời.";
+          return;
+      }
+
+      answered = true; // Khóa ngay
+      submitBtn.disabled = true; 
+
+      const ans = normSentence(item.en);
+      if (user === ans) {
+          score++; // Điểm chỉ được cộng 1 lần duy nhất ở đây
+          resultEl.style.color = "green";
+          resultEl.textContent = "✅ Chính xác!";
+          speakEN(item.en);
+      } else {
+          resultEl.style.color = "red";
+          resultEl.textContent = `❌ Sai. Đáp án: "${item.en}"`;
+      }
+      setTimeout(() => { currentIndex++; showWordVI2EN(); }, 900);
   });
 
   document.getElementById("skipWord").addEventListener("click", () => {
@@ -443,41 +460,53 @@ function showChunkTranslate() {
     showChunkTranslate();
   });
 
-  let answered = false;  // khai báo trong showChunkTranslate
+  
+
+  // Trong hàm showChunkTranslate()
+  let answered = false; 
 
   document.getElementById("submitChunk").addEventListener("click", () => {
-    if (answered) return;   // nếu đã chấm rồi thì bỏ qua
-    const inputs = Array.from(document.querySelectorAll(".en-input"));
-    let correctBlocks = 0;
+      if (answered) return; // Chặn spam click
 
-    inputs.forEach(inp => {
-      const user = normSentence(inp.value);
-      const ans = normSentence(inp.dataset.ans);
-      inp.classList.remove("ok", "bad");
-      if (user && user === ans) {
-        correctBlocks++;
-        inp.classList.add("ok");
-      } else {
-        inp.classList.add("bad");
+      const inputs = Array.from(document.querySelectorAll(".en-input"));
+      let correctBlocks = 0;
+
+      // Kiểm tra sơ bộ nếu chưa nhập gì (tùy chọn)
+      const hasInput = inputs.some(inp => inp.value.trim() !== "");
+      if (!hasInput) {
+          resultEl.textContent = "⚠️ Hãy nhập ít nhất một cụm từ.";
+          return;
       }
-    });
 
-    const ratio = correctBlocks / inputs.length;
-    if (ratio >= 0.7) {
-      score++;
-      resultEl.style.color = "green";
-      resultEl.textContent = `✅ Đúng ${correctBlocks}/${inputs.length} (≥70%) → +1 điểm`;
-    } else {
-      resultEl.style.color = "red";
-      resultEl.textContent = `❌ Đúng ${correctBlocks}/${inputs.length} (<70%)`;
-    }
+      answered = true; // Khóa logic ngay khi bắt đầu chấm điểm
+      document.getElementById("submitChunk").disabled = true;
 
-    answered = true;   // đánh dấu đã chấm
-    setTimeout(() => {
-      window.removeEventListener("resize", alignPairs);
-      currentIndex++;
-      showChunkTranslate();
-    }, 1100);
+      inputs.forEach(inp => {
+          const user = normSentence(inp.value);
+          const ans = normSentence(inp.dataset.ans);
+          if (user && user === ans) {
+              correctBlocks++;
+              inp.classList.add("ok");
+          } else {
+              inp.classList.add("bad");
+          }
+      });
+
+      const ratio = correctBlocks / inputs.length;
+      if (ratio >= 0.7) {
+          score++; // Cộng điểm
+          resultEl.style.color = "green";
+          resultEl.textContent = `✅ Đúng ${correctBlocks}/${inputs.length} (≥70%) → +1 điểm`;
+      } else {
+          resultEl.style.color = "red";
+          resultEl.textContent = `❌ Đúng ${correctBlocks}/${inputs.length} (<70%)`;
+      }
+
+      setTimeout(() => {
+          window.removeEventListener("resize", alignPairs);
+          currentIndex++;
+          showChunkTranslate();
+      }, 1100);
   });
 
 }
