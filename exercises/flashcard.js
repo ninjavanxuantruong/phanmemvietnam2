@@ -6,7 +6,7 @@ const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6Z
 const COL = {
   lessonName: 1,   // B
   vocab: 2,        // C
-  topic: 5,        // G
+  topic: 6,        // G
   meaning: 24      // Y
 };
 
