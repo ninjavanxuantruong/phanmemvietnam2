@@ -188,8 +188,16 @@
                 grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
             }
             .settings select, .settings button {
-                font-size: 0.9rem;
-                padding: 6px 12px;
+                padding: 8px 16px;
+                border-radius: 40px;
+                border: 1px solid #ddd;
+                font-size: 1rem;
+                background: white;
+                cursor: pointer;
+
+                /* THÊM DÒNG NÀY */
+                min-width: fit-content; 
+                white-space: nowrap; /* Giúp chữ không bị xuống dòng */
             }
         }
     </style>
@@ -203,13 +211,18 @@
     </h1>
 
     <div class="settings">
+        <select id="topicSelect">
+            <option value="ALL">-- Tất cả chủ đề --</option>
+        </select>
+
         <select id="totalSelect">
             <option value="4">4 câu</option>
             <option value="8" selected>8 câu</option>
             <option value="12">12 câu</option>
         </select>
-        <button class="btn-reload" onclick="initExercise()">🔄 Làm mới</button>
-        <button class="btn-listen" onclick="playFullText()">🔊 Nghe tất cả</button>
+
+        <button class="btn-reload" onclick="initExercise()">🔄 Tạo bài</button>
+        <button class="btn-listen" onclick="playFullText()">🔊 Nghe </button>
     </div>
 
     <div id="mainArea">
