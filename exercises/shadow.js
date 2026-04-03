@@ -11,10 +11,7 @@
 const TTS_BASE = "https://googlevoice-tinh.onrender.com";
 
 // Sheet chính (giống Speaking 3)
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
-// Sheet "Bài học" để lấy max lesson theo lớp (giống Speaking 3)
-const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1PbWWqgKDBDorh525uecKaGZD21FGSoCeR/gviz/tq?tqx=out:json";
 
 // Mapping cột (0-based)
 const COL = {
@@ -512,47 +509,46 @@ function renderWindow(words, currentIndex, windowSize) {
 
 // ===== GViz fetch =====
 async function fetchGVizRows(url) {
-  console.log("🔗 Fetching GViz:", url);
-  const res = await fetch(url, { cache: "no-store" });
-  const txt = await res.text();
-  try {
-    const json = JSON.parse(txt.substring(47).slice(0, -2));
-    const rows = json.table?.rows || [];
-    console.log("📥 GViz parsed rows:", rows.length);
-    return rows.map(r => r.c.map(cell => (cell ? cell.v : null)));
-  } catch (err) {
-    console.error("❌ GViz parse error:", err);
-    console.log("🧾 Raw head(200):", txt.slice(0, 200));
-    throw err;
-  }
+    console.log("🔗 Fetching Exec API:", url);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Network response was not ok");
+    const data = await res.json();
+
+    // Web App thường trả về { data: [...] } hoặc trực tiếp mảng [...]
+    const rows = data.data || data; 
+    console.log("📥 Exec parsed rows:", rows.length);
+
+    // Chuẩn hóa: Nếu exec trả về object, ta giữ nguyên để extract sau
+    return rows; 
 }
 
 // ===== Topics =====
 function buildTopicDropdown(rows) {
-  const topics = [...new Set(rows.map(r => r[COL.topic]).filter(Boolean))];
-  topics.sort((a, b) => String(a).localeCompare(String(b)));
+  const topicSelect = document.getElementById("topicSelect");
+  if (!topicSelect) return;
 
-  // THÊM DÒNG NÀY: Chèn "Tất cả" vào đầu menu
+  // Lấy danh sách Topic duy nhất, kiểm tra cả kiểu Object (exec) và kiểu Array (gviz cũ)
+  const topics = [...new Set(rows.map(r => {
+    return (r.topic || r.Topic || r.ChuDe || (r.c ? r.c[6]?.v : r[6]))?.toString().trim();
+  }).filter(Boolean))];
+
+  topics.sort();
+
   let html = `<option value="ALL">-- Tất cả chủ đề --</option>`;
   html += topics
     .map(t => `<option value="${escapeHTML(String(t))}">${escapeHTML(String(t))}</option>`)
     .join("");
 
   topicSelect.innerHTML = html;
-  console.log("🏷️ Topics built (including ALL):", topics.length + 1);
 }
 
 function filterByTopic(rows, topic) {
-  // THÊM LOGIC NÀY: Nếu là ALL thì không lọc theo tên chủ đề nữa
-  if (!topic || topic === "ALL") {
-    console.log("🧭 Chủ đề chọn: Tất cả (ALL)");
-    return rows;
-  }
+  if (!topic || topic === "ALL") return rows;
 
-  const filtered = rows.filter(r => String(r[COL.topic]).trim() === String(topic).trim());
-  const lessons = [...new Set(filtered.map(r => r[COL.lessonName]).filter(Boolean))];
-  console.log("🧭 Chủ đề chọn:", topic, "→ lessons:", lessons.length, lessons);
-  return filtered;
+  return rows.filter(r => {
+    const val = (r.topic || r.Topic || r.ChuDe || (r.c ? r.c[6]?.v : r[6]) || "").toString().trim();
+    return val === String(topic).trim();
+  });
 }
 
 // ===== Lesson code normalize + max lesson =====
@@ -569,51 +565,48 @@ function normalizeUnitId(unitStr) {
 }
 
 async function getMaxLessonCode() {
-  const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
-  console.log("🎒 trainerClass:", trainerClass || "(chưa đặt)");
+    const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
+    console.log("🎒 trainerClass:", trainerClass || "(chưa đặt)");
 
-  const txt = await (await fetch(SHEET_BAI_HOC, { cache: "no-store" })).text();
-  const json = JSON.parse(txt.substring(47).slice(0, -2));
-  const rows = json.table.rows;
+    // Gọi API Exec cho bảng bài học
+    const res = await fetch(window.SHEET_BAI_HOC);
+    const data = await res.json();
+    const rows = data.data || data;
 
-  const baiList = rows
-    .map(r => {
-      const lop = r.c[0]?.v?.toString().trim();
-      const bai = r.c[2]?.v?.toString().trim();
-      return lop === trainerClass && bai ? parseInt(bai, 10) : null;
-    })
-    .filter(v => typeof v === "number");
+    const baiList = rows
+        .map(r => {
+            // Lưu ý: Tên thuộc tính (lop, bai) phải khớp với tên cột trong file GS của bạn
+            const lop = r.lop || r.Lop || r.Class; 
+            const bai = r.bai || r.Bai || r.Lesson;
+            return lop === trainerClass && bai ? parseInt(bai, 10) : null;
+        })
+        .filter(v => typeof v === "number");
 
-  if (baiList.length === 0) {
-    console.warn("⚠️ Không tìm thấy bài học nào cho lớp", trainerClass, "→ bỏ qua maxLessonCode filter");
-    return Number.MAX_SAFE_INTEGER; // không giới hạn nếu không có dữ liệu
-  }
-  const maxLessonCode = Math.max(...baiList);
-  return maxLessonCode;
+    if (baiList.length === 0) return Number.MAX_SAFE_INTEGER;
+    return Math.max(...baiList);
 }
 
 // ===== Extract presentation data (theo chủ đề + giới hạn max lesson) =====
 function extractPresentationData(rows, maxLessonCode) {
   const items = [];
   for (const r of rows) {
-    const lessonName = safeStr(r[COL.lessonName]);
-    const presentation = safeStr(r[COL.presentation]).replace(/\s+/g, " ").trim();
-    const meaning = safeStr(r[COL.meaning]);
-    const targetsRaw = safeStr(r[COL.targets]);
+    // Ưu tiên lấy theo tên thuộc tính (exec), nếu không có mới lấy theo index (gviz)
+    const lessonName = safeStr(r.lessonName || r.Lesson || r.MaBai || (r.c ? r.c[1]?.v : r[1]));
+    const presentation = safeStr(r.presentation || r.Sentence || r.CauHoi || (r.c ? r.c[8]?.v : r[8])).replace(/\s+/g, " ").trim();
+    const meaning = safeStr(r.meaning || r.Vietnamese || r.Nghia || (r.c ? r.c[24]?.v : r[24]));
+    const targetsRaw = safeStr(r.targets || r.Vocab || r.TuVung || (r.c ? r.c[2]?.v : r[2]));
+    const topic = safeStr(r.topic || r.Topic || r.ChuDe || (r.c ? r.c[6]?.v : r[6]));
+
     const targets = targetsRaw ? targetsRaw.split(/[,/;|]/).map(s => s.trim()).filter(Boolean) : [];
     const unitNum = normalizeUnitId(lessonName);
 
     if (!lessonName || !presentation) continue;
 
-    // Áp giới hạn giống Speaking 3: từ LOWER_BOUND_UNIT đến maxLessonCode
-    if (unitNum <= maxLessonCode) {
-      items.push({ lessonName, unitNum, presentation, meaning, targets });
+    // Lọc theo khoảng bài học (3011 đến max)
+    if (unitNum >= 3011 && unitNum <= maxLessonCode) {
+      items.push({ lessonName, unitNum, presentation, meaning, targets, topic });
     }
-
   }
-  // Log nhanh các bài hợp lệ
-  const lessonSet = [...new Set(items.map(i => i.lessonName))];
-  console.log("🧮 Bài hợp lệ sau filter unit:", lessonSet.length, lessonSet);
   return items;
 }
 
