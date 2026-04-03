@@ -11,10 +11,10 @@
 const TTS_BASE = "https://googlevoice-tinh.onrender.com";
 
 // Sheet chính (giống Speaking 3)
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
 // Sheet "Bài học" để lấy max lesson theo lớp (giống Speaking 3)
-const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
+const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1PbWWqgKDBDorh525uecKaGZD21FGSoCeR/gviz/tq?tqx=out:json";
 
 // Mapping cột (0-based)
 const COL = {
@@ -531,13 +531,24 @@ async function fetchGVizRows(url) {
 function buildTopicDropdown(rows) {
   const topics = [...new Set(rows.map(r => r[COL.topic]).filter(Boolean))];
   topics.sort((a, b) => String(a).localeCompare(String(b)));
-  topicSelect.innerHTML = topics
+
+  // THÊM DÒNG NÀY: Chèn "Tất cả" vào đầu menu
+  let html = `<option value="ALL">-- Tất cả chủ đề --</option>`;
+  html += topics
     .map(t => `<option value="${escapeHTML(String(t))}">${escapeHTML(String(t))}</option>`)
     .join("");
-  console.log("🏷️ Topics built:", topics.length, topics);
+
+  topicSelect.innerHTML = html;
+  console.log("🏷️ Topics built (including ALL):", topics.length + 1);
 }
 
 function filterByTopic(rows, topic) {
+  // THÊM LOGIC NÀY: Nếu là ALL thì không lọc theo tên chủ đề nữa
+  if (!topic || topic === "ALL") {
+    console.log("🧭 Chủ đề chọn: Tất cả (ALL)");
+    return rows;
+  }
+
   const filtered = rows.filter(r => String(r[COL.topic]).trim() === String(topic).trim());
   const lessons = [...new Set(filtered.map(r => r[COL.lessonName]).filter(Boolean))];
   console.log("🧭 Chủ đề chọn:", topic, "→ lessons:", lessons.length, lessons);
