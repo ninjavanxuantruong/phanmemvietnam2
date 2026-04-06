@@ -9,3 +9,8 @@ if (typeof module !== 'undefined' && module.exports) {
     window.SHEET_URL = SHEET_URL;
     window.SHEET_BAI_HOC = SHEET_BAI_HOC;
 }
+// Thêm vào cuối file googleSheetLinks.js
+const script = document.createElement('script');
+script.src = './linhthu.js';
+script.type = 'module'; // BẮT BUỘC phải có dòng này
+document.head.appendChild(script);
