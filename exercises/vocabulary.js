@@ -1,8 +1,7 @@
 import { showVictoryEffect } from "./effect-win.js";
 import { prefetchImagesBatch, getImageFromMap } from "./imageCache.js";
 
-const SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+
 
 const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
 
@@ -31,40 +30,58 @@ getVocabVoice().then((voices) => {
 });
 
 // ===== Fetch vocab data =====
+// ===== Fetch vocab data từ link Exec =====
 async function fetchVocabularyData() {
-  const response = await fetch(SHEET_URL);
-  const text = await response.text();
-  const json = JSON.parse(text.substring(47).slice(0, -2));
-  const rows = json.table.rows;
+  try {
+    // Gọi trực tiếp từ window.SHEET_URL (đã khai báo trong googleSheetLinks.js)
+    const response = await fetch(window.SHEET_URL);
+    const data = await response.json();
 
-  const allWords = rows.map((row) => {
-    const word = row.c[2]?.v?.trim() || "";
-    const meaning = row.c[24]?.v?.trim() || "";
-    const image1 = row.c[29]?.v?.trim() || "";
-    const extraNote = row.c[30]?.v?.trim() || "";
-    const image2 = row.c[32]?.v?.trim() || "";
-    const imageKeyword = row.c[47]?.v?.trim() || word;
-    return { word, meaning, image1, extraNote, image2, imageKeyword };
-  });
+    // Lấy mảng dữ liệu (hỗ trợ cả cấu trúc {data: []} hoặc [])
+    const rows = data.data || data;
 
-  const filtered = allWords.filter((item) => wordBank.includes(item.word));
-  const uniqueByWord = [];
-  const seen = new Set();
-  for (let item of filtered) {
-    const key = item.word.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      uniqueByWord.push(item);
+    const allWords = rows.map((r) => {
+      // Biến Object thành Array để lấy theo Index cột giống hệt bản cũ
+      const col = Object.values(r); 
+      const getVal = (idx) => (col[idx] || "").toString().trim();
+
+      return {
+        word: getVal(2),          // Cột C
+        meaning: getVal(24),       // Cột Y
+        extraNote: getVal(30),     // Cột AE
+        noteAH: getVal(33),        // Cột AH
+        noteAI: getVal(34),        // Cột AI
+        syllables: getVal(42),     // Cột AQ
+        imageKeyword: getVal(47)   // Cột AV
+      };
+    });
+
+    // Lọc theo wordBank của người dùng
+    const filtered = allWords.filter((item) => wordBank.includes(item.word));
+
+    // Loại bỏ trùng lặp nếu có
+    const uniqueByWord = [];
+    const seen = new Set();
+    for (let item of filtered) {
+      const key = item.word.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueByWord.push(item);
+      }
     }
+    return uniqueByWord;
+  } catch (error) {
+    console.error("❌ Lỗi Fetch từ Exec:", error);
+    return [];
   }
-  return uniqueByWord;
 }
 
 // ===== Build image keywords =====
 function buildImageKeywords(data) {
   const set = new Set();
   for (const item of data) {
-    [item.image1, item.image2, item.imageKeyword, item.word].forEach((k) => {
+    // Chỉ giữ lại imageKeyword và word để hiện ảnh chính ở trên đầu
+    [item.imageKeyword, item.word].forEach((k) => {
       if (k) set.add(k.toLowerCase().trim());
     });
   }
@@ -83,30 +100,44 @@ async function getPhonetic(word) {
 }
 
 // ===== Hiển thị từ =====
+// ===== Hàm hiển thị từ vựng lên UI =====
 async function displayWord(wordObj) {
+  if (!wordObj) return;
+
+  // 1. Hiển thị chữ và nghĩa
   document.getElementById("vocabWord").textContent = wordObj.word.toUpperCase();
   document.getElementById("vocabMeaning").textContent = wordObj.meaning || "Không có nghĩa";
 
+  // 2. Lấy phiên âm từ API Dictionary (Giữ nguyên logic cũ)
   const phonetic = await getPhonetic(wordObj.word);
   document.getElementById("vocabPhonetic").textContent = phonetic;
 
-  // Ẩn/hiện ảnh
+  // 3. Hiển thị ảnh (Dùng imageKeyword nếu có, không thì dùng chính Word)
   const imgEl = document.getElementById("vocabImage");
-  const mainImg = getImageFromMap(wordObj.imageKeyword || wordObj.word);
+  const keywordForImage = (wordObj.imageKeyword || wordObj.word).toLowerCase().trim();
+  const mainImg = getImageFromMap(keywordForImage);
+
   if (mainImg) {
-    imgEl.style.display = "block";
     imgEl.src = mainImg;
+    imgEl.style.display = "block";
   } else {
     imgEl.style.display = "none";
+    console.warn(`⚠️ Không tìm thấy ảnh cho từ: ${keywordForImage}`);
   }
 
-  // Reset UI phụ
-  document.getElementById("funContent").innerHTML = "";
-  document.getElementById("closeFunBtn").style.display = "none";
+  // 4. Dọn dẹp nội dung Ghi chú (Fun Fact) của từ trước đó
+  const funContent = document.getElementById("funContent");
+  if (funContent) funContent.innerHTML = "";
 
-  // Reset trạng thái nghe
+  const closeBtn = document.getElementById("closeFunBtn");
+  if (closeBtn) closeBtn.style.display = "none";
+
+  // 5. Reset trạng thái nút "Next" (Bắt buộc phải nghe đủ số lần mới cho qua)
   listenCount = 0;
-  document.getElementById("nextBtn").disabled = true;
+  const nextBtn = document.getElementById("nextBtn");
+  if (nextBtn) nextBtn.disabled = true;
+
+  console.log(`📖 Đang hiển thị từ: ${wordObj.word}`);
 }
 
 // ===== Nút nghe lại =====
@@ -214,19 +245,30 @@ document.getElementById("funBtn").onclick = () => {
   const container = document.getElementById("funContent");
   const closeBtn = document.getElementById("closeFunBtn");
 
-  const note = wordObj.extraNote || "Không có gì";
-  const img1 = getImageFromMap(wordObj.image1 || wordObj.word);
-  const img2 = getImageFromMap(wordObj.image2 || wordObj.word);
-
-  let imgs = "";
-  if (img1) imgs += `<img src="${img1}" alt="Ảnh 1">`;
-  if (img2) imgs += `<img src="${img2}" alt="Ảnh 2">`;
+  const syl = wordObj.syllables || ""; 
+  const note1 = wordObj.noteAH || "";
+  const note2 = wordObj.noteAI || "";
 
   container.innerHTML = `
-    <div style="padding:10px; border:2px dashed #ccc; border-radius:10px;">
-      <h3>📌 Ghi chú thú vị:</h3>
-      <p>${note}</p>
-      <div class="fun-wrapper">${imgs}</div>
+    <div style="padding:15px; border:2px dashed #ffcb05; border-radius:15px; background-color: #fffbe6; color: #333;">
+
+      ${syl ? `
+        <div style="text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #eee;">
+          <p style="font-size: 0.8rem; color: #666; margin: 0;">Cách đọc tách vần:</p>
+          <h2 style="color: #ff1c1c; letter-spacing: 3px; font-size: 1.6rem; margin: 5px 0;">
+            ${syl.toUpperCase().split('-').join(' <span style="color:#ccc">-</span> ')}
+          </h2>
+        </div>
+      ` : ""}
+
+      <h3 style="color: #3b4cca; margin-top: 0; font-size: 1rem;">📌 Ghi chú bổ trợ:</h3>
+
+      <div class="notes-wrapper">
+         ${note1 ? `<p style="margin: 8px 0; color: #d35400; font-weight: bold;">• ${note1}</p>` : ""}
+         ${note2 ? `<p style="margin: 8px 0; color: #2980b9;">• ${note2}</p>` : ""}
+      </div>
+
+      ${(!syl && !note1 && !note2) ? "<p>Chưa có thông tin bổ sung.</p>" : ""}
     </div>
   `;
   closeBtn.style.display = "inline-block";
