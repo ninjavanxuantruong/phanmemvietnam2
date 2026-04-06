@@ -3,7 +3,7 @@ import { showVictoryEffect } from './effect-win.js';
 import { showDefeatEffect } from './effect-loose.js';
 
 // Google Sheets
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+
 
 // Trạng thái phiên (reset 1 lần khi tải trang)
 if (!localStorage.getItem("overview_isSessionStarted")) {
@@ -115,56 +115,52 @@ const rawWords = JSON.parse(localStorage.getItem("wordBank") || "[]");
 const rawWordsSet = new Set(rawWords.map(w => (w || "").trim()));
 
 async function fetchExercises() {
-  const res = await fetch(SHEET_URL);
-  const txt = await res.text();
-  const json = JSON.parse(txt.substring(47).slice(0, -2));
-  const rows = json.table.rows || [];
+  const res = await fetch(window.SHEET_URL);
+  const data = await res.json();
+  const rows = data.data || data.rows || data;
 
-  // Reset mảng dữ liệu
   dataWord = [];
   dataArrange = [];
   dataChunks = [];
-
   const seenArrange = new Set();
 
   rows.forEach(r => {
-    const word = (r.c[2]?.v || "").trim(); // Cột C
+    // CHUYỂN ĐỔI: Biến Object thành Array để dùng index [0], [1], [2]...
+    const col = Object.values(r); 
+
+    // Bây giờ bạn dùng col[index] giống hệt r.c[index].v ngày xưa
+    const word = (col[2] || "").toString().trim(); // Cột C (index 2)
+
     if (!word || !rawWordsSet.has(word)) return;
 
-    // --- Dạng 2: từ đơn (C, Y) ---
-    const vi = (r.c[24]?.v || "").trim(); // Cột Y
+    // Dạng 2: Cột Y (index 24)
+    const vi = (col[24] || "").toString().trim(); 
     if (word && vi) {
       dataWord.push({ en: word, vi });
     }
 
-    // --- Dạng 1: sắp xếp câu (J, L) ---
-    const qRaw = (r.c[9]?.v || "").trim();   // Cột J
-    const aRaw = (r.c[11]?.v || "").trim();  // Cột L
+    // Dạng 1: Cột J (index 9) và L (index 11)
+    const qRaw = (col[9] || "").toString().trim();
+    const aRaw = (col[11] || "").toString().trim();
     if (qRaw && aRaw) {
-      const qNorm = normSentence(qRaw);
       const aNorm = normSentence(aRaw);
       if (!seenArrange.has(aNorm)) {
         seenArrange.add(aNorm);
-        dataArrange.push({ question: qNorm, answer: aNorm });
+        dataArrange.push({ question: qRaw, answer: aNorm });
       }
     }
 
-    // --- Dạng 3: dịch theo cụm (D, E) ---
-    const enRaw = (r.c[3]?.v || "").trim(); // Cột D
-    const viRaw = (r.c[4]?.v || "").trim(); // Cột E
+    // Dạng 3: Cột D (index 3) và E (index 4)
+    const enRaw = (col[3] || "").toString().trim();
+    const viRaw = (col[4] || "").toString().trim();
     if (enRaw && viRaw) {
       const enChunks = enRaw.split("/").map(s => normSentence(s)).filter(Boolean);
       const viChunks = viRaw.split("/").map(s => normSentence(s)).filter(Boolean);
-      if (enChunks.length && viChunks.length && enChunks.length === viChunks.length) {
+      if (enChunks.length === viChunks.length) {
         dataChunks.push({ enChunks, viChunks });
       }
     }
   });
-
-  // Có thể xáo trộn nếu muốn
-  // dataWord = shuffle(dataWord);
-  // dataArrange = shuffle(dataArrange);
-  // dataChunks = shuffle(dataChunks);
 }
 
 
