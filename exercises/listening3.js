@@ -1,6 +1,5 @@
 // ===== Config =====
-const SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+
 
 // ===== State =====
 // ===== State =====
@@ -62,65 +61,113 @@ function updateScoreBoardL3() {
   const el = document.getElementById("scoreBoard");
   if (el) el.textContent = `🎯 Điểm: ${L3_score}/${L3_total}`;
 }
-async function fetchGVizRows(url) {
-  const res = await fetch(url);
-  const txt = await res.text();
-  const json = JSON.parse(txt.substring(47).slice(0, -2));
-  return json.table?.rows || [];
-}
+
 
 async function getMaxLessonCode() {
-  const SHEET_BAI_HOC =
-    "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
-  const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
+  try {
+    // 1. Gọi link SHEET_BAI_HOC (đã khai báo trong googleSheetLinks.js)
+    const res = await fetch(SHEET_BAI_HOC);
+    const rows = await res.json(); 
 
-  const res = await fetch(SHEET_BAI_HOC);
-  const text = await res.text();
-  const json = JSON.parse(text.substring(47).slice(0, -2));
-  const rows = json.table.rows;
+    // 2. Lấy toàn bộ mã bài học (Cột C - Index 2) từ Sheet
+    // Không lọc theo trainerClass nữa mà lấy Max của tất cả các dòng có mã bài
+    const baiList = rows
+      .map((r) => {
+        const bai = (r[2] || "").toString().trim(); // Cột C
+        return bai ? parseInt(bai, 10) : null;
+      })
+      .filter((v) => typeof v === "number" && !isNaN(v));
 
-  const baiList = rows
-    .map((r) => {
-      const lop = r.c[0]?.v?.toString().trim();
-      const bai = r.c[2]?.v?.toString().trim();
-      return lop === trainerClass && bai ? parseInt(bai, 10) : null;
-    })
-    .filter((v) => typeof v === "number");
+    if (baiList.length === 0) return 0;
 
-  if (baiList.length === 0) return null;
-  return Math.max(...baiList);
+    const maxCode = Math.max(...baiList);
+    console.log("🚀 Mã bài học lớn nhất tìm thấy từ Sheet:", maxCode);
+    return maxCode;
+  } catch (err) {
+    console.error("❌ Lỗi khi quét mã bài học từ SHEET_BAI_HOC:", err);
+    return 0;
+  }
 }
 
-function extractPresentationData(rows, maxLessonCode, totalSentences = 8) {
-  // Cột:
-  // B (1): lessonName, C (2): vocabRaw, I (8): presentation sentence
+// Hàm fetch dữ liệu câu hỏi (Dùng SHEET_URL từ googleSheetLinks.js)
+// Hàm fetch dữ liệu và tự động cập nhật danh sách Topic vào dropdown
+async function fetchGVizRows() {
+  try {
+    const res = await fetch(SHEET_URL);
+    const rows = await res.json();
+
+    if (rows && rows.length > 0) {
+      updateTopicDropdown(rows);
+    }
+
+    return rows || [];
+  } catch (err) {
+    console.error("❌ Lỗi fetch dữ liệu SHEET_URL:", err);
+    return [];
+  }
+}
+
+// Hàm trích xuất và hiển thị danh sách Topic duy nhất
+function updateTopicDropdown(rows) {
+  const topicSelect = document.getElementById("topicSelect");
+  if (!topicSelect) return;
+
+  // Lấy danh sách Topic duy nhất từ cột G (Index 6)
+  const topics = [...new Set(rows.map(r => (r[6] || "").toString().trim()))]
+    .filter(Boolean)
+    .sort();
+
+  // Giữ lại option "Tất cả" đầu tiên, xóa các cái cũ
+  topicSelect.innerHTML = '<option value="all">-- Tất cả chủ đề --</option>';
+
+  topics.forEach(t => {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t;
+    topicSelect.appendChild(opt);
+  });
+}
+/**
+ * Trích xuất và lọc dữ liệu Presentation (Câu ví dụ)
+ * @param {Array} rows - Mảng 2 chiều từ Google Sheets
+ * @param {Number} maxLessonCode - Mã bài học lớn nhất để giới hạn phạm vi học
+ * @param {Number} totalSentences - Số lượng câu cần lấy (mặc định 8)
+ * @param {String} selectedTopic - Tên chủ đề để lọc (mặc định "all")
+ */
+function extractPresentationData(rows, maxLessonCode, totalSentences = 8, selectedTopic = "all") {
+  // 1. Mapping và lọc thô dữ liệu
   const items = rows
     .map((r) => {
-      const lessonName = r.c?.[1]?.v?.toString().trim() || ""; // B
-      const vocabRaw = r.c?.[2]?.v?.toString().trim() || ""; // C
-      const presentation = r.c?.[8]?.v?.toString().trim() || ""; // I
+      const lessonName = (r[1] || "").toString().trim();   // Cột B (Index 1)
+      const vocabRaw = (r[2] || "").toString().trim();     // Cột C (Index 2)
+      const topic = (r[6] || "").toString().trim();        // Cột G (Index 6) - CHỦ ĐỀ
+      const presentation = (r[8] || "").toString().trim(); // Cột I (Index 8) - CÂU VÍ DỤ
 
       const unitNum = normalizeUnitId(lessonName);
       const targets = splitTargets(vocabRaw);
-      const mainTarget = targets[0] || "";
+      const mainTarget = targets[0] || ""; // Lấy từ vựng đầu tiên làm mục tiêu chính
 
-      return { lessonName, unitNum, presentation, mainTarget };
+      return { lessonName, unitNum, presentation, mainTarget, topic };
     })
-    // chỉ giữ những câu có đủ dữ liệu
-    .filter((it) => it.lessonName && it.presentation && it.mainTarget)
-    // lọc thêm: mainTarget phải thực sự xuất hiện trong presentation
-    .filter((it) =>
-      new RegExp(`\\b${escapeRegExp(it.mainTarget)}\\b`, "i").test(
-        it.presentation,
-      ),
-    );
+    .filter((it) => {
+      // Điều kiện bắt buộc: Phải có tên bài, có câu ví dụ và có từ vựng mục tiêu
+      const hasData = it.lessonName && it.presentation && it.mainTarget;
 
-  // Lọc phạm vi bài đã học
+      // Lọc theo Topic (nếu chọn "all" thì bỏ qua bước này)
+      const matchesTopic = (selectedTopic === "all" || it.topic === selectedTopic);
+
+      // Kiểm tra xem từ vựng mục tiêu có thực sự nằm trong câu presentation không (để còn đục lỗ)
+      const targetInText = new RegExp(`\\b${escapeRegExp(it.mainTarget)}\\b`, "i").test(it.presentation);
+
+      return hasData && matchesTopic && targetInText;
+    });
+
+  // 2. Lọc theo phạm vi bài đã học (từ bài 3011 đến bài hiện tại)
   const filtered = items.filter(
-    (it) => it.unitNum >= 3011 && it.unitNum <= maxLessonCode,
+    (it) => it.unitNum >= 3011 && it.unitNum <= maxLessonCode
   );
 
-  // Group theo bài, random chọn 8 bài, mỗi bài lấy 1 câu
+  // 3. Gom nhóm theo bài học (Unit/Lesson) để tránh lấy trùng câu trong cùng 1 bài
   const unitMap = {};
   filtered.forEach((it) => {
     if (!unitMap[it.lessonName]) unitMap[it.lessonName] = [];
@@ -130,20 +177,22 @@ function extractPresentationData(rows, maxLessonCode, totalSentences = 8) {
   const unitNames = Object.keys(unitMap);
   if (unitNames.length === 0) return [];
 
+  // 4. Xáo trộn danh sách các bài học và chọn ra số lượng bài tương ứng với totalSentences
   unitNames.sort(() => Math.random() - 0.5);
-  const NUM_LESSONS = Math.min(totalSentences, unitNames.length);
-  const pickedUnits = unitNames.slice(0, NUM_LESSONS);
+  const pickedUnits = unitNames.slice(0, Math.min(totalSentences, unitNames.length));
 
   const selected = [];
   pickedUnits.forEach((u) => {
-    const rows = unitMap[u];
-    const chosen = rows[Math.floor(Math.random() * rows.length)];
+    const unitRows = unitMap[u];
+    // Trong mỗi bài học đã chọn, lấy ngẫu nhiên 1 câu ví dụ
+    const chosen = unitRows[Math.floor(Math.random() * unitRows.length)];
     selected.push(chosen);
   });
 
-  // Sắp xếp theo unitNum để đoạn văn mượt
+  // 5. Sắp xếp lại theo mã bài học (unitNum) để mạch truyện/đoạn văn logic hơn
   selected.sort((a, b) => a.unitNum - b.unitNum);
-  return selected; // [{ lessonName, unitNum, presentation, mainTarget }]
+
+  return selected; // Trả về mảng các object [{ lessonName, unitNum, presentation, mainTarget, topic }]
 }
 
 function buildParagraphAndBlanks() {
@@ -220,20 +269,39 @@ function renderListening3() {
   };
 
   // Nút nộp bài
-  document.getElementById("submitL3Btn").onclick = () => {
+  // Nút nộp bài
+  document.getElementById("submitL3Btn").onclick = function() {
+    const submitBtn = this; // Lưu lại tham chiếu nút nộp bài
     let correct = 0;
+
+    // Duyệt qua các ô input để tính điểm
     Object.entries(blankOrderMap).forEach(([idx, n]) => {
-      const inputVal = (document.getElementById(`blankInput-${n}`).value || "")
-        .trim()
-        .toLowerCase();
+      const inputEl = document.getElementById(`blankInput-${n}`);
+      const inputVal = (inputEl.value || "").trim().toLowerCase();
       const target = (L3_sentences[idx].target || "").trim().toLowerCase();
+
       if (inputVal && inputVal === target) correct++;
+
+      // ✅ KHOÁ ô điền từ: Không cho sửa sau khi đã nộp
+      inputEl.disabled = true;
+      inputEl.style.backgroundColor = "#f0f0f0"; // Đổi màu nền cho người dùng biết là đã khoá
     });
+
+    // Cập nhật kết quả
     L3_score = correct;
     resultBox.textContent = `✅ Đúng ${correct}/${L3_total}`;
     updateScoreBoardL3();
     setResultListeningPart(3, L3_score, L3_total);
+
+    // Hiển thị đáp án
     showL3Answers();
+
+    // ✅ KHOÁ nút nộp bài: Không cho ấn nhiều lần
+    submitBtn.disabled = true;
+    submitBtn.textContent = "⌛ Đã ghi nhận điểm";
+    submitBtn.classList.remove("success");
+    submitBtn.style.opacity = "0.6";
+    submitBtn.style.cursor = "not-allowed";
   };
 }
 
@@ -289,31 +357,54 @@ function setResultListeningPart(mode, score, total) {
 }
 
 // ===== Main: start + bootstrapping =====
+// ✅ FULL: Hàm khởi chạy chế độ Listening 3
 async function startListeningMode3(totalSentences = 8, blankCount = 5) {
   try {
+    const area = document.getElementById("exerciseArea");
+    const resultBox = document.getElementById("resultBox");
+
+    // 1. Lấy mã bài học lớn nhất (quét từ SHEET_BAI_HOC)
     const maxLessonCode = await getMaxLessonCode();
     if (!maxLessonCode) {
-      document.getElementById("exerciseArea").innerHTML =
-        "⚠️ Không xác định được bài học lớn nhất cho lớp hiện tại.";
+      area.innerHTML = "⚠️ Không xác định được phạm vi bài học từ dữ liệu Sheet.";
       return;
     }
 
-    const rows = await fetchGVizRows(SHEET_URL);
+    // 2. Lấy giá trị Topic đang chọn từ Dropdown (mặc định là 'all')
+    const topicSelect = document.getElementById("topicSelect");
+    const selectedTopic = topicSelect ? topicSelect.value : "all";
+
+    // 3. Tải dữ liệu từ SHEET_URL (Link Apps Script)
+    const rows = await fetchGVizRows();
+    if (!rows || rows.length === 0) {
+      area.innerHTML = "📭 Không có dữ liệu từ Google Sheets.";
+      return;
+    }
+
+    // 4. Lọc và trích xuất dữ liệu dựa trên Topic và mã bài học
     const selected = extractPresentationData(
       rows,
       maxLessonCode,
       totalSentences,
+      selectedTopic
     );
 
+    // 5. Kiểm tra nếu không đủ câu để tạo đoạn văn
     if (selected.length < totalSentences) {
-      document.getElementById("exerciseArea").innerHTML =
-        `📭 Không đủ dữ liệu câu ở cột I để tạo đoạn văn. Chỉ có ${selected.length} câu.`;
+      const topicName = selectedTopic === "all" ? "" : ` thuộc chủ đề "${selectedTopic}"`;
+      area.innerHTML = `
+        <div class="dialogue-text">
+          📭 Không đủ dữ liệu câu${topicName} để tạo đoạn văn. 
+          <br>Hiện có: <b>${selected.length}/${totalSentences}</b> câu thỏa mãn.
+          <br><i>Gợi ý: Hãy thử giảm số lượng câu hoặc chọn "Tất cả chủ đề".</i>
+        </div>`;
       return;
     }
 
+    // 6. Chuẩn bị dữ liệu sentences cho State toàn cục
+    // Chỉ lấy đúng số lượng câu người dùng yêu cầu (đã sort theo unitNum trong extract)
     const selectedSentences = selected.slice(0, totalSentences);
 
-    // SỬA: eight -> selectedSentences
     L3_sentences = selectedSentences.map((it) => ({
       text: it.presentation,
       target: it.mainTarget,
@@ -324,22 +415,50 @@ async function startListeningMode3(totalSentences = 8, blankCount = 5) {
     L3_targets = L3_sentences.map((s) => s.target);
     L3_blankCount = blankCount;
 
+    // 7. Xây dựng đoạn văn và vị trí đục lỗ (Random indices)
     buildParagraphAndBlanks();
 
+    // 8. Cập nhật trạng thái và hiển thị giao diện
     L3_ready = true;
     L3_score = 0;
+    if (resultBox) resultBox.textContent = ""; // Xóa thông báo cũ
     updateScoreBoardL3();
     renderListening3();
 
+    console.log(`✅ Đã nạp xong ${L3_sentences.length} câu. Topic: ${selectedTopic}`);
+
   } catch (err) {
-    console.error("Listening 3 error:", err);
-    document.getElementById("exerciseArea").innerHTML =
-      "❌ Lỗi tải dữ liệu Listening 3.";
+    console.error("❌ Listening 3 error:", err);
+    document.getElementById("exerciseArea").innerHTML = "❌ Lỗi hệ thống khi tải dữ liệu Listening 3.";
   }
 }
 
 // ===== Bootstrapping =====
 // ===== Xử lý dropdown =====
+// ✅ FULL: Cấu hình lúc khởi động trang
+getVoices().then(async (voices) => {
+  // 1. Thiết lập giọng đọc
+  L3_voiceMale = voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("david")) || 
+                 voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("male")) || 
+                 voices[0];
+
+  // 2. Tải dữ liệu ban đầu ĐỂ LẤY TOPIC (nhưng chưa tạo bài)
+  const rows = await fetchGVizRows(); 
+  // Hàm fetchGVizRows của bạn phải có dòng updateTopicDropdown(rows) bên trong nhé
+
+  // 3. Hiển thị thông báo chờ
+  document.getElementById("exerciseArea").innerHTML = `
+    <div style="text-align:center; padding:40px; color:#888; border:2px dashed #ddd; border-radius:10px;">
+      <h3>🎧 Sẵn sàng bài nghe Mode 3</h3>
+      <p>Vui lòng chọn Topic và số câu bên trên, sau đó nhấn <b>"Áp dụng & Tạo bài"</b></p>
+    </div>
+  `;
+
+  // 4. Kích hoạt bộ lắng nghe cho nút Apply
+  setupDropdownListeners();
+});
+
+// ✅ FULL: Sửa nút Apply để đảm bảo tạo bài mới mỗi lần nhấn
 function setupDropdownListeners() {
   const applyBtn = document.getElementById("applySettingsBtn");
   const totalSelect = document.getElementById("totalSentences");
@@ -355,48 +474,12 @@ function setupDropdownListeners() {
         return;
       }
 
-      // THÊM 2 DÒNG NÀY - Xóa kết quả cũ
-      document.getElementById("resultBox").innerHTML = "";
-      const answersBox = document.getElementById("answersBox");
-      if (answersBox) answersBox.style.display = "none";
+      // Xóa kết quả cũ và Reset trạng thái
+      const resultBox = document.getElementById("resultBox");
+      if (resultBox) resultBox.innerHTML = " đang tạo bài mới...";
 
-      L3_totalSentences = total;
-      L3_blankCount = blank;
-
+      // Gọi hàm tạo bài
       startListeningMode3(total, blank);
     };
   }
 }
-getVoices().then((voices) => {
-  // Giọng nam
-  L3_voiceMale =
-    voices.find(
-      (v) => v.lang === "en-US" && v.name.toLowerCase().includes("david"),
-    ) ||
-    voices.find(
-      (v) => v.lang === "en-US" && v.name.toLowerCase().includes("alex"),
-    ) ||
-    voices.find(
-      (v) => v.lang === "en-US" && v.name.toLowerCase().includes("male"),
-    ) ||
-    voices.find((v) => v.lang === "en-US");
-
-  // Giọng nữ
-  L3_voiceFemale =
-    voices.find(
-      (v) => v.lang === "en-US" && v.name.toLowerCase().includes("zira"),
-    ) ||
-    voices.find(
-      (v) => v.lang === "en-US" && v.name.toLowerCase().includes("samantha"),
-    ) ||
-    voices.find(
-      (v) => v.lang === "en-US" && v.name.toLowerCase().includes("female"),
-    ) ||
-    voices.find((v) => v.lang === "en-US");
-
-  // Vào là chạy luôn (không cần nút bắt đầu)
-  setupDropdownListeners();
-  startListeningMode3(L3_totalSentences, L3_blankCount);
-});
-// ===== Xử lý dropdown =====
-
