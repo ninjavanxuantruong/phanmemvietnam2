@@ -1,6 +1,6 @@
 
 
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+
 
 let sentences = [];
 let sentenceIndex = 0;
@@ -155,40 +155,71 @@ function getVoices() {
     speechSynthesis.onvoiceschanged = () => resolve(speechSynthesis.getVoices());
   });
 }
-
-getVoices().then(v => {
-  voice = v.find(v => v.lang === "en-US") || v[0];
+// Thêm hàm này vào để hết lỗi "normalizeUnitId is not defined"
+function normalizeUnitId(unitStr) {
+  if (!unitStr) return 0;
+  const parts = unitStr.split("-");
+  if (parts.length < 3) return 0;
+  // Chuyển "30-1-1" thành 30011 để so sánh số lớn/nhỏ
+  return parseInt(parts[0], 10) * 1000 + parseInt(parts[1], 10) * 10 + parseInt(parts[2], 10);
+}
+// ✅ THAY THẾ TOÀN BỘ ĐOẠN CUỐI FILE (getVoices)
+getVoices().then(async (v) => {
+  // 1. Thiết lập giọng đọc
+  voice = v.find(v => v.lang === "en-US" && v.name.includes("David")) || v.find(v => v.lang === "en-US") || v[0];
   const wordBank = JSON.parse(localStorage.getItem("wordBank"))?.map(w => w.toLowerCase().trim()) || [];
 
-  fetch(SHEET_URL)
-    .then(res => res.text())
-    .then(txt => {
-      const json = JSON.parse(txt.substring(47).slice(0, -2));
-      const rows = json.table.rows;
+  try {
+    // 2. Lấy maxLessonCode từ SHEET_BAI_HOC để giới hạn phạm vi học
+    const resBai = await fetch(SHEET_BAI_HOC);
+    const rowsBai = await resBai.json();
+    const baiList = rowsBai.map(r => {
+      const code = (r[2] || "").toString().trim(); // Cột C
+      return code ? parseInt(code, 10) : null;
+    }).filter(val => val !== null && !isNaN(val));
+    const maxLessonCode = baiList.length === 0 ? 0 : Math.max(...baiList);
 
-      sentences = [];
-      for (const r of rows) {
-        const rawTarget = r.c[2]?.v?.trim().toLowerCase();
-        const rawMeaning = r.c[24]?.v?.trim();
-        const targets = rawTarget?.split(/[/;,]/).map(t => t.trim());
-        const match = targets?.some(t => wordBank.includes(t));
-        if (match) {
-          const targetWord = targets.find(t => wordBank.includes(t)) || rawTarget;
-          const q = r.c[9]?.v?.trim();
-          const a = r.c[11]?.v?.trim();
-          if (q) sentences.push({ text: q, target: targetWord, meaning: rawMeaning });
-          if (a) sentences.push({ text: a, target: targetWord, meaning: rawMeaning });
-        }
+    // 3. Fetch dữ liệu bài học từ SHEET_URL (Định dạng Exec - mảng 2 chiều)
+    const res = await fetch(SHEET_URL);
+    const rows = await res.json(); 
+
+    sentences = [];
+    for (const r of rows) {
+      // Mapping index: B=1 (Lesson), C=2 (Target), J=9 (Q), L=11 (A), Y=24 (Meaning)
+      const lessonName = (r[1] || "").toString().trim();
+      const rawTarget  = (r[2] || "").toString().trim().toLowerCase();
+      const rawMeaning = (r[24] || "").toString().trim();
+      const q = (r[9] || "").toString().trim();
+      const a = (r[11] || "").toString().trim();
+
+      const unitNum = normalizeUnitId(lessonName);
+      const targets = rawTarget.split(/[/;,]/).map(t => t.trim());
+
+      // Điều kiện: Từ nằm trong WordBank VÀ thuộc phạm vi bài đã học (>= 3011)
+      const isLearned = targets.some(t => wordBank.includes(t));
+      const isWithinLesson = unitNum >= 3011 && unitNum <= maxLessonCode;
+
+      if (isLearned && isWithinLesson) {
+        const targetWord = targets.find(t => wordBank.includes(t)) || rawTarget;
+        if (q) sentences.push({ text: q, target: targetWord, meaning: rawMeaning });
+        if (a) sentences.push({ text: a, target: targetWord, meaning: rawMeaning });
       }
+    }
 
-      totalScore = 0;       // reset điểm part 2
-      sentenceIndex = 0;    // reset vị trí câu đầu tiên
+    // 4. Reset trạng thái và bắt đầu luyện tập
+    totalScore = 0;
+    sentenceIndex = 0;
 
-      if (sentences.length > 0) {
-        startSentence();
-      } else {
-        document.getElementById("sentenceArea").innerHTML = `<div style="font-size:20px;">📭 Không tìm thấy dữ liệu từ vựng đã học.</div>`;
-      }
-
-    });
+    if (sentences.length > 0) {
+      startSentence();
+    } else {
+      document.getElementById("sentenceArea").innerHTML = `
+        <div style="font-size:20px; padding:30px; text-align:center;">
+          📭 Không tìm thấy câu nào phù hợp với từ vựng đã học trong phạm vi bài học.
+        </div>`;
+    }
+  } catch (err) {
+    console.error("❌ Lỗi tải dữ liệu Speaking Part 2:", err);
+    document.getElementById("sentenceArea").innerHTML = "❌ Lỗi kết nối dữ liệu Exec.";
+  }
 });
