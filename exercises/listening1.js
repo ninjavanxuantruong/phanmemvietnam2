@@ -1,7 +1,7 @@
 import { showVictoryEffect } from './effect-win.js';
 import { showDefeatEffect } from './effect-loose.js';
 
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
 let listeningData = [];
 let currentIndex = 0;
@@ -32,28 +32,38 @@ function speak(text, voice) {
   speechSynthesis.speak(utter);
 }
 
+// ✅ Load dữ liệu từ Google Apps Script (Sử dụng SHEET_URL toàn cục)
 async function fetchListeningData() {
-  const res = await fetch(SHEET_URL);
-  const txt = await res.text();
-  const json = JSON.parse(txt.substring(47).slice(0, -2));
-  const rows = json.table.rows;
+  try {
+    // 1. Gọi trực tiếp SHEET_URL (Link exec đã có sẵn ở window)
+    const res = await fetch(SHEET_URL);
 
-  const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
-  const uniqueWords = [...new Set(wordBank)];
+    // 2. Nhận mảng 2 chiều sạch từ Apps Script
+    const rows = await res.json(); 
 
-  const parsed = rows.map(row => {
-    const rawQuestion = row.c[9]?.v?.trim() || "";
-    const rawAnswer = row.c[11]?.v?.trim() || "";
-    const target = row.c[2]?.v?.trim() || "";
-    const question = cleanText(rawQuestion);
-    const answer = cleanText(rawAnswer);
-    return { question, answer, target };
-  }).filter(item =>
-    item.question && item.answer &&
-    uniqueWords.includes(item.target)
-  );
+    const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
+    const uniqueWords = [...new Set(wordBank)];
 
-  return parsed;
+    // 3. Mapping dữ liệu - GIỮ NGUYÊN INDEX CỘT (9, 11, 2)
+    const parsed = rows.map(row => {
+      const rawQuestion = (row[9] || "").toString().trim(); // Cột J (Index 9)
+      const rawAnswer = (row[11] || "").toString().trim();   // Cột L (Index 11)
+      const target = (row[2] || "").toString().trim();      // Cột C (Index 2)
+
+      const question = cleanText(rawQuestion);
+      const answer = cleanText(rawAnswer);
+
+      return { question, answer, target };
+    }).filter(item =>
+      item.question && item.answer &&
+      uniqueWords.includes(item.target)
+    );
+
+    return parsed;
+  } catch (error) {
+    console.error("Lỗi khi fetch dữ liệu Listening:", error);
+    return [];
+  }
 }
 
 function updateScoreBoard() {
