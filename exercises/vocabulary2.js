@@ -2,7 +2,7 @@ import { showVictoryEffect } from './effect-win.js';
 import { showDefeatEffect } from './effect-loose.js';
 import { prefetchImagesBatch, getImageFromMap } from './imageCache.js';
 
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+
 const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
 
 let vocabData = [];
@@ -10,32 +10,41 @@ let caughtCount = 0;
 let isFlashcardActive = false;
 
 // ✅ Load dữ liệu từ Google Sheet
+// ✅ Load dữ liệu từ Google Apps Script (Giữ nguyên logic bóc tách theo cột)
 async function fetchVocabularyData() {
-  const response = await fetch(SHEET_URL);
-  const text = await response.text();
-  const json = JSON.parse(text.substring(47).slice(0, -2));
-  const rows = json.table.rows;
+  try {
+    // Gọi link exec đã có sẵn ở window.SHEET_URL
+    const response = await fetch(SHEET_URL);
 
-  const allWords = rows.map(row => {
-    const word = row.c[2]?.v?.trim() || "";
-    const meaning = row.c[24]?.v?.trim() || "";
-    const question = row.c[9]?.v?.trim() || "";
-    return { word, meaning, question };
-  });
+    // Link exec trả về mảng 2 chiều: [[col0, col1, col2...], [row2...]]
+    const rows = await response.json(); 
 
-  const filtered = allWords.filter(item => wordBank.includes(item.word));
-  const uniqueByWord = [];
-  const seen = new Set();
+    // ✅ Giữ nguyên vị trí các cột bạn đã dùng ở bản cũ
+    const allWords = rows.map(row => {
+      const word = (row[2] || "").toString().trim();      // Cột C (Index 2)
+      const meaning = (row[24] || "").toString().trim();   // Cột Y (Index 24)
+      const question = (row[9] || "").toString().trim();   // Cột J (Index 9)
+      return { word, meaning, question };
+    });
 
-  for (let item of filtered) {
-    const key = item.word.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      uniqueByWord.push(item);
+    // --- Giữ nguyên toàn bộ logic lọc phía sau của bạn ---
+    const filtered = allWords.filter(item => wordBank.includes(item.word));
+    const uniqueByWord = [];
+    const seen = new Set();
+
+    for (let item of filtered) {
+      const key = item.word.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueByWord.push(item);
+      }
     }
-  }
 
-  return uniqueByWord;
+    return uniqueByWord;
+  } catch (error) {
+    console.error("Lỗi khi tải dữ liệu từ Exec:", error);
+    return [];
+  }
 }
 
 // ✅ Tạo danh sách từ khóa ảnh
