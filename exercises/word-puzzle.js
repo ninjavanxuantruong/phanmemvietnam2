@@ -47,6 +47,7 @@ function cleanWord(word) {
 
 
 // Hàm fetch từ Google Sheet (cột C: từ, cột Y: nghĩa)
+// Hàm fetch từ Google Sheet qua Apps Script Exec (cột 2: từ, cột 24: nghĩa)
 async function fetchWords() {
   let chosenWords = JSON.parse(localStorage.getItem("wordBank")) || [];
 
@@ -55,20 +56,18 @@ async function fetchWords() {
     return [];
   }
 
-  const url = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-
   try {
-    const response = await fetch(url);
-    const text = await response.text();
-    const jsonData = JSON.parse(text.substring(47).slice(0, -2));
-    const rows = jsonData.table.rows;
+    // 1. Gọi trực tiếp SHEET_URL (Link exec đã có sẵn ở window từ googleSheetLinks.js)
+    const response = await fetch(SHEET_URL);
 
-    // Tạo danh sách ban đầu từ Google Sheet
+    // 2. Nhận mảng 2 chiều sạch từ Apps Script
+    const rows = await response.json(); 
+
+    // 3. Tạo danh sách và lọc - GIỮ NGUYÊN INDEX CỘT (2 và 24)
     const rawWords = rows.map(row => {
-      let rowData = row.c;
       return {
-        word: cleanWord(rowData[2]?.v || ""),
-        meaning: rowData[24]?.v || ""
+        word: cleanWord((row[2] || "").toString()), // Cột C (Index 2)
+        meaning: (row[24] || "").toString().trim()   // Cột Y (Index 24)
       };
     })
     // Lọc những từ trùng khớp với danh sách đã chọn
@@ -92,7 +91,7 @@ async function fetchWords() {
     console.log("Danh sách từ đã lọc và loại trùng:", uniqueWords);
     return uniqueWords;
   } catch (error) {
-    console.error("Lỗi khi fetch:", error);
+    console.error("Lỗi khi fetch từ Apps Script:", error);
     return [];
   }
 }
