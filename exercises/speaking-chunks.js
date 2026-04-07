@@ -1,7 +1,5 @@
 
 
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-
 let sentences = [];
 let collocationBank = [];
 let sentenceIndex = 0;
@@ -233,48 +231,63 @@ function getVoices() {
   });
 }
 
-getVoices().then(v => {
-  voice = v.find(v => v.lang === "en-US") || v[0];
+// Thay thế toàn bộ đoạn getVoices().then ở cuối file bằng đoạn này
+getVoices().then(async (v) => {
+  voice = v.find(v => v.lang === "en-US" && v.name.includes("David")) || v.find(v => v.lang === "en-US") || v[0];
   const wordBank = JSON.parse(localStorage.getItem("wordBank"))?.map(w => w.toLowerCase().trim()) || [];
 
-  fetch(SHEET_URL)
-    .then(res => res.text())
-    .then(txt => {
-      const json = JSON.parse(txt.substring(47).slice(0, -2));
-      const rows = json.table.rows;
+  try {
+    // 1. Lấy mã bài học lớn nhất để lọc
+    const resBaiHoc = await fetch(SHEET_BAI_HOC);
+    const rowsBaiHoc = await resBaiHoc.json();
+    const baiList = rowsBaiHoc.map(r => r[2] ? parseInt(r[2], 10) : null).filter(v => !isNaN(v));
+    const maxLessonCode = baiList.length === 0 ? 0 : Math.max(...baiList);
 
-      collocationBank = [];
-      for (const r of rows) {
-        const raw = r.c[2]?.v?.trim().toLowerCase();
-        if (raw) {
-          const items = raw.split(/[/;,]/).map(x => x.trim());
-          collocationBank.push(...items.filter(x => x.includes(" ")));
-        }
+    // 2. Lấy dữ liệu từ SHEET_URL (Dạng Exec - mảng 2 chiều)
+    const res = await fetch(SHEET_URL);
+    const rows = await res.json();
+
+    collocationBank = [];
+    sentences = [];
+
+    for (const r of rows) {
+      const lessonName = (r[1] || "").toString().trim(); // Cột B
+      const rawTarget = (r[2] || "").toString().trim().toLowerCase(); // Cột C
+      const rawMeaning = (r[24] || "").toString().trim(); // Cột Y
+      const q = (r[9] || "").toString().trim(); // Cột J
+      const a = (r[11] || "").toString().trim(); // Cột L
+
+      const unitNum = normalizeUnitId(lessonName);
+      const targets = rawTarget.split(/[/;,]/).map(t => t.trim());
+
+      // Lọc collocation
+      if (rawTarget.includes(" ")) {
+        collocationBank.push(...targets.filter(x => x.includes(" ")));
       }
 
-      sentences = [];
-      for (const r of rows) {
-        const rawTarget = r.c[2]?.v?.trim().toLowerCase();
-        const rawMeaning = r.c[24]?.v?.trim();
-        const targets = rawTarget?.split(/[/;,]/).map(t => t.trim());
-        const match = targets?.some(t => wordBank.includes(t));
-        if (match) {
-          const targetWord = targets.find(t => wordBank.includes(t)) || rawTarget;
-          const q = r.c[9]?.v?.trim();
-          const a = r.c[11]?.v?.trim();
-          if (q) sentences.push({ text: q, target: targetWord, meaning: rawMeaning });
-          if (a) sentences.push({ text: a, target: targetWord, meaning: rawMeaning });
-        }
-      }
+      // Lọc câu theo WordBank và mã bài học
+      const isLearned = targets.some(t => wordBank.includes(t));
+      const isWithinLesson = unitNum >= 3011 && unitNum <= maxLessonCode;
 
-      totalScore = 0;      // reset điểm part 1
-      totalChunks = 0;     // reset số chunk
-      sentenceIndex = 0;   // reset vị trí câu đầu tiên
-
-      if (sentences.length > 0) {
-        startSentence();
-      } else {
-        document.getElementById("speakingArea").innerHTML = `<div style="font-size:20px;">📭 Không tìm thấy dữ liệu từ vựng đã học.</div>`;
+      if (isLearned && isWithinLesson) {
+        const targetWord = targets.find(t => wordBank.includes(t)) || rawTarget;
+        if (q) sentences.push({ text: q, target: targetWord, meaning: rawMeaning });
+        if (a) sentences.push({ text: a, target: targetWord, meaning: rawMeaning });
       }
-    });
+    }
+
+    // 3. Khởi tạo trạng thái ban đầu
+    totalScore = 0;
+    totalChunks = 0;
+    sentenceIndex = 0;
+
+    if (sentences.length > 0) {
+      startSentence();
+    } else {
+      document.getElementById("speakingArea").innerHTML = `<div style="font-size:20px; padding:20px; text-align:center;">📭 Không tìm thấy câu nào phù hợp với từ vựng đã học trong phạm vi bài học.</div>`;
+    }
+  } catch (err) {
+    console.error("Lỗi fetch dữ liệu:", err);
+    document.getElementById("speakingArea").innerHTML = "❌ Lỗi kết nối dữ liệu Exec.";
+  }
 });
