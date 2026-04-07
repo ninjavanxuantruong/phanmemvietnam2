@@ -125,15 +125,23 @@
       <!-- THÊM DROPDOWN Ở ĐÂY -->
       <div style="background: #fff3cd; border: 2px solid #ffcb05; border-radius: 12px; padding: 15px; margin-bottom: 15px;">
         <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; justify-content: center;">
+          <div class="filter-group">
+            <label for="topicSelect">Chủ đề:</label>
+            <select id="topicSelect" style="padding:6px; width:180px;">
+              <option value="all">-- Tất cả chủ đề --</option>
+            </select>
+          </div>
           <div>
             <label for="totalSentences" style="font-weight: bold; color: #e3350d; margin-right: 8px;">📚 Tổng số câu:</label>
             <select id="totalSentences" style="padding: 8px 12px; border: 2px solid #2a75bb; border-radius: 8px; font-size: 16px; background: white;">
-              <option value="5">5 câu</option>
+              
               <option value="6">6 câu</option>
-              <option value="7">7 câu</option>
+              
               <option value="8" selected>8 câu</option>
-              <option value="9">9 câu</option>
+              
               <option value="10">10 câu</option>
+              
+              <option value="14">14 câu</option>
             </select>
           </div>
 
@@ -172,6 +180,7 @@
   </div>
 
   <!-- Gắn file JS -->
+  <script src="link.js"></script>
   <script type="module" src="listening3.js"></script>
 </body>
 </html>
