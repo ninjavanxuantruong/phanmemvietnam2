@@ -32,6 +32,7 @@ function cleanWord(word) {
 
 
 // Hàm fetch từ Google Sheet (cột C: từ, cột Y: nghĩa)
+// Hàm fetch từ Google Sheet qua Apps Script Exec (cột 2: từ, cột 24: nghĩa)
 async function fetchWords() {
   // Lấy danh sách từ đã chốt từ localStorage
   let chosenWords = JSON.parse(localStorage.getItem("wordBank")) || [];
@@ -41,20 +42,18 @@ async function fetchWords() {
     return [];
   }
 
-  const url = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-
   try {
-    const response = await fetch(url);
-    const text = await response.text();
-    const jsonData = JSON.parse(text.substring(47).slice(0, -2));
-    const rows = jsonData.table.rows;
+    // 1. Gọi trực tiếp SHEET_URL (Link exec đã có sẵn ở window)
+    const response = await fetch(SHEET_URL);
 
-    // Làm sạch và lọc dữ liệu phù hợp với danh sách đã chọn
+    // 2. Nhận mảng 2 chiều sạch từ Apps Script
+    const rows = await response.json(); 
+
+    // 3. Làm sạch và lọc dữ liệu - GIỮ NGUYÊN INDEX CỦA BẠN (2 và 24)
     const filteredWords = rows.map(row => {
-      let rowData = row.c;
       return {
-        word: cleanWord(rowData[2]?.v || ""),
-        meaning: rowData[24]?.v?.trim().toUpperCase() || ""
+        word: cleanWord((row[2] || "").toString()), // Cột C (Index 2)
+        meaning: (row[24] || "").toString().trim().toUpperCase() // Cột Y (Index 24)
       };
     }).filter(item =>
       chosenWords.some(chosen => cleanWord(chosen) === item.word)
@@ -67,7 +66,7 @@ async function fetchWords() {
     for (let item of filteredWords) {
       const key = item.word;
       if (!uniqueMap.has(key)) {
-        uniqueMap.set(key, item); // giữ dòng đầu tiên
+        uniqueMap.set(key, item);
       }
     }
 
@@ -80,16 +79,10 @@ async function fetchWords() {
 
     return uniqueWords;
   } catch (error) {
-    console.error("❌ Lỗi khi fetch dữ liệu:", error);
+    console.error("❌ Lỗi khi fetch dữ liệu từ Apps Script:", error);
     return [];
   }
 }
-
-
-
-
-
-
 
 // Hàm khởi tạo trò chơi nối từ & nghĩa
 // Hàm khởi tạo trò chơi nối từ & nghĩa
