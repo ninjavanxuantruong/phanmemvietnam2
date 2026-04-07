@@ -52,36 +52,44 @@ const hintBtn = document.getElementById("hint-btn");
 const submitBtn = document.getElementById("submit-btn");
 
 async function fetchWords() {
-  const url = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+  // 1. Lấy link từ biến toàn cục SHEET_URL đã có sẵn
   const chosenWords = JSON.parse(localStorage.getItem("wordBank")) || [];
-  const res = await fetch(url);
-  const text = await res.text();
-  const json = JSON.parse(text.substring(47).slice(0, -2));
-  const rows = json.table.rows;
 
-  const cleanWord = w => w.replace(/[^a-zA-Z]/g, "").toUpperCase();
-  const raw = rows.map(r => {
-    const d = r.c;
-    return {
-      word: cleanWord(d[2]?.v || ""),
-      meaning: d[24]?.v || ""
-    };
-  }).filter(item =>
-    chosenWords.some(c => cleanWord(c) === item.word)
-  );
+  try {
+    const res = await fetch(SHEET_URL);
+    // 2. Nhận mảng 2 chiều sạch từ Apps Script
+    const rows = await res.json(); 
 
-  const unique = [];
-  const seen = new Set();
-  raw.forEach(item => {
-    if (!seen.has(item.word)) {
-      unique.push(item);
-      seen.add(item.word);
-    }
-  });
+    const cleanWord = w => w.replace(/[^a-zA-Z]/g, "").toUpperCase();
 
-  const doubled = [...unique, ...unique];
-  const shuffled = doubled.sort(() => Math.random() - 0.5);
-  return shuffled;
+    // 3. Mapping dữ liệu - GIỮ NGUYÊN INDEX CỘT (2 và 24)
+    const raw = rows.map(row => {
+      return {
+        word: cleanWord((row[2] || "").toString()), // Cột C (Index 2)
+        meaning: (row[24] || "").toString().trim()   // Cột Y (Index 24)
+      };
+    }).filter(item =>
+      chosenWords.some(c => cleanWord(c) === item.word)
+    );
+
+    const unique = [];
+    const seen = new Set();
+    raw.forEach(item => {
+      if (!seen.has(item.word)) {
+        unique.push(item);
+        seen.add(item.word);
+      }
+    });
+
+    // Logic nhân đôi và xáo trộn (Giữ nguyên của bạn)
+    const doubled = [...unique, ...unique];
+    const shuffled = doubled.sort(() => Math.random() - 0.5);
+    return shuffled;
+
+  } catch (error) {
+    console.error("Lỗi khi fetch dữ liệu từ Apps Script:", error);
+    return [];
+  }
 }
 
 function getMissingIndexes(len) {
