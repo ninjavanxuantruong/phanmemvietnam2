@@ -8,8 +8,8 @@
 // - Detailed logs included for data extraction, selection, images, and scoring.
 
 // ===== Config =====
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-const PIXABAY_KEY = "51268254-554135d72f1d226beca834413";
+
+
 
 // ===== State =====
 let sentences = []; // [{ text, target, meaning, lesson, imageUrl }]
@@ -20,7 +20,7 @@ let recognition = null;
 let isListening = false;
 
 // ===== Image cache =====
-const imageCache = {}; // key: keyword (string), value: { url, keyword }
+
 
 // ===== Helpers =====
 function normText(s) {
@@ -93,50 +93,46 @@ function normalizeUnitId(unitStr) {
 }
 
 async function getMaxLessonCode() {
-  const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
   const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
 
-  const res = await fetch(SHEET_BAI_HOC);
-  const text = await res.text();
-  const json = JSON.parse(text.substring(47).slice(0, -2));
-  const rows = json.table.rows;
+  try {
+    const res = await fetch(SHEET_BAI_HOC); // Gọi biến từ googleSheetLinks.js
+    const rows = await res.json();
 
-  const baiList = rows
-    .map(r => {
-      const lop = r.c[0]?.v?.toString().trim();
-      const bai = r.c[2]?.v?.toString().trim();
-      return lop === trainerClass && bai ? parseInt(bai, 10) : null;
-    })
-    .filter(v => typeof v === "number");
+    const baiList = rows
+      .map(r => {
+        const lop = (r[0] || "").toString().trim(); // Cột A
+        const bai = (r[2] || "").toString().trim(); // Cột C
+        return lop === trainerClass && bai ? parseInt(bai, 10) : null;
+      })
+      .filter(v => typeof v === "number" && !isNaN(v));
 
-  if (baiList.length === 0) {
-    console.warn("⚠️ Không tìm thấy bài học nào cho lớp", trainerClass);
+    if (baiList.length === 0) {
+      console.warn("⚠️ Không tìm thấy bài học nào cho lớp", trainerClass);
+      return null;
+    }
+
+    const maxLessonCode = Math.max(...baiList);
+    return maxLessonCode;
+  } catch (err) {
+    console.error("❌ Lỗi lấy maxLessonCode:", err);
     return null;
   }
-
-  const maxLessonCode = Math.max(...baiList);
-  console.log(`📈 Bài lớn nhất (normalize) của lớp ${trainerClass}: ${maxLessonCode}`);
-  return maxLessonCode;
 }
 
 
-
 function extractPresentationData(rows, maxLessonCode) {
-  const allItems = rows.map((r, idx) => {
-    const lessonName = r.c?.[1]?.v?.toString().trim() || ""; // B
-    const vocabRaw   = r.c?.[2]?.v?.toString().trim() || ""; // C
-    const presentation = r.c?.[8]?.v?.toString().trim() || ""; // I
-    const meaning    = r.c?.[24]?.v?.toString().trim() || ""; // Y
+  const allItems = rows.map((r) => {
+    const lessonName = (r[1] || "").toString().trim();      // Cột B
+    const vocabRaw   = (r[2] || "").toString().trim();      // Cột C
+    const presentation = (r[8] || "").toString().trim();    // Cột I
+    const meaning    = (r[24] || "").toString().trim();     // Cột Y
     const targets    = splitTargets(vocabRaw);
     const unitNum    = normalizeUnitId(lessonName);
 
     return { lessonName, unitNum, vocabRaw, presentation, meaning, targets };
   }).filter(it => it.lessonName && it.presentation);
 
-  console.log("📥 Tổng số câu thuyết trình lấy được:", allItems.length);
-  console.log("🏁 Bài lớn nhất:", maxLessonCode);
-
-  // Group theo bài
   const unitMap = {};
   allItems.forEach(it => {
     if (it.unitNum >= 3011 && it.unitNum <= maxLessonCode) {
@@ -145,61 +141,33 @@ function extractPresentationData(rows, maxLessonCode) {
     }
   });
 
-  // Random 6 bài
   const unitNames = Object.keys(unitMap);
   const shuffled = unitNames.sort(() => Math.random() - 0.5);
-  const NUM_LESSONS = 8; // số bài muốn lấy
-  const pickedUnits = shuffled.slice(0, NUM_LESSONS);
-
+  const pickedUnits = shuffled.slice(0, 8); // Lấy 8 bài
 
   const selectedItems = [];
   pickedUnits.forEach(u => {
-    const rows = unitMap[u];
-    const chosen = rows[Math.floor(Math.random() * rows.length)];
+    const rowsInUnit = unitMap[u];
+    const chosen = rowsInUnit[Math.floor(Math.random() * rowsInUnit.length)];
     selectedItems.push(chosen);
-    console.log("🎯 Chọn từ bài:", u, "→", chosen.presentation, " / vocab:", chosen.vocabRaw);
   });
 
-  // Sort theo unitNum
-  selectedItems.sort((a, b) => a.unitNum - b.unitNum);
-
-  console.log("📦 Danh sách câu cuối cùng:", selectedItems.map(it => ({
-    lesson: it.lessonName,
-    vocab: it.vocabRaw,
-    text: it.presentation
-  })));
-
-  return selectedItems;
+  return selectedItems.sort((a, b) => a.unitNum - b.unitNum);
 }
 
 
 
 // ===== Images: Pixabay fetch + cache =====
-function fetchImageForKeyword(keyword) {
-  const kw = (keyword || "").trim().toLowerCase();
-  if (!kw) return Promise.resolve(null);
-
-  const searchTerm = `${kw} cartoon`;
-  const apiUrl = `https://pixabay.com/api/?key=${PIXABAY_KEY}&q=${encodeURIComponent(searchTerm)}&image_type=illustration&safesearch=true&per_page=5`;
-
-  console.log("🖼️ Fetching image for keyword:", kw, apiUrl);
-
-  return fetch(apiUrl)
-    .then(res => res.json())
-    .then(data => {
-      console.log("🖼️ Pixabay response:", data);
-      if (data.hits && data.hits.length > 0) {
-        const chosen = data.hits[Math.floor(Math.random() * data.hits.length)];
-        console.log("🖼️ Chosen image:", chosen.webformatURL, "for vocab:", kw);
-        return { url: chosen.webformatURL, keyword: kw };
-      }
-      console.warn("⚠️ No image found for keyword:", kw);
-      return null;
-    })
-    .catch(err => {
-      console.error("❌ Lỗi fetch ảnh Pixabay:", err);
-      return null;
-    });
+// Sửa lại hàm lấy ảnh để dùng ImageCacheManager
+async function fetchImageForKeyword(keyword) {
+  try {
+    // Gọi instance imageCache từ file imagecache2.js
+    const result = await imageCache.getImage(keyword);
+    return result; // Trả về { url, source, keyword, ... }
+  } catch (err) {
+    console.error("❌ Lỗi lấy ảnh từ ImageCacheManager:", err);
+    return null;
+  }
 }
 function showIntroParagraph() {
   const area = document.getElementById("sentenceArea");
@@ -243,20 +211,22 @@ function renderSentence(autoSpeak = false, target = "", meaning = "") {
   `;
 
   // Load image (cache -> fetch)
+  // Tìm đoạn này trong renderSentence và sửa lại:
   const sentenceObj = sentences[sentenceIndex];
   if (imageBox) {
-    imageBox.innerHTML = ""; // reset
-    const key = (sentenceObj.target || sentenceObj.text || "").trim().toLowerCase();
-    const cached = imageCache[key];
-    if (cached?.url) {
-      imageBox.innerHTML = `<img src="${cached.url}" alt="${sentenceObj.target}" style="max-width:60%;width:100%;height:auto;border-radius:8px;margin:6px 0;object-fit:cover;" />`;
-      console.log("🖼️ Use cached image:", cached.url, "for:", key);
-    } else if (sentenceObj.target) {
+    imageBox.innerHTML = ""; // Reset box
+
+    if (sentenceObj.target) {
+      // Gọi hàm fetch đã sửa ở trên
       fetchImageForKeyword(sentenceObj.target).then(img => {
-        if (img?.url) {
-          imageCache[key] = img;
+        if (img && img.url) {
           sentenceObj.imageUrl = img.url;
-          imageBox.innerHTML = `<img src="${img.url}" alt="${sentenceObj.target}" style="max-width:60%;width:100%;height:auto;border-radius:8px;margin:6px 0;object-fit:cover;" />`;
+          imageBox.innerHTML = `
+            <div style="position: relative;">
+              <img src="${img.url}" alt="${sentenceObj.target}" 
+                   style="max-width:60%; width:100%; height:auto; border-radius:8px; margin:6px 0; object-fit:cover; border: 2px solid #eee;" />
+              <div style="font-size: 10px; color: #999;">Source: ${img.source || 'Unknown'}</div>
+            </div>`;
         }
       });
     }
@@ -408,18 +378,16 @@ function showFinalResult(mode) {
     for (let word of targetWords) if (userWordsSet.has(word)) correct++;
     const percentPara = targetWords.length ? Math.round((correct / targetWords.length) * 100) : 0;
 
-    // Thang điểm đoạn văn
-    let paragraphScore = 0;
-    if (percentPara >= 80) paragraphScore = 10;
-    else if (percentPara >= 50 && percentPara <= 70) paragraphScore = 5;
+    // Trong hàm showFinalResult, trước khi tính paragraphScore
+    let paragraphBonus = 0; 
+    if (percentPara >= 80) paragraphBonus = 10;
+    else if (percentPara >= 50) paragraphBonus = 5;
 
-    totalScore += paragraphScore;
-
+    const grandScore = totalScore + paragraphBonus; // Dùng biến tạm, không cộng trực tiếp vào totalScore toàn cục
     const grandTotal = sentences.length + 10;
-    const percentTotal = Math.round((totalScore / grandTotal) * 100);
+    const percentTotal = Math.round((grandScore / grandTotal) * 100);
 
-    // ✅ Ghi đè lại điểm part 3 sau khi cộng thêm điểm đoạn văn
-    setResultSpeakingPart(3, totalScore, grandTotal);
+    setResultSpeakingPart(3, grandScore, grandTotal);
 
     const resEl = document.getElementById("paragraphResult");
     resEl.innerHTML =
@@ -468,63 +436,59 @@ function startSentence() {
 }
 
 // ===== Init =====
-getVoices().then(v => {
+getVoices().then(async (v) => {
   voice = v.find(v => v.lang === "en-US") || v[0];
 
-  const wordBank = JSON.parse(localStorage.getItem("wordBank"))?.map(w => w.toLowerCase().trim()) || [];
-  console.log("🧩 wordBank:", wordBank);
+  try {
+    // 1. Lấy mã bài học lớn nhất
+    const maxLessonCode = await getMaxLessonCode();
+    if (!maxLessonCode) {
+        document.getElementById("sentenceArea").innerHTML = "⚠️ Không xác định được bài học.";
+        return;
+    }
 
-  // 👉 fetch dữ liệu sheet ở đây
-  fetchGVizRows(SHEET_URL)
-    .then(rows => {
-      // 👉 lấy maxLessonCode trước
-      getMaxLessonCode().then(maxLessonCode => {
-        if (!maxLessonCode) return;
+    // 2. Fetch dữ liệu bài học (Exec trả về JSON mảng 2 chiều trực tiếp)
+    const res = await fetch(SHEET_URL); 
+    const rows = await res.json();
 
-        // 👉 lọc dữ liệu
-        const items = extractPresentationData(rows, maxLessonCode);
+    // 3. Lọc dữ liệu
+    const items = extractPresentationData(rows, maxLessonCode);
 
-        sentences = [];
-        for (const it of items) {
-          const { lessonName, presentation, meaning, targets } = it;
-          const targetWord = targets[0] || "";
-          sentences.push({
-            text: presentation,
-            target: targetWord,
-            meaning: meaning || "",
-            lesson: lessonName,
-            imageUrl: ""
-          });
-          console.log("➕ Sentence added:", { lesson: lessonName, target: targetWord, text: presentation });
-        }
+    sentences = items.map(it => ({
+      text: it.presentation,
+      target: it.targets[0] || "",
+      meaning: it.meaning || "",
+      lesson: it.lessonName,
+      imageUrl: ""
+    }));
 
-        sentenceIndex = 0;
-        if (sentences.length > 0) {
-          // Prefetch ảnh
-          const prefetchPromises = sentences.map(s => {
-            if (!s.target) return Promise.resolve();
-            const key = s.target.trim().toLowerCase();
-            if (imageCache[key]) return Promise.resolve();
-            return fetchImageForKeyword(s.target).then(img => {
-              if (img?.url) {
-                imageCache[key] = img;
-                s.imageUrl = img.url;
-              }
-            });
-          });
+    sentenceIndex = 0;
+    totalScore = 0;
 
-          Promise.all(prefetchPromises).then(() => {
-            showIntroParagraph();
-          });
-        } else {
-          document.getElementById("sentenceArea").innerHTML =
-            `<div style="font-size:20px;">📭 Không tìm thấy dữ liệu phù hợp.</div>`;
+    // Tìm đoạn xử lý prefetch trong khối khởi tạo và thay thế:
+    if (sentences.length > 0) {
+      // Lấy danh sách các từ khóa cần tải ảnh
+      const targetWords = sentences
+        .map(s => s.target)
+        .filter(Boolean);
+
+      console.log("🚀 Đang prefetch ảnh cho:", targetWords);
+
+      // Sử dụng tính năng prefetch của ImageCacheManager
+      // Nó sẽ tự động xử lý hàng đợi (concurrency = 3) để tránh quá tải API
+      await imageCache.prefetchImages(targetWords, {
+        onProgress: (current, total) => {
+          console.log(`🖼️ Đang tải ảnh: ${current}/${total}`);
         }
       });
-    })
-    .catch(err => {
-      console.error("❌ Init Speaking 3 error:", err);
-      const area = document.getElementById("sentenceArea");
-      if (area) area.innerHTML = `<div style="font-size:20px;">❌ Không thể khởi tạo Speaking 3. Kiểm tra dữ liệu.</div>`;
-    });
+
+      // Sau khi prefetch xong (hoặc đã vào cache), hiển thị intro
+      showIntroParagraph();
+    } else {
+      document.getElementById("sentenceArea").innerHTML = `<div style="font-size:20px;">📭 Không tìm thấy câu thuyết trình phù hợp bài học.</div>`;
+    }
+  } catch (err) {
+    console.error("❌ Lỗi khởi tạo Speaking 3:", err);
+    document.getElementById("sentenceArea").innerHTML = "❌ Lỗi kết nối dữ liệu Exec.";
+  }
 });
