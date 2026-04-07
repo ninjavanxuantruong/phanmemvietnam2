@@ -8,7 +8,7 @@ import { prefetchImagesBatch, getImageFromMap } from './imageCache.js';
 const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
 const uniqueWords = [...new Set(wordBank)];
 
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+
 
 // ⚠️ Bỏ hẳn việc dùng trực tiếp Pexels API, KHÔNG cần PEXELS_API_KEY nữa
 // const PEXELS_API_KEY = "...."; // ← xoá
@@ -38,29 +38,37 @@ function shuffle(arr) {
   return arr.sort(() => Math.random() - 0.5);
 }
 
+// ✅ Load dữ liệu từ Google Apps Script (Dạng Exec - Giữ nguyên logic Index)
 async function fetchWords() {
-  const res = await fetch(SHEET_URL);
-  const txt = await res.text();
-  const json = JSON.parse(txt.substring(47).slice(0, -2));
-  const rows = json.table.rows;
+  try {
+    // 1. Gọi trực tiếp SHEET_URL (Link exec đã có sẵn ở window)
+    const res = await fetch(SHEET_URL);
 
-  const all = rows.map(row => ({
-    word: row.c[2]?.v?.trim() || "",
-    meaning: row.c[24]?.v?.trim() || ""
-  }));
+    // 2. Nhận mảng 2 chiều từ Apps Script
+    const rows = await res.json(); 
 
-  // 🔧 Lọc từ trùng dựa trên 'word' duy nhất (giữ nguyên)
-  const filtered = [];
-  const seen = new Set();
-  for (let item of all) {
-    const w = item.word.toLowerCase();
-    if (!seen.has(w)) {
-      seen.add(w);
-      filtered.push(item);
+    // 3. Mapping dữ liệu - GIỮ NGUYÊN INDEX CỦA BẠN (Cột 2 và 24)
+    const all = rows.map(row => ({
+      word: (row[2] || "").toString().trim(),     // Cột C (Index 2)
+      meaning: (row[24] || "").toString().trim()   // Cột Y (Index 24)
+    }));
+
+    // 🔧 Logic lọc từ trùng và wordBank (Giữ nguyên 100%)
+    const filtered = [];
+    const seen = new Set();
+    for (let item of all) {
+      const w = item.word.toLowerCase();
+      if (!seen.has(w)) {
+        seen.add(w);
+        filtered.push(item);
+      }
     }
-  }
 
-  return shuffle(filtered.filter(item => uniqueWords.includes(item.word)));
+    return shuffle(filtered.filter(item => uniqueWords.includes(item.word)));
+  } catch (error) {
+    console.error("Lỗi khi fetch dữ liệu từ Apps Script:", error);
+    return [];
+  }
 }
 
 // ⛔ Xoá hẳn hàm getImage cũ (gọi trực tiếp Pexels)
