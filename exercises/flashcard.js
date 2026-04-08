@@ -1,6 +1,5 @@
 // ===== Config =====
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
+
 
 
 const COL = {
@@ -57,7 +56,7 @@ async function initFlashcard() {
   bindControls();
   status("Đang tải chủ đề...");
   try {
-    const rows = await fetchGVizRows(SHEET_URL);
+    const rows = await fetchExecRows(SHEET_URL);
     buildTopicDropdown(rows);
     status("Sẵn sàng.");
   } catch (e) {
@@ -67,10 +66,19 @@ async function initFlashcard() {
 }
 
 function buildTopicDropdown(rows) {
-  const topics = [...new Set(rows.map(r => safeStr(r.c?.[COL.topic]?.v)).filter(Boolean))];
+  // 1. Lấy danh sách topic từ cột COL.topic (cột G - chỉ số 6)
+  // r[COL.topic] thay vì r.c[COL.topic].v vì dữ liệu Exec là mảng đơn giản
+  const topics = [...new Set(rows.map(r => safeStr(r[COL.topic])).filter(Boolean))];
+
+  // 2. Sắp xếp bảng chữ cái
   topics.sort();
+
+  // 3. Render HTML vào thẻ select
+  // Thêm option mặc định "Tất cả"
   topicSelect.innerHTML = `<option value="ALL">-- Tất cả --</option>` +
     topics.map(t => `<option value="${escapeHTML(t)}">${escapeHTML(t)}</option>`).join("");
+
+  console.log("✅ Đã tải danh sách chủ đề:", topics.length);
 }
 
 
@@ -87,7 +95,7 @@ async function startFlashcard() {
     const speed = parseFloat(speedSelect.value);
 
     const maxLessonCode = await getMaxLessonCode();
-    const rows = await fetchGVizRows(SHEET_URL);
+    const rows = await fetchExecRows(SHEET_URL);
     wordsList = buildWords(rows, count, maxLessonCode);
 
     if (wordsList.length === 0) {
@@ -156,32 +164,29 @@ async function playFlashcardLoop(speed = 1.0, voice) {
 
 
 // ===== Data build =====
-function filterByTopic(rows, topic) {
-  const filtered = rows.filter(r => String(r.c?.[COL.topic]?.v || "").trim() === String(topic).trim());
-  return filtered;
-}
+
 
 function buildWords(rows, count, maxLessonCode) {
   const selectedTopic = topicSelect.value || "ALL";
 
   // Lọc theo topic nếu không chọn ALL
   if (selectedTopic !== "ALL") {
-    rows = rows.filter(r => safeStr(r.c?.[COL.topic]?.v) === selectedTopic);
+    rows = rows.filter(r => safeStr(r[COL.topic]) === selectedTopic);
   }
   // Map lessonName -> list items
   const unitMap = new Map();
 
   for (const r of rows) {
-    const lessonName = safeStr(r.c?.[COL.lessonName]?.v);
-    const unitNum = normalizeUnitId(lessonName);
-    const vocabRaw = safeStr(r.c?.[COL.vocab]?.v);    // C
-    const meaning = safeStr(r.c?.[COL.meaning]?.v);   // Y
+    const lessonName = safeStr(r[COL.lessonName]);
+    const unitNum = normalizeUnitId(lessonName); // Tính unitNum trước
+    const vocabRaw = safeStr(r[COL.vocab]);
+    const meaning = safeStr(r[COL.meaning]);
+    const topic = safeStr(r[COL.topic]);
 
-    // Vocab có thể nhiều từ phân tách, ta lấy từng token
-    const tokens = splitTargets(vocabRaw); // lower-case tokens
+    const tokens = splitTargets(vocabRaw);
     if (!lessonName || tokens.length === 0 || !meaning) continue;
 
-    // ✅ Chỉ giữ trong phạm vi bài đã học
+    // Bây giờ mới check maxLessonCode
     if (maxLessonCode && unitNum > maxLessonCode) continue;
 
     // Push vào unitMap
@@ -242,25 +247,22 @@ function buildWords(rows, count, maxLessonCode) {
 }
 
 // ===== GViz fetch =====
-async function fetchGVizRows(url) {
+async function fetchExecRows(url) {
   const res = await fetch(url, { cache: "no-store" });
-  const txt = await res.text();
-  const json = JSON.parse(txt.substring(47).slice(0, -2));
-  return json.table?.rows || [];
+  return await res.json(); // Nhận trực tiếp mảng dữ liệu từ Exec
 }
 
 async function getMaxLessonCode() {
   const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
   try {
     const res = await fetch(SHEET_BAI_HOC, { cache: "no-store" });
-    const text = await res.text();
-    const json = JSON.parse(text.substring(47).slice(0, -2));
-    const rows = json.table.rows;
+    // BỎ ĐOẠN NÀY: const text = await res.text(); const json = JSON.parse...
+    const rows = await res.json(); // THAY THÀNH DÒNG NÀY
 
     const baiList = rows
       .map(r => {
-        const lop = r.c[0]?.v?.toString().trim();
-        const bai = r.c[2]?.v?.toString().trim();
+        const lop = r[0]?.toString().trim(); 
+        const bai = r[2]?.toString().trim(); 
         return lop === trainerClass && bai ? parseInt(bai, 10) : null;
       })
       .filter(v => typeof v === "number");
