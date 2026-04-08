@@ -1,7 +1,7 @@
 import { showVictoryEffect } from './effect-win.js';
 import { showDefeatEffect } from './effect-loose.js';
 
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+// GHI CHÚ: SHEET_URL và SHEET_BAI_HOC đã được load từ googleSheetLinks.js qua HTML
 
 let listeningData = [];
 let currentIndex = 0;
@@ -9,6 +9,7 @@ let score = 0;
 let voiceMale = null;
 let voiceFemale = null;
 
+// ===== Helpers =====
 function normalize(text) {
   return text.toLowerCase().replace(/[^a-z0-9]/gi, "").trim();
 }
@@ -26,141 +27,184 @@ function getVoices() {
 }
 
 function speak(text, voice) {
+  if (!text) return;
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = "en-US";
   utter.voice = voice;
   speechSynthesis.speak(utter);
 }
 
-// ✅ Load dữ liệu từ Google Apps Script (Sử dụng SHEET_URL toàn cục)
+/**
+ * Lấy mã bài học lớn nhất để giới hạn phạm vi bài tập
+ */
+async function getMaxLessonCode() {
+  const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
+  try {
+    const res = await fetch(SHEET_BAI_HOC);
+    const rows = await res.json();
+    const baiList = rows
+      .map(r => {
+        const lop = (r[0] || "").toString().trim();
+        const bai = (r[2] || "").toString().trim();
+        return lop === trainerClass && bai ? parseInt(bai, 10) : null;
+      })
+      .filter(v => typeof v === "number" && !isNaN(v));
+
+    return baiList.length > 0 ? Math.max(...baiList) : null;
+  } catch (err) {
+    console.error("❌ Lỗi lấy maxLessonCode:", err);
+    return null;
+  }
+}
+
+// ✅ Load dữ liệu từ Apps Script Exec
 async function fetchListeningData() {
   try {
-    // 1. Gọi trực tiếp SHEET_URL (Link exec đã có sẵn ở window)
-    const res = await fetch(SHEET_URL);
+    const maxLessonCode = await getMaxLessonCode();
+    if (!maxLessonCode) return [];
 
-    // 2. Nhận mảng 2 chiều sạch từ Apps Script
-    const rows = await res.json(); 
+    const res = await fetch(SHEET_URL);
+    const rows = await res.json();
 
     const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
-    const uniqueWords = [...new Set(wordBank)];
+    const uniqueWords = [...new Set(wordBank.map(w => w.toLowerCase().trim()))];
 
-    // 3. Mapping dữ liệu - GIỮ NGUYÊN INDEX CỘT (9, 11, 2)
+    // Lọc và mapping dữ liệu
     const parsed = rows.map(row => {
-      const rawQuestion = (row[9] || "").toString().trim(); // Cột J (Index 9)
-      const rawAnswer = (row[11] || "").toString().trim();   // Cột L (Index 11)
-      const target = (row[2] || "").toString().trim();      // Cột C (Index 2)
+      const lessonName = (row[1] || "").toString().trim(); // Cột B (1)
+      const target = (row[2] || "").toString().trim();     // Cột C (2)
+      const rawQuestion = (row[9] || "").toString().trim(); // Cột J (9)
+      const rawAnswer = (row[11] || "").toString().trim();  // Cột L (11)
 
-      const question = cleanText(rawQuestion);
-      const answer = cleanText(rawAnswer);
+      // Hàm helper tính unitNum (cần giống file Speaking 3)
+      const unitNum = (function(unitStr) {
+        if (!unitStr) return 0;
+        const parts = unitStr.split("-");
+        if (parts.length < 3) return 0;
+        return parseInt(parts[0]) * 1000 + parseInt(parts[1]) * 10 + parseInt(parts[2]);
+      })(lessonName);
 
-      return { question, answer, target };
-    }).filter(item =>
-      item.question && item.answer &&
-      uniqueWords.includes(item.target)
+      return { 
+        question: cleanText(rawQuestion), 
+        answer: cleanText(rawAnswer), 
+        target, 
+        unitNum 
+      };
+    }).filter(item => 
+      item.question && 
+      item.answer && 
+      item.unitNum <= maxLessonCode && // Chỉ lấy bài đã học hoặc trước đó
+      uniqueWords.includes(item.target.toLowerCase().trim())
     );
 
-    return parsed;
+    // Shuffle (trộn) dữ liệu và lấy tối đa 10-15 câu để luyện tập
+    return parsed.sort(() => Math.random() - 0.5).slice(0, 15);
   } catch (error) {
-    console.error("Lỗi khi fetch dữ liệu Listening:", error);
+    console.error("❌ Lỗi khi fetch dữ liệu Listening:", error);
     return [];
   }
 }
 
 function updateScoreBoard() {
-  document.getElementById("scoreBoard").textContent = `🎯 Điểm: ${score}/${currentIndex}`;
+  const scoreBoard = document.getElementById("scoreBoard");
+  if (scoreBoard) {
+    scoreBoard.textContent = `🎯 Điểm: ${score}/${currentIndex}`;
+  }
 }
 
 function nextListening1() {
-  const item = listeningData[currentIndex];
-  const question = item.question;
-  const answer = item.answer;
-  const correct = item.target;
+  if (currentIndex >= listeningData.length) {
+    showSummary();
+    return;
+  }
 
-  const regex = new RegExp(`\\b${correct}\\b`, "gi");
+  const item = listeningData[currentIndex];
+  const { question, answer, target } = item;
+
+  // Tạo regex để ẩn từ cần điền (case-insensitive)
+  const regex = new RegExp(`\\b${target}\\b`, "gi");
   const displayQuestion = question.replace(regex, "___");
   const displayAnswer = answer.replace(regex, "___");
 
   document.getElementById("exerciseArea").innerHTML = `
     <div class="dialogue-text">
-      <div class="line" style="font-size:24px; margin-bottom:12px;">🗣 ${displayQuestion}</div>
-      <div class="line" style="font-size:24px;">🗣 ${displayAnswer}</div>
+      <div class="line" style="font-size:24px; margin-bottom:12px; color: #fff;">🗣 ${displayQuestion}</div>
+      <div class="line" style="font-size:24px; color: #ffd700;">🗣 ${displayAnswer}</div>
     </div>
   `;
 
-  document.getElementById("inputWord").value = "";
-  document.getElementById("resultBox").textContent = "";
+  const inputEl = document.getElementById("inputWord");
+  if (inputEl) inputEl.value = "";
 
-  speak(question, voiceMale);
-  setTimeout(() => speak(answer, voiceFemale), 1200);
+  const resultBox = document.getElementById("resultBox");
+  if (resultBox) resultBox.textContent = "";
 
-  document.getElementById("playBtn").onclick = () => {
-    speak(question, voiceMale);
-    setTimeout(() => speak(answer, voiceFemale), 1200);
-  };
+  // Phát âm hội thoại
+  playConversation(question, answer);
+
+  document.getElementById("playBtn").onclick = () => playConversation(question, answer);
 
   document.getElementById("submitBtn").onclick = () => {
-    const input = document.getElementById("inputWord").value;
-    const resultBox = document.getElementById("resultBox");
+    const userVal = inputEl.value;
 
-    if (normalize(input) === normalize(correct)) {
+    if (normalize(userVal) === normalize(target)) {
       score++;
       resultBox.textContent = "✅ Chính xác!";
+      resultBox.style.color = "#4CAF50";
     } else {
-      resultBox.textContent = `❌ Sai rồi. Đáp án là: ${correct}`;
+      resultBox.textContent = `❌ Sai rồi. Đáp án là: ${target}`;
+      resultBox.style.color = "#FF5252";
     }
 
-    speak(correct, voiceFemale);
+    // Phát âm lại từ đúng để ghi nhớ
+    speak(target, voiceFemale);
+
     currentIndex++;
     updateScoreBoard();
 
-    setTimeout(() => {
-      if (currentIndex >= listeningData.length) {
-        showSummary();
-      } else {
-        nextListening1();
-      }
-    }, 1800);
+    // Chuyển câu sau 2 giây
+    setTimeout(nextListening1, 2000);
   };
+}
+
+function playConversation(q, a) {
+  speak(q, voiceMale);
+  setTimeout(() => speak(a, voiceFemale), 1500);
 }
 
 function showSummary() {
   const total = listeningData.length;
-  const percent = score / total;
+  const percent = total > 0 ? score / total : 0;
   const passed = percent >= 0.7;
   const area = document.getElementById("exerciseArea");
 
-  // ✅ Ghi điểm vào localStorage theo dạng 1
   setResultListeningPart(1, score, total);
 
   let html = `
-    <div class="dialogue-text">
-      🏁 Bạn đã luyện xong ${total} câu
-      <br>✅ Trả lời đúng ${score} câu!
+    <div class="dialogue-text" style="text-align: center;">
+      <h2 style="color: #ffd700;">🏁 Hoàn thành!</h2>
+      <div style="font-size: 20px; margin: 15px 0;">
+        ✅ Đúng: <b>${score}/${total}</b> câu (${Math.round(percent * 100)}%)
+      </div>
   `;
 
-  console.log("📊 Tổng câu:", total);
-  console.log("📊 Số câu đúng:", score);
-  console.log("📊 Tỷ lệ đúng:", (percent * 100).toFixed(2) + "%");
-
   if (passed) {
-    html += `<br>🎉 Chuẩn Legendary! Bạn đã bắt được Pokémon!`;
+    html += `<div style="color: #4CAF50;">🎉 Chuẩn Legendary! Bạn đã bắt được Pokémon!</div>`;
     area.innerHTML = html + `</div>`;
     showVictoryEffect(area);
   } else {
-    html += `<br>🚫 Bạn chưa bắt được Pokémon nào! Hãy luyện thêm để đạt tối thiểu 70%.`;
+    html += `<div style="color: #FF5252;">🚫 Thất bại! Cần đạt tối thiểu 70% để bắt Pokémon.</div>`;
     area.innerHTML = html + `</div>`;
     showDefeatEffect(area);
   }
 
-  document.getElementById("resultBox").textContent = "";
+  if (document.getElementById("resultBox")) document.getElementById("resultBox").textContent = "";
 }
-
 
 function setResultListeningPart(mode, score, total) {
   const raw = localStorage.getItem("result_listening");
   const prev = raw ? JSON.parse(raw) : {};
 
-  // Cập nhật điểm cho từng phần
   const updated = {
     score1: mode === 1 ? score : (prev.score1 || 0),
     score2: mode === 2 ? score : (prev.score2 || 0),
@@ -170,48 +214,34 @@ function setResultListeningPart(mode, score, total) {
     total3: mode === 3 ? total : (prev.total3 || 0)
   };
 
-  // Tính tổng điểm và tổng số câu
-  const totalScore = updated.score1 + updated.score2 + updated.score3;
-  const totalMax   = updated.total1 + updated.total2 + updated.total3;
-
-  // Lưu vào localStorage
   localStorage.setItem("result_listening", JSON.stringify({
     ...updated,
-    score: totalScore,
-    total: totalMax
+    score: updated.score1 + updated.score2 + updated.score3,
+    total: updated.total1 + updated.total2 + updated.total3
   }));
 }
 
-function startListeningMode1() {
-  currentIndex = 0;
-  score = 0;
-  updateScoreBoard();
-  nextListening1();
-}
+// ===== Khởi chạy =====
+getVoices().then(async (voices) => {
+  // Ưu tiên chọn giọng tự nhiên hơn nếu có
+  voiceMale = voices.find(v => v.name.includes("Google US English Male")) || 
+              voices.find(v => v.name.includes("David")) || voices[0];
 
-getVoices().then(voices => {
-  // Tìm giọng nam
-  voiceMale =
-    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("david")) ||
-    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("alex")) ||
-    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("male")) ||
-    voices.find(v => v.lang === "en-US"); // fallback cuối cùng
+  voiceFemale = voices.find(v => v.name.includes("Google US English Female")) || 
+                voices.find(v => v.name.includes("Zira")) || voices[1] || voices[0];
 
-  // Tìm giọng nữ
-  voiceFemale =
-    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("zira")) ||
-    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("samantha")) ||
-    voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("female")) ||
-    voices.find(v => v.lang === "en-US"); // fallback cuối cùng
+  const res = await fetchListeningData();
+  listeningData = res;
 
-  // Sau khi chọn giọng, load dữ liệu
-  fetchListeningData().then(res => {
-    listeningData = res;
-    if (listeningData.length) {
-      startListeningMode1();
-    } else {
-      document.getElementById("exerciseArea").innerHTML = "📭 Không tìm thấy dữ liệu từ vựng đã học.";
-    }
-  });
+  if (listeningData.length > 0) {
+    currentIndex = 0;
+    score = 0;
+    updateScoreBoard();
+    nextListening1();
+  } else {
+    document.getElementById("exerciseArea").innerHTML = `
+      <div style="padding: 20px; color: #ffd700;">
+        📭 Không tìm thấy dữ liệu nghe phù hợp bài học hiện tại.
+      </div>`;
+  }
 });
-
