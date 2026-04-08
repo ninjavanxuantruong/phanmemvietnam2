@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const topicUnits = JSON.parse(localStorage.getItem("topicUnits") || "[]"); // thêm
 
 
-  const sheetUrl = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+  
   const chatContainer = document.getElementById("chatContainer");
 
   let questionPool = [];
@@ -22,33 +22,23 @@ document.addEventListener("DOMContentLoaded", function () {
   let currentBotResponse = [];
 
   // ✅ Cache ảnh theo câu hỏi để giảm độ trễ
-  const imageCache = {}; // key: question (string), value: { url, keyword }
+  // ✅ Dùng biến này để lưu ảnh đã fetch cho từng câu hỏi
+  const chatImageMap = {};
 
   // ✅ Hàm gọi ảnh từ Openverse theo keyword
-  function fetchImageForKeyword(keyword) {
-    const apiKey = "51268254-554135d72f1d226beca834413"; // 🔑 dán key của Anh vào đây
-    // ✅ kết hợp illustration + safesearch + cartoon để ra ảnh dễ hiểu, sát nghĩa, an toàn
-    const searchTerm = `${keyword} cartoon`; // thêm cartoon để gợi ý phong cách
-    const apiUrl = `https://pixabay.com/api/?key=${apiKey}&q=${encodeURIComponent(searchTerm)}&image_type=illustration&safesearch=true&per_page=5`;
-
-    console.log("👉 Fetching image for keyword:", keyword, apiUrl);
-
-    return fetch(apiUrl)
-      .then(res => res.json())
-      .then(data => {
-        console.log("👉 Pixabay response:", data);
-        if (data.hits && data.hits.length > 0) {
-          const chosen = data.hits[Math.floor(Math.random() * data.hits.length)];
-          console.log("👉 Chosen image:", chosen.webformatURL, "for vocab:", keyword);
-          return { url: chosen.webformatURL, keyword };
-        }
-        console.warn("⚠️ No image found for keyword:", keyword);
-        return null;
-      })
-      .catch(err => {
-        console.error("❌ Lỗi fetch ảnh Pixabay:", err);
-        return null;
-      });
+  // ✅ Hàm lấy ảnh từ hệ thống imagecache2 (Unsplash, DiceBear, RoboHash...)
+  async function fetchImageForKeyword(keyword) {
+    try {
+      console.log("👉 Đang gọi imagecache2 cho từ khóa:", keyword);
+      const result = await imageCache.getImage(keyword);
+      if (result && result.url) {
+        return { url: result.url, keyword: keyword };
+      }
+      return null;
+    } catch (err) {
+      console.error("❌ Lỗi khi lấy ảnh từ imagecache2:", err);
+      return null;
+    }
   }
 
 
@@ -150,19 +140,18 @@ document.addEventListener("DOMContentLoaded", function () {
     currentBotResponse = [next.question]; // ✅ thêm dòng này
 
     // ✅ Hiển thị ảnh từ cache nếu có, nếu chưa có thì thử lấy theo vocabList
-    const cached = imageCache[next.question];
+    // ✅ Đổi imageCache -> chatImageMap
+    const cached = chatImageMap[next.question];
     if (cached && cached.url) {
-      addImage(cached.url, cached.keyword);
-
+        addImage(cached.url, cached.keyword);
     } else if (next.vocabList && next.vocabList.length > 0) {
-      const keyword = next.vocabList[Math.floor(Math.random() * next.vocabList.length)];
-      fetchImageForKeyword(keyword).then(img => {
-        if (img && img.url) {
-          imageCache[next.question] = img;
-          addImage(img.url, img.keyword);
-
-        }
-      });
+        const keyword = next.vocabList[Math.floor(Math.random() * next.vocabList.length)];
+        fetchImageForKeyword(keyword).then(img => {
+            if (img && img.url) {
+                chatImageMap[next.question] = img; // ✅ Đổi ở đây
+                addImage(img.url, img.keyword);
+            }
+        });
     }
   }
 
@@ -178,59 +167,52 @@ document.addEventListener("DOMContentLoaded", function () {
     return word.replace(/[.,!?]/g, "").toLowerCase();
   }
 
-      fetch(sheetUrl)
-      .then(response => response.text())
-      .then(text => {
-        const jsonString = text.substring(47).slice(0, -2);
-        const data = JSON.parse(jsonString);
-        const rows = data.table.rows;
+  // Thay đổi fetch để dùng biến SHEET_URL (toàn cục) và xử lý JSON từ Exec
+  fetch(SHEET_URL)
+    .then(response => response.json())
+    .then(rows => {
+      let rawQuestions = [];
 
-        let rawQuestions = [];
+      rows.forEach(row => {
+        // ✅ Thay row.c[index].v thành row[index]
+        // Chỉ sửa phần truy cập dữ liệu, giữ nguyên logic gốc của bạn
+        if (row && row[1] && row[9] && row[10]) {
+          const fullUnit = row[1].toString().trim();
+          const unitCode = extractUnitCode(fullUnit);
+          const question = row[9].toString().trim();
+          const answer = row[10].toString().trim();
+          const suggestion = row[11] ? row[11].toString().trim() : "";
 
-        rows.forEach(row => {
-          if (row.c && row.c[1]?.v && row.c[9]?.v && row.c[10]?.v) {
-            const fullUnit = row.c[1].v.trim();
-            const unitCode = extractUnitCode(fullUnit);
-            const question = row.c[9].v.trim();
-            const answer = row.c[10].v.trim();
-            const suggestion = row.c[11]?.v?.trim() || "";
+          const vocabRaw = row[47] ? row[47].toString().trim() : "";
+          const vocabList = vocabRaw
+            ? vocabRaw.split(",").map(s => s.trim()).filter(Boolean)
+            : [];
 
-            // ✅ Lấy từ vựng ở cột AV (index 47)
-            const vocabRaw = row.c[47]?.v?.trim() || "";
-            const vocabList = vocabRaw
-              ? vocabRaw.split(",").map(s => s.trim()).filter(Boolean)
-              : [];
-
-            // 👉 Phân nhánh theo selectionMode
-            if (selectionMode === "topic") {
-              // lọc theo danh sách unit thuộc chủ đề
-              if (topicUnits.includes(fullUnit)) {
-                rawQuestions.push({ unit: fullUnit, question, answer, suggestion, vocabList });
-              }
-            } else {
-              // lọc theo dải bài liên tục (auto)
-              const startCode = extractUnitCode(startUnit);
-              const endCode = extractUnitCode(endUnit);
-              if (unitCode >= startCode && unitCode <= endCode) {
-                rawQuestions.push({ unit: fullUnit, question, answer, suggestion, vocabList });
-              }
+          if (selectionMode === "topic") {
+            if (topicUnits.includes(fullUnit)) {
+              rawQuestions.push({ unit: fullUnit, question, answer, suggestion, vocabList });
             }
-
-            // ✅ Map userQuestion → botAnswer để dùng cho chat
-            const userQuestion = row.c[8]?.v?.trim();
-            const botAnswer = row.c[11]?.v?.trim();
-            if (userQuestion && botAnswer) {
-              const key = normalize(userQuestion);
-              if (!questionAnswerMap[key]) {
-                questionAnswerMap[key] = [];
-              }
-              questionAnswerMap[key].push(botAnswer);
+          } else {
+            const startCode = extractUnitCode(startUnit);
+            const endCode = extractUnitCode(endUnit);
+            if (unitCode >= startCode && unitCode <= endCode) {
+              rawQuestions.push({ unit: fullUnit, question, answer, suggestion, vocabList });
             }
           }
-        });
 
-      
-      // Gom câu hỏi theo từng unit
+          const userQuestion = row[8] ? row[8].toString().trim() : null;
+          const botAnswer = row[11] ? row[11].toString().trim() : null;
+          if (userQuestion && botAnswer) {
+            const key = normalize(userQuestion);
+            if (!questionAnswerMap[key]) {
+              questionAnswerMap[key] = [];
+            }
+            questionAnswerMap[key].push(botAnswer);
+          }
+        }
+      });
+
+      // --- GIỮ NGUYÊN TOÀN BỘ LOGIC CŨ PHÍA DƯỚI ---
       const unitMap = new Map();
       rawQuestions.forEach(item => {
         const unit = item.unit;
@@ -240,25 +222,27 @@ document.addEventListener("DOMContentLoaded", function () {
         unitMap.get(unit).push(item);
       });
 
-      // Chọn 1 câu random từ mỗi unit
       questionPool = [];
       for (const [unit, questions] of unitMap.entries()) {
         const randomIndex = Math.floor(Math.random() * questions.length);
         questionPool.push(questions[randomIndex]);
       }
 
-      // ✅ Prefetch ảnh và cache theo câu hỏi để giảm độ trễ hiển thị
+      // ✅ Prefetch ảnh bằng hệ thống imagecache2
       const prefetchPromises = questionPool.map(item => {
-        if (item.vocabList && item.vocabList.length > 0) {
-          const keyword = item.vocabList[Math.floor(Math.random() * item.vocabList.length)];
-          return fetchImageForKeyword(keyword).then(img => {
-            if (img && img.url) {
-              imageCache[item.question] = img;
-              item.imageUrl = img.url; // phòng trường hợp cần dùng trực tiếp
-            }
-          });
-        }
-        return Promise.resolve();
+          if (item.vocabList && item.vocabList.length > 0) {
+              const keyword = item.vocabList[Math.floor(Math.random() * item.vocabList.length)];
+
+              // Gọi imageCache (của file imagecache2.js)
+              return imageCache.getImage(keyword).then(img => {
+                  if (img && img.url) {
+                      // Lưu vào chatImageMap để sử dụng hiển thị trong chat
+                      chatImageMap[item.question] = img; // ✅ Đổi ở đây
+                      item.imageUrl = img.url;
+                  }
+              });
+          }
+          return Promise.resolve();
       });
 
       Promise.all(prefetchPromises).then(() => {
