@@ -2,9 +2,7 @@
 import { startTalking, stopTalking } from "./pikachuTalk.js";
 
 // ===== Config =====
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
-//const IMAGE_API_KEY = "51268254-554135d72f1d226beca834413"; // Pixabay key
+
 
 const COL = {
   lessonName: 1,   // B
@@ -75,23 +73,19 @@ async function runVocaLetter() {
 // ===== Data fetchers =====
 async function fetchGVizRows(url) {
   const res = await fetch(url, { cache: "no-store" });
-  const txt = await res.text();
-  const json = JSON.parse(txt.substring(47).slice(0, -2));
-  return json.table?.rows || [];
+  return await res.json(); // Nhận trực tiếp mảng dữ liệu từ Exec
 }
 
 async function getMaxLessonCode() {
   const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
   try {
     const res = await fetch(SHEET_BAI_HOC, { cache: "no-store" });
-    const text = await res.text();
-    const json = JSON.parse(text.substring(47).slice(0, -2));
-    const rows = json.table.rows;
+    const rows = await res.json(); // Nhận mảng trực tiếp
 
     const baiList = rows
       .map(r => {
-        const lop = r.c[0]?.v?.toString().trim();
-        const bai = r.c[2]?.v?.toString().trim();
+        const lop = r[0]?.toString().trim(); // Cột A
+        const bai = r[2]?.toString().trim(); // Cột C
         return lop === trainerClass && bai ? parseInt(bai, 10) : null;
       })
       .filter(v => typeof v === "number");
@@ -110,40 +104,31 @@ function buildWords(rows, maxLessonCode) {
   const wordMap = new Map();
 
   for (const r of rows) {
-    const lessonName = safeStr(r.c?.[COL.lessonName]?.v);
+    // Thay đổi ở đây: r[COL.index] thay vì r.c[COL.index].v
+    const lessonName = safeStr(r[COL.lessonName]);
     const unitNum = normalizeUnitId(lessonName);
-    const vocabRaw = safeStr(r.c?.[COL.vocab]?.v);
-    const meaning = safeStr(r.c?.[COL.meaning]?.v);
+    const vocabRaw = safeStr(r[COL.vocab]);
+    const meaning = safeStr(r[COL.meaning]);
 
     if (!lessonName || !vocabRaw || !meaning) continue;
     if (maxLessonCode && unitNum > maxLessonCode) continue;
 
-    // Tách cụm thành tokens theo khoảng trắng
+    // ... phần logic tách tokens bên dưới giữ nguyên ...
     const tokens = vocabRaw.split(/\s+/).filter(Boolean);
-
     for (const token of tokens) {
-      const word = token.toLowerCase().trim();
-      if (!word) continue;
-
-      if (!wordMap.has(word)) {
-        wordMap.set(word, {
-          word,
-          meanings: new Set(),
-          phrases: new Set(),
-          lessons: new Set(),
-          unitNum
-        });
-      }
-
-      const entry = wordMap.get(word);
-      entry.meanings.add(meaning);
-      entry.phrases.add(vocabRaw);
-      entry.lessons.add(lessonName);
-      entry.unitNum = Math.min(entry.unitNum, unitNum); // giữ unit nhỏ nhất để sort
+        const word = token.toLowerCase().trim();
+        if (!word) continue;
+        if (!wordMap.has(word)) {
+          wordMap.set(word, { word, meanings: new Set(), phrases: new Set(), lessons: new Set(), unitNum });
+        }
+        const entry = wordMap.get(word);
+        entry.meanings.add(meaning);
+        entry.phrases.add(vocabRaw);
+        entry.lessons.add(lessonName);
+        entry.unitNum = Math.min(entry.unitNum, unitNum);
     }
   }
-
-  // Chuyển Set thành mảng để render
+  // ... phần return giữ nguyên ...
   return [...wordMap.values()]
     .map(it => ({
       word: it.word,
