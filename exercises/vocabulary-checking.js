@@ -40,17 +40,15 @@ let currentMode = "all"; // "all" hoặc "redo"
 
 // Helpers: fetch sheets
 async function fetchMaxLessonCode() {
-  const SHEET_BAI_HOC = "https://docs.google.com/spreadsheets/d/1xdGIaXekYFQqm1K6ZZyX5pcrmrmjFdSgTJeW27yZJmQ/gviz/tq?tqx=out:json";
-  const res = await fetch(SHEET_BAI_HOC);
-  const text = await res.text();
-  const json = JSON.parse(text.substring(47).slice(0, -2));
-  const rows = json.table.rows;
+  // Dùng thẳng biến SHEET_BAI_HOC từ link.js
+  const res = await fetch(SHEET_BAI_HOC, { cache: "no-store" });
+  const rows = await res.json(); // Nhận mảng trực tiếp từ Exec
 
   const trainerClass = (localStorage.getItem("trainerClass") || "").trim();
   const baiList = rows
     .map(r => {
-      const lop = r.c[0]?.v?.toString().trim();
-      const bai = r.c[2]?.v?.toString().trim();
+      const lop = r[0]?.toString().trim(); // Cột A (index 0)
+      const bai = r[2]?.toString().trim(); // Cột C (index 2)
       return lop === trainerClass && bai ? parseInt(bai, 10) : null;
     })
     .filter(v => typeof v === "number");
@@ -60,19 +58,18 @@ async function fetchMaxLessonCode() {
 }
 
 async function fetchVocabItems(maxLessonCode) {
-  const SHEET_TU_VUNG = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
-  const res = await fetch(SHEET_TU_VUNG);
-  const text = await res.text();
-  const json = JSON.parse(text.substring(47).slice(0, -2));
-  const rows = json.table.rows.slice(1);
+  // Dùng SHEET_URL hoặc SHEET_TU_VUNG từ link.js tùy ông đặt tên
+  const res = await fetch(SHEET_URL, { cache: "no-store" });
+  const rows = await res.json(); 
 
   const baiTuVung = {};
   rows.forEach(r => {
-    const rawCode = r.c[1]?.v?.toString().trim();
-    const word = r.c[2]?.v?.toString().trim();
-    const meaning = r.c[24]?.v?.toString().trim();
-    const subTopic = r.c[5]?.v?.toString().trim(); // cột F
-    const mainTopic = r.c[6]?.v?.toString().trim(); // cột G
+    const rawCode    = r[1]?.toString().trim();  // Cột B
+    const word       = r[2]?.toString().trim();  // Cột C
+    const subTopic   = r[5]?.toString().trim();  // Cột F
+    const mainTopic  = r[6]?.toString().trim();  // Cột G
+    const meaning    = r[24]?.toString().trim(); // Cột Y
+
     const normalizedCode = parseInt(rawCode?.replace(/\D/g, ""), 10);
 
     if (!normalizedCode || normalizedCode > maxLessonCode || !word || !meaning) return;
@@ -80,21 +77,11 @@ async function fetchVocabItems(maxLessonCode) {
     baiTuVung[normalizedCode].push({ word, meaning, subTopic, mainTopic });
   });
 
-  const allCodes = Object.keys(baiTuVung).map(c => parseInt(c, 10));
-  const items = [];
-
-  allCodes.forEach(code => {
-    const words = baiTuVung[code];
-    if (!words || words.length === 0) return;
-    words.forEach(w => items.push(w));
-  });
-
-  // random thứ tự
+  const items = Object.values(baiTuVung).flat();
   const shuffledItems = items.sort(() => Math.random() - 0.5);
 
   return { items: shuffledItems, allRows: rows };
 }
-
 
 
 // Load player data
@@ -155,8 +142,9 @@ function renderQuestion(item, index, allRows) {
   utter.rate = 0.9;
   speechSynthesis.speak(utter);
 
+  // Trong hàm renderQuestion
   const allMeanings = allRows
-    .map(r => r.c[24]?.v?.toString().trim())
+    .map(r => r[24]?.toString().trim()) // Cột Y (index 24)
     .filter(m => m && m !== item.meaning);
   const wrongOptions = allMeanings.sort(() => Math.random() * 2 - 1).slice(0, 3);
   const options = [...wrongOptions, item.meaning].sort(() => Math.random() * 2 - 1);
