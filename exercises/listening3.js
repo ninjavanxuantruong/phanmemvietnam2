@@ -64,28 +64,33 @@ function updateScoreBoardL3() {
 
 
 async function getMaxLessonCode() {
+  const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
+  console.log("🏫 Đang kiểm tra mã bài cho lớp:", trainerClass);
+
   try {
-    // 1. Gọi link SHEET_BAI_HOC (đã khai báo trong googleSheetLinks.js)
     const res = await fetch(SHEET_BAI_HOC);
     const rows = await res.json(); 
 
-    // 2. Lấy toàn bộ mã bài học (Cột C - Index 2) từ Sheet
-    // Không lọc theo trainerClass nữa mà lấy Max của tất cả các dòng có mã bài
     const baiList = rows
       .map((r) => {
-        const bai = (r[2] || "").toString().trim(); // Cột C
-        return bai ? parseInt(bai, 10) : null;
+        const lop = (r[0] || "").toString().trim(); // Cột A: Tên lớp
+        const bai = (r[2] || "").toString().trim(); // Cột C: Mã bài học
+        // CHỈ LẤY mã bài nếu dòng đó đúng là lớp của mình
+        return lop === trainerClass && bai ? parseInt(bai, 10) : null;
       })
       .filter((v) => typeof v === "number" && !isNaN(v));
 
-    if (baiList.length === 0) return 0;
+    if (baiList.length === 0) {
+      console.warn("⚠️ Không thấy bài học cho lớp này, dùng mã mặc định 3011");
+      return 3011; 
+    }
 
     const maxCode = Math.max(...baiList);
-    console.log("🚀 Mã bài học lớn nhất tìm thấy từ Sheet:", maxCode);
+    console.log("🚀 Mã bài học lớn nhất của lớp bạn là:", maxCode);
     return maxCode;
   } catch (err) {
-    console.error("❌ Lỗi khi quét mã bài học từ SHEET_BAI_HOC:", err);
-    return 0;
+    console.error("❌ Lỗi quét SHEET_BAI_HOC:", err);
+    return 3011;
   }
 }
 
