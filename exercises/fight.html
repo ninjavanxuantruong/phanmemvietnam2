@@ -351,11 +351,19 @@
         <div class="flex">
           <label>Chọn trình độ:
             <select id="levelSelect">
-              <option value="2">Lớp 2</option>
-              <option value="3">Lớp 3</option>
-              <option value="4">Lớp 4</option>
-              <option value="5">Lớp 5</option>
-              <option value="6">Lớp 6</option>
+              <option value="ALL">Chế độ: Tất cả (Ghép nhanh)</option>
+              <optgroup label="Theo trình độ"> 
+                <option value="2">Lớp 2</option>
+                <option value="3">Lớp 3</option>
+                <option value="4">Lớp 4</option>
+                <option value="5">Lớp 5</option>
+                <option value="6">Lớp 6</option>
+              </optgroup>
+              <optgroup label="Đấu với Máy">
+                <option value="Easy">Máy: Dễ</option>
+                <option value="Normal">Máy: Trung bình</option>
+                <option value="Hard">Máy: Khó</option>
+              </optgroup>
             </select>
           </label>
           <button id="joinBtn" class="btn-join">Tham gia</button>
@@ -424,9 +432,17 @@
 
       <div id="speechResult" class="row"></div>
     </section>
+    <div id="resultModal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); align-items: center; justify-content: center;">
+        <div style="background: white; padding: 30px; border-radius: 20px; text-align: center; min-width: 300px; box-shadow: 0 0 20px rgba(255,255,255,0.2); border: 4px solid #f59e0b;">
+            <h2 id="modalTitle" style="margin-top: 0; color: #d97706; font-size: 24px;"></h2>
+            <p id="modalBody" style="font-size: 18px; margin: 20px 0;"></p>
+            <button onclick="closeResultModal()" style="background: #16a34a; color: white; border: none; padding: 10px 25px; border-radius: 10px; cursor: pointer; font-weight: bold;">ĐÓNG & THOÁT</button>
+        </div>
+    </div>
   </main>
 
   <!-- Your game logic -->
+  <script src="link.js"></script>
   <script type="module" src="fight.js"></script>
 </body>
 </html>
