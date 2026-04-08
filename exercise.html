@@ -220,6 +220,10 @@
         <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/888.png" alt="Dragonite">
         sơ đồ tư duy
       </button>
+      <button onclick="startExercise('physical.html')">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/999.png" alt="Dragonite">
+        thể dục
+      </button>
       
 
 
@@ -255,6 +259,48 @@
 
   <script>
     const words = JSON.parse(localStorage.getItem("wordBank")) || [];
+    // --- CẤU HÌNH NGẦM ---
+    (async function autoSyncMaxLesson() {
+      const SHEET_MAX_LESSON_API = "https://script.google.com/macros/s/AKfycbwGc5T0Ei1CA3-LnxSv9JxqqnkL5WeyZFTbgEu0vZTq25E8gypYbP-FRJApNa5oJr12tQ/exec";
+
+      // 1. Lấy tên lớp đang có sẵn trong máy (ví dụ: "3")
+      const trainerClass = localStorage.getItem("trainerClass")?.trim();
+
+      if (!trainerClass) {
+        console.warn("⚠️ Không tìm thấy tên lớp (trainerClass) trong máy.");
+        return;
+      }
+
+      try {
+        // 2. Gọi lệnh lấy dữ liệu từ Google Apps Script
+        const response = await fetch(SHEET_MAX_LESSON_API);
+        const data = await response.json();
+
+        // 3. Xử lý dữ liệu (Hỗ trợ cả định dạng Bảng và Mảng JSON)
+        let rows = data.table ? data.table.rows : (Array.isArray(data) ? data : []);
+
+        const baiList = rows.map(r => {
+          let lop, bai;
+          if (r.c) { // Cấu hình cho Google Sheet JSON thô (Cột A và C)
+            lop = r.c[0]?.v?.toString().trim();
+            bai = r.c[2]?.v?.toString().trim();
+          } else { // Cấu hình cho mảng JSON trực tiếp
+            lop = (r.Lop || r[0])?.toString().trim();
+            bai = (r.MaBai || r[2])?.toString().trim();
+          }
+          return (lop === trainerClass && bai) ? parseInt(bai, 10) : null;
+        }).filter(v => v !== null && !isNaN(v));
+
+        // 4. Tìm số lớn nhất và GHI VÀO LOCAL
+        if (baiList.length > 0) {
+          const maxCode = Math.max(...baiList);
+          localStorage.setItem("maxLessonCode", maxCode);
+          console.log(`✅ Đã bí mật cập nhật maxLessonCode: ${maxCode}`);
+        }
+      } catch (err) {
+        console.error("❌ Lỗi lấy Max Lesson:", err);
+      }
+    })();
     document.getElementById("wordList").textContent = words.join(", ");
 
     function startExercise(page) {
@@ -278,7 +324,7 @@
     }
 
     async function loadPrecheck(partName, page, key) {
-      const SHEET_URL = "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
+      const SHEET_URL = "https://docs.google.com/spreadsheets/d/1PbWWqgKDBDorh525uecKaGZD21FGSoCeR-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
       const wordBank = JSON.parse(localStorage.getItem("wordBank")) || [];
       const checkedWords = JSON.parse(localStorage.getItem("checkedWords") || "[]");
 
