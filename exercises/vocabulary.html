@@ -42,6 +42,12 @@
       justify-content: center;
       align-items: flex-start;
       gap: 20px;
+
+      /* --- CHÈN THÊM ĐOẠN NÀY ĐỂ CHẶN BÔI ĐEN --- */
+      -webkit-user-select: none; /* Cho iPhone/Safari */
+      -moz-user-select: none;    /* Cho Firefox */
+      -ms-user-select: none;     /* Cho Internet Explorer/Edge cũ */
+      user-select: none;         /* Cho Chrome, Edge, Opera */
     }
 
     /* ✅ Khung ảnh giữ tỷ lệ cố định 16:9, giữ nguyên 4 góc PokéBall */
@@ -95,11 +101,11 @@
     #vocabWord {
       font-size: 28px;
       margin-bottom: 12px;
-      min-height: 44px;               /* chiều cao cố định ~2 dòng */
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      min-height: 44px;
+      display: flex;       /* Đổi sang flex để các từ dàn hàng đẹp hơn */
+      flex-wrap: wrap;     /* Tự xuống dòng nếu cụm từ quá dài */
+      justify-content: flex-start; 
+      /* -webkit-line-clamp: 2;  <-- Có thể bỏ dòng này nếu muốn hiện đầy đủ cụm từ dài */
     }
     #vocabPhonetic {
       font-size: 18px;
@@ -109,11 +115,14 @@
       border-radius: 8px;
       margin-bottom: 10px;
       display: inline-block;
-      min-height: 34px;               /* chiều cao cố định */
+      min-height: 34px;
       max-width: 100%;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+
+      /* SỬA CHỖ NÀY: Cho phép xuống dòng nếu phiên âm quá dài */
+      white-space: normal; 
+      word-wrap: break-word; 
+      overflow: visible;
+      text-overflow: clip;
     }
     #vocabMeaning {
       font-size: 18px;
@@ -168,6 +177,15 @@
     }
     #funBtn { background-color: #ff9800; color: white; margin-right: 10px; }
     #closeFunBtn { background-color: #9e9e9e; color: white; display: none; }
+    #vocabWord span {
+        transition: all 0.2s ease;
+        border-radius: 4px;
+        padding: 2px 4px;
+    }
+    #vocabWord span:active {
+        background-color: rgba(0,0,0,0.1); /* Hiệu ứng khi bấm vào */
+        transform: scale(0.95);
+    }
 
     #funContent .fun-wrapper {
       display: flex;
