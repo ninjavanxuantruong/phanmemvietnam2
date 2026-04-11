@@ -89,30 +89,104 @@ function buildImageKeywords(data) {
 }
 
 // ===== Phonetic =====
-async function getPhonetic(word) {
-  try {
-    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
-    const data = await res.json();
-    return data?.[0]?.phonetic || "";
-  } catch {
-    return "";
-  }
+async function getPhonetic(phrase) {
+  if (!phrase) return "";
+
+  // Tách cụm từ thành các từ đơn (ví dụ: "look after" -> ["look", "after"])
+  const words = phrase.trim().split(/\s+/);
+
+  // Hàm con để tra cứu 1 từ đơn lẻ
+  const fetchSinglePhonetic = async (word) => {
+    try {
+      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`);
+      if (!res.ok) return ""; // Nếu từ điển không có từ này, trả về rỗng
+      const data = await res.json();
+      // Lấy phiên âm đầu tiên tìm thấy
+      return data?.[0]?.phonetic || data?.[0]?.phonetics?.find(p => p.text)?.text || "";
+    } catch {
+      return "";
+    }
+  };
+
+  // Tra cứu tất cả các từ trong cụm cùng một lúc
+  const phoneticResults = await Promise.all(words.map(fetchSinglePhonetic));
+
+  // Ghép các phiên âm lại với nhau, ngăn cách bởi khoảng trắng
+  // Loại bỏ các phần rỗng nếu từ điển không trả về kết quả cho từ đó
+  return phoneticResults.filter(p => p !== "").join(" ");
 }
 
 // ===== Hiển thị từ =====
-// ===== Hàm hiển thị từ vựng lên UI =====
+// Hàm hỗ trợ đọc chậm từng từ đơn
+// Hàm đọc chậm 0.5 cho từng từ khi click trực tiếp
+function speakSingleWord(text) {
+  if (!text) return;
+
+  // Dừng các âm thanh đang phát để tránh bị đọc đè
+  window.speechSynthesis.cancel(); 
+
+  const utter = new SpeechSynthesisUtterance(text);
+
+  // Thiết lập giọng đọc (Ưu tiên giọng Zira hoặc tiếng Anh mặc định)
+  utter.voice = vocabVoice || speechSynthesis.getVoices().find(v => v.lang === 'en-US');
+
+  // TỐC ĐỘ: 0.5 (Rất chậm để học sinh nghe rõ từng âm tiết)
+  utter.rate = 0.2; 
+  utter.pitch = 1.0; 
+
+  window.speechSynthesis.speak(utter);
+}
+
+// --- HÀM CHÍNH ---
 async function displayWord(wordObj) {
   if (!wordObj) return;
 
-  // 1. Hiển thị chữ và nghĩa
-  document.getElementById("vocabWord").textContent = wordObj.word.toUpperCase();
+  // 1. Biến khu vực hiển thị từ vựng thành khu vực tương tác (Interactive Area)
+  const wordArea = document.getElementById("vocabWord");
+  const words = wordObj.word.split(" "); // Tách "AM GOING TO" -> ["AM", "GOING", "TO"]
+
+  wordArea.innerHTML = ""; // Xóa nội dung cũ
+
+  words.forEach(w => {
+    const span = document.createElement("span");
+    span.textContent = w.toUpperCase();
+
+    // CSS trực tiếp để biến thành "nút" bấm
+    span.style.cursor = "pointer";
+    span.style.display = "inline-block";
+    span.style.marginRight = "12px"; // Khoảng cách giữa các từ
+    span.style.transition = "all 0.2s ease";
+    // 2. CHÈN THÊM 2 DÒNG NÀY Ở ĐÂY:
+    span.style.userSelect = "none";       // Chặn bôi đen (Chrome, Firefox, Edge)
+    span.style.webkitUserSelect = "none";
+
+    // Hiệu ứng khi di chuột vào (đổi sang màu đỏ Pokemon để biết là bấm được)
+    span.onmouseover = () => {
+      span.style.color = "#f44336"; 
+      span.style.transform = "scale(1.1)"; // Phóng to nhẹ
+    };
+    span.onmouseout = () => {
+      span.style.color = ""; 
+      span.style.transform = "scale(1)";
+    };
+
+    // Sự kiện CLICK: Đọc đúng từ được bấm với tốc độ 0.5
+    span.onclick = (e) => {
+      e.stopPropagation();
+      speakSingleWord(w);
+    };
+
+    wordArea.appendChild(span);
+  });
+
+  // 2. Hiển thị Nghĩa tiếng Việt
   document.getElementById("vocabMeaning").textContent = wordObj.meaning || "Không có nghĩa";
 
-  // 2. Lấy phiên âm từ API Dictionary (Giữ nguyên logic cũ)
+  // 3. Hiển thị Phiên âm (giữ nguyên logic cũ của ông)
   const phonetic = await getPhonetic(wordObj.word);
   document.getElementById("vocabPhonetic").textContent = phonetic;
 
-  // 3. Hiển thị ảnh (Dùng imageKeyword nếu có, không thì dùng chính Word)
+  // 4. Hiển thị Ảnh minh họa
   const imgEl = document.getElementById("vocabImage");
   const keywordForImage = (wordObj.imageKeyword || wordObj.word).toLowerCase().trim();
   const mainImg = getImageFromMap(keywordForImage);
@@ -122,31 +196,29 @@ async function displayWord(wordObj) {
     imgEl.style.display = "block";
   } else {
     imgEl.style.display = "none";
-    console.warn(`⚠️ Không tìm thấy ảnh cho từ: ${keywordForImage}`);
   }
 
-  // 4. Dọn dẹp nội dung Ghi chú (Fun Fact) của từ trước đó
-  const funContent = document.getElementById("funContent");
-  if (funContent) funContent.innerHTML = "";
-
-  const closeBtn = document.getElementById("closeFunBtn");
-  if (closeBtn) closeBtn.style.display = "none";
-
-  // 5. Reset trạng thái nút "Next" (Bắt buộc phải nghe đủ số lần mới cho qua)
+  // 5. Reset trạng thái nút Next và Ghi chú
+  if (document.getElementById("funContent")) document.getElementById("funContent").innerHTML = "";
   listenCount = 0;
   const nextBtn = document.getElementById("nextBtn");
   if (nextBtn) nextBtn.disabled = true;
 
-  console.log(`📖 Đang hiển thị từ: ${wordObj.word}`);
+  console.log(`✅ Đã hiển thị từ: ${wordObj.word}`);
 }
 
 // ===== Nút nghe lại =====
+// Tìm đoạn này trong code của ông và thay thế:
 document.getElementById("playSound").onclick = () => {
-  const word = document.getElementById("vocabWord").textContent;
+  // THAY ĐỔI: Lấy từ mảng dữ liệu thay vì lấy từ giao diện
+  const word = vocabData[currentIndex].word; 
   if (!word) return;
 
   const utter = new SpeechSynthesisUtterance(word);
   utter.voice = vocabVoice || speechSynthesis.getVoices()[0] || null;
+
+  // Nếu ông muốn nút loa tổng cũng đọc thong thả (ví dụ 0.8) thì thêm dòng này:
+  // utter.rate = 0.8; 
 
   utter.onend = () => {
     listenCount++;
