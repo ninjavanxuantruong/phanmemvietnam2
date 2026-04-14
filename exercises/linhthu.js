@@ -18,26 +18,29 @@ import { pokemonData } from "./pokemonData.js";
     try { app = initializeApp(firebaseConfig); } catch { app = getApp(); }
     const db = getFirestore(app);
 
+    // --- BIẾN BỔ SUNG (GIỮ NGUYÊN CODE GỐC BÊN DƯỚI) ---
+    let isCaptured = false;
+    let clickCount = 0;
+    let targetClicks = Math.floor(Math.random() * 3) + 3;
+    const POKE_BALL_IMG = "https://cdn-icons-png.flaticon.com/512/361/361998.png";
+    let originalImgUrl = "";
+
     function getPokeInfo(id) {
         return pokemonData.find(p => p.id === id) || { skills: ["Tackle"] };
     }
 
-    // --- 1. HÀM NÓI CHUYỆN (CÓ TIẾNG) ---
-    // --- 1. HÀM NÓI CHUYỆN (ĐÃ SỬA LỖI HIỂN THỊ CHỮ) ---
     function speakAndShow(parent, text) {
-        // 1. Dọn dẹp bong bóng cũ (nếu có)
+        if (isCaptured) return; // Chặn nói khi bị bắt
         const oldBubbles = parent.querySelectorAll('.poke-bubble');
         oldBubbles.forEach(b => b.remove());
 
-        // 2. Tạo bong bóng mới
         const bubble = document.createElement('div');
         bubble.className = 'poke-bubble'; 
         bubble.innerText = text; 
 
-        // 3. Style cực kỳ tinh gọn, bám sát container
         Object.assign(bubble.style, {
             position: 'absolute',
-            bottom: '105%', // Nằm ngay sát trên đầu Pokemon
+            bottom: '105%',
             left: '50%',
             transform: 'translateX(-50%)',
             background: 'white',
@@ -50,11 +53,10 @@ import { pokemonData } from "./pokemonData.js";
             boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
             whiteSpace: 'nowrap',
             zIndex: '1000',
-            pointerEvents: 'none', // Không cản trở click
-            animation: 'bubble-up 2s ease-out forwards' // Chỉ dùng 1 animation này
+            pointerEvents: 'none',
+            animation: 'bubble-up 2s ease-out forwards'
         });
 
-        // Mũi tên nhỏ trỏ xuống
         const arrow = document.createElement('div');
         Object.assign(arrow.style, {
             position: 'absolute',
@@ -65,19 +67,16 @@ import { pokemonData } from "./pokemonData.js";
             borderColor: 'white transparent transparent'
         });
         bubble.appendChild(arrow);
-
-        // 4. Gắn vào container (là biến 'parent' được truyền từ setInterval)
         parent.appendChild(bubble);
 
-        // Tự xóa sau khi diễn xong animation
         setTimeout(() => bubble.remove(), 2000);
 
-        // 5. Phát tiếng nói (TTS)
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'en-US';
         utterance.volume = 0.5;
         window.speechSynthesis.speak(utterance);
     }
+
     function launchFirework(parent) {
         for(let i=0; i<8; i++) {
             const p = document.createElement('div');
@@ -103,45 +102,44 @@ import { pokemonData } from "./pokemonData.js";
         const snap = await getDoc(doc(db, "bosuutap", `${name.trim()}-${cls.trim()}`));
         const pokeId = snap.exists() ? snap.data().selected : 25;
 
+        // --- LOGIC BỔ SUNG: TẢI TRẠNG THÁI VÀ VỊ TRÍ TỪ LOCALSTORAGE ---
+        const savedStatus = localStorage.getItem("pokeStatus");
+        if (savedStatus === "captured") {
+            isCaptured = true;
+            clickCount = 10; // Đảm bảo vượt targetClicks để không nhảy trốn
+        }
+        const savedLeft = localStorage.getItem("pokePosLeft") || "20px";
+        const savedTop = localStorage.getItem("pokePosTop") || ""; 
+        const savedBottom = savedTop ? "" : "20px"; // Nếu không có top thì dùng bottom mặc định
+
         const pet = document.createElement('div');
         pet.id = 'global-pet';
-        const imgUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokeId}.png`;
-        pet.innerHTML = `<div id="pet-container"><img src="${imgUrl}" width="100"></div>`;
+        originalImgUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokeId}.png`;
+
+        // Kiểm tra ảnh hiển thị ban đầu dựa trên trạng thái đã lưu
+        const currentImg = isCaptured ? POKE_BALL_IMG : originalImgUrl;
+        pet.innerHTML = `<div id="pet-container"><img src="${currentImg}" width="100"></div>`;
 
         Object.assign(pet.style, {
-            position: 'fixed', zIndex: '99999', pointerEvents: 'none',
+            position: 'fixed', zIndex: '99999', 
+            pointerEvents: 'auto', 
             transition: 'all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-            left: '20px', bottom: '20px'
+            left: savedLeft,
+            top: savedTop,
+            bottom: savedBottom,
+            cursor: 'pointer'
         });
 
-        // --- TỔNG HỢP CSS ANIMATIONS (ĐÃ SỬA LỖI ANIMATION CHỮ) ---
+        if (isCaptured) pet.classList.add('captured-ball');
+
         const styleSheet = document.createElement("style");
         styleSheet.innerText = `
-            /* ✅ CÁCH VIẾT KEYFRAMES CHUẨN ĐỂ HIỆN CHỮ MƯỢT MÀ */
             @keyframes bubble-up { 
-                0% { 
-                    opacity: 0; 
-                    /* Bắt đầu thấp, giữ nguyên translateX(-50%) từ style chính */
-                    transform: translateX(-50%) translateY(20px) scale(0.8); 
-                } 
-                15% { 
-                    opacity: 1; 
-                    /* Hiện rõ và phóng to nhẹ ở vị trí chính */
-                    transform: translateX(-50%) translateY(0) scale(1); 
-                } 
-                85% { 
-                    opacity: 1; 
-                    /* Giữ nguyên vị trí và độ rõ */
-                    transform: translateX(-50%) translateY(0) scale(1); 
-                } 
-                100% { 
-                    opacity: 0; 
-                    /* Bay lên cao, làm mờ và thu nhỏ */
-                    transform: translateX(-50%) translateY(-40px) scale(0.8); 
-                } 
+                0% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.8); } 
+                15% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 
+                85% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 
+                100% { opacity: 0; transform: translateX(-50%) translateY(-40px) scale(0.8); } 
             }
-
-            /* Các keyframes khác giữ nguyên */
             @keyframes firework-burst { 100% { transform: translate(var(--tx), var(--ty)); opacity: 0; } }
             @keyframes pet-breath { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05) translateY(-5px); } }
             @keyframes pet-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -154,36 +152,88 @@ import { pokemonData } from "./pokemonData.js";
             .anim-jump { animation: pet-jump 0.5s ease-in-out; }
             .anim-tp-out { animation: pet-teleport-out 0.5s forwards; }
             .anim-tp-in { animation: pet-teleport-in 0.5s forwards; }
+            .captured-ball { transform: scale(0.6) !important; filter: drop-shadow(0 0 10px red); }
         `;
         document.head.appendChild(styleSheet);
 
         const container = pet.querySelector('#pet-container');
-        container.classList.add('pet-breathing');
+        if (!isCaptured) container.classList.add('pet-breathing');
         document.body.appendChild(pet);
 
-        // --- VÒNG LẶP HÀNH ĐỘNG ---
+        // --- BỔ SUNG LOGIC CLICK VÀO LINH THÚ ---
+        pet.addEventListener('click', (e) => {
+            e.stopPropagation(); 
+            if (isCaptured) return;
+
+            clickCount++;
+            if (clickCount < targetClicks) {
+                container.classList.add('anim-tp-out');
+                setTimeout(() => {
+                    const newLeft = `${Math.random() * (window.innerWidth - 150) + 50}px`;
+                    const newTop = `${Math.random() * (window.innerHeight - 150) + 50}px`;
+                    pet.style.left = newLeft;
+                    pet.style.top = newTop;
+                    pet.style.bottom = 'auto'; // Xóa bottom mặc định để top có tác dụng
+
+                    // Lưu vị trí nhảy trốn
+                    localStorage.setItem("pokePosLeft", newLeft);
+                    localStorage.setItem("pokePosTop", newTop);
+
+                    container.classList.remove('anim-tp-out');
+                    container.classList.add('anim-tp-in');
+                    setTimeout(() => container.classList.remove('anim-tp-in'), 500);
+                }, 500);
+            } else {
+                isCaptured = true;
+                localStorage.setItem("pokeStatus", "captured"); // LƯU TRẠNG THÁI
+                container.classList.remove('pet-breathing');
+                pet.classList.add('captured-ball');
+                container.querySelector('img').src = POKE_BALL_IMG;
+            }
+        });
+
+        // --- BỔ SUNG DOUBLE CLICK ĐỂ THẢ ---
+        pet.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            if (!isCaptured) return;
+            isCaptured = false;
+            localStorage.setItem("pokeStatus", "free"); // LƯU TRẠNG THÁI
+            clickCount = 0;
+            targetClicks = Math.floor(Math.random() * 3) + 3;
+            pet.classList.remove('captured-ball');
+            container.querySelector('img').src = originalImgUrl;
+            container.classList.add('pet-breathing');
+        });
+
+        // --- VÒNG LẶP HÀNH ĐỘNG (GIỮ NGUYÊN TỈ LỆ GỐC) ---
         setInterval(() => {
+            if (isCaptured) return; 
+
             const rand = Math.random();
             container.classList.remove('pet-breathing');
 
-            // 1. Dịch chuyển (Teleport) - Tỉ lệ 10%
             if (rand < 0.10) {
                 container.classList.add('anim-tp-out');
                 setTimeout(() => {
-                    pet.style.left = `${Math.random() * (window.innerWidth - 150) + 50}px`;
-                    pet.style.top = `${Math.random() * (window.innerHeight - 150) + 50}px`;
+                    const nLeft = `${Math.random() * (window.innerWidth - 150) + 50}px`;
+                    const nTop = `${Math.random() * (window.innerHeight - 150) + 50}px`;
+                    pet.style.left = nLeft;
+                    pet.style.top = nTop;
+                    pet.style.bottom = 'auto';
+
+                    localStorage.setItem("pokePosLeft", nLeft);
+                    localStorage.setItem("pokePosTop", nTop);
+
                     container.classList.remove('anim-tp-out');
                     container.classList.add('anim-tp-in');
                     setTimeout(() => container.classList.remove('anim-tp-in'), 500);
                 }, 500);
             }
-            // 2. Tiếng kêu (Riêng biệt) - Tỉ lệ 5%
             else if (rand < 0.15) {
                 const audio = new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/master/cries/pokemon/latest/${pokeId}.ogg`);
                 audio.volume = 0.04;
                 audio.play().catch(() => {});
             }
-            // 3. Bắn Skill (Tăng tỉ lệ lên 25%)
             else if (rand < 0.40) {
                 const info = getPokeInfo(pokeId);
                 const sName = info.skills[Math.floor(Math.random() * info.skills.length)];
@@ -194,28 +244,60 @@ import { pokemonData } from "./pokemonData.js";
                     skillEffects[sName](document.body, { x: from.x, y: from.y, targetX: to.x, targetY: to.y });
                 }
             }
-            // 4. Nói & Cổ vũ (CÓ TIẾNG) - Tỉ lệ 15%
             else if (rand < 0.55) {
                 const cheers = ["Great!", "Good job!", "Excellent!", "Amazing!", "Try more!"];
                 speakAndShow(container, cheers[Math.floor(Math.random() * cheers.length)]);
                 if (Math.random() > 0.5) launchFirework(container);
             }
-            // 5. Vận động cơ thể (Xoay/Nhảy) - Tỉ lệ 20%
             else if (rand < 0.75) {
                 const anim = Math.random() > 0.5 ? 'anim-spin' : 'anim-jump';
                 container.classList.add(anim);
                 setTimeout(() => container.classList.remove(anim), 600);
             }
 
-            // Trả lời trạng thái thở
-            setTimeout(() => { if(!container.classList.contains('pet-breathing')) container.classList.add('pet-breathing'); }, 1000);
+            setTimeout(() => { 
+                if(!isCaptured && !container.classList.contains('pet-breathing')) 
+                    container.classList.add('pet-breathing'); 
+            }, 1000);
         }, 5000);
 
-        // Click để di chuyển thủ công
+        // --- LOGIC NHẤC VÀ KÉO QUẢ CẦU (DRAG & DROP) ---
+        let isDragging = false;
         document.addEventListener('mousedown', (e) => {
             if (['BUTTON', 'INPUT', 'A', 'SELECT'].includes(e.target.tagName)) return;
-            pet.style.left = `${e.clientX - 50}px`;
-            pet.style.top = `${e.clientY - 50}px`;
+
+            if (isCaptured && pet.contains(e.target)) {
+                isDragging = true;
+                pet.style.transition = 'none'; 
+                return;
+            }
+
+            if (!isCaptured && !pet.contains(e.target)) {
+                const mLeft = `${e.clientX - 50}px`;
+                const mTop = `${e.clientY - 50}px`;
+                pet.style.left = mLeft;
+                pet.style.top = mTop;
+                pet.style.bottom = 'auto';
+                localStorage.setItem("pokePosLeft", mLeft);
+                localStorage.setItem("pokePosTop", mTop);
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging && isCaptured) {
+                pet.style.left = `${e.clientX - 50}px`;
+                pet.style.top = `${e.clientY - 50}px`;
+                pet.style.bottom = 'auto';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                pet.style.transition = 'all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                localStorage.setItem("pokePosLeft", pet.style.left);
+                localStorage.setItem("pokePosTop", pet.style.top);
+            }
         });
     }
 
