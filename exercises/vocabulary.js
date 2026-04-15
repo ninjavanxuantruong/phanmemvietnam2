@@ -141,48 +141,37 @@ function speakSingleWord(text) {
 async function displayWord(wordObj) {
   if (!wordObj) return;
 
-  // 1. Biến khu vực hiển thị từ vựng thành khu vực tương tác (Interactive Area)
+  // 1. Hiển thị chữ cái (In hoa và gắn sự kiện đọc)
   const wordArea = document.getElementById("vocabWord");
-  const words = wordObj.word.split(" "); // Tách "AM GOING TO" -> ["AM", "GOING", "TO"]
+  wordArea.innerHTML = ""; // Xóa từ cũ
 
-  wordArea.innerHTML = ""; // Xóa nội dung cũ
-
+  const words = wordObj.word.split(" "); 
   words.forEach(w => {
     const span = document.createElement("span");
     span.textContent = w.toUpperCase();
-
-    // CSS trực tiếp để biến thành "nút" bấm
     span.style.cursor = "pointer";
-    span.style.display = "inline-block";
-    span.style.marginRight = "12px"; // Khoảng cách giữa các từ
-    span.style.transition = "all 0.2s ease";
-    // 2. CHÈN THÊM 2 DÒNG NÀY Ở ĐÂY:
-    span.style.userSelect = "none";       // Chặn bôi đen (Chrome, Firefox, Edge)
-    span.style.webkitUserSelect = "none";
-
-    // Hiệu ứng khi di chuột vào (đổi sang màu đỏ Pokemon để biết là bấm được)
-    span.onmouseover = () => {
-      span.style.color = "#f44336"; 
-      span.style.transform = "scale(1.1)"; // Phóng to nhẹ
-    };
-    span.onmouseout = () => {
-      span.style.color = ""; 
-      span.style.transform = "scale(1)";
-    };
-
-    // Sự kiện CLICK: Đọc đúng từ được bấm với tốc độ 0.5
+    span.style.marginRight = "10px";
     span.onclick = (e) => {
       e.stopPropagation();
       speakSingleWord(w);
     };
-
     wordArea.appendChild(span);
   });
 
-  // 2. Hiển thị Nghĩa tiếng Việt
-  document.getElementById("vocabMeaning").textContent = wordObj.meaning || "Không có nghĩa";
+  // 2. KÍCH HOẠT MÁY TÁCH ÂM POKÉMON (Đã gom gọn)
+  // 2. KÍCH HOẠT MÁY TÁCH ÂM POKÉMON
+  const phonicBox = document.getElementById("phonicsContainer"); 
+  if (phonicBox) {
+      phonicBox.innerHTML = ""; 
+      phonicBox.style.display = "none"; // ✅ Thêm dòng này để ẩn nó ở giao diện chính
+      if (window.handleSplit) {
+          const manualSyllables = wordObj.syllables || null;
+          window.handleSplit(wordObj.word, phonicBox, manualSyllables);
+      }
+  }
 
-  // 3. Hiển thị Phiên âm (giữ nguyên logic cũ của ông)
+  // 3. Hiển thị Nghĩa và Phiên âm
+  document.getElementById("vocabMeaning").textContent = wordObj.meaning || "Không có nghĩa";
   const phonetic = await getPhonetic(wordObj.word);
   document.getElementById("vocabPhonetic").textContent = phonetic;
 
@@ -198,13 +187,11 @@ async function displayWord(wordObj) {
     imgEl.style.display = "none";
   }
 
-  // 5. Reset trạng thái nút Next và Ghi chú
+  // 5. Reset trạng thái
   if (document.getElementById("funContent")) document.getElementById("funContent").innerHTML = "";
   listenCount = 0;
   const nextBtn = document.getElementById("nextBtn");
   if (nextBtn) nextBtn.disabled = true;
-
-  console.log(`✅ Đã hiển thị từ: ${wordObj.word}`);
 }
 
 // ===== Nút nghe lại =====
@@ -313,42 +300,52 @@ document.getElementById("completeBtn").onclick = () => {
 };
 
 document.getElementById("funBtn").onclick = () => {
-  const wordObj = vocabData[currentIndex];
-  const container = document.getElementById("funContent");
-  const closeBtn = document.getElementById("closeFunBtn");
+    const wordObj = vocabData[currentIndex];
+    const container = document.getElementById("funContent");
+    const closeBtn = document.getElementById("closeFunBtn");
+    const phonicBox = document.getElementById("phonicsContainer"); // Lấy máy tách âm
 
-  const syl = wordObj.syllables || ""; 
-  const note1 = wordObj.noteAH || "";
-  const note2 = wordObj.noteAI || "";
+    const note1 = wordObj.noteAH || "";
+    const note2 = wordObj.noteAI || "";
 
-  container.innerHTML = `
-    <div style="padding:15px; border:2px dashed #ffcb05; border-radius:15px; background-color: #fffbe6; color: #333;">
+    // 1. Tạo khung nội dung: Ghi chú lên trên, phần Phonics để trống ở dưới để chèn vào sau
+    container.innerHTML = `
+        <div style="padding:15px; border:2px dashed #ffcb05; border-radius:15px; background-color: #fffbe6; color: #333; text-align: left;">
 
-      ${syl ? `
-        <div style="text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #eee;">
-          <p style="font-size: 0.8rem; color: #666; margin: 0;">Cách đọc tách vần:</p>
-          <h2 style="color: #ff1c1c; letter-spacing: 3px; font-size: 1.6rem; margin: 5px 0;">
-            ${syl.toUpperCase().split('-').join(' <span style="color:#ccc">-</span> ')}
-          </h2>
+            <h3 style="color: #3b4cca; margin-top: 0; font-size: 1rem;">📌 Ghi chú bổ trợ:</h3>
+            <div class="notes-wrapper" style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #eee;">
+                ${note1 ? `<p style="margin: 8px 0; color: #d35400; font-weight: bold;">• ${note1}</p>` : ""}
+                ${note2 ? `<p style="margin: 8px 0; color: #2980b9;">• ${note2}</p>` : ""}
+                ${(!note1 && !note2) ? "<p>Chưa có ghi chú bổ sung.</p>" : ""}
+            </div>
+
+            <p style="font-size: 0.8rem; color: #666; margin: 0; text-align: center;">Cách đọc tách âm Pokémon:</p>
+            <div id="phonicsPlaceholder" style="min-height: 100px;"></div>
         </div>
-      ` : ""}
+    `;
 
-      <h3 style="color: #3b4cca; margin-top: 0; font-size: 1rem;">📌 Ghi chú bổ trợ:</h3>
+    // 2. Di chuyển máy tách âm từ ngoài vào trong "Phần thú vị"
+    const placeholder = document.getElementById("phonicsPlaceholder");
+    if (placeholder && phonicBox) {
+        placeholder.appendChild(phonicBox);
+        phonicBox.style.display = "flex"; // Đảm bảo nó hiển thị
+    }
 
-      <div class="notes-wrapper">
-         ${note1 ? `<p style="margin: 8px 0; color: #d35400; font-weight: bold;">• ${note1}</p>` : ""}
-         ${note2 ? `<p style="margin: 8px 0; color: #2980b9;">• ${note2}</p>` : ""}
-      </div>
-
-      ${(!syl && !note1 && !note2) ? "<p>Chưa có thông tin bổ sung.</p>" : ""}
-    </div>
-  `;
-  closeBtn.style.display = "inline-block";
+    closeBtn.style.display = "inline-block";
 };
 
 document.getElementById("closeFunBtn").onclick = () => {
-  document.getElementById("funContent").innerHTML = "";
-  document.getElementById("closeFunBtn").style.display = "none";
+    const phonicBox = document.getElementById("phonicsContainer");
+    const infoBox = document.querySelector(".info-box");
+
+    // Trả phonicBox về lại info-box hoặc body để không bị xóa mất khi clear innerHTML
+    if (phonicBox && infoBox) {
+        // Bạn có thể cho nó vào dưới nút "Thú vị" như cũ hoặc ẩn đi
+        infoBox.appendChild(phonicBox); 
+    }
+
+    document.getElementById("funContent").innerHTML = "";
+    document.getElementById("closeFunBtn").style.display = "none";
 };
 
 // ===== Init =====
