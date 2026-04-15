@@ -201,42 +201,95 @@
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
-
-    @media (max-width: 600px) {
-      .vocab-card {
-        flex-direction: column;
-      align-items: center;
-        padding: 16px;
-      }
-
-      /* Khung ảnh co ngang nhưng vẫn 16:9, giữ 4 góc */
-      .image-frame {
+    /* Container chứa các âm tiết Pokémon */
+    #phonicsContainer {
         width: 100%;
-        max-width: 100%;
-        margin: 0 auto;
-      }
-
-      .info-box {
-        width: 100%;
-        text-align: center;
-      }
-
-      #vocabPhonetic,
-      #vocabMeaning {
-        text-align: center;
-      }
-
-      #funContent .fun-wrapper img {
-        width: 100%;
-        height: auto;
-      }
+        margin-top: 15px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center; /* Căn giữa các âm tiết */
+        gap: 10px;
+        min-height: 80px; /* Tránh card bị giật khi load */
     }
 
+    /* Tùy chỉnh kích thước âm tiết Pokémon khi ở trong card Vocabulary */
+    #phonicsContainer .syllable-wrapper {
+        transform: scale(0.9); /* Thu nhỏ nhẹ để vừa vặn hơn */
+        margin: -5px; 
+    }
+    #resultArea {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 15px; /* Khoảng cách giữa các cụm âm tiết */
+        padding: 20px;
+        min-height: 150px; /* Giữ chỗ để giao diện không bị giật khi hiện chữ */
+    }
+
+    /* Thêm đoạn này để các ô âm tiết nhỏ lại, vừa vặn hơn */
+    .sound-unit {
+        padding: 5px 10px !important; 
+        min-width: 60px;
+    }
+
+    .sound-unit span {
+        font-size: 22px !important; /* Giảm kích thước chữ cho cân đối */
+    }
+    /* 1. CSS cho máy tách âm khi nằm trong khung Thú vị */
+    #phonicsPlaceholder #phonicsContainer {
+        background: transparent; 
+        box-shadow: none;
+        padding: 10px 0;
+    }
+
+    /* 2. Gộp chung các thiết lập cho Mobile vào một khối duy nhất */
+    @media (max-width: 600px) {
+        .vocab-card {
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+        }
+
+        .image-frame {
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        .info-box {
+            width: 100%;
+            text-align: center;
+        }
+
+        #vocabPhonetic,
+        #vocabMeaning {
+            text-align: center;
+        }
+
+        #funContent .fun-wrapper img {
+            width: 100%;
+            height: auto;
+        }
+
+        /* Tối ưu máy tách âm trên điện thoại */
+        #phonicsContainer .syllable-wrapper {
+            transform: scale(0.8); 
+            margin: -8px; 
+        }
+
+        #phonicsContainer {
+            gap: 5px; 
+            padding: 10px 5px;
+        }
+    }
+
+    /* 3. Hiệu ứng rung cho nút loa */
     @keyframes shake {
-      0%, 100% { transform: rotate(0deg); }
-      25% { transform: rotate(10deg); }
-      50% { transform: rotate(-10deg); }
-      75% { transform: rotate(10deg); }
+        0%, 100% { transform: rotate(0deg); }
+        25% { transform: rotate(10deg); }
+        50% { transform: rotate(-10deg); }
+        75% { transform: rotate(10deg); }
     }
   </style>
 </head>
@@ -268,6 +321,9 @@
 
     <div class="info-box">
       <h2 id="vocabWord">Loading...</h2>
+
+      <div id="phonicsContainer"></div> 
+
       <p id="vocabPhonetic">...</p>
       <p id="vocabMeaning">...</p>
 
@@ -285,6 +341,7 @@
   <script src="link.js"></script>
   <script type="module" src="effect-win.js"></script>
   <script type="module" src="effect-loose.js"></script>
+  <script src="tacham.js"></script>
   <script type="module" src="vocabulary.js"></script>
 </body>
 </html>
