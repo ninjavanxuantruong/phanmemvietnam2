@@ -2,55 +2,66 @@
 // 1. CẤU HÌNH DỮ LIỆU
 // ==========================================
 const soundConfig = {
-    AE: ["a"],
-    EH: ["e", "ea"],
-    IH: ["i", "y"],
-    AA: ["o", "a"],
-    AH: ["u", "o", "a"],
-    "AA R": ["ar"],
-    "AO R": ["or"],
-    ER: ["ir", "ur", "er"],
-    EY: ["ai", "ay", "a-e", "ey", "a"],
-    IY: ["ee", "ea", "e-e", "ey", "ie", "e"],
-    AY: ["i-e", "ie", "igh", "y", "i"],
-    OW: ["o-e", "oa", "ow", "o"],
-    UW: ["u-e", "ew", "ue", "ui", "oo", "u"],
-    UH: ["u", "oo"],
-    "EH R": ["air", "are"],
-    "IH R": ["ear", "eer", "ere"],
-    "UH R": ["ure", "our"],
-    AO: ["aw", "au", "al"],
-    "AY ER": ["ire"],
-    P: ["p"],
-    T: ["t"],
-    K: ["k", "c", "ck"],
-    F: ["f", "ph"],
-    TH: ["th"],
-    S: ["s", "ce"],
-    HH: ["h"],
-    SH: ["sh"],
-    CH: ["ch"],
-    B: ["b"],
-    D: ["d"],
-    G: ["g"],
-    V: ["v"],
-    DH: ["TH"],
-    Z: ["z", "s"],
-    ZH: ["zh"],
-    JH: ["j", "ge"],
-    M: ["m", "mb"],
-    N: ["n", "kn", "gn"],
-    NG: ["ng"],
-    L: ["l"],
-    R: ["r", "wr"],
-    W: ["w", "wh"],
-    Y: ["y"],
-    "SH N": ["tion", "sion", "cian"],
-    "CH ER": ["ture"],
-    "ZH ER": ["sure"],
-    "SH L": ["cial", "tial"],
-    "AH S": ["ous"],
-    "JH IH JH": ["age"],
+  // --- NGUYÊN ÂM NGẮN ---
+  AE: ["ai", "au", "a", "e"],                 // plaid, laugh, cat, many
+  EH: ["ea", "ie", "e", "a"],                 // head, friend, bed, any
+  IH: ["ui", "i", "y", "e", "o"],             // build, sit, gym, pretty, women
+  AA: ["au", "al", "o", "a"],                 // aunt, calm, hot, father
+  AH: ["ou", "oo", "u", "o", "a"],            // young, blood, cup, son, about
+  AO: ["ought", "ough", "aw", "au", "al", "oar", "oor"], // thought, bought, saw, cause, ball, board, door
+  UH: ["ou", "oo", "u", "o"],                 // could, foot, put, wolf
+  UW: ["u-e", "oo", "ew", "ue", "ui", "ou", "oe", "o"], // flute, food, chew, blue, fruit, group, shoe, do
+
+  // --- NGUYÊN ÂM DÀI / DIPHTHONG ---
+  EY: ["eigh", "a-e", "ai", "ay", "ea", "ey", "ei", "a"], // eight, cake, rain, day, great, they, vein, baby
+  IY: ["e-e", "ee", "ea", "ie", "ei", "ey", "y", "i"],    // scene, see, eat, field, receive, key, happy, police
+  AY: ["i-e", "igh", "ie", "y", "i"],         // time, light, pie, sky, kind
+  OW: ["ough", "o-e", "oa", "ow", "oe", "o"], // though, home, boat, snow, toe, go
+  OY: ["oi", "oy"],                           // coin, boy
+  AW: ["ou", "ow"],                           // out, cow
+
+  // --- R-COLORED (Xóa dấu cách ở Key để khớp với cleanS) ---
+  ER: ["ear", "er", "ir", "ur", "or"],        // learn, her, bird, turn, word
+  AAR: ["ar"],                                // car, star
+  AOR: ["ore", "oar", "oor", "or"],           // more, board, door, for
+  EHR: ["air", "are", "ear", "ere"],          // air, care, bear, there
+  IHR: ["eer", "ear", "ere"],                 // deer, near, here
+  UHR: ["ure", "our"],                        // pure, tour
+  AYER: ["ire", "yer"],                       // fire, buyer
+
+  // --- PHỤ ÂM ---
+  P: ["pp", "p"],                             // happy, pen
+  T: ["tt", "ed", "t"],                       // butter, walked, ten
+  K: ["ck", "ch", "qu", "k", "c", "q", "x"],  // back, school, quick, kite, cat, queen, box
+  F: ["ff", "ph", "gh", "f"],                 // off, phone, laugh, fish
+  TH: ["th"],                                 // thin
+  DH: ["th"],                                 // this
+  S: ["ss", "ps", "ce", "s", "c"], // mess, psychology, face, city, rose, sun, center
+  Z: ["zz", "s", "z", "x"],                   // buzz, has, zebra, xylophone
+  HH: ["wh", "h"],                            // who, hat
+  SH: ["ssi", "sh", "ti", "ci", "ch", "s"],   // mission, ship, nation, special, chef, sugar
+  ZH: ["si", "s", "ge"],                      // vision, measure, garage
+  CH: ["tch", "ch", "t"],                     // watch, chin, future
+  JH: ["ge", "gi", "j", "g", "d"],            // cage, giant, jam, gym, soldier
+  B: ["bb", "b"],                             // rabbit, big
+  D: ["dd", "ed", "d"],                       // ladder, played, dog
+  G: ["gg", "gh", "g"],                       // egg, ghost, go
+  V: ["ve", "v", "f"],                        // cave, van, of
+  M: ["mm", "mb", "mn", "m"],                 // hammer, comb, hymn, map
+  N: ["nn", "kn", "gn", "pn", "n"],           // dinner, know, gnaw, pneumonia, no
+  NG: ["ng", "n"],                            // sing, bank
+  L: ["ll", "l"],                             // bell, lip
+  R: ["rr", "wr", "r"],                       // mirror, write, red
+  W: ["wh", "w", "u"],                        // wheel, wet, quick
+  Y: ["u", "y", "i"],                              // yes, onion
+
+  // --- SUFFIXES (Các hậu tố đặc biệt) ---
+  SHN: ["tion", "sion", "cian"],              // action, extension, musician
+  CHER: ["ture"],                             // nature, picture
+  ZHER: ["sure"],                             // measure, treasure
+  SHL: ["cial", "tial"],                      // social, partial
+  AHS: ["ous"],                               // famous, curious
+  JH_IH_JH: ["age"]                           // village, cabbage
 };
 
 const arpabetToIpa = {
@@ -69,6 +80,7 @@ const arpabetToIpa = {
     OY: "ɔɪ",
     ER: "ɜː",
     UH: "ʊ",
+    Y_UW: "juː",
     P: "p",
     T: "t",
     K: "k",
@@ -142,6 +154,7 @@ function playSound(ipaName) {
 // ==========================================
 
 async function initDictionary() {
+    // 1. Lấy các phần tử
     const statusIdx = document.getElementById("status");
     const inputIdx = document.getElementById("wordInput");
     const btnIdx = document.getElementById("btnRun");
@@ -162,272 +175,329 @@ async function initDictionary() {
             }
         });
 
-        statusIdx.innerHTML =
-            "<b style='color:#28a745'>✅ PokéDict sẵn sàng!</b>";
-        inputIdx.disabled = false;
-        btnIdx.disabled = false;
+        // 2. CHỈ CẬP NHẬT NẾU PHẦN TỬ TỒN TẠI (Sửa lỗi Null ở đây)
+        if (statusIdx) {
+            statusIdx.innerHTML = "<b style='color:#28a745'>✅ PokéDict sẵn sàng!</b>";
+        }
+        if (inputIdx) inputIdx.disabled = false;
+        if (btnIdx) btnIdx.disabled = false;
+
+        console.log("✅ PokéDict đã nạp dữ liệu thành công.");
+
     } catch (err) {
-        statusIdx.innerHTML =
-            "<b style='color:#dc3545'>❌ Lỗi tải dữ liệu. Kiểm tra kết nối!</b>";
-        console.error(err);
+        // Tương tự, kiểm tra trước khi gán innerHTML
+        if (statusIdx) {
+            statusIdx.innerHTML = "<b style='color:#dc3545'>❌ Lỗi tải dữ liệu!</b>";
+        }
+        console.error("Lỗi tải từ điển:", err);
     }
 }
 
 window.handleSplit = async function(wordIn, areaOut) {
+    // 1. HÀM CHIA NHÓM ÂM TIẾT (GIỮ NGUYÊN GỐC)
     function groupSyllables(units) {
         let syllables = [];
         let currentSyllable = [];
-
         for (let i = 0; i < units.length; i++) {
             let current = units[i];
             let next = units[i + 1];
             let afterNext = units[i + 2];
-
             currentSyllable.push(current);
-
-            // Kiểm tra xem đây có phải là nguyên âm không
             if (current.type === "vowel") {
                 let shouldSplit = false;
-
                 if (next) {
-                    // QUY TẮC 2: Chia đôi phụ âm (VC-CV)
-                    // Nếu sau nguyên âm là 2 phụ âm trở lên (như 'ns' trong 'insect')
                     if (next.type === "consonant" && afterNext && afterNext.type === "consonant") {
-                        currentSyllable.push(next); // Lôi 1 phụ âm về phần này
+                        currentSyllable.push(next); 
                         shouldSplit = true;
-                        i++; // Nhảy qua phụ âm đã lôi
-                    } 
-                    // QUY TẮC 1: Ngắt sau nguyên âm (V-CV)
-                    else {
-                        shouldSplit = true;
-                    }
+                        i++; 
+                    } else { shouldSplit = true; }
                 }
-
-                // KIỂM TRA ĐẶC BIỆT: Nếu phía sau không còn nguyên âm nào nữa 
-                // thì đây là âm tiết cuối, không được ngắt (để nó ôm nốt phụ âm cuối)
                 let hasMoreVowels = false;
                 for (let j = i + 1; j < units.length; j++) {
                     if (units[j].type === "vowel") { hasMoreVowels = true; break; }
                 }
-
                 if (shouldSplit && hasMoreVowels) {
                     syllables.push(currentSyllable);
                     currentSyllable = [];
                 }
             }
         }
-
         if (currentSyllable.length > 0) syllables.push(currentSyllable);
         return syllables;
     }
-    //phần còn lại
-    const wordInput = document.getElementById("wordInput");
-    const resultArea = document.getElementById("resultArea");
-    let word = wordInput.value.trim().toLowerCase();
-    if (!word) return;
+
+    // 2. CHUẨN BỊ ĐẦU VÀO
+    let input = wordIn || document.getElementById("wordInput")?.value?.trim()?.toLowerCase();
+    if (!input) return;
+    const resultArea = areaOut || document.getElementById("resultArea");
+    if (!resultArea) return;
+
     resultArea.innerHTML = "";
+    const words = input.split(/\s+/); // Tách cụm thành từng từ
 
-    const rawSounds = dictMap.get(word);
-    if (!rawSounds) {
-        resultArea.innerHTML = `<p style="color:#dc3545; width:100%">Không tìm thấy từ "${word}"!</p>`;
-        return;
-    }
+    // ==========================================
+    // VÒNG LẶP XỬ LÝ TỪNG TỪ (THEO YÊU CẦU CỤM TỪ)
+    // ==========================================
+    for (const word of words) {
+        const wordBlock = document.createElement("div");
+        wordBlock.className = "word-block";
+        // CSS để các từ đứng cạnh nhau, có khoảng cách đẹp
+        wordBlock.style.cssText = "display: inline-flex; align-items: flex-start; flex-wrap: wrap; margin-right: 50px; margin-bottom: 30px; border: 1px solid #f0f0f0; padding: 10px; border-radius: 15px; background: #fafafa;";
+        resultArea.appendChild(wordBlock);
 
-    const soundArray = rawSounds.split(/\s+/);
-    const consonants = ["P","T","K","F","TH","S","HH","SH","CH","B","D","G","V","DH","Z","ZH","JH","M","N","NG","L","R","W","Y"];
+        const rawSounds = dictMap.get(word);
+        if (!rawSounds) {
+            wordBlock.innerHTML = `<p style="color:#dc3545; margin: 10px;">"${word}" (?)</p>`;
+            continue;
+        }
 
-    let units = new Array(soundArray.length).fill(null);
-    let searchWord = word;
+        const soundArray = rawSounds.split(/\s+/);
+        const consonants = ["P","T","K","F","TH","S","HH","SH","CH","B","D","G","V","DH","Z","ZH","JH","M","N","NG","L","R","W","Y"];
+        let units = new Array(soundArray.length).fill(null);
+        let searchWord = word;
 
-    // --- BƯỚC 1: RÀ VÀ CHỐT PHỤ ÂM (Giữ nguyên logic cũ) ---
-    soundArray.forEach((sound, index) => {
-        let cleanSound = sound.replace(/[0-9]/g, "");
-        if (consonants.includes(cleanSound)) {
-            let configs = soundConfig[cleanSound] || [cleanSound.toLowerCase()];
-            let extendedConfigs = [];
-            configs.forEach(c => {
-                extendedConfigs.push(c);
-                if (c.length === 1) extendedConfigs.push(c + c); 
-            });
-            extendedConfigs.sort((a, b) => b.length - a.length);
+        // ==========================================
+        // BƯỚC 1 & 2 CẢI TIẾN: RÀ SOÁT TỊNH TIẾN
+        // ==========================================
+        let lastIndex = 0; // Biến đánh dấu vị trí chữ cái cuối cùng đã xử lý
 
-            for (let g of extendedConfigs) {
-                let pos = searchWord.indexOf(g);
-                if (pos !== -1) {
-                    let actualStart = word.length - searchWord.length + pos;
-                    units[index] = { type: "consonant", text: g, sound: sound, startIndex: actualStart };
-                    let head = searchWord.substring(0, pos);
-                    let tail = searchWord.substring(pos + g.length);
-                    searchWord = head + " ".repeat(g.length) + tail;
-                    break;
+        soundArray.forEach((sound, index) => {
+            let cleanSound = sound.replace(/[0-9]/g, "");
+            let isConsonant = consonants.includes(cleanSound);
+
+            // Tìm phạm vi chữ cái có thể thuộc về âm này
+            // Không được tìm ngược về trước lastIndex
+            let searchRegion = word.substring(lastIndex);
+            let found = false;
+
+            if (isConsonant) {
+                let configs = soundConfig[cleanSound] || [cleanSound.toLowerCase()];
+                let ext = [];
+                configs.forEach(c => { ext.push(c); if (c.length === 1) ext.push(c+c); });
+                ext.sort((a, b) => b.length - a.length);
+
+                for (let g of ext) {
+                    let pos = searchRegion.indexOf(g);
+                    // CHỈ CHẤP NHẬN nếu phụ âm này nằm rất gần vị trí hiện tại 
+                    // (tránh việc âm Y nhảy xuống cuối từ nhặt chữ y)
+                    if (pos !== -1 && pos < 3) { 
+                        let actualStart = lastIndex + pos;
+                        units[index] = { type: "consonant", text: g, sound: sound, startIndex: actualStart };
+                        lastIndex = actualStart + g.length;
+                        found = true;
+                        break;
+                    }
                 }
             }
-        }
-    });
 
-    // --- BƯỚC 2: ĐIỀN NGUYÊN ÂM (Giữ nguyên logic cũ) ---
-    soundArray.forEach((sound, index) => {
-        if (units[index]) return; 
-        let currentStart = 0;
-        for (let i = 0; i < index; i++) {
-            if (units[i]) currentStart = units[i].startIndex + units[i].text.length;
-        }
-        let nextAnchor = units.find((u, i) => i > index && u);
-        let currentEnd = nextAnchor ? nextAnchor.startIndex : word.length;
-        let matchedLetters = word.substring(currentStart, currentEnd);
+            // Nếu là nguyên âm hoặc phụ âm không tìm thấy bằng config (Bước 2 dự phòng)
+            if (!found) {
+                // Tìm "neo" tiếp theo là một phụ âm đã biết để giới hạn vùng nhặt chữ
+                let nextAnchorPos = word.length;
+                for (let j = index + 1; j < soundArray.length; j++) {
+                    let nextS = soundArray[j].replace(/[0-9]/g, "");
+                    if (consonants.includes(nextS)) {
+                        // Thử tìm vị trí phụ âm tiếp theo trong từ
+                        let nextConfigs = soundConfig[nextS] || [nextS.toLowerCase()];
+                        for (let nc of nextConfigs) {
+                            let p = word.indexOf(nc, lastIndex);
+                            if (p !== -1) { nextAnchorPos = Math.min(nextAnchorPos, p); break; }
+                        }
+                        if (nextAnchorPos < word.length) break;
+                    }
+                }
 
-        if (index === soundArray.length - 1 && matchedLetters.endsWith('e') && matchedLetters.length > 1) {
-            matchedLetters = matchedLetters.slice(0, -1);
-        }
+                // Nhặt toàn bộ chữ cái từ lastIndex đến neo tiếp theo
+                let matched = word.substring(lastIndex, nextAnchorPos);
 
-        units[index] = { type: "vowel", text: matchedLetters, sound: sound, startIndex: currentStart };
-    });
+                // Nếu có nhiều hơn 1 nguyên âm liên tiếp mà vùng matched quá dài, 
+                // ta chia đôi hoặc nhặt 1 ký tự để dành cho âm sau
+                if (matched.length > 1 && index < soundArray.length - 1 && !consonants.includes(soundArray[index+1].replace(/[0-9]/g, ""))) {
+                     matched = matched[0]; 
+                }
 
-    // --- BƯỚC 3: GỘP ÂM ĐẶC BIỆT (Xử lý cưỡng bức ar, or, ju:) ---
-    let mergedUnits = [];
-    for (let i = 0; i < units.length; i++) {
-        let current = units[i];
-        let next = units[i + 1];
-
-        if (!current) continue;
-
-        let curSound = current.sound.replace(/[0-9]/g, "");
-        let nextSound = next ? next.sound.replace(/[0-9]/g, "") : "";
-
-        // 1. Xử lý ju: (Y + UW)
-        if (next && curSound === "Y" && nextSound === "UW") {
-            mergedUnits.push({
-                type: "vowel",
-                text: current.text + next.text, // Lấy cả chữ ở ô Y và ô UW (thường là 'u')
-                sound: "Y_UW",
-                startIndex: current.startIndex
-            });
-            i++; 
-        } 
-        // 2. Xử lý vần R đặc thù (AA + R -> ar, AO + R -> or)
-        else if (next && (curSound === "AA" || curSound === "AO" || curSound === "ER") && nextSound === "R") {
-            mergedUnits.push({
-                type: "vowel",
-                text: current.text + next.text, // Ép chữ 'a' và 'r' vào chung một ô
-                sound: curSound + "_R",        // Đánh dấu để Render IPA dài
-                startIndex: current.startIndex
-            });
-            i++; // Bỏ qua ô R vì đã bị "nuốt" vào ô trước
-        }
-        else {
-            mergedUnits.push(current);
-        }
-    }
-
-    // --- BƯỚC 3.5: CHIA NHÓM ÂM TIẾT ---
-    const syllableGroups = groupSyllables(mergedUnits);
-
-    // --- BƯỚC 4: RENDER THEO NHÓM + NÚT BLENDING (Xử lý âm nối tiếp) ---
-    syllableGroups.forEach((group, groupIndex) => {
-        const groupWrapper = document.createElement("div");
-        groupWrapper.style.cssText = "display: inline-flex; flex-direction: column; align-items: center; margin: 10px;";
-
-        const syllableContainer = document.createElement("div");
-        syllableContainer.style.cssText = "display: flex; border: 1px solid #ddd; padding: 4px; border-radius: 12px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05);";
-
-        // Mảng chứa các ký hiệu IPA riêng lẻ để đọc nối tiếp
-        let groupIpaList = []; 
-
-        group.forEach((unit) => {
-            if (!unit || !unit.text) return;
-
-            let cleanSound = unit.sound.replace(/[0-9]/g, "");
-            let ipa = "";
-
-            if (unit.sound === "Y_UW") { ipa = "juː"; }
-            else if (unit.sound === "AA_R") { ipa = "ɑː"; }
-            else if (unit.sound === "AO_R") { ipa = "ɔː"; }
-            else if (unit.sound === "ER_R") { ipa = "ɜː"; }
-            else if (cleanSound === "IY" && (unit === mergedUnits[mergedUnits.length-1] || word.endsWith("ly"))) { ipa = "i"; }
-            else if (unit.sound.startsWith("AH")) { ipa = unit.sound.endsWith("0") ? "ə" : "ʌ"; }
-            else if (cleanSound === "ER") { ipa = (unit === mergedUnits[mergedUnits.length-1]) ? "ə" : "ɜː"; }
-            else if (cleanSound === "AA") { ipa = "ɒ"; }
-            else { ipa = arpabetToIpa[cleanSound] || cleanSound.toLowerCase(); }
-
-            groupIpaList.push(ipa); 
-
-            const div = document.createElement("div");
-            div.className = "sound-unit";
-            div.style.background = unit.type === "consonant" ? "#e3f2fd" : "#fff9c4";
-            div.innerHTML = `<span style="font-size: 28px; color: #2a75bb; font-weight: bold;">${unit.text}</span><small style="display: block;">/${ipa}/</small>`;
-
-            // Ấn vào từng âm vẫn đọc file lẻ như cũ
-            div.onclick = (e) => { e.stopPropagation(); playSound(ipa); };
-            syllableContainer.appendChild(div);
+                units[index] = { type: "vowel", text: matched, sound: sound, startIndex: lastIndex };
+                lastIndex += matched.length;
+            }
         });
 
-        // 2. Nút Blending: Đọc nhanh các âm cạnh nhau
-        const blendBtn = document.createElement("button");
-        blendBtn.innerHTML = "🔊";
-        blendBtn.style.cssText = "margin-top: 5px; border: none; background: #f0f0f0; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-size: 16px;";
+        // BƯỚC 3: GỘP ÂM ĐẶC BIỆT (GIỮ NGUYÊN)
+        // ==========================================
+        // BƯỚC 3: GỘP ÂM ĐẶC BIỆT (PHIÊN BẢN CHÍNH XÁC)
+        // ==========================================
+        let mergedUnits = [];
+        for (let i = 0; i < units.length; i++) {
+            let cur = units[i];
+            let next = units[i + 1];
+            if (!cur) continue;
 
-        blendBtn.onclick = async () => {
-            // Lặp qua danh sách IPA và phát lần lượt
-            for (let i = 0; i < groupIpaList.length; i++) {
-                // Gọi hàm playSound cũ của ông để đảm bảo đúng file
-                playSound(groupIpaList[i]);
+            let curS = cur.sound.replace(/[0-9]/g, "");
+            let nextS = next ? next.sound.replace(/[0-9]/g, "") : "";
 
-                // THAY THẾ SETTIMEOUT 50ms:
-                // Đợi cho đến khi cái âm vừa gọi ở trên phát xong hoàn toàn
-                await new Promise(resolve => {
-                    // Tạo một đối tượng audio tạm để theo dõi thời gian của file đó
-                    const tempAudio = new Audio(`sounds/${groupIpaList[i]}.mp3`);
-                    tempAudio.onended = resolve;
+            // Gộp Y + UW (/ju:/)
+            if (next && curS === "Y" && nextS === "UW") {
+                // Kiểm tra xem chữ cái của 2 âm này có bị chồng lấn không
+                let combinedText = cur.text;
+                if (cur.startIndex !== next.startIndex) {
+                    // Nếu là 2 chữ cái khác nhau (ví dụ: e+w trong few) thì mới cộng
+                    // Nếu là 1 chữ cái (u trong January) thì giữ nguyên cur.text
+                    if (!cur.text.includes(next.text)) {
+                        combinedText = cur.text + next.text;
+                    }
+                }
+                mergedUnits.push({ 
+                    type: "vowel", 
+                    text: combinedText, 
+                    sound: "Y_UW", 
+                    startIndex: cur.startIndex 
+                });
+                i++; 
+            } 
+            // Gộp âm R (ER, AR, OR)
+            else if (next && (curS === "AA" || curS === "AO" || curS === "ER") && nextS === "R") {
+                mergedUnits.push({ 
+                    type: "vowel", 
+                    text: cur.text + next.text, 
+                    sound: curS + "_R", 
+                    startIndex: cur.startIndex 
+                });
+                i++;
+            } 
+            // KHÔNG THAY ĐỔI: Giữ nguyên các âm đơn lẻ khác
+            else {
+                mergedUnits.push(cur);
+            }
+        }
 
-                    // Nếu file có vấn đề, tự động nhảy sang âm tiếp theo sau 600ms để không kẹt
-                    setTimeout(resolve, 100); 
+        // BƯỚC 4: RENDER & NÚT BLENDING (CHÈN VÀO wordBlock)
+        // ==========================================
+        // BƯỚC 5: XỬ LÝ CHỮ CÂM & SẮP XẾP (LOGIC MỚI)
+        // ==========================================
+
+        // 5.1. Xác định các vị trí chữ cái đã được dùng
+        let usedPositions = new Set(); // Đổi tên biến để tránh trùng lặp
+        mergedUnits.forEach(u => { 
+            if (u?.text) {
+                for (let i = 0; i < u.text.length; i++) usedPositions.add(u.startIndex + i); 
+            }
+        });
+
+        // 5.2. Nhặt những chữ cái còn sót lại làm chữ câm
+        for (let i = 0; i < word.length; i++) {
+            if (!usedPositions.has(i)) {
+                mergedUnits.push({ 
+                    type: "silent", 
+                    text: word[i], 
+                    startIndex: i, 
+                    sound: "SILENT" 
                 });
             }
-        };
-
-        groupWrapper.appendChild(syllableContainer);
-        groupWrapper.appendChild(blendBtn);
-        resultArea.appendChild(groupWrapper);
-
-        if (groupIndex < syllableGroups.length - 1) {
-            const hyphen = document.createElement("span");
-            hyphen.innerText = "-";
-            hyphen.style.cssText = "font-size: 30px; color: #ccc; align-self: flex-start; margin-top: 15px;";
-            resultArea.appendChild(hyphen);
         }
-    });
 
-    // --- BƯỚC 4.5: NÚT ĐỌC TOÀN BỘ TỪ (Dùng Web Speech API) ---
-    const fullWordBtn = document.createElement("div");
-    fullWordBtn.style.cssText = "width: 100%; text-align: center; margin-top: 20px; padding-top: 10px; border-top: 2px solid #eee;";
+        // 5.3. SẮP XẾP LẠI TOÀN BỘ TRƯỚC KHI CHIA ÂM TIẾT
+        // Đây là bước quan trọng nhất để 'e' đứng đúng chỗ trong "games"
+        mergedUnits.sort((a, b) => a.startIndex - b.startIndex);
 
-    // Tạo nút dùng trình duyệt để đọc từ gốc
-    const btn = document.createElement("button");
-    btn.style.cssText = "padding: 12px 24px; font-size: 18px; background: #2a75bb; color: white; border: none; border-radius: 25px; cursor: pointer; font-weight: bold;";
-    btn.innerHTML = `🔊 Đọc cả từ: ${word}`;
-    btn.onclick = () => {
-        const utterance = new SpeechSynthesisUtterance(word);
-        utterance.lang = 'en-GB'; // Đọc giọng Anh-Anh cho chuẩn
-        window.speechSynthesis.speak(utterance);
-    };
+        // ==========================================
+        // BƯỚC 4: RENDER (GIỮ NGUYÊN LOGIC CỦA BẠN)
+        // ==========================================
+        const syllableGroups = groupSyllables(mergedUnits);
+        syllableGroups.forEach((group, groupIndex) => {
+            const groupWrapper = document.createElement("div");
+            groupWrapper.dataset.index = group[0].startIndex;
+            groupWrapper.style.cssText = "display: inline-flex; flex-direction: column; align-items: center; margin: 10px;";
 
-    fullWordBtn.appendChild(btn);
-    resultArea.appendChild(fullWordBtn);
+            const syllableContainer = document.createElement("div");
+            syllableContainer.style.cssText = "display: flex; border: 1px solid #ddd; padding: 4px; border-radius: 12px; background: #fff;";
 
-    // --- BƯỚC 5: XỬ LÝ CHỮ CÂM (Silent E, v.v.) ---
-    let usedIndices = new Set();
-    mergedUnits.forEach(u => { if (u && u.text) for (let i = 0; i < u.text.length; i++) usedIndices.add(u.startIndex + i); });
+            let groupIpaList = [];
+            group.forEach((unit) => {
+                if (!unit || !unit.text) return;
 
-    for (let i = 0; i < word.length; i++) {
-        if (!usedIndices.has(i)) {
-            const silentUnit = document.createElement("div");
-            silentUnit.className = "sound-unit";
-            silentUnit.style.cssText = "opacity: 0.5; background: #f5f5f5; display: inline-block; margin: 4px; border: 1px solid #eee;";
-            silentUnit.innerHTML = `<span style="font-size: 28px; color: #999;">${word[i]}</span><small style="display: block;">🔇</small>`;
-            resultArea.appendChild(silentUnit);
+                const div = document.createElement("div");
+
+                // Kiểm tra nếu là chữ câm thì vẽ kiểu câm
+                if (unit.type === "silent") {
+                    div.className = "sound-unit silent";
+                    div.dataset.index = unit.startIndex;
+                    div.style.cssText = "opacity: 0.5; background: #f5f5f5; display: inline-block; margin: 4px; border: 1px solid #eee; border-radius: 12px; text-align: center;";
+                    div.innerHTML = `<span style="font-size: 28px; color: #999; font-weight: bold;">${unit.text}</span><small style="display: block;">🔇</small>`;
+                } 
+                // Nếu không thì chạy logic IPA cũ của bạn
+                else {
+                    let cleanS = unit.sound.replace(/[0-9]/g, "");
+                    let ipa = "";
+                    if (unit.sound === "Y_UW") ipa = "juː";
+                    else if (unit.sound === "AA_R") ipa = "ɑː";
+                    else if (unit.sound === "AO_R") ipa = "ɔː";
+                    else if (unit.sound === "ER_R") ipa = "ɜː";
+                    else if (cleanS === "IY" && (unit === mergedUnits[mergedUnits.length-1] || word.endsWith("ly"))) ipa = "ɪ";
+                    else if (unit.sound.startsWith("AH")) ipa = unit.sound.endsWith("0") ? "ə" : "ʌ";
+                    else if (cleanS === "ER") ipa = (unit === mergedUnits[mergedUnits.length-1]) ? "ə" : "ɜː";
+                    else if (cleanS === "AA") ipa = "ɒ";
+                    else ipa = arpabetToIpa[cleanS] || cleanS.toLowerCase();
+
+                    groupIpaList.push(ipa);
+                    div.className = "sound-unit";
+                    div.style.background = unit.type === "consonant" ? "#e3f2fd" : "#fff9c4";
+                    div.innerHTML = `<span style="font-size: 28px; color: #2a75bb; font-weight: bold;">${unit.text}</span><small style="display: block;">/${ipa}/</small>`;
+                    div.onclick = (e) => { e.stopPropagation(); playSound(ipa); };
+                }
+                syllableContainer.appendChild(div);
+            });
+
+            const blendBtn = document.createElement("button");
+            blendBtn.innerHTML = "🔊";
+            blendBtn.style.cssText = "margin-top: 5px; border: none; background: #f0f0f0; border-radius: 50%; width: 35px; height: 35px; cursor: pointer;";
+            blendBtn.onclick = async () => {
+                for (const ipa of groupIpaList) {
+                    playSound(ipa);
+                    await new Promise(res => { setTimeout(res, 500); }); 
+                }
+            };
+            groupWrapper.appendChild(syllableContainer);
+            groupWrapper.appendChild(blendBtn);
+            wordBlock.appendChild(groupWrapper);
+
+            if (groupIndex < syllableGroups.length - 1) {
+                const hyphen = document.createElement("span");
+                hyphen.innerText = "-";
+                hyphen.style.cssText = "font-size: 30px; color: #ccc; margin-top: 15px;";
+                wordBlock.appendChild(hyphen);
+            }
+        });
+
+        // --- BƯỚC 4.5 CỦA BẠN (Nút đọc từng từ nhỏ gọn bên dưới) ---
+        if (!areaOut) {
+            const wordFooter = document.createElement("div");
+            wordFooter.style.cssText = "width: 100%; text-align: center; margin-top: 10px;";
+            const btn = document.createElement("button");
+            btn.style.cssText = "padding: 5px 15px; background: #2a75bb; color: white; border: none; border-radius: 20px; cursor: pointer; font-size: 13px;";
+            btn.innerHTML = `Đọc: ${word}`;
+            btn.onclick = () => {
+                const ut = new SpeechSynthesisUtterance(word);
+                ut.lang = 'en-GB'; window.speechSynthesis.speak(ut);
+            };
+            wordFooter.appendChild(btn);
+            wordBlock.appendChild(wordFooter);
         }
     }
-}
+
+    // --- BƯỚC 4.5 NÂNG CẤP (Nút đọc cả cụm/câu to đùng ở dưới cùng) ---
+    if (!areaOut && words.length > 1) {
+        const footer = document.createElement("div");
+        footer.style.cssText = "width: 100%; text-align: center; margin-top: 40px; border-top: 2px solid #eee; padding-top: 20px;";
+        const btnAll = document.createElement("button");
+        btnAll.style.cssText = "padding: 15px 30px; font-size: 18px; background: #28a745; color: white; border: none; border-radius: 30px; cursor: pointer; font-weight: bold;";
+        btnAll.innerHTML = `🔊 Đọc cả cụm: ${input}`;
+        btnAll.onclick = () => {
+            const ut = new SpeechSynthesisUtterance(input);
+            ut.lang = 'en-GB'; window.speechSynthesis.speak(ut);
+        };
+        footer.appendChild(btnAll);
+        resultArea.appendChild(footer);
+    }
+};
 
 // Chạy khởi tạo ngay khi trang load xong
 document.addEventListener("DOMContentLoaded", initDictionary);
