@@ -160,10 +160,19 @@ async function displayWord(wordObj) {
 
   // 2. KÍCH HOẠT MÁY TÁCH ÂM POKÉMON (Đã gom gọn)
   // 2. KÍCH HOẠT MÁY TÁCH ÂM POKÉMON
+  // 2. KÍCH HOẠT MÁY TÁCH ÂM POKÉMON
   const phonicBox = document.getElementById("phonicsContainer"); 
+  const infoBox = document.querySelector(".info-box");
+
   if (phonicBox) {
+      // TRẢ VỀ CHỖ CŨ: Đưa nó ra khỏi vùng "Thú vị" trước khi xử lý từ mới
+      if (infoBox && !infoBox.contains(phonicBox)) {
+          infoBox.appendChild(phonicBox);
+      }
+
       phonicBox.innerHTML = ""; 
-      phonicBox.style.display = "none"; // ✅ Thêm dòng này để ẩn nó ở giao diện chính
+      phonicBox.style.display = "none"; // Luôn ẩn ở giao diện chính
+
       if (window.handleSplit) {
           const manualSyllables = wordObj.syllables || null;
           window.handleSplit(wordObj.word, phonicBox, manualSyllables);
@@ -303,32 +312,36 @@ document.getElementById("funBtn").onclick = () => {
     const wordObj = vocabData[currentIndex];
     const container = document.getElementById("funContent");
     const closeBtn = document.getElementById("closeFunBtn");
-    const phonicBox = document.getElementById("phonicsContainer"); // Lấy máy tách âm
+    const phonicBox = document.getElementById("phonicsContainer");
 
     const note1 = wordObj.noteAH || "";
     const note2 = wordObj.noteAI || "";
 
-    // 1. Tạo khung nội dung: Ghi chú lên trên, phần Phonics để trống ở dưới để chèn vào sau
+    // 1. Tạo khung nội dung
     container.innerHTML = `
         <div style="padding:15px; border:2px dashed #ffcb05; border-radius:15px; background-color: #fffbe6; color: #333; text-align: left;">
-
             <h3 style="color: #3b4cca; margin-top: 0; font-size: 1rem;">📌 Ghi chú bổ trợ:</h3>
             <div class="notes-wrapper" style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #eee;">
                 ${note1 ? `<p style="margin: 8px 0; color: #d35400; font-weight: bold;">• ${note1}</p>` : ""}
                 ${note2 ? `<p style="margin: 8px 0; color: #2980b9;">• ${note2}</p>` : ""}
                 ${(!note1 && !note2) ? "<p>Chưa có ghi chú bổ sung.</p>" : ""}
             </div>
-
             <p style="font-size: 0.8rem; color: #666; margin: 0; text-align: center;">Cách đọc tách âm Pokémon:</p>
             <div id="phonicsPlaceholder" style="min-height: 100px;"></div>
         </div>
     `;
 
-    // 2. Di chuyển máy tách âm từ ngoài vào trong "Phần thú vị"
+    // 2. ÉP CẬP NHẬT DỮ LIỆU TỪ HIỆN TẠI
+    if (window.handleSplit && phonicBox) {
+        phonicBox.innerHTML = ""; 
+        window.handleSplit(wordObj.word, phonicBox, wordObj.syllables || null);
+    }
+
+    // 3. Di chuyển vào placeholder
     const placeholder = document.getElementById("phonicsPlaceholder");
     if (placeholder && phonicBox) {
         placeholder.appendChild(phonicBox);
-        phonicBox.style.display = "flex"; // Đảm bảo nó hiển thị
+        phonicBox.style.display = "flex"; 
     }
 
     closeBtn.style.display = "inline-block";
