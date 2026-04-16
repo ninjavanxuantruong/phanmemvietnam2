@@ -91,11 +91,7 @@
     .bottom-left  { bottom: -18px; left: -18px; }
     .bottom-right { bottom: -18px; right: -18px; }
 
-    .info-box {
-      flex: 1;
-      min-width: 240px;
-      text-align: left;
-    }
+    
 
     /* ✅ Cố định chiều cao các vùng chữ, tránh kéo lên/kéo xuống */
     #vocabWord {
@@ -201,22 +197,7 @@
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
-    /* Container chứa các âm tiết Pokémon */
-    #phonicsContainer {
-        width: 100%;
-        margin-top: 15px;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center; /* Căn giữa các âm tiết */
-        gap: 10px;
-        min-height: 80px; /* Tránh card bị giật khi load */
-    }
-
-    /* Tùy chỉnh kích thước âm tiết Pokémon khi ở trong card Vocabulary */
-    #phonicsContainer .syllable-wrapper {
-        transform: scale(0.9); /* Thu nhỏ nhẹ để vừa vặn hơn */
-        margin: -5px; 
-    }
+    
     #resultArea {
         display: flex;
         flex-wrap: wrap;
@@ -243,53 +224,95 @@
         padding: 10px 0;
     }
 
-    /* 2. Gộp chung các thiết lập cho Mobile vào một khối duy nhất */
+    /* --- PHẦN 1: TRÊN PC (GIỮ NGUYÊN HOẶC CHỈ SỬA LỖI TRÀN NHẸ) --- */
+    .info-box {
+        flex: 1;
+        min-width: 240px; /* PC vẫn sẽ giãn ra theo flex-grow */
+        text-align: left;
+        box-sizing: border-box;
+    }
+
+    #phonicsContainer {
+        width: 100%;
+        margin-top: 15px;
+        display: flex;
+        flex-wrap: wrap; /* PC vẫn nên có cái này để phòng từ quá dài */
+        justify-content: center;
+        gap: 10px;
+        min-height: 80px;
+    }
+
+    #phonicsContainer .syllable-wrapper {
+        transform: scale(0.9);
+        margin: -5px; 
+    }
+
+    /* --- PHẦN 2: CHỈ SỬA TRÊN ĐIỆN THOẠI (DƯỚI 600PX) --- */
+    /* --- PHẦN 2: CHỈ SỬA TRÊN ĐIỆN THOẠI (DƯỚI 600PX) --- */
     @media (max-width: 600px) {
+        body {
+            padding: 10px;
+            overflow-x: hidden;
+        }
+
         .vocab-card {
             flex-direction: column;
             align-items: center;
             padding: 16px;
-        }
-
-        .image-frame {
             width: 100%;
-            max-width: 100%;
-            margin: 0 auto;
+            box-sizing: border-box;
         }
 
         .info-box {
             width: 100%;
+            min-width: unset !important;
             text-align: center;
         }
 
-        #vocabPhonetic,
-        #vocabMeaning {
-            text-align: center;
-        }
-
-        #funContent .fun-wrapper img {
-            width: 100%;
-            height: auto;
-        }
-
-        /* Tối ưu máy tách âm trên điện thoại */
-        #phonicsContainer .syllable-wrapper {
-            transform: scale(0.8); 
-            margin: -8px; 
-        }
-
+        /* Đặc trị Phonics chính (vẫn giữ nguyên logic cũ của bạn) */
         #phonicsContainer {
-            gap: 5px; 
-            padding: 10px 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px; 
+            justify-content: center;
         }
-    }
 
-    /* 3. Hiệu ứng rung cho nút loa */
-    @keyframes shake {
-        0%, 100% { transform: rotate(0deg); }
-        25% { transform: rotate(10deg); }
-        50% { transform: rotate(-10deg); }
-        75% { transform: rotate(10deg); }
+        #phonicsContainer .syllable-wrapper {
+            transform: scale(0.65); 
+            margin: -18px -15px; 
+        }
+
+        /* FIX LỖI: Chỉ cho phép hiển thị Flex khi JS đã kích hoạt (không bị hiện đè lên trên)
+           Chúng ta nhắm vào trạng thái hiển thị của vùng kết quả tách âm
+        */
+        #resultArea[style*="display: flex"], 
+        #resultArea[style*="display: block"],
+        #funContent #resultArea {
+            display: flex !important;
+            flex-wrap: wrap !important; /* Ép xuống dòng để không tràn lề */
+            justify-content: center !important;
+            width: 100% !important;
+            gap: 8px !important;
+            padding: 10px !important;
+            box-sizing: border-box !important;
+        }
+
+        .sound-unit {
+            transform: scale(0.85);
+            margin: -2px !important;
+        }
+
+        /* Đảm bảo khung ảnh không đẩy lề */
+        .image-frame {
+            width: 100% !important;
+            max-width: 280px;
+            margin-bottom: 10px;
+        }
+
+        #vocabWord {
+            font-size: 24px;
+            justify-content: center;
+        }
     }
   </style>
 </head>
