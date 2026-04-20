@@ -31,47 +31,63 @@ getVocabVoice().then((voices) => {
 
 // ===== Fetch vocab data =====
 // ===== Fetch vocab data từ link Exec =====
+/**
+ * Lấy dữ liệu từ Google Sheet qua link Exec
+ * Nguồn tách âm: Cột C (Index 2)
+ */
 async function fetchVocabularyData() {
   try {
-    // Gọi trực tiếp từ window.SHEET_URL (đã khai báo trong googleSheetLinks.js)
+    // 1. Gọi API từ link Script đã khai báo trong googleSheetLinks.js
     const response = await fetch(window.SHEET_URL);
+    if (!response.ok) throw new Error("Mạng có vấn đề, không fetch được dữ liệu.");
+
     const data = await response.json();
 
-    // Lấy mảng dữ liệu (hỗ trợ cả cấu trúc {data: []} hoặc [])
+    // 2. Lấy mảng hàng (hỗ trợ cả {data: []} hoặc trực tiếp mảng [])
     const rows = data.data || data;
 
+    // 3. Map dữ liệu sang Object để dễ quản lý
     const allWords = rows.map((r) => {
-      // Biến Object thành Array để lấy theo Index cột giống hệt bản cũ
+      // Chuyển Object hàng thành Array để truy cập theo số thứ tự cột (Index)
       const col = Object.values(r); 
-      const getVal = (idx) => (col[idx] || "").toString().trim();
+
+      // Hàm helper để lấy giá trị và xóa khoảng trắng thừa
+      const getVal = (idx) => (col[idx] !== undefined && col[idx] !== null) 
+                                ? col[idx].toString().trim() 
+                                : "";
 
       return {
-        word: getVal(2),          // Cột C
-        meaning: getVal(24),       // Cột Y
-        extraNote: getVal(30),     // Cột AE
-        noteAH: getVal(33),        // Cột AH
-        noteAI: getVal(34),        // Cột AI
-        syllables: getVal(42),     // Cột AQ
-        imageKeyword: getVal(47)   // Cột AV
+        word: getVal(2),          // CỘT C: Từ vựng gốc (Dùng để hiển thị & Tách âm)
+        meaning: getVal(24),      // Cột Y: Nghĩa tiếng Việt
+        extraNote: getVal(30),    // Cột AE: Ghi chú chung
+        noteAH: getVal(33),       // Cột AH: Ghi chú bổ trợ 1
+        noteAI: getVal(34),       // Cột AI: Ghi chú bổ trợ 2
+        imageKeyword: getVal(47)  // Cột AV: Từ khóa tìm ảnh
       };
     });
 
-    // Lọc theo wordBank của người dùng
-    const filtered = allWords.filter((item) => wordBank.includes(item.word));
+    // 4. Lọc dữ liệu: Chỉ lấy những từ nằm trong wordBank của người dùng
+    const filtered = allWords.filter((item) => {
+      return item.word && wordBank.includes(item.word);
+    });
 
-    // Loại bỏ trùng lặp nếu có
+    // 5. Loại bỏ trùng lặp (nếu trong Sheet có 2 dòng cùng 1 từ)
     const uniqueByWord = [];
     const seen = new Set();
-    for (let item of filtered) {
-      const key = item.word.toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
+    for (const item of filtered) {
+      const lowerWord = item.word.toLowerCase();
+      if (!seen.has(lowerWord)) {
+        seen.add(lowerWord);
         uniqueByWord.push(item);
       }
     }
+
+    console.log(`✅ Đã nạp thành công ${uniqueByWord.length} từ vựng từ cột C.`);
     return uniqueByWord;
+
   } catch (error) {
-    console.error("❌ Lỗi Fetch từ Exec:", error);
+    console.error("❌ Lỗi FetchVocabularyData:", error);
+    // Trả về mảng rỗng để không làm hỏng logic render phía sau
     return [];
   }
 }
@@ -141,11 +157,22 @@ function speakSingleWord(text) {
 async function displayWord(wordObj) {
   if (!wordObj) return;
 
-  // 1. Hiển thị chữ cái (In hoa và gắn sự kiện đọc)
-  const wordArea = document.getElementById("vocabWord");
-  wordArea.innerHTML = ""; // Xóa từ cũ
+  // --- BỔ SUNG: Đưa phonicBox về "nhà" an toàn trước khi xử lý từ mới ---
+  const phonicBox = document.getElementById("phonicsContainer");
+  const infoBox = document.querySelector(".info-box"); 
+  if (phonicBox && infoBox && !infoBox.contains(phonicBox)) {
+      infoBox.appendChild(phonicBox);
+  }
+  // -------------------------------------------------------------------
 
-  const words = wordObj.word.split(" "); 
+  // 1. Hiển thị chữ cái (Lấy từ cột C)
+  const wordArea = document.getElementById("vocabWord");
+  wordArea.innerHTML = ""; 
+
+  // Clean dữ liệu để tránh lỗi render
+  const cleanWord = wordObj.word ? wordObj.word.toString().trim() : "";
+  const words = cleanWord.split(" "); 
+
   words.forEach(w => {
     const span = document.createElement("span");
     span.textContent = w.toUpperCase();
@@ -158,46 +185,37 @@ async function displayWord(wordObj) {
     wordArea.appendChild(span);
   });
 
-  // 2. KÍCH HOẠT MÁY TÁCH ÂM POKÉMON (Đã gom gọn)
-  // 2. KÍCH HOẠT MÁY TÁCH ÂM POKÉMON
-  // 2. KÍCH HOẠT MÁY TÁCH ÂM POKÉMON
-  const phonicBox = document.getElementById("phonicsContainer"); 
-  const infoBox = document.querySelector(".info-box");
-
+  // 2. KÍCH HOẠT MÁY TÁCH ÂM (Sửa chỗ này)
   if (phonicBox) {
-      // TRẢ VỀ CHỖ CŨ: Đưa nó ra khỏi vùng "Thú vị" trước khi xử lý từ mới
-      if (infoBox && !infoBox.contains(phonicBox)) {
-          infoBox.appendChild(phonicBox);
-      }
-
       phonicBox.innerHTML = ""; 
-      phonicBox.style.display = "none"; // Luôn ẩn ở giao diện chính
+      phonicBox.style.display = "none"; // Chỉ hiện khi bấm nút "Thú vị"
 
       if (window.handleSplit) {
-          const manualSyllables = wordObj.syllables || null;
-          window.handleSplit(wordObj.word, phonicBox, manualSyllables);
+          /**
+           * SỬA TẠI ĐÂY: 
+           * - Truyền cleanWord (Cột C)
+           * - Truyền null để máy TỰ ĐỘNG tách âm, không dùng AQ nữa.
+           */
+          window.handleSplit(cleanWord, phonicBox, null);
       }
   }
 
   // 3. Hiển thị Nghĩa và Phiên âm
   document.getElementById("vocabMeaning").textContent = wordObj.meaning || "Không có nghĩa";
-  const phonetic = await getPhonetic(wordObj.word);
+  const phonetic = await getPhonetic(cleanWord);
   document.getElementById("vocabPhonetic").textContent = phonetic;
 
   // 4. Hiển thị Ảnh minh họa
   const imgEl = document.getElementById("vocabImage");
-  const keywordForImage = (wordObj.imageKeyword || wordObj.word).toLowerCase().trim();
+  const keywordForImage = (wordObj.imageKeyword || cleanWord).toLowerCase().trim();
   const mainImg = getImageFromMap(keywordForImage);
-
-  if (mainImg) {
-    imgEl.src = mainImg;
-    imgEl.style.display = "block";
-  } else {
-    imgEl.style.display = "none";
-  }
+  imgEl.src = mainImg || "";
+  imgEl.style.display = mainImg ? "block" : "none";
 
   // 5. Reset trạng thái
   if (document.getElementById("funContent")) document.getElementById("funContent").innerHTML = "";
+  if (document.getElementById("closeFunBtn")) document.getElementById("closeFunBtn").style.display = "none";
+
   listenCount = 0;
   const nextBtn = document.getElementById("nextBtn");
   if (nextBtn) nextBtn.disabled = true;
@@ -309,42 +327,80 @@ document.getElementById("completeBtn").onclick = () => {
 };
 
 document.getElementById("funBtn").onclick = () => {
+    // 1. Lấy dữ liệu từ hiện tại
     const wordObj = vocabData[currentIndex];
     const container = document.getElementById("funContent");
     const closeBtn = document.getElementById("closeFunBtn");
     const phonicBox = document.getElementById("phonicsContainer");
 
+    if (!wordObj || !container) return;
+
+    // Clean dữ liệu word từ cột C để đảm bảo không lỗi format
+    const cleanWord = wordObj.word ? wordObj.word.toString().trim() : "";
+
+    // Lấy ghi chú bổ trợ từ cột AH và AI
     const note1 = wordObj.noteAH || "";
     const note2 = wordObj.noteAI || "";
 
-    // 1. Tạo khung nội dung
+    // 2. Tạo khung nội dung (HTML)
     container.innerHTML = `
         <div style="padding:15px; border:2px dashed #ffcb05; border-radius:15px; background-color: #fffbe6; color: #333; text-align: left;">
             <h3 style="color: #3b4cca; margin-top: 0; font-size: 1rem;">📌 Ghi chú bổ trợ:</h3>
             <div class="notes-wrapper" style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #eee;">
                 ${note1 ? `<p style="margin: 8px 0; color: #d35400; font-weight: bold;">• ${note1}</p>` : ""}
                 ${note2 ? `<p style="margin: 8px 0; color: #2980b9;">• ${note2}</p>` : ""}
-                ${(!note1 && !note2) ? "<p>Chưa có ghi chú bổ sung.</p>" : ""}
+                ${(!note1 && !note2) ? "<p style='color: #999; font-style: italic;'>Chưa có ghi chú bổ sung cho từ này.</p>" : ""}
             </div>
             <p style="font-size: 0.8rem; color: #666; margin: 0; text-align: center;">Cách đọc tách âm Pokémon:</p>
-            <div id="phonicsPlaceholder" style="min-height: 100px;"></div>
+            <div id="phonicsPlaceholder" style="min-height: 100px; display: flex; justify-content: center; align-items: center;"></div>
         </div>
     `;
 
-    // 2. ÉP CẬP NHẬT DỮ LIỆU TỪ HIỆN TẠI
-    if (window.handleSplit && phonicBox) {
-        phonicBox.innerHTML = ""; 
-        window.handleSplit(wordObj.word, phonicBox, wordObj.syllables || null);
-    }
+  // 3. ÉP CẬP NHẬT MÁY TÁCH ÂM (Phiên bản "Chống lỗi (?)")
+  if (window.handleSplit && phonicBox) {
+      // Xóa sạch nội dung để máy nạp lại từ đầu
+      phonicBox.innerHTML = ""; 
 
-    // 3. Di chuyển vào placeholder
-    const placeholder = document.getElementById("phonicsPlaceholder");
-    if (placeholder && phonicBox) {
-        placeholder.appendChild(phonicBox);
-        phonicBox.style.display = "flex"; 
-    }
+      // --- BƯỚC 1: LÀM SẠCH DỮ LIỆU TUYỆT ĐỐI ---
+      // Google Sheet (Cột C) cực kỳ hay dính dấu xuống dòng ẩn hoặc tab
+      const rawWord = wordObj.word ? wordObj.word.toString() : "";
+      const cleanWordForSplit = rawWord.replace(/[\n\r\t]/g, " ").trim().toLowerCase(); 
 
-    closeBtn.style.display = "inline-block";
+      // --- BƯỚC 2: GỌI TÁCH ÂM VỚI CƠ CHẾ "THỬ LẠI" ---
+      const triggerSplit = () => {
+          window.handleSplit(cleanWordForSplit, phonicBox, null);
+
+          // Kiểm tra xem máy có bị trả về lỗi (?) không
+          if (phonicBox.innerText.includes("?") || phonicBox.innerHTML === "") {
+              console.warn(`⚠️ Máy tách âm đang gặp khó với từ: "${cleanWordForSplit}". Đang thử lại...`);
+              // Thử lại một lần nữa sau 50ms để đợi DOM ổn định
+              setTimeout(() => {
+                  window.handleSplit(cleanWordForSplit, phonicBox, null);
+              }, 50);
+          }
+      };
+
+      triggerSplit();
+
+      // --- BƯỚC 3: GẮN VÀO GIAO DIỆN ---
+      const placeholder = document.getElementById("phonicsPlaceholder");
+      if (placeholder) {
+          placeholder.innerHTML = ""; // Dọn sạch placeholder trước khi append
+          placeholder.appendChild(phonicBox);
+
+          // Cấu hình hiển thị mượt mà
+          phonicBox.style.display = "flex";
+          phonicBox.style.justifyContent = "center";
+          phonicBox.style.flexWrap = "wrap";
+          phonicBox.style.gap = "10px";
+          phonicBox.style.width = "100%";
+      }
+  } else {
+      console.error("❌ Lỗi: Không tìm thấy window.handleSplit hoặc phonicBox!");
+  }
+
+    // 4. Hiện nút đóng
+    if (closeBtn) closeBtn.style.display = "inline-block";
 };
 
 document.getElementById("closeFunBtn").onclick = () => {
