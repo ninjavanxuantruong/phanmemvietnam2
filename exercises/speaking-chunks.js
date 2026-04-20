@@ -230,34 +230,57 @@ function getVoices() {
     speechSynthesis.onvoiceschanged = () => resolve(speechSynthesis.getVoices());
   });
 }
-
+function normalizeUnitId(unitStr) {
+  if (!unitStr) return 0;
+  const parts = unitStr.split("-");
+  if (parts.length < 3) return 0;
+  // Chuyển "30-1-1" thành 30011 để so sánh số lớn/nhỏ
+  return parseInt(parts[0], 10) * 1000 + parseInt(parts[1], 10) * 10 + parseInt(parts[2], 10);
+}
 // Thay thế toàn bộ đoạn getVoices().then ở cuối file bằng đoạn này
+// Thay thế toàn bộ đoạn getVoices().then ở cuối file bằng đoạn này để sửa lỗi Fetch
 getVoices().then(async (v) => {
   voice = v.find(v => v.lang === "en-US" && v.name.includes("David")) || v.find(v => v.lang === "en-US") || v[0];
-  const wordBank = JSON.parse(localStorage.getItem("wordBank"))?.map(w => w.toLowerCase().trim()) || [];
+
+  const wordBankRaw = localStorage.getItem("wordBank");
+  const wordBank = wordBankRaw ? JSON.parse(wordBankRaw).map(w => w.toLowerCase().trim()) : [];
 
   try {
     // 1. Lấy mã bài học lớn nhất để lọc
-    const resBaiHoc = await fetch(SHEET_BAI_HOC);
-    const rowsBaiHoc = await resBaiHoc.json();
-    const baiList = rowsBaiHoc.map(r => r[2] ? parseInt(r[2], 10) : null).filter(v => !isNaN(v));
+    const resBaiHoc = await fetch(window.SHEET_BAI_HOC);
+    const dataBaiHoc = await resBaiHoc.json();
+    // Xử lý nếu dataBaiHoc là Object {data: []}
+    const rowsBaiHoc = dataBaiHoc.data || dataBaiHoc; 
+
+    const baiList = rowsBaiHoc.map(r => {
+        const col = Object.values(r);
+        return col[2] ? parseInt(col[2], 10) : null;
+    }).filter(v => !isNaN(v));
     const maxLessonCode = baiList.length === 0 ? 0 : Math.max(...baiList);
 
-    // 2. Lấy dữ liệu từ SHEET_URL (Dạng Exec - mảng 2 chiều)
-    const res = await fetch(SHEET_URL);
-    const rows = await res.json();
+    // 2. Lấy dữ liệu từ SHEET_URL (Dạng Exec)
+    const res = await fetch(window.SHEET_URL);
+    if (!res.ok) throw new Error("Network response was not ok");
+    const data = await res.json();
+
+    // QUAN TRỌNG: Link Exec thường trả về { data: [...] }
+    const rows = data.data || data;
 
     collocationBank = [];
     sentences = [];
 
-    for (const r of rows) {
-      const lessonName = (r[1] || "").toString().trim(); // Cột B
-      const rawTarget = (r[2] || "").toString().trim().toLowerCase(); // Cột C
-      const rawMeaning = (r[24] || "").toString().trim(); // Cột Y
-      const q = (r[9] || "").toString().trim(); // Cột J
-      const a = (r[11] || "").toString().trim(); // Cột L
+    rows.forEach((r) => {
+      // Chuyển Object hàng thành Array để truy cập theo Index như cũ
+      const col = Object.values(r);
 
-      const unitNum = normalizeUnitId(lessonName);
+      const lessonName = (col[1] || "").toString().trim(); // Cột B
+      const rawTarget = (col[2] || "").toString().trim().toLowerCase(); // Cột C
+      const rawMeaning = (col[24] || "").toString().trim(); // Cột Y
+      const q = (col[9] || "").toString().trim(); // Cột J
+      const a = (col[11] || "").toString().trim(); // Cột L
+
+      // Hàm hỗ trợ lọc Unit ID (Đảm bảo ông đã có hàm normalizeUnitId trong file hoặc global)
+      const unitNum = typeof normalizeUnitId === 'function' ? normalizeUnitId(lessonName) : parseInt(lessonName.replace(/\D/g, ""));
       const targets = rawTarget.split(/[/;,]/).map(t => t.trim());
 
       // Lọc collocation
@@ -274,7 +297,7 @@ getVoices().then(async (v) => {
         if (q) sentences.push({ text: q, target: targetWord, meaning: rawMeaning });
         if (a) sentences.push({ text: a, target: targetWord, meaning: rawMeaning });
       }
-    }
+    });
 
     // 3. Khởi tạo trạng thái ban đầu
     totalScore = 0;
@@ -288,6 +311,6 @@ getVoices().then(async (v) => {
     }
   } catch (err) {
     console.error("Lỗi fetch dữ liệu:", err);
-    document.getElementById("speakingArea").innerHTML = "❌ Lỗi kết nối dữ liệu Exec.";
+    document.getElementById("speakingArea").innerHTML = "❌ Lỗi kết nối dữ liệu Exec (Vui lòng kiểm tra SHEET_URL và Internet).";
   }
 });
