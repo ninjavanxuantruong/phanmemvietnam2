@@ -26,7 +26,19 @@ const STICKMAN_ACTIONS = [
 
 let gamePool = [];
 let currentIndex = 0;
+let voiceEng = null;
+window.speechSynthesis.onvoiceschanged = () => {
+    voiceEng = window.speechSynthesis.getVoices().find(v => v.lang === "en-US" && (v.name.includes("David") || v.name.includes("Google")));
+};
 
+function speak(text) {
+    if (!text) return;
+    window.speechSynthesis.cancel();
+    const msg = new SpeechSynthesisUtterance(text);
+    msg.lang = 'en-US';
+    if (voiceEng) msg.voice = voiceEng;
+    window.speechSynthesis.speak(msg);
+}
 // 1. Helper: Chuyển Unit dạng "3-1-1" thành số 3011 để so sánh
 function normalizeUnitId(unitStr) {
     if (!unitStr) return 0;
@@ -90,7 +102,30 @@ async function fetchPhysicalData() {
     }
 }
 
-// 4. Chuẩn bị Game: 1 đúng - 1 sai (khác bài)
+// ===== Biến trạng thái nâng cấp =====
+let gamePool = [];
+let currentIndex = 0;
+let imageHistory = []; // Theo dõi các hình đã dùng
+
+// 1. Hàm bốc hình ảnh không trùng lặp cho đến khi hết lượt
+function getUnusedActions(count) {
+    // Nếu kho hình còn lại ít hơn số lượng cần lấy, reset kho hình
+    let availableActions = STICKMAN_ACTIONS.filter(action => !imageHistory.includes(action.img));
+
+    if (availableActions.length < count) {
+        imageHistory = []; // Reset vòng đời hình ảnh
+        availableActions = [...STICKMAN_ACTIONS];
+    }
+
+    // Trộn và lấy ra số lượng cần thiết
+    const selected = availableActions.sort(() => 0.5 - Math.random()).slice(0, count);
+
+    // Lưu vào lịch sử đã dùng
+    selected.forEach(s => imageHistory.push(s.img));
+    return selected;
+}
+
+// 2. Logic nâng cấp: Mỗi bài 1 câu, hết 1 lượt rồi mới quay lại
 async function initGame() {
     const rawData = await fetchPhysicalData();
     if (rawData.length === 0) {
@@ -98,38 +133,53 @@ async function initGame() {
         return;
     }
 
-    // Trộn ngẫu nhiên danh sách
-    gamePool = rawData.sort(() => Math.random() - 0.5).map(item => {
-        const correct = item.answer;
-
-        // Lấy đáp án sai từ câu có unitNum khác
-        let wrongPool = rawData.filter(d => d.unitNum !== item.unitNum);
-        if (wrongPool.length === 0) {
-            wrongPool = rawData.filter(d => d.answer !== correct);
-        }
-
-        const randomWrong = wrongPool[Math.floor(Math.random() * wrongPool.length)];
-        const wrong = randomWrong ? randomWrong.answer : "N/A";
-
-        // Bốc 2 động tác
-        const actions = [...STICKMAN_ACTIONS].sort(() => 0.5 - Math.random());
-
-        return {
-            question: item.question,
-            options: [
-                { text: correct, isCorrect: true, action: actions[0] },
-                { text: wrong, isCorrect: false, action: actions[1] }
-            ].sort(() => 0.5 - Math.random())
-        };
+    // NHÓM THEO BÀI (Unit)
+    const groupedByUnit = {};
+    rawData.forEach(item => {
+        if (!groupedByUnit[item.unitNum]) groupedByUnit[item.unitNum] = [];
+        groupedByUnit[item.unitNum].push(item);
     });
 
+    const unitIds = Object.keys(groupedByUnit);
+    gamePool = [];
+
+    // Tạo danh sách câu hỏi: Lấy ngẫu nhiên 1 câu từ mỗi Unit
+    unitIds.forEach(unitId => {
+        const questionsInUnit = groupedByUnit[unitId];
+        const randomQuestion = questionsInUnit[Math.floor(Math.random() * questionsInUnit.length)];
+
+        // Logic tìm câu trả lời sai (vẫn giữ logic lấy từ Unit khác)
+        let wrongPool = rawData.filter(d => d.unitNum !== randomQuestion.unitNum);
+        if (wrongPool.length === 0) {
+            wrongPool = rawData.filter(d => d.answer !== randomQuestion.answer);
+        }
+        const randomWrong = wrongPool[Math.floor(Math.random() * wrongPool.length)];
+
+        // LẤY HÌNH ẢNH THEO CHU KỲ
+        const actions = getUnusedActions(2);
+
+        gamePool.push({
+            question: randomQuestion.question,
+            options: [
+                { text: randomQuestion.answer, isCorrect: true, action: actions[0] },
+                { text: randomWrong ? randomWrong.answer : "N/A", isCorrect: false, action: actions[1] }
+            ].sort(() => 0.5 - Math.random())
+        });
+    });
+
+    // TRỘN LẠI DANH SÁCH GAMEPOOL (Để thứ tự các bài học không bị cố định)
+    gamePool.sort(() => 0.5 - Math.random());
+
+    currentIndex = 0;
     renderQuestion();
 }
 
-// 5. Hiển thị
+// 3. Hàm renderQuestion (Giữ nguyên hoặc chỉnh sửa nhẹ)
 function renderQuestion() {
     if (currentIndex >= gamePool.length) {
-        alert("🎉 Chúc mừng! Bạn đã hoàn thành bài tập.");
+        // TỰ ĐỘNG KHỞI TẠI VÒNG MỚI KHI HẾT BÀI
+        alert("🎉 Hết một lượt bài tập! Bắt đầu vòng mới với các câu hỏi khác.");
+        initGame(); 
         return;
     }
 
@@ -143,6 +193,8 @@ function renderQuestion() {
         document.getElementById(`img-${i}`).src = opt.action.img;
         document.getElementById(`desc-${i}`).textContent = `(${opt.action.desc})`;
     });
+
+    speak(current.question);
 }
 
 // 6. Kiểm tra đáp án
