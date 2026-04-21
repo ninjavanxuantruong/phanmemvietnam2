@@ -108,6 +108,12 @@
       background: #fffdf5;
       font-size: 16px;
     }
+    .sentence-item {
+      transition: background-color 0.3s ease, color 0.3s ease;
+      padding: 2px 4px;
+      border-radius: 4px;
+      display: inline; /* Giữ nguyên dạng dòng văn bản */
+    }
     /* Mobile tweaks */
     @media (max-width: 600px) {
       .title { font-size: 22px; }
@@ -154,6 +160,22 @@
               <option value="4">4 từ</option>
               <option value="5" selected>5 từ</option>
               <option value="6">6 từ</option>
+            </select>
+          </div>
+          <div>
+            <label for="speechRateSelect" style="font-weight: bold; color: #e3350d;">⚡ Tốc độ:</label>
+            <select id="speechRateSelect" style="padding: 8px; border: 2px solid #2a75bb; border-radius: 8px; background: #fff;">
+              <option value="0.4">0.4x (Rất chậm)</option>
+              <option value="0.7">0.7x (Chậm)</option>
+              <option value="1.0" selected>1.0x (Bình thường)</option>
+              <option value="1.3">1.3x (Nhanh)</option>
+            </select>
+          </div>
+          <div>
+            <label for="highlightSelect" style="font-weight: bold; color: #e3350d;">💡 Highlight:</label>
+            <select id="highlightSelect" style="padding: 8px; border: 2px solid #2a75bb; border-radius: 8px;">
+              <option value="no">Không</option>
+              <option value="yes" selected>Có (Đổi màu)</option>
             </select>
           </div>
 
