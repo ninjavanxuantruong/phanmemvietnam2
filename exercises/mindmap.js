@@ -120,23 +120,42 @@ function renderMindmap(selectedTopic) {
 }
 
 function speak(text) {
-    // 1. Dừng mọi âm thanh cũ ngay lập tức
+    // 1. Dừng âm thanh cũ và đánh thức trình duyệt
     synth.cancel();
+    if (synth.paused) synth.resume();
 
-    // 2. Tạo đối tượng đọc mới
     const utter = new SpeechSynthesisUtterance(text);
 
-    // 3. Ưu tiên giọng Google US English nếu có
-    const preferredVoice = voices.find(v => v.lang === 'en-US' && v.name.includes('Google')) 
-                          || voices.find(v => v.lang.startsWith('en'));
+    // 2. Lấy danh sách giọng đọc mới nhất
+    const voices = synth.getVoices();
 
-    if (preferredVoice) utter.voice = preferredVoice;
+    // 3. Tìm giọng theo thứ tự ưu tiên
+    // Tìm Zira (Giọng nữ chuẩn)
+    let selectedVoice = voices.find(v => v.name.includes('Zira'));
+
+    // Nếu không có Zira, tìm David (Giọng nam)
+    if (!selectedVoice) {
+        selectedVoice = voices.find(v => v.name.includes('David'));
+    }
+
+    // Nếu vẫn không có, tìm bất kỳ giọng Google US English hoặc giọng Anh-Mỹ nào
+    if (!selectedVoice) {
+        selectedVoice = voices.find(v => v.lang === 'en-US' && v.name.includes('Google')) 
+                        || voices.find(v => v.lang.startsWith('en-US'))
+                        || voices.find(v => v.lang.startsWith('en'));
+    }
+
+    // Gán giọng đã tìm được
+    if (selectedVoice) {
+        utter.voice = selectedVoice;
+        console.log("Đang dùng giọng:", selectedVoice.name); // Để ông kiểm tra trong Console
+    }
 
     utter.lang = 'en-US';
-    utter.rate = 0.85; 
+    utter.rate = 0.5; 
     utter.pitch = 1;
 
-    // 4. Thực thi
+    // 4. Phát âm
     synth.speak(utter);
 }
 
