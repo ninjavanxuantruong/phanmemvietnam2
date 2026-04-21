@@ -98,7 +98,7 @@ async function fetchListeningData() {
     );
 
     // Shuffle (trộn) dữ liệu và lấy tối đa 10-15 câu để luyện tập
-    return parsed.sort(() => Math.random() - 0.5).slice(0, 15);
+    return parsed.sort((a, b) => a.unitNum - b.unitNum).slice(0, 15);
   } catch (error) {
     console.error("❌ Lỗi khi fetch dữ liệu Listening:", error);
     return [];
