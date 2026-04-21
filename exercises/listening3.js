@@ -141,12 +141,15 @@ function updateTopicDropdown(rows) {
   const topicSelect = document.getElementById("topicSelect");
   if (!topicSelect) return;
 
-  // Lấy danh sách Topic duy nhất từ cột G (Index 6)
+  // 1. Lưu lại giá trị hiện tại người dùng đang chọn
+  const currentSelected = topicSelect.value;
+
+  // 2. Lấy danh sách Topic duy nhất
   const topics = [...new Set(rows.map(r => (r[6] || "").toString().trim()))]
     .filter(Boolean)
     .sort();
 
-  // Giữ lại option "Tất cả" đầu tiên, xóa các cái cũ
+  // 3. Render lại danh sách
   topicSelect.innerHTML = '<option value="all">-- Tất cả chủ đề --</option>';
 
   topics.forEach(t => {
@@ -155,6 +158,13 @@ function updateTopicDropdown(rows) {
     opt.textContent = t;
     topicSelect.appendChild(opt);
   });
+
+  // 4. QUAN TRỌNG: Gán lại giá trị cũ nếu nó vẫn tồn tại trong danh sách mới
+  if (currentSelected && topics.includes(currentSelected)) {
+    topicSelect.value = currentSelected;
+  } else {
+    topicSelect.value = "all";
+  }
 }
 /**
  * Trích xuất và lọc dữ liệu Presentation (Câu ví dụ)
