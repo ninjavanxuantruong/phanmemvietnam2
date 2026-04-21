@@ -103,8 +103,7 @@ async function fetchPhysicalData() {
 }
 
 // ===== Biến trạng thái nâng cấp =====
-let gamePool = [];
-let currentIndex = 0;
+
 let imageHistory = []; // Theo dõi các hình đã dùng
 
 // 1. Hàm bốc hình ảnh không trùng lặp cho đến khi hết lượt
