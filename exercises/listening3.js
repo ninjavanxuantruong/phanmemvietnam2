@@ -11,11 +11,11 @@ let L3_voiceFemale = null;
 let L3_score = 0;
 let L3_total = 0; // số blank (5)
 let L3_ready = false;
-
+let L3_speechRate = 1.0;
 // THÊM 2 DÒNG NÀY
 let L3_totalSentences = 8; // mặc định 8 câu
 let L3_blankCount = 5; // mặc định 5 từ cần điền
-
+let L3_isHighlight = true; // Mặc định bật
 // ===== Helpers =====
 function normalizeUnitId(unitStr) {
   if (!unitStr) return 0;
@@ -74,12 +74,64 @@ function getVoices() {
       resolve(speechSynthesis.getVoices());
   });
 }
-function speak(text, voice) {
+async function speak(text, voice) {
   if (!text) return;
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-US";
-  if (voice) u.voice = voice;
-  speechSynthesis.speak(u);
+
+  // 1. Dừng mọi âm thanh đang phát
+  window.speechSynthesis.cancel();
+
+  // 2. Lấy danh sách các thẻ span trên giao diện để highlight
+  const sentenceSpans = document.querySelectorAll('.sentence-item');
+
+  // Kiểm tra nếu dữ liệu câu gốc có tồn tại
+  if (!L3_sentences || L3_sentences.length === 0) return;
+
+  const speakSentence = (index) => {
+    if (index >= L3_sentences.length) return;
+
+    const span = sentenceSpans[index];
+
+    // LẤY CÂU GỐC HOÀN CHỈNH TỪ STATE (Không bị đục lỗ)
+    const fullText = L3_sentences[index].text; 
+
+    const utterance = new SpeechSynthesisUtterance(fullText);
+    utterance.lang = "en-US";
+    utterance.voice = voice;
+    utterance.rate = L3_speechRate;
+
+    utterance.onstart = () => {
+      // Cập nhật giao diện Highlight (vẫn highlight thẻ span đang đục lỗ)
+      if (L3_isHighlight && span) {
+        sentenceSpans.forEach(s => {
+          s.style.color = "";
+          s.style.fontWeight = "";
+          s.style.backgroundColor = "";
+        });
+        span.style.color = "#e3350d";
+        span.style.fontWeight = "bold";
+        span.style.backgroundColor = "#fff3cd";
+        span.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    };
+
+    utterance.onend = () => {
+      if (index === L3_sentences.length - 1) {
+        setTimeout(() => {
+          if (span) {
+            span.style.color = "";
+            span.style.fontWeight = "";
+            span.style.backgroundColor = "";
+          }
+        }, 500);
+      }
+      speakSentence(index + 1);
+    };
+
+    utterance.onerror = () => speakSentence(index + 1);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  speakSentence(0);
 }
 function updateScoreBoardL3() {
   const el = document.getElementById("scoreBoard");
@@ -270,18 +322,21 @@ function renderListening3() {
     }
   });
 
-  // Đoạn văn hiển thị với (n)__
+  // BỔ SUNG: Bọc mỗi câu vào span.sentence-item để phục vụ highlight
   const renderedParts = L3_sentences.map((s, idx) => {
+    let displayBody = s.text;
     if (L3_blankIndices.includes(idx)) {
       const n = blankOrderMap[idx];
       const rx = new RegExp(`\\b${escapeRegExp(s.target)}\\b`, "gi");
-      return s.text.replace(rx, `(${n})__`);
+      displayBody = s.text.replace(rx, `(${n})__`);
     }
-    return s.text;
+    // Trả về chuỗi HTML có bọc thẻ span
+    return `<span class="sentence-item">${displayBody}</span>`;
   });
 
-  const paragraphDisplay =
-    renderedParts.join(". ").replace(/\s+\./g, ".").trim() + ".";
+  // Nối các span lại bằng dấu chấm và khoảng trắng
+  const paragraphDisplay = renderedParts.join(". ").replace(/\s+\./g, ".").trim() + ".";
+
   const paragraphOriginal =
     L3_sentences.map((s) => s.text)
       .join(". ")
@@ -290,8 +345,10 @@ function renderListening3() {
 
   area.innerHTML = `
     <div class="dialogue-text">
-      <p>🧩 Nghe đoạn văn và điền 5 từ còn thiếu:</p>
-      <div id="paragraphBox" style="font-size:20px; color:#667; margin-bottom:10px;">${paragraphDisplay}</div>
+      <p>🧩 Nghe đoạn văn và điền ${L3_blankCount} từ còn thiếu:</p>
+      <div id="paragraphBox" style="font-size:20px; color:#667; margin-bottom:10px; line-height: 1.6;">
+        ${paragraphDisplay}
+      </div>
       <div style="margin-bottom:10px;">
         <button id="playParagraphBtn" class="btn primary">▶️ Nghe đoạn văn</button>
       </div>
@@ -302,7 +359,7 @@ function renderListening3() {
     </div>
   `;
 
-  // Render inputs theo đúng thứ tự 1..5
+  // Render inputs theo đúng thứ tự 1..n
   const inputsArea = document.getElementById("inputsArea");
   inputsArea.innerHTML = "";
   Object.entries(blankOrderMap).forEach(([idx, n]) => {
@@ -315,18 +372,16 @@ function renderListening3() {
     inputsArea.appendChild(row);
   });
 
-  // Nút nghe: đọc nguyên văn
+  // Nút nghe: đọc nguyên văn (Hàm speak sẽ xử lý highlight dựa trên class .sentence-item)
   document.getElementById("playParagraphBtn").onclick = () => {
     speak(paragraphOriginal, L3_voiceMale);
   };
 
-  // Nút nộp bài
-  // Nút nộp bài
+  // Nút nộp bài (Giữ nguyên logic cũ)
   document.getElementById("submitL3Btn").onclick = function() {
-    const submitBtn = this; // Lưu lại tham chiếu nút nộp bài
+    const submitBtn = this; 
     let correct = 0;
 
-    // Duyệt qua các ô input để tính điểm
     Object.entries(blankOrderMap).forEach(([idx, n]) => {
       const inputEl = document.getElementById(`blankInput-${n}`);
       const inputVal = (inputEl.value || "").trim().toLowerCase();
@@ -334,21 +389,17 @@ function renderListening3() {
 
       if (inputVal && inputVal === target) correct++;
 
-      // ✅ KHOÁ ô điền từ: Không cho sửa sau khi đã nộp
       inputEl.disabled = true;
-      inputEl.style.backgroundColor = "#f0f0f0"; // Đổi màu nền cho người dùng biết là đã khoá
+      inputEl.style.backgroundColor = "#f0f0f0";
     });
 
-    // Cập nhật kết quả
     L3_score = correct;
     resultBox.textContent = `✅ Đúng ${correct}/${L3_total}`;
     updateScoreBoardL3();
     setResultListeningPart(3, L3_score, L3_total);
 
-    // Hiển thị đáp án
     showL3Answers();
 
-    // ✅ KHOÁ nút nộp bài: Không cho ấn nhiều lần
     submitBtn.disabled = true;
     submitBtn.textContent = "⌛ Đã ghi nhận điểm";
     submitBtn.classList.remove("success");
@@ -513,24 +564,45 @@ getVoices().then(async (voices) => {
 // ✅ FULL: Sửa nút Apply để đảm bảo tạo bài mới mỗi lần nhấn
 function setupDropdownListeners() {
   const applyBtn = document.getElementById("applySettingsBtn");
+
+  // Lấy các thẻ select từ giao diện
+  const rateSelect = document.getElementById("speechRateSelect");
+  const highlightSelect = document.getElementById("highlightSelect");
   const totalSelect = document.getElementById("totalSentences");
   const blankSelect = document.getElementById("blankCount");
 
   if (applyBtn) {
     applyBtn.onclick = () => {
+      // 1. Cập nhật Tốc độ đọc (L3_speechRate)
+      if (rateSelect) {
+        L3_speechRate = parseFloat(rateSelect.value);
+        console.log("⚡ Tốc độ hiện tại:", L3_speechRate);
+      }
+
+      // 2. Cập nhật Chế độ Highlight (L3_isHighlight)
+      if (highlightSelect) {
+        L3_isHighlight = (highlightSelect.value === "yes");
+        console.log("💡 Chế độ Highlight:", L3_isHighlight);
+      }
+
+      // 3. Lấy số lượng câu và số từ cần điền
       const total = parseInt(totalSelect.value, 10);
       const blank = parseInt(blankSelect.value, 10);
 
+      // 4. Kiểm tra logic an toàn
       if (blank > total) {
-        alert(`⚠️ Số từ cần điền (${blank}) không thể lớn hơn tổng số câu (${total})`);
+        alert(`⚠️ Lỗi: Số từ cần điền (${blank}) không thể lớn hơn tổng số câu (${total})!`);
         return;
       }
 
-      // Xóa kết quả cũ và Reset trạng thái
+      // 5. Hiển thị thông báo trạng thái trên UI (Tùy chọn)
       const resultBox = document.getElementById("resultBox");
-      if (resultBox) resultBox.innerHTML = " đang tạo bài mới...";
+      if (resultBox) {
+        resultBox.textContent = "⏳ Đang khởi tạo bài học mới...";
+        resultBox.style.color = "#2a75bb";
+      }
 
-      // Gọi hàm tạo bài
+      // 6. Gọi hàm chính để tạo bài
       startListeningMode3(total, blank);
     };
   }
