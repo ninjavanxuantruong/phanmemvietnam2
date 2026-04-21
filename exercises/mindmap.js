@@ -1,6 +1,19 @@
 // mindmap.js
-let rawRows = []; // Lưu trữ dữ liệu gốc
-let mm = null;    // Biến lưu instance của Markmap
+let rawRows = []; 
+let mm = null;    
+
+// 1. Khởi tạo Speech Synthesis với kiểm tra danh sách giọng đọc
+const synth = window.speechSynthesis;
+let voices = [];
+
+function loadVoices() {
+    voices = synth.getVoices();
+}
+// Đợi danh sách giọng đọc sẵn sàng
+loadVoices();
+if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = loadVoices;
+}
 
 async function initMindmap() {
     try {
@@ -9,16 +22,13 @@ async function initMindmap() {
         const data = await response.json();
         rawRows = data.rows || data;
 
-        // 1. Tạo danh sách cho Dropdown
         buildDropdown(rawRows);
 
-        // 2. Lắng nghe sự kiện đổi chủ đề
         document.getElementById('bigTopicFilter').addEventListener('change', (e) => {
             renderMindmap(e.target.value);
         });
 
         loading.style.display = 'none';
-        // Vẽ lần đầu với hướng dẫn
         renderMindmap("ALL");
 
     } catch (error) {
@@ -30,7 +40,6 @@ async function initMindmap() {
 function buildDropdown(rows) {
     const filter = document.getElementById('bigTopicFilter');
     const getVal = (r, idx) => (r.c && r.c[idx]) ? r.c[idx].v : r[idx];
-
     const bigTopics = [...new Set(rows.map(r => getVal(r, 6)).filter(Boolean))];
     bigTopics.sort().forEach(topic => {
         const opt = document.createElement('option');
@@ -44,7 +53,6 @@ function renderMindmap(selectedTopic) {
     const getVal = (r, idx) => (r.c && r.c[idx]) ? r.c[idx].v : r[idx];
     const mapData = {};
 
-    // 1. Lọc dữ liệu theo chủ đề được chọn
     rawRows.forEach(r => {
         const bigTopic = getVal(r, 6) || "Khác";
         const smallTopic = getVal(r, 5) || "Chung";
@@ -55,47 +63,81 @@ function renderMindmap(selectedTopic) {
         if (selectedTopic !== "ALL" && bigTopic !== selectedTopic) return;
 
         if (!mapData[bigTopic]) mapData[bigTopic] = {};
-        if (!mapData[bigTopic][smallTopic]) mapData[bigTopic][smallTopic] = [];
-        mapData[bigTopic][smallTopic].push(`${vocab} *(${meaning})*`);
+        if (!mapData[bigTopic][smallTopic]) mapData[bigTopic][smallTopic] = new Set();
+        mapData[bigTopic][smallTopic].add(`${vocab.trim()} *(${meaning.trim()})*`);
     });
 
-    // 2. Chuyển thành Markdown
     let markdownText = selectedTopic === "ALL" 
         ? "# 🚩 HÃY CHỌN MỘT CHỦ ĐỀ LỚN" 
         : `# 🚩 ${selectedTopic}\n`;
 
     for (const big in mapData) {
         if (selectedTopic === "ALL") {
-            markdownText += `## ${big} (Chọn ở menu trên)\n`;
+            markdownText += `## ${big} (Chọn menu trên)\n`;
         } else {
             for (const small in mapData[big]) {
-                markdownText += `## ${small}\n`; // Cấp 2 là chủ đề nhỏ
-                mapData[big][small].forEach(item => {
-                    markdownText += `- ${item}\n`; // Cấp 3 là từ vựng
+                markdownText += `## ${small}\n`;
+                Array.from(mapData[big][small]).sort().forEach(item => {
+                    markdownText += `- ${item}\n`;
                 });
             }
         }
     }
 
-    // 3. Vẽ bằng Markmap
     const svgEl = document.querySelector('#markmap');
     const { markmap } = window;
     const transformer = new markmap.Transformer();
     const { root } = transformer.transform(markdownText);
 
-    // Xóa cái cũ nếu có
-    if (mm) {
-        svgEl.innerHTML = "";
-    }
+    if (mm) { svgEl.innerHTML = ""; }
 
-    // Cấu hình Quan trọng: initialExpandLevel
-    // Level 0: Gốc, Level 1: Chủ đề nhỏ. 
-    // Chúng ta để level 1 để nó hiện chủ đề nhỏ nhưng ĐÓNG từ vựng lại.
     mm = markmap.Markmap.create(svgEl, {
         autoFit: true,
-        initialExpandLevel: 1, // <--- Chỉ mở đến cấp Chủ đề nhỏ
+        initialExpandLevel: 1,
         duration: 400
     }, root);
+
+    // Xử lý sự kiện Click chính xác hơn
+    const handleNodeClick = (e) => {
+        // Tìm node cha gần nhất có class của markmap
+        const node = e.target.closest('.markmap-node');
+        if (!node) return;
+
+        // Lấy text ẩn bên trong (tránh các thẻ SVG phụ)
+        let rawText = node.textContent || "";
+
+        // Tách từ vựng: "Apple (Quả táo)" -> "Apple"
+        let cleanText = rawText.split('(')[0].split('*')[0].trim();
+
+        // Bỏ qua nếu là tiêu đề hướng dẫn hoặc tiêu đề rỗng
+        if (cleanText.includes("HÃY CHỌN") || cleanText === "") return;
+
+        console.log("Đang đọc:", cleanText); // Kiểm tra trong Console F12
+        speak(cleanText);
+    };
+
+    svgEl.onclick = handleNodeClick;
+}
+
+function speak(text) {
+    // 1. Dừng mọi âm thanh cũ ngay lập tức
+    synth.cancel();
+
+    // 2. Tạo đối tượng đọc mới
+    const utter = new SpeechSynthesisUtterance(text);
+
+    // 3. Ưu tiên giọng Google US English nếu có
+    const preferredVoice = voices.find(v => v.lang === 'en-US' && v.name.includes('Google')) 
+                          || voices.find(v => v.lang.startsWith('en'));
+
+    if (preferredVoice) utter.voice = preferredVoice;
+
+    utter.lang = 'en-US';
+    utter.rate = 0.85; 
+    utter.pitch = 1;
+
+    // 4. Thực thi
+    synth.speak(utter);
 }
 
 document.addEventListener('DOMContentLoaded', initMindmap);
