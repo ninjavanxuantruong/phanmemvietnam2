@@ -33,11 +33,35 @@ function splitTargets(rawTarget) {
     .map((t) => t.trim())
     .filter(Boolean);
 }
+// --- THAY THẾ TOÀN BỘ HÀM pickRandomIndices ---
 function pickRandomIndices(n, k) {
-  // chọn ngẫu nhiên k chỉ số trong [0..n-1]
-  const arr = Array.from({ length: n }, (_, i) => i);
-  arr.sort(() => Math.random() - 0.5);
-  return arr.slice(0, Math.min(k, n));
+    let indices = [];
+    const allPossible = Array.from({ length: n }, (_, i) => i);
+
+    // Thử tối đa 50 lần để tìm ra bộ chỉ số hợp lệ (tránh vòng lặp vô tận)
+    for (let attempt = 0; attempt < 50; attempt++) {
+        allPossible.sort(() => Math.random() - 0.5);
+        let candidate = allPossible.slice(0, k).sort((a, b) => a - b);
+
+        // Kiểm tra xem có 3 số liên tiếp không (ví dụ: 1, 2, 3)
+        let hasThreeConsecutive = false;
+        for (let i = 0; i <= candidate.length - 3; i++) {
+            if (candidate[i+1] === candidate[i] + 1 && candidate[i+2] === candidate[i] + 2) {
+                hasThreeConsecutive = true;
+                break;
+            }
+        }
+
+        if (!hasThreeConsecutive) {
+            indices = candidate;
+            break;
+        }
+
+        // Nếu là lần thử cuối cùng mà vẫn không được, cứ lấy đại kết quả gần nhất
+        indices = candidate; 
+    }
+
+    return indices;
 }
 function escapeRegExp(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -182,17 +206,30 @@ function extractPresentationData(rows, maxLessonCode, totalSentences = 8, select
   const unitNames = Object.keys(unitMap);
   if (unitNames.length === 0) return [];
 
-  // 4. Xáo trộn danh sách các bài học và chọn ra số lượng bài tương ứng với totalSentences
-  unitNames.sort(() => Math.random() - 0.5);
-  const pickedUnits = unitNames.slice(0, Math.min(totalSentences, unitNames.length));
-
+  // Bước 4 trong extractPresentationData của ông
   const selected = [];
-  pickedUnits.forEach((u) => {
-    const unitRows = unitMap[u];
-    // Trong mỗi bài học đã chọn, lấy ngẫu nhiên 1 câu ví dụ
-    const chosen = unitRows[Math.floor(Math.random() * unitRows.length)];
-    selected.push(chosen);
-  });
+  unitNames.sort(() => Math.random() - 0.5);
+
+  let unitIdx = 0;
+  let safetyCounter = 0; // Thêm biến bảo vệ
+  const maxAttempts = totalSentences * 5; // Giới hạn số lần thử tìm câu
+
+  while (selected.length < totalSentences && unitNames.length > 0 && safetyCounter < maxAttempts) {
+      const currentUnitName = unitNames[unitIdx % unitNames.length];
+      const rowsInUnit = unitMap[currentUnitName];
+
+      // Lọc lấy những câu chưa có trong danh sách selected
+      const availableRows = rowsInUnit.filter(row => !selected.includes(row));
+
+      if (availableRows.length > 0) {
+          // Chọn ngẫu nhiên 1 câu trong số các câu còn lại của Unit này
+          const chosen = availableRows[Math.floor(Math.random() * availableRows.length)];
+          selected.push(chosen);
+      }
+
+      unitIdx++;
+      safetyCounter++;
+  }
 
   // 5. Sắp xếp lại theo mã bài học (unitNum) để mạch truyện/đoạn văn logic hơn
   selected.sort((a, b) => a.unitNum - b.unitNum);
