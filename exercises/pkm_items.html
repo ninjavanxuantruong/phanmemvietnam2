@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Inventory</title>
+    <style>
+        body { background: #121212; color: white; font-family: sans-serif; padding: 20px; }
+        .inventory-layout { display: flex; gap: 30px; justify-content: center; }
+
+        /* 6 Ô trang bị đang mặc */
+        .equip-slots { 
+            display: grid; grid-template-columns: repeat(2, 150px); gap: 15px; 
+            background: #1e1e1e; padding: 20px; border-radius: 15px; border: 2px solid #444;
+        }
+        .slot { 
+            height: 100px; background: #252525; border: 1px dashed #666; 
+            border-radius: 10px; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; font-size: 0.8rem; position: relative;
+        }
+        .slot.active { border-style: solid; border-color: #f1c40f; background: #2c3e50; }
+        .remove-btn { position: absolute; top: 5px; right: 5px; color: red; cursor: pointer; display: none; }
+        .slot.active .remove-btn { display: block; }
+
+        /* Danh sách đồ trong túi */
+        .bag { flex: 1; background: #1e1e1e; padding: 20px; border-radius: 15px; max-width: 600px; }
+        .bag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+        .item-box { 
+            background: #333; padding: 10px; border-radius: 8px; cursor: pointer; 
+            text-align: center; font-size: 0.8rem; border: 2px solid transparent;
+        }
+        .item-box:hover { border-color: #f1c40f; }
+        .item-box.equipped { opacity: 0.5; border-color: #27ae60; cursor: not-allowed; }
+        .remove-btn { 
+            position: absolute; 
+            top: 0; 
+            right: 0; 
+            color: red; 
+            cursor: pointer; 
+            display: none; 
+            padding: 10px; /* Tăng vùng bấm */
+            font-size: 1.2rem; /* Làm dấu X to hơn */
+            font-weight: bold;
+        }
+
+        /* --- RESPONSIVE CHO TRANG TRANG BỊ --- */
+        @media (max-width: 768px) {
+            /* 1. Bố cục chính: Xếp dọc */
+            .inventory-layout {
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+            }
+
+            /* 2. Khu vực 6 slot đang mặc: Thu nhỏ để vừa màn hình */
+            .equip-slots {
+                grid-template-columns: repeat(3, 1fr); /* Đổi thành 3 cột, 2 hàng */
+                width: 90%;
+                padding: 10px;
+                gap: 10px;
+            }
+
+            .slot {
+                height: 80px; /* Giảm chiều cao slot */
+                font-size: 0.7rem;
+            }
+
+            .slot b {
+                font-size: 0.75rem;
+            }
+
+            /* 3. Khu vực túi đồ: Chiếm hết chiều rộng */
+            .bag {
+                width: 100%;
+                max-width: none;
+                padding: 15px;
+                box-sizing: border-box;
+            }
+
+            .bag-grid {
+                /* Hiển thị 3 món đồ trên 1 hàng cho gọn */
+                grid-template-columns: repeat(3, 1fr); 
+                gap: 8px;
+            }
+
+            .item-box {
+                padding: 8px 5px;
+                font-size: 0.7rem;
+                min-height: 50px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* 4. Tiêu đề và nút quay lại */
+            h1 {
+                font-size: 1.5rem;
+                margin-bottom: 15px;
+            }
+        }
+
+        /* Thêm cho màn hình cực nhỏ (iPhone SE, v.v.) */
+        @media (max-width: 380px) {
+            .equip-slots {
+                grid-template-columns: repeat(2, 1fr); /* Quay lại 2 cột nếu màn hình quá bé */
+            }
+            .bag-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1 style="text-align:center">TRANG BỊ POKÉMON</h1>
+
+    <div class="inventory-layout">
+        <!-- Khu vực đang mặc đồ -->
+        <div class="equip-slots" id="equip-slots">
+            <!-- Render 6 slot: weapon, armor, helmet, gloves, earring, shoes -->
+        </div>
+
+        <!-- Khu vực túi đồ -->
+        <div class="bag">
+            <h3>Túi đồ của bạn</h3>
+            <div class="bag-grid" id="bag-grid"></div>
+        </div>
+    </div>
+
+    <div style="text-align:center; margin-top:30px;">
+        <button onclick="window.location.href='pkm.html'" style="padding:10px 30px; cursor:pointer;">BACK</button>
+    </div>
+
+<script>
+    // Dữ liệu mẫu (Giống hệt Store để khớp ID)
+    const TYPES = [
+        { id: 'weapon', name: 'Kiếm' }, { id: 'armor', name: 'Giáp thân' },
+        { id: 'helmet', name: 'Giáp mũ' }, { id: 'gloves', name: 'Găng tay' },
+        { id: 'earring', name: 'Khuyên tai' }, { id: 'shoes', name: 'Giày' }
+    ];
+    // Tạo lại danh sách 24 món đồ để tra cứu thông tin
+    const ALL_ITEMS = []; 
+    const RANKS = [{id:'silver', n:'Bạc', b:0.02, c:'#bdc3c7'}, {id:'gold', n:'Vàng', b:0.03, c:'#f1c40f'}, {id:'red', n:'Đỏ', b:0.04, c:'#e74c3c'}, {id:'orange', n:'Cam', b:0.05, c:'#f39c12'}];
+    TYPES.forEach(t => RANKS.forEach(r => ALL_ITEMS.push({id:`${t.id}_${r.id}`, name:`${t.name} ${r.n}`, type:t.id, bonus:r.b, color:r.c})));
+
+    function renderInventory() {
+        const ownedIds = JSON.parse(localStorage.getItem('pkm_owned_ids')) || [];
+        const equipped = JSON.parse(localStorage.getItem('pkm_equipped')) || {}; // {weapon: 'id', armor: 'id'...}
+
+        // 1. Render 6 Slots
+        const slotContainer = document.getElementById('equip-slots');
+        slotContainer.innerHTML = TYPES.map(t => {
+            const itemId = equipped[t.id];
+            const item = ALL_ITEMS.find(i => i.id === itemId);
+            return `
+                <div class="slot ${item ? 'active' : ''}" id="slot-${t.id}">
+                    <b>${t.name}</b>
+                    ${item ? `<span style="color:${item.color}">${item.name}</span><span class="remove-btn" onclick="unequip('${t.id}')">✖</span>` : '<small>Trống</small>'}
+                </div>
+            `;
+        }).join('');
+
+        // 2. Render Bag
+        const bagContainer = document.getElementById('bag-grid');
+        const equippedIds = Object.values(equipped);
+
+        bagContainer.innerHTML = ownedIds.map(id => {
+            const item = ALL_ITEMS.find(i => i.id === id);
+            const isEquipped = equippedIds.includes(id);
+            return `
+                <div class="item-box ${isEquipped ? 'equipped' : ''}" onclick="equip('${id}')">
+                    <div style="color:${item.color}">${item.name}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window.equip = function(id) {
+        const item = ALL_ITEMS.find(i => i.id === id);
+        let equipped = JSON.parse(localStorage.getItem('pkm_equipped')) || {};
+
+        // Mặc đồ vào slot tương ứng (Ví dụ: Kiếm thì vào slot 'weapon')
+        equipped[item.type] = id;
+        localStorage.setItem('pkm_equipped', JSON.stringify(equipped));
+        renderInventory();
+    };
+
+    window.unequip = function(type) {
+        let equipped = JSON.parse(localStorage.getItem('pkm_equipped')) || {};
+        delete equipped[type];
+        localStorage.setItem('pkm_equipped', JSON.stringify(equipped));
+        renderInventory();
+    };
+
+    renderInventory();
+</script>
+</body>
+</html>

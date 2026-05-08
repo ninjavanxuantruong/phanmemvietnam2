@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Gear Store</title>
+    <style>
+        :root {
+            --silver: #bdc3c7; --gold: #f1c40f;
+            --red: #e74c3c;    --orange: #f39c12;
+        }
+        body { background: #121212; color: white; font-family: 'Segoe UI', Arial, sans-serif; margin: 0; }
+
+        /* Header Thanh tiền */
+        .header { 
+            position: sticky; top: 0; background: #1e1e1e; padding: 15px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid var(--gold); z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .currency { font-size: 1.2rem; color: var(--gold); font-weight: bold; }
+
+        /* Lưới hiển thị đồ */
+        .store-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px; padding: 20px; max-width: 1200px; margin: auto;
+        }
+
+        /* Thẻ vật phẩm */
+        .item-card {
+            background: #252525; border-radius: 12px; padding: 15px;
+            text-align: center; border: 1px solid #333; transition: 0.3s;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .item-card:hover { transform: translateY(-5px); border-color: #555; }
+
+        /* Border theo phẩm chất */
+        .rank-silver { border-top: 5px solid var(--silver); }
+        .rank-gold   { border-top: 5px solid var(--gold); }
+        .rank-red    { border-top: 5px solid var(--red); }
+        .rank-orange { border-top: 5px solid var(--orange); }
+
+        .item-name { font-size: 1.1rem; font-weight: bold; margin-bottom: 8px; }
+        .item-stat { font-size: 0.9rem; color: #bbb; margin-bottom: 12px; line-height: 1.4; }
+        .price { color: var(--gold); font-size: 1rem; margin-bottom: 15px; font-weight: bold; }
+
+        .buy-btn {
+            background: #333; color: white; border: none; padding: 10px;
+            border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        .buy-btn:not(:disabled):hover { background: #27ae60; }
+        .buy-btn:disabled { color: #666; cursor: not-allowed; background: #1a1a1a; }
+
+        .back-btn {
+            background: transparent; color: white; border: 1px solid white;
+            padding: 8px 15px; border-radius: 5px; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="currency">💰 Danh vọng: <span id="dv-display">0</span> DV</div>
+        <button class="back-btn" onclick="window.location.href='pkm.html'">BACK</button>
+    </div>
+
+    <div class="store-grid" id="store-grid">
+        <!-- JS sẽ đổ dữ liệu vào đây -->
+    </div>
+
+<script>
+    // 1. Cấu hình dữ liệu gốc
+    const RANKS = [
+        { id: 'silver', name: 'Bạc',   bonus: 0.02, color: '#bdc3c7', priceMult: 1 },
+        { id: 'gold',   name: 'Vàng',  bonus: 0.03, color: '#f1c40f', priceMult: 2.5 },
+        { id: 'red',    name: 'Đỏ',    bonus: 0.04, color: '#e74c3c', priceMult: 5 },
+        { id: 'orange', name: 'Cam',   bonus: 0.05, color: '#f39c12', priceMult: 10 }
+    ];
+
+    const TYPES = [
+        { id: 'weapon',  name: 'Kiếm',      stat: 'attack',  label: 'Tấn công' },
+        { id: 'armor',   name: 'Giáp thân', stat: 'defense', label: 'Phòng thủ' },
+        { id: 'helmet',  name: 'Giáp mũ',   stat: 'hp',      label: 'Sinh lực' },
+        { id: 'gloves',  name: 'Găng tay',  stat: 'attack',  label: 'Tấn công' },
+        { id: 'earring', name: 'Khuyên tai',stat: 'defense', label: 'Phòng thủ' },
+        { id: 'shoes',   name: 'Giày',      stat: 'hp',      label: 'Sinh lực' }
+    ];
+
+    // Tạo 24 món đồ
+    const SHOP_ITEMS = [];
+    TYPES.forEach(type => {
+        RANKS.forEach(rank => {
+            SHOP_ITEMS.push({
+                id: `${type.id}_${rank.id}`,
+                name: `${type.name} ${rank.name}`,
+                statKey: type.stat,
+                bonusValue: rank.bonus,
+                price: Math.floor(100 * rank.priceMult),
+                rankId: rank.id,
+                color: rank.color,
+                desc: `${type.label} +${rank.bonus * 100}%`
+            });
+        });
+    });
+
+    function updateUI() {
+        // Lấy dữ liệu từ localStorage
+        const dv = parseInt(localStorage.getItem('pkm_global_dv')) || 0;
+        const ownedIds = JSON.parse(localStorage.getItem('pkm_owned_ids')) || [];
+
+        document.getElementById('dv-display').innerText = dv.toLocaleString();
+
+        const grid = document.getElementById('store-grid');
+        grid.innerHTML = SHOP_ITEMS.map(item => {
+            const isOwned = ownedIds.includes(item.id);
+            const canAfford = dv >= item.price;
+
+            return `
+                <div class="item-card rank-${item.rankId}">
+                    <div class="item-name" style="color: ${item.color}">${item.name}</div>
+                    <div class="item-stat">${item.desc}</div>
+                    <div class="price">${item.price} DV</div>
+                    <button class="buy-btn" 
+                        onclick="purchase('${item.id}')" 
+                        ${(isOwned || !canAfford) ? 'disabled' : ''}>
+                        ${isOwned ? 'ĐÃ SỞ HỮU' : 'MUA NGAY'}
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window.purchase = function(itemId) {
+        const item = SHOP_ITEMS.find(i => i.id === itemId);
+        let dv = parseInt(localStorage.getItem('pkm_global_dv')) || 0;
+        let ownedIds = JSON.parse(localStorage.getItem('pkm_owned_ids')) || [];
+
+        if (dv >= item.price && !ownedIds.includes(itemId)) {
+            dv -= item.price;
+            ownedIds.push(itemId); // Thêm vào danh sách sở hữu (Túi đồ)
+
+            localStorage.setItem('pkm_global_dv', dv);
+            localStorage.setItem('pkm_owned_ids', JSON.stringify(ownedIds));
+            updateUI();
+            alert(`Đã mua ${item.name}! Hãy vào mục Trang bị để sử dụng.`);
+        }
+    };
+
+    // Khởi tạo trang
+    updateUI();
+</script>
+</body>
+</html>

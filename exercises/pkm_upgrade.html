@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Evolution Center</title>
+    <style>
+        :root {
+            --primary: #2ecc71;
+            --secondary: #f1c40f;
+            --bg-dark: #121212;
+            --card-bg: #1e1e1e;
+            --text: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Top Bar */
+        .header {
+            background: var(--card-bg);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--secondary);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .exp-badge {
+            background: #2c3e50;
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: 1px solid var(--secondary);
+            font-weight: bold;
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* Sidebar: List Pokemon */
+        .sidebar {
+            width: 320px;
+            background: var(--card-bg);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+        }
+
+        .pkm-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .pkm-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #2a2a2a;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .pkm-item:hover { background: #333; }
+        .pkm-item.active {
+            border-color: var(--secondary);
+            background: #34495e;
+        }
+
+        .pkm-item img { width: 50px; height: 50px; margin-right: 15px; }
+        .pkm-info b { display: block; text-transform: capitalize; }
+        .pkm-info span { font-size: 0.85rem; color: #aaa; }
+
+        /* Upgrade Panel */
+        .upgrade-panel {
+            flex: 1;
+            background: var(--card-bg);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+            position: relative;
+        }
+
+        .pkm-display {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .pkm-main-img {
+            width: 220px;
+            height: 220px;
+            filter: drop-shadow(0 0 15px rgba(255,255,255,0.1));
+            transition: transform 0.3s;
+        }
+
+        .pkm-main-img:hover { transform: scale(1.05); }
+
+        /* Stats Grid */
+        .stats-container {
+            width: 100%;
+            max-width: 500px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            border-bottom: 3px solid var(--primary);
+        }
+
+        .stat-card label {
+            display: block;
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .val {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: var(--secondary);
+        }
+
+        .stat-card .next-val {
+            font-size: 0.85rem;
+            color: var(--primary);
+            display: block;
+        }
+
+        /* Controls */
+        .controls {
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .btn-upgrade {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: white;
+            border: none;
+            padding: 18px;
+            width: 100%;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+            transition: 0.3s;
+        }
+
+        .btn-upgrade:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
+        }
+
+        .btn-upgrade:disabled {
+            background: #444;
+            box-shadow: none;
+            cursor: not-allowed;
+            color: #888;
+        }
+
+        .back-link {
+            margin-top: 20px;
+            display: inline-block;
+            color: #888;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .back-link:hover { color: white; }
+
+        /* Animation */
+        .evo-flash {
+            animation: flash 0.5s ease-out;
+        }
+        @keyframes flash {
+            0% { filter: brightness(1); }
+            50% { filter: brightness(10); }
+            100% { filter: brightness(1); }
+        }
+
+        /* --- RESPONSIVE CHO ĐIỆN THOẠI --- */
+        @media (max-width: 768px) {
+            /* Chuyển bố cục từ ngang sang dọc */
+            .main-container {
+                flex-direction: column;
+                padding: 10px;
+                overflow-y: auto; /* Cho phép cuộn cả trang */
+                height: auto;
+            }
+
+            /* Danh sách Pokemon bên trái chuyển lên trên hoặc thu nhỏ */
+            .sidebar {
+                width: 100%;
+                height: 200px; /* Cố định chiều cao để không chiếm hết màn hình */
+                order: 2; /* Đẩy danh sách xuống dưới để bảng nâng cấp hiện lên trước */
+            }
+
+            /* Bảng nâng cấp chính */
+            .upgrade-panel {
+                width: 100%;
+                padding: 20px 10px;
+                order: 1; /* Ưu tiên bảng nâng cấp nằm trên cùng */
+            }
+
+            /* Thu nhỏ ảnh Pokemon trên mobile */
+            .pkm-main-img {
+                width: 150px;
+                height: 150px;
+            }
+
+            /* Chỉnh lại các thẻ chỉ số (Stats) */
+            .stats-container {
+                grid-template-columns: 1fr 1fr 1fr; /* Vẫn giữ 3 cột nhưng thu nhỏ chữ */
+                gap: 8px;
+            }
+
+            .stat-card {
+                padding: 8px 5px;
+            }
+
+            .stat-card .val {
+                font-size: 1.1rem;
+            }
+
+            .stat-card label {
+                font-size: 0.7rem;
+            }
+
+            /* Nút bấm to ra cho dễ chạm (Touch-friendly) */
+            .btn-upgrade {
+                padding: 15px;
+                font-size: 1rem;
+            }
+
+            /* Header thu gọn */
+            .header {
+                padding: 10px 15px;
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+
+        /* Nút Quay Lại phong cách Game */
+        .btn-back-hub {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 0 #c0392b;
+            transition: 0.2s;
+        }
+
+        .btn-back-hub:hover {
+            background: #ff5e57;
+            transform: translateY(-2px);
+        }
+
+        .btn-back-hub:active {
+            transform: translateY(2px);
+            box-shadow: none;
+        }
+
+        /* Biểu tượng mũi tên */
+        .btn-back-hub::before {
+            content: "❮";
+            font-size: 1rem;
+        }
+
+        /* Responsive cho mobile để nút không chiếm diện tích */
+        @media (max-width: 768px) {
+            .btn-back-hub {
+                padding: 5px 10px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <a href="pkm.html" class="btn-back-hub">BACK</a>
+            <h2 style="margin:0">Evolution Center</h2>
+        </div>
+
+        <div class="exp-badge">
+            ✨ EXP: <span id="global-exp-display">0</span>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Bên trái: Danh sách -->
+        <div class="sidebar">
+            <h3 style="margin-top:0">Pokémon Của Bạn</h3>
+            <div id="inventory-list" class="pkm-list">
+                <!-- JS render vào đây -->
+            </div>
+        </div>
+
+        <!-- Bên phải: Bảng nâng cấp -->
+        <div class="upgrade-panel" id="upgrade-area">
+            <div id="empty-state" style="margin: auto; color: #666;">
+                <p>Vui lòng chọn một Pokémon để bắt đầu nâng cấp</p>
+            </div>
+
+            <div id="pkm-detail" style="display: none; width: 100%; text-align: center;">
+                <div class="pkm-display">
+                    <img id="main-img" class="pkm-main-img" src="" alt="">
+                    <h1 id="pkm-name" style="text-transform: uppercase; margin: 10px 0;"></h1>
+                    <div id="pkm-lv-tag" style="color: var(--secondary); font-weight: bold;"></div>
+                </div>
+
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <label>MÁU (HP)</label>
+                        <span class="val" id="stat-hp">0</span>
+                        <span class="next-val" id="next-hp">+5%</span>
+                    </div>
+                    <div class="stat-card">
+                        <label>CÔNG (ATK)</label>
+                        <span class="val" id="stat-atk">0</span>
+                        <span class="next-val" id="next-atk">+5%</span>
+                    </div>
+                    <div class="stat-card">
+                        <label>THỦ (DEF)</label>
+                        <span class="val" id="stat-def">0</span>
+                        <span class="next-val" id="next-def">+5%</span>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button id="upgrade-btn" class="btn-upgrade">
+                        NÂNG CẤP (20 EXP)
+                    </button>
+                    <p id="evo-notice" style="color: var(--secondary); font-size: 0.9rem; margin-top: 15px; font-weight: bold;"></p>
+                    <a href="pkm.html" class="back-link">Quay lại bản đồ</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nhúng file logic -->
+    <script src="pkm_upgrade.js"></script>
+    <script>
+        // Hàm cập nhật giao diện người dùng (UI)
+        function updateUI() {
+            updateExpDisplay();
+            const inventory = JSON.parse(localStorage.getItem('pkm_inventory')) || [];
+            const listContainer = document.getElementById('inventory-list');
+
+            listContainer.innerHTML = '';
+
+            inventory.forEach(p => {
+                const item = document.createElement('div');
+                item.className = `pkm-item ${selectedUid === p.uid ? 'active' : ''}`;
+                item.onclick = () => selectPkm(p.uid);
+                item.innerHTML = `
+                    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png">
+                    <div class="pkm-info">
+                        <b>${p.name}</b>
+                        <span>Cấp ${p.lv} | ${p.type}</span>
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+
+            if (selectedUid) {
+                renderDetail(selectedUid);
+            }
+        }
+
+        let selectedUid = null;
+
+        function selectPkm(uid) {
+            selectedUid = uid;
+            document.getElementById('empty-state').style.display = 'none';
+            document.getElementById('pkm-detail').style.display = 'block';
+            updateUI();
+        }
+
+        function renderDetail(uid) {
+            const inventory = JSON.parse(localStorage.getItem('pkm_inventory')) || [];
+            const p = inventory.find(i => i.uid === uid);
+            const globalExp = parseInt(localStorage.getItem('pkm_global_exp')) || 0;
+
+            document.getElementById('main-img').src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${p.id}.png`;
+            document.getElementById('pkm-name').innerText = p.name;
+            document.getElementById('pkm-lv-tag').innerText = `LEVEL ${p.lv}`;
+
+            document.getElementById('stat-hp').innerText = p.baseStats.hp;
+            document.getElementById('stat-atk').innerText = p.baseStats.atk;
+            document.getElementById('stat-def').innerText = p.baseStats.def;
+
+            const btn = document.getElementById('upgrade-btn');
+            const notice = document.getElementById('evo-notice');
+
+            if (p.lv >= 10) {
+                btn.innerText = "TIẾN HÓA NGAY";
+                notice.innerText = "Sẵn sàng tiến hóa sang hình thái mới!";
+                // Dự kiến tiến hóa không hiện +5%
+                document.querySelectorAll('.next-val').forEach(el => el.style.visibility = 'hidden');
+            } else {
+                btn.innerText = "NÂNG CẤP (20 EXP)";
+                notice.innerText = "";
+                document.querySelectorAll('.next-val').forEach(el => el.style.visibility = 'visible');
+            }
+
+            btn.disabled = globalExp < 20;
+            btn.onclick = async () => {
+                btn.disabled = true;
+                if(p.lv === 10) document.getElementById('main-img').classList.add('evo-flash');
+                await handleUpgrade(uid);
+                setTimeout(() => {
+                    document.getElementById('main-img').classList.remove('evo-flash');
+                }, 500);
+            };
+        }
+
+        // Khởi tạo lần đầu
+        updateUI();
+    </script>
+</body>
+</html>

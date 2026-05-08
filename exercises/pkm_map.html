@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pokémon Learning Map</title>
+    <style>
+        /* 1. GIỮ NGUYÊN TOÀN BỘ CSS GỐC CỦA BẠN */
+        :root {
+            --pika-blue: #3c5aa6;
+            --pika-red: #ff4757;
+            --pika-yellow: #feca57;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            overflow: hidden; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle, #d1f7ff 0%, #a2fabd 100%);
+        }
+
+        .map-header {
+            position: absolute; top: 0; left: 0; width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000; padding: 15px 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; align-items: center; gap: 10px;
+        }
+        .map-header h2 { margin: 0; font-size: 18px; color: var(--pika-blue); text-transform: uppercase; }
+
+        .tab-container { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+        .tab-btn {
+            padding: 6px 15px; border: none; border-radius: 20px;
+            background: var(--pika-blue); color: white; font-weight: bold;
+            cursor: pointer; font-size: 12px; box-shadow: 0 3px 0 #2a4494;
+            transition: 0.2s;
+        }
+        .tab-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #2a4494; }
+
+        /* MODAL HIỂN THỊ TỪ VỰNG - ĐÃ KHÔI PHỤC */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+            z-index: 3000; display: none; align-items: center; justify-content: center;
+        }
+        .vocab-modal {
+            background: white; width: 85%; max-width: 350px; border-radius: 20px;
+            border: 4px solid var(--pika-blue); overflow: hidden;
+            animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes modalPop {
+            from { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .modal-header {
+            background: var(--pika-blue); color: white; padding: 15px;
+            text-align: center; font-weight: bold; font-size: 18px;
+        }
+        .modal-body { padding: 20px; max-height: 250px; overflow-y: auto; }
+        .vocab-item {
+            display: flex; justify-content: space-between;
+            padding: 8px 0; border-bottom: 1px dashed #ccc; font-size: 14px;
+        }
+        .modal-footer {
+            display: flex; padding: 15px; gap: 10px; background: #f9f9f9;
+        }
+        .modal-btn {
+            flex: 1; padding: 10px; border: none; border-radius: 10px;
+            font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .btn-cancel { background: #eee; color: #666; }
+        .btn-go { background: var(--pika-red); color: white; box-shadow: 0 4px 0 #c0392b; }
+        .btn-go:active { transform: translateY(2px); box-shadow: none; }
+
+        /* 2. CHỈ CHỈNH SỬA PHẦN NÀY ĐỂ HIỂN THỊ NÉT VẼ VÀ MAP */
+
+        #scroll-wrapper {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            overflow-y: auto; 
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1;
+            /* Thêm padding top/bottom để không mất bài */
+            padding-top: 130px;
+            padding-bottom: 100px;
+        }
+
+        #map-canvas {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100%;
+            width: 100%;
+        }
+
+        .node {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .connector {
+            position: absolute;
+            top: 50%; /* Nằm giữa Pokémon */
+            left: 50%; /* Nằm giữa Pokémon */
+            transform-origin: 0 50%; /* Quay từ điểm bắt đầu */
+            height: 6px;
+            pointer-events: none;
+        }
+
+        /* Ẩn cái SVG cũ đi vì không dùng nữa */
+        #map-svg { display: none; }
+
+        .map-row {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            margin-bottom: 80px;
+            gap: 30px;
+            position: relative;
+            z-index: 2;
+        }
+
+        
+
+        /* Giữ nguyên logic Badge và Animation */
+        .poke-circle {
+            width: 85px; height: 85px; background: white;
+            border: 5px solid var(--pika-blue); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.1);
+            position: relative;
+            animation: float 3s ease-in-out infinite;
+        }
+        .poke-circle img {
+            width: 100px; height: 100px; margin-top: -10px;
+            filter: drop-shadow(2px 4px 5px rgba(0,0,0,0.2));
+            pointer-events: none;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .lesson-badge {
+            position: absolute; bottom: 0; right: 0;
+            background: var(--pika-red); color: white; font-size: 11px; font-weight: bold;
+            padding: 3px 7px; border-radius: 10px; border: 2px solid white;
+            z-index: 3;
+        }
+
+        .node-info {
+            position: absolute;
+            top: 100%; left: 50%;
+            transform: translateX(-50%);
+            width: 180px; text-align: center;
+            pointer-events: none;
+        }
+
+        .back-btn {
+            position: absolute; top: 15px; left: 15px;
+            width: 50px; height: 50px;
+            background: white; border: 3px solid var(--pika-blue); border-radius: 50%;
+            z-index: 1002; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            font-size: 10px; font-weight: 900; color: var(--pika-blue); text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div id="vocabModal" class="modal-overlay">
+        <div class="vocab-modal">
+            <div class="modal-header" id="modalTitle">Tên bài học</div>
+            <div class="modal-body" id="vocabList">
+                </div>
+            <div style="text-align: center; padding: 10px; font-size: 12px; color: #666;">
+                Bạn có muốn bắt đầu hành trình này không?
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn btn-cancel" onclick="closeModal()">LÚC KHÁC</button>
+                <button class="modal-btn btn-go" id="startLessonBtn">BẮT ĐẦU</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="map-header">
+        <h2>Pokémon Master Map</h2>
+        <div class="tab-container">
+            <button class="tab-btn" onclick="jumpToClass('2')">Lớp 2</button>
+            <button class="tab-btn" onclick="jumpToClass('3')">Lớp 3</button>
+            <button class="tab-btn" onclick="jumpToClass('4')">Lớp 4</button>
+            <button class="tab-btn" onclick="jumpToClass('5')">Lớp 5</button>
+            <button class="tab-btn" onclick="jumpToClass('6')">Lớp 6</button>
+        </div>
+    </div>
+
+    <div id="scroll-wrapper">
+        <div id="map-canvas">
+            <div style="padding-top: 50px; color: #555;">Đang tải hành trình...</div>
+        </div>
+    </div>
+    <div class="back-btn" onclick="location.href='pkm.html'" title="Quay lại Hub">
+        BACK
+    </div>
+
+    
+
+    <div id="toast"></div>
+    <button id="scrollToTop" onclick="document.getElementById('scroll-wrapper').scrollTo({top: 0, behavior: 'smooth'})">▲</button>
+
+    <script src="global-config.js"></script>
+    <script src="pkm_map.js"></script> 
+
+    <script>
+        // Chỉ giữ lại logic hiển thị thông báo (Toast) và khởi chạy Map
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            if(t) {
+                t.innerText = msg; t.style.display = 'block';
+                setTimeout(() => t.style.display = 'none', 2000);
+            }
+        }
+
+        // Khi Map load, chỉ việc chạy initMap luôn vì data đã được pkm.html chuẩn bị sẵn
+        window.addEventListener('load', () => {
+            console.log("📍 Map đang khởi tạo từ LocalStorage...");
+            if (typeof initMap === 'function') {
+                initMap(); 
+            }
+        });
+    </script>
+    
+</body>
+</html>

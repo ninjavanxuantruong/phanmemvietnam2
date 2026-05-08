@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pokémon Town</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --sky-top: #87CEEB;
+            --sky-bot: #c8f0ff;
+            --ground: #5db85d;
+            --road: #b0a090;
+            --yellow: #ffcb05;
+            --blue: #3c5aa6;
+            --red: #ff4757;
+            --green: #2ecc71;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body, html {
+            width: 100%; height: 100%;
+            font-family: 'Nunito', sans-serif;
+            overflow: hidden;
+            background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bot) 40%, var(--ground) 40%);
+        }
+
+        /* ===================== HEADER BAR ===================== */
+        .header-bar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 56px;
+            background: rgba(20, 40, 80, 0.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 2px solid var(--yellow);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 8px;
+            z-index: 1000;
+        }
+
+        .trainer-avatar {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            border: 2px solid var(--yellow);
+            background: #2c3e6e;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .trainer-info {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .trainer-name-text {
+            font-size: 13px;
+            font-weight: 900;
+            color: var(--yellow);
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .trainer-class-text {
+            font-size: 10px;
+            color: #aac4ff;
+            font-weight: 700;
+        }
+
+        .stats-pills {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .pill {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 20px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 800;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .pill.exp { border-color: #ffd700; color: #ffd700; }
+        .pill.dv  { border-color: #7ec8ff; color: #7ec8ff; }
+
+        /* ===================== TOWN SCENE ===================== */
+        .town-scene {
+            position: fixed;
+            top: 56px; left: 0; right: 0; bottom: 0;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .town-canvas {
+            position: relative;
+            width: 100%;
+            min-height: calc(100vh - 56px);
+            /* Isometric-style background */
+            background:
+                linear-gradient(180deg,
+                    #87CEEB 0%,
+                    #c8f0ff 35%,
+                    #7ec850 35%,
+                    #5db840 55%,
+                    #4a9e30 100%
+                );
+        }
+
+        /* Đường đi trong thị trấn */
+        .road-h {
+            position: absolute;
+            height: 36px;
+            background: #c4b49a;
+            border-top: 3px solid #a09070;
+            border-bottom: 3px solid #a09070;
+        }
+
+        .road-v {
+            position: absolute;
+            width: 36px;
+            background: #c4b49a;
+            border-left: 3px solid #a09070;
+            border-right: 3px solid #a09070;
+        }
+
+        /* ===================== BUILDING ===================== */
+        .building {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.18s cubic-bezier(0.175,0.885,0.32,1.275);
+            text-decoration: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .building:active { transform: scale(0.9) !important; }
+
+        .building-body {
+            position: relative;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 6px;
+            box-shadow: 0 8px 0 rgba(0,0,0,0.25), 0 4px 15px rgba(0,0,0,0.3);
+            overflow: hidden;
+            transition: box-shadow 0.18s;
+        }
+
+        .building:hover .building-body,
+        .building:active .building-body {
+            box-shadow: 0 4px 0 rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        /* Mái nhà hình tam giác */
+        .building-roof {
+            width: 0; height: 0;
+            border-style: solid;
+            filter: drop-shadow(0 -2px 4px rgba(0,0,0,0.2));
+        }
+
+        .building-icon {
+            font-size: 28px;
+            margin-bottom: 2px;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
+        }
+
+        .building-name {
+            font-size: 10px;
+            font-weight: 900;
+            color: white;
+            text-align: center;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            line-height: 1.2;
+            padding: 0 4px;
+        }
+
+        .building-label {
+            margin-top: 5px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            white-space: nowrap;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* ===================== CÁC BUILDING CỤ THỂ ===================== */
+
+        /* MAP - Toà nhà trung tâm, to nhất */
+        .b-map {
+            left: 50%; top: 28%;
+            transform: translateX(-50%);
+        }
+        .b-map .building-body {
+            width: 110px; height: 100px;
+            background: linear-gradient(180deg, #3c82d6 0%, #2c5aa6 100%);
+            border: 3px solid #ffcb05;
+        }
+        .b-map .building-roof {
+            border-width: 0 60px 35px 60px;
+            border-color: transparent transparent #1a3a80 transparent;
+        }
+        .b-map .building-icon { font-size: 36px; }
+        .b-map .building-name { font-size: 12px; }
+        .b-map:hover { transform: translateX(-50%) scale(1.08); }
+
+        /* LIST */
+        .b-list {
+            left: 8%; top: 25%;
+        }
+        .b-list .building-body {
+            width: 75px; height: 72px;
+            background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
+            border: 2px solid #f39c12;
+        }
+        .b-list .building-roof {
+            border-width: 0 42px 25px 42px;
+            border-color: transparent transparent #a04000 transparent;
+        }
+
+        /* TEAM */
+        .b-team {
+            right: 8%; top: 25%;
+        }
+        .b-team .building-body {
+            width: 75px; height: 72px;
+            background: linear-gradient(180deg, #e74c3c 0%, #c0392b 100%);
+            border: 2px solid #ff6b6b;
+        }
+        .b-team .building-roof {
+            border-width: 0 42px 25px 42px;
+            border-color: transparent transparent #922b21 transparent;
+        }
+
+        /* UPGRADE */
+        .b-upgrade {
+            left: 5%; top: 55%;
+        }
+        .b-upgrade .building-body {
+            width: 75px; height: 72px;
+            background: linear-gradient(180deg, #9b59b6 0%, #7d3c98 100%);
+            border: 2px solid #c39bd3;
+        }
+        .b-upgrade .building-roof {
+            border-width: 0 42px 25px 42px;
+            border-color: transparent transparent #5b2c6f transparent;
+        }
+
+        /* STORE */
+        .b-store {
+            right: 5%; top: 55%;
+        }
+        .b-store .building-body {
+            width: 75px; height: 72px;
+            background: linear-gradient(180deg, #27ae60 0%, #1e8449 100%);
+            border: 2px solid #2ecc71;
+        }
+        .b-store .building-roof {
+            border-width: 0 42px 25px 42px;
+            border-color: transparent transparent #145a32 transparent;
+        }
+
+        /* EGG */
+        .b-egg {
+            left: 28%; top: 58%;
+        }
+        .b-egg .building-body {
+            width: 72px; height: 68px;
+            background: linear-gradient(180deg, #f39c12 0%, #d68910 100%);
+            border: 2px solid #f7dc6f;
+        }
+        .b-egg .building-roof {
+            border-width: 0 40px 24px 40px;
+            border-color: transparent transparent #9a6500 transparent;
+        }
+
+        /* ITEMS */
+        .b-items {
+            right: 28%; top: 58%;
+        }
+        .b-items .building-body {
+            width: 72px; height: 68px;
+            background: linear-gradient(180deg, #16a085 0%, #0e6655 100%);
+            border: 2px solid #1abc9c;
+        }
+        .b-items .building-roof {
+            border-width: 0 40px 24px 40px;
+            border-color: transparent transparent #0a4440 transparent;
+        }
+
+        /* RESULTS (Lưu) */
+        .b-results {
+            left: 8%; top: 78%;
+        }
+        .b-results .building-body {
+            width: 72px; height: 68px;
+            background: linear-gradient(180deg, #2980b9 0%, #1a6090 100%);
+            border: 2px solid #5dade2;
+        }
+        .b-results .building-roof {
+            border-width: 0 40px 24px 40px;
+            border-color: transparent transparent #154360 transparent;
+        }
+
+        /* PKM_A */
+        .b-pkm-a {
+            left: 50%; top: 72%;
+            transform: translateX(-50%);
+        }
+        .b-pkm-a .building-body {
+            width: 72px; height: 68px;
+            background: linear-gradient(180deg, #7f8c8d 0%, #616a6b 100%);
+            border: 2px solid #aab7b8;
+        }
+        .b-pkm-a .building-roof {
+            border-width: 0 40px 24px 40px;
+            border-color: transparent transparent #424949 transparent;
+        }
+        .b-pkm-a:hover { transform: translateX(-50%) scale(1.08); }
+
+        /* PKM_B */
+        .b-pkm-b {
+            right: 8%; top: 78%;
+        }
+        .b-pkm-b .building-body {
+            width: 72px; height: 68px;
+            background: linear-gradient(180deg, #7f8c8d 0%, #616a6b 100%);
+            border: 2px solid #aab7b8;
+        }
+        .b-pkm-b .building-roof {
+            border-width: 0 40px 24px 40px;
+            border-color: transparent transparent #424949 transparent;
+        }
+
+        /* EXIT */
+        .b-exit {
+            left: 50%; bottom: 20px;
+            transform: translateX(-50%);
+        }
+        .b-exit .building-body {
+            width: 90px; height: 60px;
+            background: linear-gradient(180deg, #636e72 0%, #2d3436 100%);
+            border: 2px solid #b2bec3;
+            border-radius: 8px 8px 0 0;
+        }
+        .b-exit .building-roof {
+            border-width: 0 50px 28px 50px;
+            border-color: transparent transparent #1a1a2e transparent;
+        }
+        .b-exit:hover { transform: translateX(-50%) scale(1.06); }
+
+        /* ===================== CÂY CỎ TRANG TRÍ ===================== */
+        .tree {
+            position: absolute;
+            font-size: 28px;
+            pointer-events: none;
+            filter: drop-shadow(0 3px 3px rgba(0,0,0,0.2));
+            animation: treeSway 3s ease-in-out infinite;
+        }
+
+        @keyframes treeSway {
+            0%, 100% { transform: rotate(-2deg); }
+            50% { transform: rotate(2deg); }
+        }
+
+        /* ===================== TOAST ===================== */
+        #toast {
+            position: fixed;
+            top: 66px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 800;
+            z-index: 9999;
+            display: none;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* ===================== RESPONSIVE MOBILE ===================== */
+        @media (max-width: 400px) {
+            .b-map .building-body { width: 90px; height: 85px; }
+            .b-map .building-roof { border-width: 0 50px 28px 50px; }
+            .building-body { transform: scale(0.9); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER BAR -->
+    <div class="header-bar">
+        <div class="trainer-avatar">🧢</div>
+        <div class="trainer-info">
+            <div class="trainer-name-text" id="display-name">TRAINER</div>
+            <div class="trainer-class-text" id="display-class">Lớp 0</div>
+        </div>
+        <div class="stats-pills">
+            <div class="pill exp">⭐ <span id="display-exp">0</span></div>
+            <div class="pill dv">🏅 <span id="display-dv">0</span></div>
+        </div>
+    </div>
+
+    <!-- TOWN SCENE -->
+    <div class="town-scene">
+        <div class="town-canvas">
+
+            <!-- Đường ngang giữa -->
+            <div class="road-h" style="top:52%; left:0; right:0; width:100%;"></div>
+            <!-- Đường dọc giữa -->
+            <div class="road-v" style="top:35%; left:50%; transform:translateX(-50%); height:50%;"></div>
+
+            <!-- CÂY TRANG TRÍ -->
+            <div class="tree" style="left:2%; top:38%;">🌳</div>
+            <div class="tree" style="left:18%; top:32%; animation-delay:0.5s;">🌲</div>
+            <div class="tree" style="right:2%; top:38%; animation-delay:1s;">🌳</div>
+            <div class="tree" style="right:18%; top:32%; animation-delay:1.5s;">🌲</div>
+            <div class="tree" style="left:40%; top:68%; animation-delay:0.8s;">🌿</div>
+            <div class="tree" style="right:40%; top:68%; animation-delay:1.2s;">🌿</div>
+            <div class="tree" style="left:15%; top:65%; animation-delay:0.3s;">🌳</div>
+            <div class="tree" style="right:15%; top:65%; animation-delay:0.9s;">🌲</div>
+
+            <!-- ===== CÁC TOÀ NHÀ ===== -->
+
+            <!-- MAP - Trung tâm -->
+            <a href="pkm_map.html" class="building b-map">
+                <div class="building-roof"></div>
+                <div class="building-body">
+                    <div class="building-icon">🗺️</div>
+                    <div class="building-name">WORLD MAP</div>
+                </div>
+                <div class="building-label">Bản Đồ</div>
+            </a>
+
+            <!-- LIST -->
+            <a href="pkm_list.html" class="building b-list">
+                <div class="building-roof"></div>
+                <div class="building-body">
+                    <div class="building-icon">📋</div>
+                    <div class="building-name">LIST</div>
+                </div>
+                <div class="building-label">Túi Pokémon</div>
+            </a>
+
+            <!-- TEAM -->
+            <a href="pkm_team.html" class="building b-team">
+                <div class="building-roof"></div>
+                <div class="building-body">
+                    <div class="building-icon">⚔️</div>
+                    <div class="building-name">TEAM</div>
+                </div>
+                <div class="building-label">Đội Hình</div>
+            </a>
+
+            <!-- UPGRADE -->
+            <a href="pkm_upgrade.html" class="building b-upgrade">
+                <div class="building-roof"></div>
+                <div class="building-body">
+                    <div class="building-icon">⬆️</div>
+                    <div class="building-name">UPGRADE</div>
+                </div>
+                <div class="building-label">Nâng Cấp</div>
+            </a>
+
+            <!-- STORE -->
+            <a href="pkm_store.html" class="building b-store">
+                <div class="building-roof"></div>
+                <div class="building-body">
+                    <div class="building-icon">🏪</div>
+                    <div class="building-name">STORE</div>
+                </div>
+                <div class="building-label">Cửa Hàng</div>
+            </a>
+
+            <!-- EGG -->
+            <a href="pkm_egg.html" class="building b-egg">
+                <div class="building-roof"></div>
+                <div class="building-body">
+                    <div class="building-icon">🥚</div>
+                    <div class="building-name">EGG</div>
+                </div>
+                <div class="building-label">Ấp Trứng</div>
+            </a>
+
+            <!-- ITEMS -->
+            <a href="pkm_items.html" class="building b-items">
+                <div class="building-roof"></div>
+                <div class="building-body">
+                    <div class="building-icon">🛡️</div>
+                    <div class="building-name">ITEMS</div>
+                </div>
+                <div class="building-label">Trang Bị</div>
+            </a>
+
+            <!-- RESULTS - Lưu kết quả -->
+            <a href="pkm-results.html" class="building b-results">
+                <div class="building-roof"></div>
+                <div class="building-body">
+                    <div class="building-icon">💾</div>
+                    <div class="building-name">SAVE</div>
+                </div>
+                <div class="building-label">Lưu Kết Quả</div>
+            </a>
+
+            <!-- PKM_A - Chưa kết nối -->
+            <a href="pkm_a.html" class="building b-pkm-a">
+                <div class="building-roof"></div>
+                <div class="building-body">
+                    <div class="building-icon">🔮</div>
+                    <div class="building-name">PKM A</div>
+                </div>
+                <div class="building-label">Sắp Ra Mắt</div>
+            </a>
+
+            <!-- PKM_B - Chưa kết nối -->
+            <a href="pkm_b.html" class="building b-pkm-b">
+                <div class="building-roof"></div>
+                <div class="building-body">
+                    <div class="building-icon">🎯</div>
+                    <div class="building-name">PKM B</div>
+                </div>
+                <div class="building-label">Sắp Ra Mắt</div>
+            </a>
+
+            <!-- EXIT GATE -->
+            <a href="../exercise.html" class="building b-exit">
+                <div class="building-roof"></div>
+                <div class="building-body">
+                    <div class="building-icon">🚪</div>
+                    <div class="building-name">THOÁT</div>
+                </div>
+                <div class="building-label">Exit Game</div>
+            </a>
+
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script type="module">
+        import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyCCVdzWiiFvcWiHVJN-x33YKarsjyziS8E",
+            authDomain: "pokemon-capture-10d03.firebaseapp.com",
+            projectId: "pokemon-capture-10d03",
+            storageBucket: "pokemon-capture-10d03.firebasestorage.app",
+            messagingSenderId: "1068125543917",
+            appId: "1:1068125543917:web:57de4365ee56729ea8dbe4"
+        };
+
+        const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
+        const db  = getFirestore(app);
+
+        const SAVE_KEYS = [
+            'pkm_inventory', 'pkm_global_exp', 'pkm_global_dv',
+            'pkm_passed_maps', 'pkm_equipped', 'pkm_owned_ids'
+        ];
+
+        function updateProfileUI() {
+            document.getElementById('display-name').innerText =
+                (localStorage.getItem('trainerName') || 'Trainer').toUpperCase();
+            document.getElementById('display-class').innerText =
+                'Lớp ' + (localStorage.getItem('trainerClass') || '0');
+            document.getElementById('display-exp').innerText =
+                localStorage.getItem('pkm_global_exp') || '0';
+            document.getElementById('display-dv').innerText =
+                localStorage.getItem('pkm_global_dv') || '0';
+        }
+
+        async function loadDataFromFirebase() {
+            if (localStorage.getItem('pkm_data_synced') === 'true') {
+                updateProfileUI();
+                return;
+            }
+
+            const name  = localStorage.getItem('trainerName')  || 'trainer';
+            const cls   = localStorage.getItem('trainerClass') || '0';
+            const docId = `${name.toLowerCase().trim()}-${cls}`;
+
+            const toast = document.getElementById('toast');
+            if (toast) { toast.innerText = '☁️ Đang đồng bộ...'; toast.style.display = 'block'; }
+
+            try {
+                const snap = await getDoc(doc(db, 'pokemonsuper', docId));
+                if (snap.exists()) {
+                    const data = snap.data();
+                    SAVE_KEYS.forEach(k => {
+                        if (data[k] !== undefined) {
+                            const val = typeof data[k] === 'object' ? JSON.stringify(data[k]) : data[k];
+                            localStorage.setItem(k, val);
+                        }
+                    });
+                    localStorage.setItem('pkm_data_synced', 'true');
+                    if (toast) toast.innerText = '✅ Đồng bộ thành công!';
+                } else {
+                    localStorage.setItem('pkm_data_synced', 'true');
+                    if (toast) toast.innerText = '📱 Dùng dữ liệu local.';
+                }
+            } catch (err) {
+                console.warn("⚠️ Lỗi Firebase:", err.message);
+                if (toast) toast.innerText = '⚠️ Không thể kết nối.';
+            }
+
+            updateProfileUI();
+            if (toast) setTimeout(() => toast.style.display = 'none', 2000);
+        }
+
+        window.addEventListener('load', loadDataFromFirebase);
+    </script>
+</body>
+</html>
