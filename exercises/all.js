@@ -21,6 +21,7 @@ const STAGES = [
   { id: "overview_d1", label: "✍️ Tổng quan – Sắp xếp","emoji": "✍️" },
   { id: "overview_d2", label: "🔤 Tổng quan – Dịch từ","emoji": "🔤" },
   { id: "overview_d3", label: "🧱 Tổng quan – Dịch cụm","emoji": "🧱" },
+  { id: "communication", label: "💬 Giao tiếp", emoji: "💬" },
 ];
 
 // ─── STATE TOÀN CỤC ──────────────────────────────────────────────────────────
@@ -76,16 +77,43 @@ function applyVoice(voices) {
 // ─── PROGRESS UI ─────────────────────────────────────────────────────────────
 function updateProgress() {
   const pct = Math.round((stageIndex / STAGES.length) * 100);
-  document.getElementById("progressBar").style.width = pct + "%";
+  const progressBar = document.getElementById("progressBar");
+  if (progressBar) progressBar.style.width = pct + "%";
 
   const wrap = document.getElementById("progressSteps");
   wrap.innerHTML = STAGES.map((s, i) => {
     const cls = i < stageIndex ? "done" : i === stageIndex ? "active" : "";
-    return `<span class="step-dot ${cls}">${s.emoji} ${s.label.split("–")[0].trim()}</span>`;
+
+    // Lấy tên rút gọn (bỏ phần sau dấu gạch ngang nếu có)
+    const shortLabel = s.label.split("–")[0].trim();
+
+    return `<span class="step-dot ${cls}" 
+                  onclick="jumpToStage(${i})" 
+                  style="cursor:pointer;" 
+                  title="Nhấn để nhảy đến: ${s.label}">
+              ${s.emoji} ${shortLabel}
+            </span>`;
   }).join("");
 
-  document.getElementById("stageLabel").textContent = STAGES[stageIndex]?.label || "✅ Xong!";
+  const label = document.getElementById("stageLabel");
+  if (label) label.textContent = STAGES[stageIndex]?.label || "✅ Hoàn thành!";
 }
+window.jumpToStage = async function(idx) {
+  // Nếu bấm vào chính Stage đang học thì không làm gì
+  if (idx === stageIndex) return; 
+
+  const targetStage = STAGES[idx];
+  if (confirm(`Bạn muốn nhảy thẳng tới phần: ${targetStage.label}?`)) {
+    // Lưu chỉ số Stage muốn tới vào localStorage
+    localStorage.setItem("jump_to_stage_idx", idx);
+
+    // Hiển thị màn hình chuyển cảnh trước khi reload
+    await showTransition(targetStage.emoji, "🚀 Dịch chuyển", `Đang đưa bạn đến ${targetStage.label}...`);
+
+    // Tải lại trang để reset toàn bộ hệ thống voice/mic/state
+    location.reload();
+  }
+};
 
 function updateMiniScore(score, total) {
   document.getElementById("miniScore").textContent = `🎯 ${score}/${total}`;
@@ -113,37 +141,50 @@ function setCard(html) {
 
 // ─── FETCH DATA ───────────────────────────────────────────────────────────────
 async function fetchAllVocabData() {
+  // 1. Kiểm tra xem trong máy đã có dữ liệu chưa
+  const cachedData = localStorage.getItem("vocab_data_cache");
+  if (cachedData) {
+    console.log("🚀 Dùng dữ liệu từ Cache (Local)");
+    return JSON.parse(cachedData);
+  }
+
   try {
-    const res  = await fetch(window.SHEET_URL);
+    console.log("🌐 Đang tải dữ liệu từ Google Sheets...");
+    const res = await fetch(window.SHEET_URL);
     const data = await res.json();
     const rows = data.data || data;
 
     const allWords = rows.map(r => {
-      const col    = Object.values(r);
+      const col = Object.values(r);
       const getVal = idx => (col[idx] != null ? col[idx].toString().trim() : "");
       return {
-        word:         getVal(2),
-        meaning:      getVal(24),
-        extraNote:    getVal(30),
-        noteAH:       getVal(33),
-        noteAI:       getVal(34),
+        word: getVal(2),
+        meaning: getVal(24),
+        extraNote: getVal(30),
+        noteAH: getVal(33),
+        noteAI: getVal(34),
         imageKeyword: getVal(47),
-        question:     getVal(9),
-        answerRaw:    getVal(11),
-        enChunk:      getVal(3),
-        viChunk:      getVal(4),
+        question: getVal(9),
+        answerRaw: getVal(11),
+        enChunk: getVal(3),
+        viChunk: getVal(4),
       };
     });
 
     const filtered = allWords.filter(it => it.word && wordBank.includes(it.word));
     const seen = new Set();
-    return filtered.filter(it => {
+    const finalData = filtered.filter(it => {
       const k = it.word.toLowerCase();
       if (seen.has(k)) return false;
       seen.add(k); return true;
     });
+
+    // 2. LƯU VÀO CACHE để lần sau không phải tải nữa
+    localStorage.setItem("vocab_data_cache", JSON.stringify(finalData));
+
+    return finalData;
   } catch(e) {
-    console.error("fetchAllVocabData:", e);
+    console.error("fetchAllVocabData Error:", e);
     return [];
   }
 }
@@ -179,17 +220,17 @@ async function getPhonetic(phrase) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// STAGE 1 — VOCABULARY 1 (giống vocabulary.js)
+// STAGE 1 — VOCABULARY 1 (Bản chuẩn cho giao diện All-in-One)
 // ═══════════════════════════════════════════════════════════════════════════
 async function runVocab1() {
-  const data     = vocabData;
-  let idx        = 0;
+  const data = vocabData;
+  let idx = 0;
   let roundCount = 0;
   let listenCount = 0;
-  const REQUIRED  = 1;
+  const REQUIRED = 1;
 
   const saveResult = (sc, tot) => {
-    const raw  = localStorage.getItem("result_vocabulary");
+    const raw = localStorage.getItem("result_vocabulary");
     const prev = raw ? JSON.parse(raw) : {};
     localStorage.setItem("result_vocabulary", JSON.stringify({
       ...prev, scoreV1: sc, totalV1: tot,
@@ -201,51 +242,93 @@ async function runVocab1() {
   const render = async () => {
     const w = data[idx];
     const cleanWord = w.word.trim();
-    const phonetic  = await getPhonetic(cleanWord);
-    const imgKey    = (w.imageKeyword || cleanWord).toLowerCase().trim();
-    const imgSrc    = getImageFromMap(imgKey) || "";
+    const phonetic = await getPhonetic(cleanWord);
+    const imgKey = (w.imageKeyword || cleanWord).toLowerCase().trim();
+    const imgSrc = getImageFromMap(imgKey) || "";
+
+    // Lấy ghi chú bổ trợ
+    const note1 = w.noteAH || "";
+    const note2 = w.noteAI || "";
+
     const wordsHTML = cleanWord.split(" ").map(part =>
       `<span data-word="${part}" class="vocab-tap">${part.toUpperCase()}</span>`
     ).join("");
 
+    // Render giao diện vào #mainCard
     setCard(`
-      <div style="margin-bottom:12px;color:var(--poke-yellow);font-size:13px;">
-        📘 Từ vựng 1 &nbsp;|&nbsp; ${idx+1}/${data.length} &nbsp;|&nbsp; Vòng ${roundCount+1}
+      <div style="margin-bottom:12px;color:var(--poke-yellow);font-size:13px;font-weight:bold;">
+        📘 PHẦN 1: TỪ VỰNG &nbsp;|&nbsp; ${idx+1}/${data.length} &nbsp;|&nbsp; Vòng ${roundCount+1}
       </div>
       <div class="vocab-row">
         <div class="vocab-image-frame">
-          <img class="main-img" src="${imgSrc}" alt="" ${imgSrc?"":"style='display:none'"} />
+          <img class="main-img" src="${imgSrc}" alt="" ${imgSrc ? "" : "style='display:none'"} />
           <img class="corner-ball tl" src="https://cdn-icons-png.flaticon.com/512/361/361998.png"/>
           <img class="corner-ball tr" src="https://cdn-icons-png.flaticon.com/512/361/361998.png"/>
           <img class="corner-ball bl" src="https://cdn-icons-png.flaticon.com/512/361/361998.png"/>
           <img class="corner-ball br" src="https://cdn-icons-png.flaticon.com/512/361/361998.png"/>
         </div>
+
         <div class="vocab-info">
           <div class="vocab-word-area" id="vw1WordArea">${wordsHTML}</div>
-          <div class="vocab-phonetic">${phonetic || "..."}</div>
-          <div class="vocab-meaning">${w.meaning || "Không có nghĩa"}</div>
-          <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+
+          <style>
+            #v1PhonicsContainer .syllable-wrapper {
+              flex: 0 0 auto !important; /* Tuyệt đối không cho co lại */
+              min-width: 100px !important; /* Chiều ngang tối thiểu để chữ rõ ràng */
+              margin: 5px !important;
+              transform: scale(1) !important; /* Giữ kích thước chuẩn */
+            }
+            #v1PhonicsContainer .sound-unit {
+              width: 100% !important;
+              padding: 8px !important;
+            }
+          </style>
+
+          <div id="v1PhonicsContainer" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:15px; justify-content: flex-start;"></div>
+
+          <div class="vocab-phonetic">${phonetic || "/.../"}</div>
+          <div class="vocab-meaning">${w.meaning || "Chưa có nghĩa"}</div>
+
+          ${(note1 || note2) ? `
+            <div style="margin-top:15px; padding:12px; border-radius:12px; background:rgba(255,255,255,0.05); border:1px dashed var(--poke-yellow); text-align: left;">
+              ${note1 ? `<p style="margin:4px 0; color:#ff7675; font-size:14px; font-weight:bold;">💡 ${note1}</p>` : ""}
+              ${note2 ? `<p style="margin:4px 0; color:#74b9ff; font-size:14px; font-style:italic;">✨ ${note2}</p>` : ""}
+            </div>
+          ` : ""}
+
+          <div style="margin-top:18px; display:flex; gap:12px; align-items:center; justify-content: flex-start;">
             <button class="poke-btn yellow" id="v1PlayBtn">🔊 Nghe</button>
             <button class="poke-btn red" id="v1NextBtn" disabled>⏭️ Next</button>
           </div>
-          <div id="v1RoundMsg" style="margin-top:10px;font-size:13px;color:#aaa;"></div>
         </div>
       </div>
     `);
 
-    listenCount = 0;
-    document.getElementById("v1NextBtn").disabled = true;
+    // Kích hoạt máy tách âm ngay khi card vừa dựng xong
+    const pContainer = document.getElementById("v1PhonicsContainer");
+    if (pContainer && window.handleSplit) {
+      window.handleSplit(cleanWord.toLowerCase(), pContainer, null);
+    }
 
-    // Tap từng từ → đọc chậm
+    listenCount = 0;
+
+    // Click từng từ đọc chậm (0.3 rate)
     document.querySelectorAll(".vocab-tap").forEach(span => {
-      span.onclick = () => speak(span.dataset.word, 0.3);
+      span.onclick = () => {
+        if (typeof speak === "function") speak(span.dataset.word, 0.3);
+        else {
+           const u = new SpeechSynthesisUtterance(span.dataset.word);
+           u.rate = 0.3;
+           speechSynthesis.cancel();
+           speechSynthesis.speak(u);
+        }
+      };
     });
 
-    // Nút nghe
+    // Nút nghe chính
     document.getElementById("v1PlayBtn").onclick = () => {
       const u = new SpeechSynthesisUtterance(cleanWord);
-      u.voice = vocabVoice;
-      u.lang  = "en-US";
+      u.voice = (typeof vocabVoice !== 'undefined') ? vocabVoice : null;
       u.onend = () => {
         listenCount++;
         if (listenCount >= REQUIRED) document.getElementById("v1NextBtn").disabled = false;
@@ -254,32 +337,32 @@ async function runVocab1() {
       window.speechSynthesis.speak(u);
     };
 
-    // Nút Next
+    // Nút chuyển từ
     document.getElementById("v1NextBtn").onclick = async () => {
       idx++;
       if (idx >= data.length) { idx = 0; roundCount++; }
 
       if (roundCount >= 2) {
         const sc = data.length > 0 ? 10 : 0;
-        scoreState.vocab1 = { score: sc, total: 10 };
+        if (typeof scoreState !== "undefined") scoreState.vocab1 = { score: sc, total: 10 };
         saveResult(sc, 10);
         updateMiniScore(sc, 10);
-        await showTransition("🎉", "Hoàn thành Từ vựng 1!", "Tiếp tục sang Từ vựng 2 nào!");
-        return "done";
+        await showTransition("🎉", "Hoàn thành Từ vựng 1!", "Chuẩn bị sang phần tiếp theo nhé!");
+        if (window._resolveVocab1) { window._resolveVocab1(); window._resolveVocab1 = null; }
+        return;
       }
-
-      const msg = document.getElementById("v1RoundMsg");
-      if (msg) msg.textContent = `Đã hết vòng ${roundCount}, tiếp tục vòng ${roundCount+1}...`;
-      await render();
+      render();
     };
 
     updateMiniScore(roundCount * data.length + idx, data.length * 2);
   };
 
-  await render();
-  // Chờ người dùng hoàn tất (Promise-based không dùng await, dùng event chain)
-  // Logic đã được xử lý trong onclick chain bên trên
+  return new Promise(resolve => {
+    window._resolveVocab1 = resolve;
+    render();
+  });
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STAGE 2 — VOCABULARY 2 (Pokéball bắt từ — text mode thay vì animation)
@@ -1157,7 +1240,175 @@ async function runOverviewD3() {
     show();
   });
 }
+// ═══════════════════════════════════════════════════════════════════════════
+// STAGE 12
+// ═══════════════════════════════════════════════════════════════════════════
+async function runCommunication() {
+  const selectedLesson = localStorage.getItem("selectedLesson") || "";
+  const toCode = str => (str || "").replace(/[^0-9]/g, "");
+  let questionPool = [], score = 0;
 
+  try {
+    const res  = await fetch(window.SHEET_URL);
+    const rows = await res.json();
+    const rawQs = [];
+    rows.forEach(row => {
+      if (!row || !row[1] || !row[9] || !row[10]) return;
+      const fullUnit = row[1].toString().trim();
+      if (toCode(fullUnit) !== selectedLesson) return;
+      rawQs.push({
+        unit:       fullUnit,
+        question:   row[9].toString().trim(),
+        answer:     row[10].toString().trim(),
+        suggestion: row[11] ? row[11].toString().trim() : "",
+      });
+    });
+    const unitMap = new Map();
+    rawQs.forEach(item => {
+      if (!unitMap.has(item.unit)) unitMap.set(item.unit, []);
+      unitMap.get(item.unit).push(item);
+    });
+    for (const [, qs] of unitMap.entries()) {
+      questionPool.push(qs[Math.floor(Math.random() * qs.length)]);
+    }
+  } catch(e) { console.error("communication fetch:", e); }
+
+  if (!questionPool.length) {
+    await showTransition("📭", "Giao tiếp", "Không có câu hỏi cho bài này. Bỏ qua.");
+    return;
+  }
+
+  setCard(`
+    <div style="margin-bottom:10px;color:var(--poke-yellow);font-size:13px;">
+      💬 Giao tiếp &nbsp;|&nbsp; 0/${questionPool.length} câu
+    </div>
+    <div id="commChat" style="background:rgba(255,255,255,0.05);border:2px solid rgba(255,203,5,0.2);
+      border-radius:14px;height:300px;overflow-y:auto;padding:14px;margin-bottom:14px;
+      font-size:16px;line-height:1.6;display:flex;flex-direction:column;gap:6px;"></div>
+
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button class="poke-btn yellow" id="commRecord" style="font-size:18px;">
+        <img src="https://cdn-icons-png.flaticon.com/512/361/361998.png" style="width:28px;vertical-align:middle;"/> Trả lời
+      </button>
+      <button class="poke-btn blue" id="commRepeat">🔊 Đọc lại</button>
+
+      <button class="poke-btn gray" id="commSkip" style="background:#444; color:#ccc; font-size:14px;">⏩ Bỏ qua bài</button>
+    </div>
+    <div id="commStatus" style="margin-top:8px;font-size:14px;color:#aaa;min-height:20px;"></div>
+  `);
+
+  const chatEl      = document.getElementById("commChat");
+  const studentName = localStorage.getItem("trainerName") || "Bạn";
+  let askedIdx = 0, currentQ = null, waitCorrect = false, lastBotMsg = "";
+
+  const positiveFeedback = ["Great job!", "Well done!", "That's correct!",
+    "Excellent!", "Perfect!", "You got it!", "Awesome!", "Spot on!"];
+  const normTxt = s => (s || "").trim().replace(/\?$/, "").toLowerCase();
+
+  const addMsg = (sender, text) => {
+    const div = document.createElement("div");
+    div.style.cssText = `padding:8px 12px;border-radius:10px;max-width:85%;word-wrap:break-word;
+      ${sender === "Bot"
+        ? "background:rgba(42,117,187,0.25);color:#87ceeb;align-self:flex-start;"
+        : "background:rgba(255,203,5,0.15);color:#ffd54f;align-self:flex-end;text-align:right;"}`;
+    div.innerHTML = `<b>${sender}:</b> ${text}`;
+    chatEl.appendChild(div);
+    chatEl.scrollTop = chatEl.scrollHeight;
+    if (sender === "Bot") { speak(text, 0.9); lastBotMsg = text; }
+  };
+
+  return new Promise(resolve => {
+    const askNext = () => {
+      if (askedIdx >= questionPool.length) {
+        addMsg("Bot", "Congratulations! 🎉 Bạn đã hoàn thành phần Giao tiếp!");
+        localStorage.setItem("result_communication", JSON.stringify({ score, total: questionPool.length }));
+        updateMiniScore(score, questionPool.length);
+        document.getElementById("commRecord").disabled = true;
+        setTimeout(async () => {
+          await showTransition("🏆", "Xong phần Giao tiếp!", "Bạn đã hoàn thành tất cả!");
+          resolve();
+        }, 2500);
+        return;
+      }
+      currentQ    = questionPool[askedIdx];
+      askedIdx++;
+      waitCorrect = false;
+      addMsg("Bot", currentQ.question);
+      const lbl = document.querySelector("#mainCard div:first-child");
+      if (lbl) lbl.textContent = `💬 Giao tiếp | ${askedIdx}/${questionPool.length} câu`;
+      updateMiniScore(score, askedIdx);
+    };
+
+    const handleInput = input => {
+      addMsg(studentName, input);
+      const normIn = normTxt(input);
+
+      if (waitCorrect) {
+        waitCorrect = false;
+        setTimeout(askNext, 500);
+        return;
+      }
+
+      if (currentQ?.answer) {
+        const correctKW = currentQ.answer.split('"')
+          .filter((_, i) => i % 2 === 1).map(t => normTxt(t));
+        const isOk = correctKW.length > 0
+          ? correctKW.some(kw => normIn.includes(kw))
+          : normIn.includes(normTxt(currentQ.answer));
+        if (isOk) {
+          score++;
+          addMsg("Bot", positiveFeedback[Math.floor(Math.random() * positiveFeedback.length)]);
+          setTimeout(askNext, 800);
+          return;
+        }
+      }
+
+      if (currentQ?.suggestion) {
+        addMsg("Bot", `You can say: ${currentQ.suggestion}`);
+        waitCorrect = true;
+      } else {
+        setTimeout(askNext, 500);
+      }
+    };
+
+    document.getElementById("commRepeat").onclick = () => { if (lastBotMsg) speak(lastBotMsg, 0.9); };
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
+      const rec = new SR();
+      rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
+      document.getElementById("commRecord").onclick = () => {
+        document.getElementById("commStatus").textContent = "🎙️ Đang nghe...";
+        try { rec.start(); } catch(e) {}
+      };
+      rec.onresult = e => {
+        document.getElementById("commStatus").textContent = "";
+        handleInput(e.results[0][0].transcript);
+      };
+      rec.onerror = e => {
+        document.getElementById("commStatus").textContent = `❌ Lỗi mic: ${e.error}`;
+      };
+    } else {
+      document.getElementById("commRecord").disabled = true;
+      document.getElementById("commStatus").textContent = "⚠️ Thiết bị không hỗ trợ mic.";
+    }
+
+    // Logic cho nút Bỏ qua bài
+    document.getElementById("commSkip").onclick = async () => {
+      if (confirm("Bạn có chắc chắn muốn bỏ qua phần Giao tiếp này không?")) {
+        // Lưu kết quả hiện tại (nếu có)
+        localStorage.setItem("result_communication", JSON.stringify({ score, total: questionPool.length }));
+
+        await showTransition("⏩", "Đã bỏ qua!", "Đang chuyển sang phần tiếp theo...");
+
+        // Giải phóng Promise để kết thúc hàm runCommunication
+        resolve(); 
+      }
+    };
+    addMsg("Bot", "Hello! Let's practice together! 🎮");
+    setTimeout(askNext, 700);
+  });
+}
 // ═══════════════════════════════════════════════════════════════════════════
 // ĐIỀU PHỐI CHÍNH
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1173,17 +1424,31 @@ const STAGE_RUNNERS = {
   overview_d1:  runOverviewD1,
   overview_d2:  runOverviewD2,
   overview_d3:  runOverviewD3,
+  communication: runCommunication,
 };
 
 async function runAllStages() {
-  for (stageIndex = 0; stageIndex < STAGES.length; stageIndex++) {
-    const stage = STAGES[stageIndex];
-    updateProgress();
-    const runner = STAGE_RUNNERS[stage.id];
-    if (runner) await runner();
+  // KIỂM TRA LỆNH NHẢY BÀI
+  const savedIdx = localStorage.getItem("jump_to_stage_idx");
+  let startAt = 0;
+
+  if (savedIdx !== null) {
+    startAt = parseInt(savedIdx);
+    localStorage.removeItem("jump_to_stage_idx"); // Xóa sau khi đã sử dụng
   }
 
-  // KẾT THÚC TẤT CẢ
+  // Chạy vòng lặp từ vị trí startAt
+  for (stageIndex = startAt; stageIndex < STAGES.length; stageIndex++) {
+    const stage = STAGES[stageIndex];
+    updateProgress();
+
+    const runner = STAGE_RUNNERS[stage.id];
+    if (runner) {
+        await runner();
+    }
+  }
+
+  // --- PHẦN KẾT THÚC GIỮ NGUYÊN ---
   stageIndex = STAGES.length;
   updateProgress();
   setCard(`
@@ -1199,6 +1464,9 @@ async function runAllStages() {
   document.getElementById("miniScore").textContent = "🏆 Xong!";
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// KHỞI ĐỘNG
+// ═══════════════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════
 // KHỞI ĐỘNG
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1236,9 +1504,15 @@ async function runAllStages() {
     return;
   }
 
-  // Hiện màn chào
-  await showTransition("🎮","Bắt đầu PokéLearn All-in-One!",
-    `Hôm nay bạn sẽ học ${vocabData.length} từ qua ${STAGES.length} hoạt động. Sẵn sàng chưa?`);
+  // --- SỬA ĐOẠN NÀY ĐỂ KHÔNG HIỆN CHÀO KHI NHẢY BÀI ---
+  const isJumping = localStorage.getItem("jump_to_stage_idx"); 
+
+  if (!isJumping) {
+    // Chỉ hiện màn chào nếu KHÔNG PHẢI đang thực hiện lệnh nhảy bài
+    await showTransition("🎮","Bắt đầu PokéLearn All-in-One!",
+      `Hôm nay bạn sẽ học ${vocabData.length} từ qua ${STAGES.length} hoạt động. Sẵn sàng chưa?`);
+  }
+  // ------------------------------------------------
 
   await runAllStages();
 })();
