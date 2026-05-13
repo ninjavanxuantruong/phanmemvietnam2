@@ -145,3 +145,4 @@ const imageCache = new ImageCacheManager();
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = imageCache;
 }
+export default imageCache;
