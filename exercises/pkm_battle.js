@@ -10,6 +10,10 @@ window.BattleGame = {
     activeUnitIndex: 0, // Chỉ số con đang đến lượt (0-4)
     isPlayerSide: true, // Đang là lượt phe mình hay phe địch
     isProcessing: false,
+    // Thống kê câu hỏi
+    correctCount: 0,
+    wrongCount: 0,
+    totalCount: 0,
 
     async init() {
         console.log("⚔️ [DEBUG] BattleGame.init() started");
@@ -27,13 +31,26 @@ window.BattleGame = {
         this.enemyTeam  = team.map(p => this.calculateStats(p, true));
 
         // ✅ THÊM LOGIC NÀY: Lấy tên thật cho đối thủ dựa trên ID ngẫu nhiên đã tạo
+        // ✅ SỬA TRONG BattleGame.init()
         for (let p of this.enemyTeam) {
             try {
                 const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${p.id}`);
                 const data = await res.json();
-                p.name = data.name.charAt(0).toUpperCase() + data.name.slice(1); // Ghi đè tên đúng
+
+                // 1. Ghi đè tên
+                p.name = data.name.charAt(0).toUpperCase() + data.name.slice(1);
+
+                // 2. Ghi đè hệ (Type) - Lấy hệ đầu tiên của Pokemon đó
+                if (data.types && data.types.length > 0) {
+                    p.type = data.types[0].type.name; 
+                }
+
+                // 3. (Tùy chọn) Ghi đè Gen nếu sếp muốn hiệu ứng xịn theo đúng con đó
+                // Pokemon ID > 493 thường là Gen 5 trở đi, sếp có thể tạm logic hóa ở đây
+
             } catch (e) {
                 p.name = "Unknown";
+                p.type = "normal";
             }
         }
 
@@ -90,7 +107,7 @@ window.BattleGame = {
 
         // 3. Tính toán máu thực tế (baseHP)
         // Công thức game của bạn: (Chỉ số * 10) + 200
-        const baseHP = (hp * 10) + 200;
+        const baseHP = (hp * 15) + 200;
         const randomPkmID = Math.floor(Math.random() * 1010) + 1;
 
         return {
@@ -147,8 +164,22 @@ window.BattleGame = {
 
     async handleAction(isCorrect, side) {
         this.isProcessing = true;
+        // Chỉ đếm lượt của player
+        if (side === 'player') {
+            this.totalCount++;
+            if (isCorrect) this.correctCount++;
+            else this.wrongCount++;
+            // Cập nhật UI thống kê
+            const statEl = document.getElementById('quiz-stats');
+            if (statEl) statEl.innerHTML = 
+                `✅ ${this.correctCount} &nbsp; ❌ ${this.wrongCount} &nbsp; 📊 ${this.totalCount} câu`;
+        }
         const attacker = side === 'player' ? this.playerTeam[this.activeUnitIndex] : this.enemyTeam[this.activeUnitIndex];
         const opponentTeam = side === 'player' ? this.enemyTeam : this.playerTeam;
+        // ✅ THÊM DÒNG NÀY Ở ĐÂY: Đọc tên Pokemon ngay khi bắt đầu hành động
+        if (attacker && attacker.name && window.SkillManager) {
+            window.SkillManager.speakName(attacker.name);
+        }
 
         // 1. Tìm mục tiêu hàng thủ (luôn ưu tiên con đầu tiên còn sống)
         const targetIdx = opponentTeam.findIndex(p => p.currentHp > 0);
@@ -174,14 +205,17 @@ window.BattleGame = {
             this.log(`${attacker.name} đánh thường vào ${target.name}!`);
 
             await window.SkillManager.play({
-                type: 'normal', gen: 1, 
+                type: 'normal',
+                gen: 1,
                 attackerIndex: this.activeUnitIndex,
                 attackerSide: side,
+                attackerId: attacker.id,   // Thêm cái này
+                attackerName: attacker.name, // Thêm cái này
                 targetSide: side === 'player' ? 'enemy' : 'player',
                 damage,
                 isAOE: false,
-                targets: [targetIdx], // ✅ Chuyển thành mảng targets thay vì targetIndex
-                isSkill: false 
+                targets: [targetIdx],
+                isSkill: false
             });
         } 
         else {
@@ -199,15 +233,17 @@ window.BattleGame = {
 
             // GỌI SKILL VỚI ĐẦY ĐỦ THÔNG TIN
             await window.SkillManager.play({
-                type: attacker.type || 'normal', // Cần type để biết màu hiệu ứng (lửa, điện...)
+                type: attacker.type || 'normal',
                 gen: attacker.gen || 1,
                 attackerIndex: this.activeUnitIndex,
                 attackerSide: side,
-                targetSide: targetSide, // Cần targetSide để biết bắn vào đâu
+                attackerId: attacker.id,   // Thêm cái này
+                attackerName: attacker.name, // Thêm cái này
+                targetSide: targetSide,
                 targets: aliveTargets,
                 damage: lastDamage,
                 isAOE: true,
-                isSkill: true 
+                isSkill: true
             });
         }
 
@@ -230,14 +266,16 @@ window.BattleGame = {
     },
 
     createUnitHTML(pkm, index, side) {
-        const marginTop = (index % 2 === 0) ? "0px" : "40px";
-        const imgPath   = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pkm.id}.png`;
+        // 0,1 to (45%) chiếm hàng riêng, 2,3,4 nhỏ (30%) chiếm hàng riêng
+        const widthStyle = (index < 2) ? "width: 45%;" : "width: 30%;";
+        const imgPath = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pkm.id}.png`;
+
         return `
-            <div class="pkm-unit" id="${side}-unit-${index}" style="margin-top: ${marginTop}">
-                <img src="${imgPath}" id="${side}-img-${index}">
+            <div class="pkm-unit" id="${side}-unit-${index}" style="${widthStyle}; margin-bottom: 10px;">
+                <img src="${imgPath}" id="${side}-img-${index}" style="width: 100%; height: auto; max-width: 80px;">
                 <div class="unit-stats">
-                    <div class="hp-text" id="${side}-hp-text-${index}">${pkm.currentHp}/${pkm.maxHp}</div>
-                    <div class="hp-bar">
+                    <div class="hp-text" id="${side}-hp-text-${index}" style="font-size: 10px;">${pkm.currentHp}/${pkm.maxHp}</div>
+                    <div class="hp-bar" style="height: 6px;">
                         <div class="hp-fill" id="${side}-hp-fill-${index}" style="width: 100%"></div>
                     </div>
                 </div>
@@ -278,9 +316,16 @@ window.BattleGame = {
     },
     log(msg) {
         console.log("🎮 [BATTLE]: " + msg);
-        const logElement = document.getElementById('battle-log');
+        const logElement = document.getElementById('turn-display'); // Đã đổi ID
         if (logElement) {
             logElement.innerHTML = msg;
+            logElement.style.display = 'block';
+
+            // Tự động ẩn sau 1.2 giây để tiếp tục trận đấu
+            if (this.turnTimeout) clearTimeout(this.turnTimeout);
+            this.turnTimeout = setTimeout(() => {
+                logElement.style.display = 'none';
+            }, 1200);
         }
     }, // Thêm dấu phẩy ở đây
 
@@ -304,43 +349,61 @@ window.BattleGame = {
     victory() {
         this.log("🏆 CHIẾN THẮNG!");
 
-        // 1. Xác định ID màn chơi hiện tại
-        const missionData = localStorage.getItem('current_mission');
-        const currentLessonId = missionData ? JSON.parse(missionData).id : null; 
+        // ── 1. ĐỌC DỮ LIỆU ──
+        const missionData     = localStorage.getItem('current_mission');
+        const currentLessonId = missionData ? JSON.parse(missionData).id : null;
+        let passedMaps        = JSON.parse(localStorage.getItem('pkm_passed_maps')) || [];
+        let currentEXP        = parseInt(localStorage.getItem('pkm_global_exp')) || 0;
+        let currentDV         = parseInt(localStorage.getItem('pkm_global_dv'))  || 0;
+        const isNewLesson     = currentLessonId && !passedMaps.includes(currentLessonId);
 
-        // 2. Lấy dữ liệu cũ
-        let currentEXP = parseInt(localStorage.getItem('pkm_global_exp')) || 0;
-        let currentDV = parseInt(localStorage.getItem('pkm_global_dv')) || 0;
-        let passedMaps = JSON.parse(localStorage.getItem('pkm_passed_maps')) || [];
+        let bonusEXP = 0, bonusDV = 0;
+        let messages = [];
 
-        let bonusEXP = 0;
-        let bonusDV = 0;
-        let statusMessage = "";
+        // ── 2. THƯỞNG 1: BÀI MỚI (cần >= 90% đúng) ──
+        const accuracy = this.totalCount > 0
+            ? Math.round((this.correctCount / this.totalCount) * 100) : 0;
 
-        // 3. Tính toán thưởng dựa trên việc đã qua màn hay chưa
-        if (currentLessonId && !passedMaps.includes(currentLessonId)) {
-            bonusEXP = 10;
-            bonusDV = 10;
-            statusMessage = "🌟 HOÀN THÀNH BÀI HỌC MỚI!";
-
-            // Lưu màn vào danh sách đã qua
-            passedMaps.push(currentLessonId);
-            localStorage.setItem('pkm_passed_maps', JSON.stringify(passedMaps));
-        } else {
-            bonusEXP = 5;
-            bonusDV = 5;
-            statusMessage = "📚 ÔN TẬP BÀI CŨ";
+        if (isNewLesson) {
+            if (accuracy >= 90) {
+                bonusEXP += 5; bonusDV += 5;
+                passedMaps.push(currentLessonId);
+                localStorage.setItem('pkm_passed_maps', JSON.stringify(passedMaps));
+                messages.push(`🌟 BÀI MỚI HOÀN THÀNH (${accuracy}% đúng): <b>+5 KN +5 DV</b>`);
+            } else {
+                messages.push(`⚠️ Bài mới nhưng chỉ ${accuracy}% đúng — cần ≥90% để mở khoá!`);
+            }
         }
 
-        // 4. CHỈ CỘNG ĐIỂM KHI THẮNG
+        // ── 3. THƯỞNG 2: SỐ CÂU ĐÚNG / 5 ──
+        const reward2 = Math.round(this.correctCount / 5);
+        if (reward2 > 0) {
+            bonusEXP += reward2; bonusDV += reward2;
+            messages.push(`📝 ${this.correctCount} câu đúng ÷ 5 = <b>+${reward2} KN +${reward2} DV</b>`);
+        }
+
+        // ── 4. THƯỞNG 3: CHĂM CHỈ (chuỗi ngày liên tục) ──
+        const streak = this.updateStreak();
+        let streakBonus = 0;
+        if      (streak >= 30) streakBonus = 3;
+        else if (streak >= 10) streakBonus = 2;
+        else if (streak >= 4)  streakBonus = 1;
+
+        if (streakBonus > 0) {
+            bonusEXP += streakBonus; bonusDV += streakBonus;
+            messages.push(`🔥 Chuỗi ${streak} ngày liên tục: <b>+${streakBonus} KN +${streakBonus} DV</b>`);
+        } else {
+            messages.push(`📅 Chuỗi hiện tại: <b>${streak} ngày</b>`);
+        }
+
+        // ── 5. LƯU ──
         const newEXP = currentEXP + bonusEXP;
-        const newDV = currentDV + bonusDV;
-
+        const newDV  = currentDV  + bonusDV;
         localStorage.setItem('pkm_global_exp', newEXP);
-        localStorage.setItem('pkm_global_dv', newDV);
+        localStorage.setItem('pkm_global_dv',  newDV);
 
-        // 5. Hiển thị UI Victory
-        const firstPkm = this.playerTeam[0];
+        // ── 6. HIỆN UI ──
+        const firstPkm   = this.playerTeam[0];
         const victoryImg = document.getElementById('victory-pkm-img');
         if (victoryImg && firstPkm) {
             victoryImg.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${firstPkm.id}.png`;
@@ -349,15 +412,19 @@ window.BattleGame = {
         const expText = document.getElementById('victory-exp-text');
         if (expText) {
             expText.innerHTML = `
-                <div style="color: #FFD700; font-weight: bold;">${statusMessage}</div>
-                <div style="margin: 10px 0;">
-                    <div style="color: #4caf50;">+${bonusEXP} EXP (Tổng: ${newEXP})</div>
-                    <div style="color: #03a9f4;">+${bonusDV} DV (Tổng: ${newDV})</div>
+                <div style="font-size:13px; text-align:left; margin-bottom:12px; line-height:2;">
+                    ${messages.map(m => `<div>${m}</div>`).join('')}
                 </div>
-                <!-- Thêm nút này -->
-                <button onclick="window.location.href='pkm_map.html'" 
-                        style="background: #2ecc71; color: white; border: none; padding: 10px 30px; 
-                               border-radius: 25px; cursor: pointer; font-weight: bold; margin-top: 10px;">
+                <div style="border-top:1px solid #444; padding-top:10px; margin-bottom:12px;">
+                    <div style="color:#4caf50; font-size:16px; font-weight:bold;">+${bonusEXP} KN &nbsp; +${bonusDV} DV</div>
+                    <div style="color:#aaa; font-size:12px;">Tổng: ${newEXP} KN | ${newDV} DV</div>
+                </div>
+                <div style="color:#aaa; font-size:12px; margin-bottom:12px;">
+                    📊 Kết quả: ✅ ${this.correctCount} đúng / ❌ ${this.wrongCount} sai / tổng ${this.totalCount} câu
+                </div>
+                <button onclick="window.location.href='pkm_map.html'"
+                        style="background:#2ecc71; color:white; border:none; padding:10px 30px;
+                               border-radius:25px; cursor:pointer; font-weight:bold;">
                     TIẾP TỤC
                 </button>
             `;
@@ -365,6 +432,33 @@ window.BattleGame = {
 
         const overlay = document.getElementById('victory-overlay');
         if (overlay) overlay.style.display = 'flex';
+    },
+
+    // ── HÀM TÍNH CHUỖI NGÀY ──
+    updateStreak() {
+        const today     = new Date().toISOString().slice(0, 10); // "2025-01-15"
+        const lastPlay  = localStorage.getItem('pkm_last_play_date') || '';
+        let   streak    = parseInt(localStorage.getItem('pkm_streak_days')) || 0;
+
+        if (lastPlay === today) {
+            // Hôm nay đã chơi rồi → không tăng, giữ nguyên streak
+        } else {
+            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+            if (lastPlay === yesterday) {
+                // Hôm qua có chơi → tăng streak
+                streak++;
+            } else if (lastPlay === '') {
+                // Lần đầu chơi
+                streak = 1;
+            } else {
+                // Bỏ ngày → reset
+                streak = 1;
+            }
+            localStorage.setItem('pkm_last_play_date', today);
+            localStorage.setItem('pkm_streak_days', streak);
+        }
+
+        return streak;
     },
     defeat() {
         this.log("💀 BẠN ĐÃ THẤT BẠI!");
