@@ -36,29 +36,29 @@ window.QuizManager = {
      * @param {string} correctValue - Đáp án đúng để hiển thị nếu làm sai
      */
     showFeedback(isCorrect, correctValue) {
-        // 1. Tìm tất cả các nút option hoặc ô input
         const allBtns = document.querySelectorAll('.option-btn');
         const inputEl = document.getElementById('writing-input');
         const wordBox = document.getElementById('quiz-word');
+        const overlay = document.getElementById('quiz-overlay'); // Thêm dòng này
 
-        // 2. Nếu sai, hiển thị đáp án đúng lên màn hình
         if (!isCorrect) {
             if (wordBox) {
+                // Sếp giữ nguyên logic tạo feedbackDiv nhưng thêm background mờ nhẹ để dễ đọc chữ
                 const feedbackDiv = document.createElement('div');
-                feedbackDiv.style = "color: #e74c3c; margin-top: 15px; font-weight: bold; background: #fff; padding: 10px; border-radius: 10px; animation: shake 0.5s;";
+                feedbackDiv.style = "color: #e74c3c; margin-top: 15px; font-weight: bold; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 10px; animation: shake 0.5s; border: 2px solid #e74c3c;";
                 feedbackDiv.innerHTML = `❌ Correct: <span style="color: #2ecc71">${correctValue}</span>`;
                 wordBox.appendChild(feedbackDiv);
             }
         }
 
-        // 3. Khóa tương tác để tránh bấm nhiều lần
         allBtns.forEach(b => b.style.pointerEvents = 'none');
         if (inputEl) inputEl.disabled = true;
 
-        // 4. Chờ 2 giây để người dùng kịp nhìn đáp án rồi mới đóng
         setTimeout(() => {
-            const overlay = document.getElementById('quiz-overlay');
-            if (overlay) overlay.style.display = 'none';
+            if (overlay) {
+                overlay.style.display = 'none';
+                overlay.style.backgroundColor = 'transparent'; // Đảm bảo reset về trong suốt
+            }
             if (this.callback) this.callback(isCorrect);
         }, 2000);
     },
@@ -117,7 +117,8 @@ window.QuizManager = {
     showReadyScreen(onConfirm) {
         const overlay = document.createElement('div');
         overlay.id = 'ready-overlay';
-        overlay.style = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; align-items: center; justify-content: center; z-index: 10000; color: white; text-align: center;`;
+        // Đổi background từ rgba(0,0,0,0.95) sang 0.7 hoặc 0.8 để vẫn thấy mờ mờ phía sau
+        overlay.style = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000; color: white; text-align: center; backdrop-filter: blur(4px);`;
         overlay.innerHTML = `
             <div style="background: #222; padding: 30px; border-radius: 20px; border: 2px solid #444; width: 80%; max-width: 300px;">
                 <img src="https://cdn-icons-png.flaticon.com/512/188/188940.png" style="width: 80px; margin-bottom: 20px;">
@@ -282,9 +283,16 @@ window.QuizManager = {
         if (this.wordQueue.length === 0) this.refreshWordQueue();
         if (this.taskQueue.length === 0) await this.refreshTaskQueue();
 
+        // ✅ ÉP TRONG SUỐT TRƯỚC KHI GỌI TASK
+        const overlay = document.getElementById('quiz-overlay');
+        if (overlay) {
+            overlay.style.backgroundColor = 'transparent'; 
+            overlay.style.backdropFilter = 'none'; // Bỏ mờ kính nếu có
+        }
+
         const target = this.wordQueue.shift();
         const type = this.taskQueue.shift();
-
+        // ... (Giữ nguyên logic target/candidates của sếp bên dưới)
         let actualTarget = target;
         if (Math.random() < 0.3 && this.poolData.length >= 3) {
             const candidates = this.poolData
@@ -297,6 +305,10 @@ window.QuizManager = {
         }
 
         const method = `taskType${type}`;
+        console.group("%c[PKM QUIZ RUNNING]", "color: #ffcb05; background: #3b4cca; padding: 2px 5px; border-radius: 3px;");
+        console.log("%cDạng bài: %c" + method, "color: #555;", "color: #ff0000; font-weight: bold;");
+        console.log("%cTừ mục tiêu: %c" + (actualTarget.word || "Không có từ"), "color: #555;", "color: #008000; font-weight: bold;");
+        
         if (this[method]) {
             await this[method](actualTarget);
         } else {
@@ -341,17 +353,36 @@ window.QuizManager = {
     renderUI(questionText, options, correctValue) {
         this.stopTimer(); // Dừng timer cũ
         this.correctAnswer = correctValue;
+
         const wordBox = document.getElementById('quiz-word');
         const optionsBox = document.getElementById('quiz-options');
         const overlay = document.getElementById('quiz-overlay');
 
-        if (wordBox) wordBox.innerText = questionText;
+        // 1. Cấu hình hộp câu hỏi (Làm nổi bật chữ trên nền trong suốt)
+        if (wordBox) {
+            wordBox.innerText = questionText;
+            // Thêm nền đen mờ nhẹ (0.6) để chữ trắng dễ đọc hơn khi đè lên ảnh Pokémon
+            wordBox.style.background = "rgba(0, 0, 0, 0.6)"; 
+            wordBox.style.padding = "20px";
+            wordBox.style.borderRadius = "15px";
+            wordBox.style.color = "#ffffff";
+            wordBox.style.boxShadow = "0 4px 15px rgba(0,0,0,0.3)";
+            wordBox.style.fontSize = "1.2rem";
+            wordBox.style.fontWeight = "bold";
+        }
+
+        // 2. Cấu hình danh sách đáp án
         if (optionsBox) {
             optionsBox.innerHTML = "";
             options.forEach(opt => {
                 const btn = document.createElement('button');
                 btn.className = 'option-btn';
                 btn.innerText = opt;
+                // Thêm style trực tiếp để nút bấm trông xịn hơn trên nền trong suốt
+                btn.style.margin = "8px";
+                btn.style.padding = "12px 20px";
+                btn.style.cursor = "pointer";
+
                 btn.onclick = () => {
                     this.stopTimer(); // Dừng timer khi người dùng đã trả lời
                     this.handleAnswer(opt, btn);
@@ -362,12 +393,24 @@ window.QuizManager = {
             // Thêm nút Bỏ qua ở dưới cùng
             const skipBtn = document.createElement('button');
             skipBtn.innerText = "⏭ Skip (15s)";
-            skipBtn.style = "margin-top:15px; background:none; border:1px solid #999; color:#999; cursor:pointer; padding:5px 10px; border-radius:5px; font-size:12px;";
+            // Nền nút skip mờ hơn để không chiếm spotlight
+            skipBtn.style = "margin-top:20px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.3); color:#ddd; cursor:pointer; padding:8px 15px; border-radius:8px; font-size:13px; transition: 0.3s;";
+
+            skipBtn.onmouseover = () => skipBtn.style.background = "rgba(255,255,255,0.2)";
+            skipBtn.onmouseout = () => skipBtn.style.background = "rgba(255,255,255,0.1)";
+
             skipBtn.onclick = () => this.handleSkip();
             optionsBox.appendChild(skipBtn);
         }
 
-        if (overlay) overlay.style.display = 'flex';
+        // 3. Cấu hình Overlay TRONG SUỐT
+        if (overlay) {
+            overlay.style.display = 'flex';
+            overlay.style.backgroundColor = 'transparent'; // ✅ Xóa bỏ màu nền tối
+            overlay.style.backgroundImage = 'none';      // ✅ Xóa gradient nếu có
+            overlay.style.backdropFilter = 'none';      // ✅ Không làm mờ (blur) phía sau
+        }
+
         this.startAutoSkipTimer(); // Bắt đầu đếm ngược cho câu mới
     },
 
@@ -594,13 +637,13 @@ window.QuizManager = {
     renderUI_Speaking(instruction, textToSay) {
         this.stopTimer();
         this.correctAnswer = textToSay;
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
         const overlay = document.getElementById('quiz-overlay');
 
         if (overlay) {
             overlay.style.display = 'flex';
-            overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+            // SỬA TẠI ĐÂY: Thay rgba(0,0,0,0.9) thành transparent
+            overlay.style.backgroundColor = 'transparent'; 
+            overlay.style.backdropFilter = 'none'; // Đảm bảo không bị mờ
         }
 
         if (wordBox) {
@@ -717,8 +760,14 @@ window.QuizManager = {
         const wordBox = document.getElementById('quiz-word');
         const optionsBox = document.getElementById('quiz-options');
         const overlay = document.getElementById('quiz-overlay');
+        
 
-        if (overlay) overlay.style.display = 'flex';
+        if (overlay) {
+            overlay.style.display = 'flex';
+            // SỬA TẠI ĐÂY:
+            overlay.style.backgroundColor = 'transparent';
+            overlay.style.backdropFilter = 'none';
+        }
 
         if (wordBox) {
             wordBox.innerHTML = `
@@ -821,19 +870,25 @@ window.QuizManager = {
     renderUI_Writing(instruction, questionText, correctValue) {
         this.stopTimer();
         this.correctAnswer = correctValue;
+
         const wordBox = document.getElementById('quiz-word');
         const optionsBox = document.getElementById('quiz-options');
         const overlay = document.getElementById('quiz-overlay');
 
-        // Tạo chuỗi gợi ý: Chữ đầu + các dấu gạch dưới cho các chữ còn lại
-        // Ví dụ: "Apple" -> "A _ _ _ _"
+        // 1. Xử lý nền trong suốt tuyệt đối (Stage 6: Invisible Personalization)
+        if (overlay) {
+            overlay.style.display = 'flex';
+            overlay.style.backgroundColor = 'transparent';
+            overlay.style.backdropFilter = 'none';
+            overlay.style.backgroundImage = 'none';
+        }
+
+        // 2. Tạo chuỗi gợi ý: Chữ đầu viết hoa + các dấu gạch dưới
         const hintText = correctValue.split('').map((char, index) => {
-            if (index === 0) return char.toUpperCase(); // Chữ đầu viết hoa
-            if (char === " ") return "&nbsp;&nbsp;";    // Giữ khoảng trắng nếu là cụm từ
+            if (index === 0) return char.toUpperCase(); 
+            if (char === " ") return "&nbsp;&nbsp;";    
             return "_";
         }).join(' ');
-
-        if (overlay) overlay.style.display = 'flex';
 
         if (wordBox) {
             wordBox.innerHTML = `
@@ -1209,12 +1264,28 @@ window.QuizManager = {
             optionsBox.innerHTML = `
                 <div style="text-align: center;">
                     <div id="v2-status" style="margin-bottom: 10px; color: #2ecc71; font-weight: bold;">Press to Speak</div>
-                    <button id="btn-v2-speak" class="poke-btn blue" style="width: 80px; height: 80px; border-radius: 50%; padding: 0; display: inline-flex; align-items: center; justify-content: center;">
-                        <img src="https://cdn-icons-png.flaticon.com/512/361/361998.png" style="width:40px; filter: brightness(0) invert(1);"/>
-                    </button>
+
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
+                        <!-- Nút Speak giữ nguyên -->
+                        <button id="btn-v2-speak" class="poke-btn blue" style="width: 80px; height: 80px; border-radius: 50%; padding: 0; display: inline-flex; align-items: center; justify-content: center;">
+                            <img src="https://cdn-icons-png.flaticon.com/512/361/361998.png" style="width:40px; filter: brightness(0) invert(1);"/>
+                        </button>
+
+                        <!-- THÊM NÚT SKIP -->
+                        <button id="btn-v2-skip" class="poke-btn gray" style="padding: 10px 20px; font-size: 14px; border-radius: 15px; background: #666; color: white; border: none; cursor: pointer;">
+                            ⏩ SKIP
+                        </button>
+                    </div>
+
                     <div id="v2-result" style="margin-top: 15px; color: #fff; font-size: 16px; min-height: 24px;"></div>
                 </div>
             `;
+
+            // GÁN SỰ KIỆN CHO NÚT SKIP
+            document.getElementById('btn-v2-skip').onclick = () => {
+                this.stopTimer(); // Dừng đếm ngược
+                this.showFeedback(false, target.word); // Tính là không đúng và chuyển câu
+            };
 
             const btnSpeak = document.getElementById('btn-v2-speak');
             const status = document.getElementById('v2-status');
@@ -1429,10 +1500,12 @@ window.QuizManager = {
                            placeholder="Type here..." 
                            autocomplete="off"
                            style="width: 80%; padding: 12px; border-radius: 10px; border: 2px solid #3498db; background: #222; color: #fff; font-size: 18px; text-align: center; outline: none;"/>
-                    <div style="margin-top: 15px;">
-                        <button id="btn-submit-w" class="poke-btn yellow" style="width: 100px;">Check</button>
-                        <button id="btn-hint-w" class="poke-btn blue" style="margin-left: 10px;">🔊</button>
-                    </div>
+                    <div style="margin-top: 15px; display: flex; justify-content: center; gap: 10px;">
+    <button id="btn-submit-w" class="poke-btn yellow">Check</button>
+    <button id="btn-hint-w" class="poke-btn blue">🔊</button>
+    <!-- Nút Hint mới thêm -->
+    <button id="btn-meaning-hint" style="padding: 8px 15px; background: #555; color: #fff; border-radius: 8px; border: none; cursor: pointer;">Hint</button>
+</div>
                 </div>
             `;
 
@@ -1456,6 +1529,20 @@ window.QuizManager = {
             };
 
             btnSubmit.onclick = checkResult;
+            // Logic hiển thị nghĩa khi ấn nút Hint
+            document.getElementById('btn-meaning-hint').onclick = function() {
+                const hintEl = document.getElementById('hint-text');
+                if (hintEl) {
+                    // Lấy nghĩa từ dữ liệu target
+                    const meaning = target.meaning || "No meaning available";
+                    hintEl.innerHTML = `<span style="font-family: sans-serif; letter-spacing: 0; color: #4ade80;">${meaning}</span>`;
+                }
+                // Vô hiệu hóa nút sau khi xem để tránh bấm nhầm
+                this.disabled = true;
+                this.style.opacity = "0.5";
+                // Tự động focus lại ô nhập để người dùng gõ tiếp
+                inputEl.focus();
+            };
             inputEl.onkeydown = (e) => { if (e.key === "Enter") checkResult(); };
             document.getElementById('btn-hint-w').onclick = () => this.speak(target.word);
         }
@@ -2182,7 +2269,8 @@ window.QuizManager = {
 
         if (overlay) {
             overlay.style.display = 'flex';
-            overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+            overlay.style.backgroundColor = 'transparent'; // Ép về trong suốt
+            overlay.style.backdropFilter = 'none';        // Bỏ hiệu ứng mờ
         }
 
         if (wordBox) {
@@ -2213,7 +2301,11 @@ window.QuizManager = {
 
             // Gán sự kiện
             document.getElementById('btn-listen-q').onclick = () => this.speak(question);
-            document.getElementById('btn-skip-20').onclick = () => this.showFeedback(false, "Turn skipped!");
+            document.getElementById('btn-skip-20').onclick = () => {
+                this.stopTimer();
+                // Truyền suggestion (câu mẫu) vào feedback để người dùng biết lẽ ra nên nói gì
+                this.showFeedback(false, suggestion); 
+            };
 
             document.getElementById('btn-mic-ball').onclick = function() {
                 const btn = this;
