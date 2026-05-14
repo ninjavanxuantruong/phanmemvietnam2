@@ -395,12 +395,20 @@
 
     <!-- Firebase SDK -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-        // Khởi tạo Firebase
-        const app = initializeApp(window.FIREBASE_CONFIG);
-        const db = getFirestore(app);
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyCCVdzWiiFvcWiHVJN-x33YKarsjyziS8E",
+            authDomain: "pokemon-capture-10d03.firebaseapp.com",
+            projectId: "pokemon-capture-10d03",
+            storageBucket: "pokemon-capture-10d03.firebasestorage.app",
+            messagingSenderId: "1068125543917",
+            appId: "1:1068125543917:web:57de4365ee56729ea8dbe4"
+        };
+
+        const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
+        const db  = getFirestore(app);
 
         // =============================================
         // CÁC KEY CẦN LƯU LÊN FIRESTORE
