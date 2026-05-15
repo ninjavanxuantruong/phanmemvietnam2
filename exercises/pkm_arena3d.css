@@ -1,0 +1,125 @@
+/* ========== PKM ARENA 3D — Thay thế toàn bộ .battle-arena trong pkm_3d.css ========== */
+
+.battle-arena {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    /* Màu nền fallback, sẽ bị ghi đè bởi JS random */
+    background: #0d1b3e;
+}
+
+/* ── SVG SÂN ĐẤU (inject bằng JS) nằm sát đáy, phủ toàn arena ── */
+#arena-svg-bg {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* ── SPOTLIGHT Ở GIỮA SÂN ── */
+#arena-spotlight {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    z-index: 5;
+    pointer-events: none;
+    animation: spotlightPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes spotlightPulse {
+    0%, 100% { opacity: 0.7; transform: translate(-50%,-50%) scale(1); }
+    50%       { opacity: 1;   transform: translate(-50%,-50%) scale(1.15); }
+}
+
+/* ── POKEMON UNITS: luôn nổi trên nền ── */
+#player-team-container,
+#enemy-team-container {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* ── BÓNG ĐỔ DƯỚI CHÂN POKEMON ── */
+.pkm-shadow {
+    width: 60px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.35);
+    filter: blur(4px);
+    margin-top: -6px;
+    flex-shrink: 0;
+}
+
+/* ── POKEMON ĐỨNG TRÊN VÒNG TRÒN: thêm ring sáng dưới chân ── */
+.pkm-unit.active-unit::after {
+    content: '';
+    position: absolute;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #ffcb05;
+    box-shadow: 0 0 12px #ffcb05, 0 0 24px rgba(255,203,5,0.4);
+    animation: ringGlow 1s ease-in-out infinite alternate;
+    pointer-events: none;
+    z-index: -1;
+}
+
+@keyframes ringGlow {
+    from { opacity: 0.6; }
+    to   { opacity: 1; }
+}
+
+/* ── ĐIỂM GIỮA SÂN: pokemon sẽ di chuyển lên đây khi ra skill ── */
+#skill-stage {
+    position: absolute;
+    left: 50%;
+    top: 46%;
+    transform: translate(-50%, -50%);
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    z-index: 6;
+    pointer-events: none;
+    animation: stagePulse 3s ease-in-out infinite;
+}
+
+@keyframes stagePulse {
+    0%, 100% { opacity: 0.5; transform: translate(-50%,-50%) scale(1);    }
+    50%       { opacity: 0.9; transform: translate(-50%,-50%) scale(1.08); }
+}
+
+/* ── PARTICLE NỀN: các hạt sáng nhỏ bay lên ── */
+.arena-particle {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1;
+    animation: particleRise linear infinite;
+    opacity: 0;
+}
+
+@keyframes particleRise {
+    0%   { transform: translateY(0)   scale(1);   opacity: 0; }
+    10%  { opacity: 0.6; }
+    90%  { opacity: 0.3; }
+    100% { transform: translateY(-120px) scale(0.3); opacity: 0; }
+}
+
+/* ── MEDIA MOBILE ── */
+@media (max-width: 480px) {
+    #arena-spotlight { width: 60px; height: 60px; }
+    #skill-stage     { width: 75px; height: 75px; }
+    .pkm-shadow      { width: 44px; height: 10px; }
+}
