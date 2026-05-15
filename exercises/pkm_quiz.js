@@ -18,17 +18,17 @@ window.QuizManager = {
 
     // Cập nhật vị trí cột (Giả sử cột 25, 26 - bạn chỉnh lại số nếu khác)
     COLS: {
-        LESSON_NAME: 1, 
-        WORD: 2, 
-        PHRASE_EN: 3,  // Cột D: Cụm tiếng Anh
-        PHRASE_VI: 4,  // Cột E: Cụm tiếng Việt
-        PRESENT_SENT: 8, 
+        LESSON_NAME: 1,
+        WORD: 2,
+        PHRASE_EN: 3, // Cột D: Cụm tiếng Anh
+        PHRASE_VI: 4, // Cột E: Cụm tiếng Việt
+        PRESENT_SENT: 8,
         QUESTION: 9,
         KEYWORD_FIX: 10,
-        FINAL_ANS: 11, 
+        FINAL_ANS: 11,
         MEANING: 24,
-        SOUND_PUN: 25, 
-        PUN_SENTENCE: 26 
+        SOUND_PUN: 25,
+        PUN_SENTENCE: 26,
     },
     /**
      * Hàm dùng chung để xử lý phản hồi Đúng/Sai
@@ -36,28 +36,29 @@ window.QuizManager = {
      * @param {string} correctValue - Đáp án đúng để hiển thị nếu làm sai
      */
     showFeedback(isCorrect, correctValue) {
-        const allBtns = document.querySelectorAll('.option-btn');
-        const inputEl = document.getElementById('writing-input');
-        const wordBox = document.getElementById('quiz-word');
-        const overlay = document.getElementById('quiz-overlay'); // Thêm dòng này
+        const allBtns = document.querySelectorAll(".option-btn");
+        const inputEl = document.getElementById("writing-input");
+        const wordBox = document.getElementById("quiz-word");
+        const overlay = document.getElementById("quiz-overlay"); // Thêm dòng này
 
         if (!isCorrect) {
             if (wordBox) {
                 // Sếp giữ nguyên logic tạo feedbackDiv nhưng thêm background mờ nhẹ để dễ đọc chữ
-                const feedbackDiv = document.createElement('div');
-                feedbackDiv.style = "color: #e74c3c; margin-top: 15px; font-weight: bold; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 10px; animation: shake 0.5s; border: 2px solid #e74c3c;";
+                const feedbackDiv = document.createElement("div");
+                feedbackDiv.style =
+                    "color: #e74c3c; margin-top: 15px; font-weight: bold; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 10px; animation: shake 0.5s; border: 2px solid #e74c3c;";
                 feedbackDiv.innerHTML = `❌ Correct: <span style="color: #2ecc71">${correctValue}</span>`;
                 wordBox.appendChild(feedbackDiv);
             }
         }
 
-        allBtns.forEach(b => b.style.pointerEvents = 'none');
+        allBtns.forEach((b) => (b.style.pointerEvents = "none"));
         if (inputEl) inputEl.disabled = true;
 
         setTimeout(() => {
             if (overlay) {
-                overlay.style.display = 'none';
-                overlay.style.backgroundColor = 'transparent'; // Đảm bảo reset về trong suốt
+                overlay.style.display = "none";
+                overlay.style.backgroundColor = "transparent"; // Đảm bảo reset về trong suốt
             }
             if (this.callback) this.callback(isCorrect);
         }, 2000);
@@ -96,17 +97,20 @@ window.QuizManager = {
     handleSkip() {
         this.stopTimer();
         window.speechSynthesis.cancel();
-        const overlay = document.getElementById('quiz-overlay');
-        if (overlay) overlay.style.display = 'none';
+        const overlay = document.getElementById("quiz-overlay");
+        if (overlay) overlay.style.display = "none";
         if (this.callback) this.callback(false);
     },
 
     async isMicrophoneAvailable() {
         try {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const SpeechRecognition =
+                window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) return false;
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            stream.getTracks().forEach(track => track.stop());
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+            });
+            stream.getTracks().forEach((track) => track.stop());
             return true;
         } catch (err) {
             console.warn("🎙️ Micro không khả dụng:", err.name);
@@ -115,18 +119,33 @@ window.QuizManager = {
     },
 
     showReadyScreen(onConfirm) {
-        const overlay = document.createElement('div');
-        overlay.id = 'ready-overlay';
-        // Đổi background từ rgba(0,0,0,0.95) sang 0.7 hoặc 0.8 để vẫn thấy mờ mờ phía sau
-        overlay.style = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000; color: white; text-align: center; backdrop-filter: blur(4px);`;
+        const overlay = document.createElement("div");
+        overlay.id = "ready-overlay";
+
+        // 1. Nền overlay trong suốt hoàn toàn (background: none)
+        // 2. Không có blur (backdrop-filter: none)
+        overlay.style = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                         background: none; display: flex; align-items: center; 
+                         justify-content: center; z-index: 10000; text-align: center;`;
+
         overlay.innerHTML = `
-            <div style="background: #222; padding: 30px; border-radius: 20px; border: 2px solid #444; width: 80%; max-width: 300px;">
-                <img src="https://cdn-icons-png.flaticon.com/512/188/188940.png" style="width: 80px; margin-bottom: 20px;">
-                <h2 style="margin-bottom: 10px;">Are you ready?</h2>
-                <button id="btn-ready-ok" style="background: #2ecc71; color: white; border: none; padding: 12px 40px; border-radius: 25px; font-size: 18px; font-weight: bold; cursor: pointer; width: 100%;">OK!</button>
+            <div style="width: 80%; max-width: 300px;">
+                <img src="https://cdn-icons-png.flaticon.com/512/188/188940.png" style="width: 80px; margin-bottom: 10px; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));">
+
+                <h2 style="color: white; margin-bottom: 20px; font-size: 28px; text-transform: uppercase; 
+                           text-shadow: 2px 2px 4px #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;">
+                    Are you ready?
+                </h2>
+
+                <button id="btn-ready-ok" style="background: #2ecc71; color: white; border: 2px solid white; 
+                           padding: 12px 40px; border-radius: 25px; font-size: 18px; font-weight: bold; 
+                           cursor: pointer; width: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    OK!
+                </button>
             </div>`;
+
         document.body.appendChild(overlay);
-        document.getElementById('btn-ready-ok').onclick = async () => {
+        document.getElementById("btn-ready-ok").onclick = async () => {
             await this.speak(""); // Mồi âm thanh
             overlay.remove();
             if (onConfirm) onConfirm();
@@ -144,29 +163,35 @@ window.QuizManager = {
     },
 
     async refreshTaskQueue() {
-        let tasks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+        let tasks = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+            20,
+        ];
         const micOk = await this.isMicrophoneAvailable();
-        if (!micOk) tasks = tasks.filter(t => t !== 6);
+        if (!micOk) tasks = tasks.filter((t) => t !== 6);
         this.taskQueue = tasks.sort(() => 0.5 - Math.random());
     },
     normalize(text) {
         if (!text) return "";
-        return text.toString()
+        return text
+            .toString()
             .toLowerCase()
             .trim()
             .replace(/[.,!?;:]/g, "") // Bỏ các dấu câu để so sánh cho chuẩn
-            .replace(/\s+/g, " ");    // Khoảng trắng thừa thành 1 khoảng trắng
+            .replace(/\s+/g, " "); // Khoảng trắng thừa thành 1 khoảng trắng
     },
 
     // Thêm hàm bổ trợ này vào trong đối tượng QuizManager
     normalizeUnitId(unitStr) {
         if (!unitStr) return 0;
         // Xử lý cả dạng MS3011 hoặc 3-11-1
-        if (unitStr.includes('-')) {
+        if (unitStr.includes("-")) {
             const parts = unitStr.split("-");
             if (parts.length < 3) return 0;
             const [cls, lesson, part] = parts;
-            return parseInt(cls) * 1000 + parseInt(lesson) * 10 + parseInt(part);
+            return (
+                parseInt(cls) * 1000 + parseInt(lesson) * 10 + parseInt(part)
+            );
         }
         // Nếu là dạng MS3011 thì chỉ lấy số
         return parseInt(unitStr.replace(/\D/g, ""));
@@ -175,20 +200,24 @@ window.QuizManager = {
     async getMaxLessonCodeFromServer() {
         const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
         // Biến SHEET_BAI_HOC lấy từ window.SHEET_BAI_HOC đã định nghĩa ở global
-        const sheetUrl = window.SHEET_BAI_HOC; 
+        const sheetUrl = window.SHEET_BAI_HOC;
 
         try {
-            console.log(`[MaxSearch] Đang fetch dữ liệu cho lớp: ${trainerClass}`);
+            console.log(
+                `[MaxSearch] Đang fetch dữ liệu cho lớp: ${trainerClass}`,
+            );
             const res = await fetch(sheetUrl);
             const rows = await res.json();
 
             const baiList = rows
-                .map(r => {
+                .map((r) => {
                     const lop = (r[0] || "").toString().trim(); // Cột A
                     const bai = (r[2] || "").toString().trim(); // Cột C (giả định đây là mã ID bài)
-                    return (lop === trainerClass && bai) ? this.normalizeUnitId(bai) : null;
+                    return lop === trainerClass && bai
+                        ? this.normalizeUnitId(bai)
+                        : null;
                 })
-                .filter(v => typeof v === "number" && !isNaN(v) && v > 0);
+                .filter((v) => typeof v === "number" && !isNaN(v) && v > 0);
 
             if (baiList.length === 0) return null;
             return Math.max(...baiList);
@@ -199,8 +228,8 @@ window.QuizManager = {
     },
 
     async prepareData() {
-        const storedData = sessionStorage.getItem('allVocabData');
-        const missionData = localStorage.getItem('current_mission');
+        const storedData = sessionStorage.getItem("allVocabData");
+        const missionData = localStorage.getItem("current_mission");
         if (!storedData || !missionData) return false;
 
         const allRows = JSON.parse(storedData);
@@ -215,13 +244,15 @@ window.QuizManager = {
         let finalMax = Math.max(serverMax || 0, currentUnitNum);
         let minLessonCode = 2011; // Sếp chốt min là 2011
 
-        console.log(`[MaxSearch] Min: ${minLessonCode} | Max Server: ${serverMax} | Bài hiện tại: ${currentUnitNum}`);
+        console.log(
+            `[MaxSearch] Min: ${minLessonCode} | Max Server: ${serverMax} | Bài hiện tại: ${currentUnitNum}`,
+        );
         console.log(`[MaxSearch] CHỐT MAX CUỐI CÙNG: ${finalMax}`);
 
         this.currentLessonData = [];
         this.poolData = [];
 
-        allRows.forEach(row => {
+        allRows.forEach((row) => {
             const r = Array.isArray(row) ? row : Object.values(row);
             const lessonId = (r[this.COLS.LESSON_NAME] || "").toString().trim();
             const unitNum = this.normalizeUnitId(lessonId);
@@ -229,7 +260,7 @@ window.QuizManager = {
             const item = {
                 word: r[this.COLS.WORD] || "",
                 meaning: r[this.COLS.MEANING] || "",
-                colD: r[this.COLS.PHRASE_EN] || "", 
+                colD: r[this.COLS.PHRASE_EN] || "",
                 colE: r[this.COLS.PHRASE_VI] || "",
                 question: r[this.COLS.QUESTION] || "",
                 keywordFix: r[this.COLS.KEYWORD_FIX] || "",
@@ -237,7 +268,7 @@ window.QuizManager = {
                 presentSent: r[this.COLS.PRESENT_SENT] || "",
                 soundPun: r[this.COLS.SOUND_PUN] || "",
                 punSentence: r[this.COLS.PUN_SENTENCE] || "",
-                lessonId: lessonId
+                lessonId: lessonId,
             };
 
             if (item.word) {
@@ -252,14 +283,18 @@ window.QuizManager = {
             }
         });
 
-        console.log(`[DataReady] Pool size: ${this.poolData.length} câu nhiễu.`);
+        console.log(
+            `[DataReady] Pool size: ${this.poolData.length} câu nhiễu.`,
+        );
         this.refreshWordQueue();
         await this.refreshTaskQueue();
         return this.currentLessonData.length > 0;
     },
 
     refreshWordQueue() {
-        this.wordQueue = [...this.currentLessonData].sort(() => 0.5 - Math.random());
+        this.wordQueue = [...this.currentLessonData].sort(
+            () => 0.5 - Math.random(),
+        );
     },
 
     async ask(onFinish) {
@@ -284,10 +319,10 @@ window.QuizManager = {
         if (this.taskQueue.length === 0) await this.refreshTaskQueue();
 
         // ✅ ÉP TRONG SUỐT TRƯỚC KHI GỌI TASK
-        const overlay = document.getElementById('quiz-overlay');
+        const overlay = document.getElementById("quiz-overlay");
         if (overlay) {
-            overlay.style.backgroundColor = 'transparent'; 
-            overlay.style.backdropFilter = 'none'; // Bỏ mờ kính nếu có
+            overlay.style.backgroundColor = "transparent";
+            overlay.style.backdropFilter = "none"; // Bỏ mờ kính nếu có
         }
 
         const target = this.wordQueue.shift();
@@ -296,19 +331,33 @@ window.QuizManager = {
         let actualTarget = target;
         if (Math.random() < 0.3 && this.poolData.length >= 3) {
             const candidates = this.poolData
-                .filter(item => item.lessonId !== target.lessonId && item.word)
+                .filter(
+                    (item) => item.lessonId !== target.lessonId && item.word,
+                )
                 .sort(() => 0.5 - Math.random())
                 .slice(0, 3);
             if (candidates.length > 0) {
-                actualTarget = candidates[Math.floor(Math.random() * candidates.length)];
+                actualTarget =
+                    candidates[Math.floor(Math.random() * candidates.length)];
             }
         }
 
         const method = `taskType${type}`;
-        console.group("%c[PKM QUIZ RUNNING]", "color: #ffcb05; background: #3b4cca; padding: 2px 5px; border-radius: 3px;");
-        console.log("%cDạng bài: %c" + method, "color: #555;", "color: #ff0000; font-weight: bold;");
-        console.log("%cTừ mục tiêu: %c" + (actualTarget.word || "Không có từ"), "color: #555;", "color: #008000; font-weight: bold;");
-        
+        console.group(
+            "%c[PKM QUIZ RUNNING]",
+            "color: #ffcb05; background: #3b4cca; padding: 2px 5px; border-radius: 3px;",
+        );
+        console.log(
+            "%cDạng bài: %c" + method,
+            "color: #555;",
+            "color: #ff0000; font-weight: bold;",
+        );
+        console.log(
+            "%cTừ mục tiêu: %c" + (actualTarget.word || "Không có từ"),
+            "color: #555;",
+            "color: #008000; font-weight: bold;",
+        );
+
         if (this[method]) {
             await this[method](actualTarget);
         } else {
@@ -322,7 +371,7 @@ window.QuizManager = {
      * @param {number} rate - Tốc độ đọc (1.0 là bình thường, 0.5 là chậm 50%)
      */
     async speak(text, rate = 1.0) {
-        return new Promise(resolve => {
+        return new Promise((resolve) => {
             // Hủy các yêu cầu đọc trước đó để tránh bị chồng chéo âm thanh
             window.speechSynthesis.cancel();
 
@@ -354,15 +403,15 @@ window.QuizManager = {
         this.stopTimer(); // Dừng timer cũ
         this.correctAnswer = correctValue;
 
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
         // 1. Cấu hình hộp câu hỏi (Làm nổi bật chữ trên nền trong suốt)
         if (wordBox) {
             wordBox.innerText = questionText;
             // Thêm nền đen mờ nhẹ (0.6) để chữ trắng dễ đọc hơn khi đè lên ảnh Pokémon
-            wordBox.style.background = "rgba(0, 0, 0, 0.6)"; 
+            wordBox.style.background = "rgba(0, 0, 0, 0.6)";
             wordBox.style.padding = "20px";
             wordBox.style.borderRadius = "15px";
             wordBox.style.color = "#ffffff";
@@ -374,9 +423,9 @@ window.QuizManager = {
         // 2. Cấu hình danh sách đáp án
         if (optionsBox) {
             optionsBox.innerHTML = "";
-            options.forEach(opt => {
-                const btn = document.createElement('button');
-                btn.className = 'option-btn';
+            options.forEach((opt) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
                 btn.innerText = opt;
                 // Thêm style trực tiếp để nút bấm trông xịn hơn trên nền trong suốt
                 btn.style.margin = "8px";
@@ -391,13 +440,16 @@ window.QuizManager = {
             });
 
             // Thêm nút Bỏ qua ở dưới cùng
-            const skipBtn = document.createElement('button');
+            const skipBtn = document.createElement("button");
             skipBtn.innerText = "⏭ Skip (15s)";
             // Nền nút skip mờ hơn để không chiếm spotlight
-            skipBtn.style = "margin-top:20px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.3); color:#ddd; cursor:pointer; padding:8px 15px; border-radius:8px; font-size:13px; transition: 0.3s;";
+            skipBtn.style =
+                "margin-top:20px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.3); color:#ddd; cursor:pointer; padding:8px 15px; border-radius:8px; font-size:13px; transition: 0.3s;";
 
-            skipBtn.onmouseover = () => skipBtn.style.background = "rgba(255,255,255,0.2)";
-            skipBtn.onmouseout = () => skipBtn.style.background = "rgba(255,255,255,0.1)";
+            skipBtn.onmouseover = () =>
+                (skipBtn.style.background = "rgba(255,255,255,0.2)");
+            skipBtn.onmouseout = () =>
+                (skipBtn.style.background = "rgba(255,255,255,0.1)");
 
             skipBtn.onclick = () => this.handleSkip();
             optionsBox.appendChild(skipBtn);
@@ -405,17 +457,17 @@ window.QuizManager = {
 
         // 3. Cấu hình Overlay TRONG SUỐT
         if (overlay) {
-            overlay.style.display = 'flex';
-            overlay.style.backgroundColor = 'transparent'; // ✅ Xóa bỏ màu nền tối
-            overlay.style.backgroundImage = 'none';      // ✅ Xóa gradient nếu có
-            overlay.style.backdropFilter = 'none';      // ✅ Không làm mờ (blur) phía sau
+            overlay.style.display = "flex";
+            overlay.style.backgroundColor = "transparent"; // ✅ Xóa bỏ màu nền tối
+            overlay.style.backgroundImage = "none"; // ✅ Xóa gradient nếu có
+            overlay.style.backdropFilter = "none"; // ✅ Không làm mờ (blur) phía sau
         }
 
         this.startAutoSkipTimer(); // Bắt đầu đếm ngược cho câu mới
     },
 
     handleAnswer(selected, btn) {
-        const isCorrect = (selected === this.correctAnswer);
+        const isCorrect = selected === this.correctAnswer;
 
         // Đổi màu nút người dùng vừa chọn
         btn.style.background = isCorrect ? "#2ecc71" : "#e74c3c";
@@ -440,19 +492,29 @@ window.QuizManager = {
 
         // 1. Lấy danh sách nhiễu
         let wrongs = this.currentLessonData
-            .map(item => item.meaning)
-            .filter(m => m && m !== correctAns);
+            .map((item) => item.meaning)
+            .filter((m) => m && m !== correctAns);
 
         if (wrongs.length < 3) {
-            const extra = this.poolData.map(i => i.meaning).filter(m => m && m !== correctAns);
+            const extra = this.poolData
+                .map((i) => i.meaning)
+                .filter((m) => m && m !== correctAns);
             wrongs = [...wrongs, ...extra];
         }
 
-        const finalWrongs = [...new Set(wrongs)].sort(() => 0.5 - Math.random()).slice(0, 3);
-        const options = [correctAns, ...finalWrongs].sort(() => 0.5 - Math.random());
+        const finalWrongs = [...new Set(wrongs)]
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 3);
+        const options = [correctAns, ...finalWrongs].sort(
+            () => 0.5 - Math.random(),
+        );
 
         // 2. Hiển thị UI trước khi đọc
-        this.renderUI(`${instruction}\n\n"${target.word}"`, options, correctAns);
+        this.renderUI(
+            `${instruction}\n\n"${target.word}"`,
+            options,
+            correctAns,
+        );
 
         // 3. Đọc hướng dẫn và đọc từ mục tiêu
         await this.speak(instruction);
@@ -467,7 +529,8 @@ window.QuizManager = {
      * Dạng 2: Đáp án cho câu hỏi
      */
     async taskType2(target) {
-        if (!target.question || !target.finalAns) return this.ask(this.callback);
+        if (!target.question || !target.finalAns)
+            return this.ask(this.callback);
 
         const instruction = "Answer the question.";
         const correctAns = target.finalAns;
@@ -475,22 +538,30 @@ window.QuizManager = {
         // 1. Lấy nhiễu
         // Ưu tiên lấy từ poolData (các bài khác)
         let wrongs = this.poolData
-            .filter(item => item.word !== target.word) // Tránh trùng từ hiện tại
-            .map(item => item.finalAns)
-            .filter(a => a && a !== correctAns);
+            .filter((item) => item.word !== target.word) // Tránh trùng từ hiện tại
+            .map((item) => item.finalAns)
+            .filter((a) => a && a !== correctAns);
 
         // Bảo hiểm: Nếu không đủ 3 nhiễu, lấy thêm từ chính bài hiện tại
         if (wrongs.length < 3) {
             const currentWrongs = this.currentLessonData
-                .map(item => item.finalAns)
-                .filter(a => a && a !== correctAns);
+                .map((item) => item.finalAns)
+                .filter((a) => a && a !== correctAns);
             wrongs = [...wrongs, ...currentWrongs];
         }
 
-        const finalWrongs = [...new Set(wrongs)].sort(() => 0.5 - Math.random()).slice(0, 3);
-        const options = [correctAns, ...finalWrongs].sort(() => 0.5 - Math.random());
+        const finalWrongs = [...new Set(wrongs)]
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 3);
+        const options = [correctAns, ...finalWrongs].sort(
+            () => 0.5 - Math.random(),
+        );
 
-        this.renderUI(`${instruction}\n\nQ: ${target.question}`, options, correctAns);
+        this.renderUI(
+            `${instruction}\n\nQ: ${target.question}`,
+            options,
+            correctAns,
+        );
 
         await this.speak(instruction);
         await this.speak(target.question);
@@ -500,29 +571,38 @@ window.QuizManager = {
      * Dạng 3: Câu hỏi cho đáp án
      */
     async taskType3(target) {
-        if (!target.question || !target.finalAns) return this.ask(this.callback);
+        if (!target.question || !target.finalAns)
+            return this.ask(this.callback);
 
         const instruction = "Choose the correct question for this answer.";
         const correctAns = target.question;
 
         // 1. Lấy nhiễu
         let wrongs = this.poolData
-            .filter(item => item.word !== target.word)
-            .map(item => item.question)
-            .filter(q => q && q !== correctAns);
+            .filter((item) => item.word !== target.word)
+            .map((item) => item.question)
+            .filter((q) => q && q !== correctAns);
 
         // Bảo hiểm tương tự Dạng 2
         if (wrongs.length < 3) {
             const currentWrongs = this.currentLessonData
-                .map(item => item.question)
-                .filter(q => q && q !== correctAns);
+                .map((item) => item.question)
+                .filter((q) => q && q !== correctAns);
             wrongs = [...wrongs, ...currentWrongs];
         }
 
-        const finalWrongs = [...new Set(wrongs)].sort(() => 0.5 - Math.random()).slice(0, 3);
-        const options = [correctAns, ...finalWrongs].sort(() => 0.5 - Math.random());
+        const finalWrongs = [...new Set(wrongs)]
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 3);
+        const options = [correctAns, ...finalWrongs].sort(
+            () => 0.5 - Math.random(),
+        );
 
-        this.renderUI(`${instruction}\n\nAns: ${target.finalAns}`, options, correctAns);
+        this.renderUI(
+            `${instruction}\n\nAns: ${target.finalAns}`,
+            options,
+            correctAns,
+        );
 
         await this.speak(instruction);
         await this.speak(target.finalAns);
@@ -535,14 +615,15 @@ window.QuizManager = {
      * Logic: Hiển thị Q & Ans nhưng ẩn [word], máy đọc đầy đủ cả 2 câu.
      */
     async taskType4(target) {
-        if (!target.question || !target.finalAns) return this.ask(this.callback);
+        if (!target.question || !target.finalAns)
+            return this.ask(this.callback);
 
         // Dừng timer để không tính giờ lúc đang chuẩn bị
-        this.stopTimer(); 
+        this.stopTimer();
 
         const instruction = "Listen and fill in the missing word.";
         const correctAns = target.word.trim();
-        const regex = new RegExp(`\\b${correctAns}\\b`, 'gi');
+        const regex = new RegExp(`\\b${correctAns}\\b`, "gi");
         const displayQ = target.question.replace(regex, "_______");
         const displayAns = target.finalAns.replace(regex, "_______");
         const fullDisplayText = `Q: ${displayQ}\nAns: ${displayAns}`;
@@ -550,33 +631,54 @@ window.QuizManager = {
 
         // Render UI (Chưa tính giờ)
         let wrongs = this.poolData
-            .map(item => item.word)
-            .filter(w => w && w.toLowerCase() !== correctAns.toLowerCase());
-        const finalWrongs = [...new Set(wrongs)].sort(() => 0.5 - Math.random()).slice(0, 3);
-        const options = [correctAns, ...finalWrongs].sort(() => 0.5 - Math.random());
+            .map((item) => item.word)
+            .filter((w) => w && w.toLowerCase() !== correctAns.toLowerCase());
+        const finalWrongs = [...new Set(wrongs)]
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 3);
+        const options = [correctAns, ...finalWrongs].sort(
+            () => 0.5 - Math.random(),
+        );
 
-        this.renderUI_WithRepeat(instruction, fullDisplayText, options, correctAns, textToSpeak);
+        this.renderUI_WithRepeat(
+            instruction,
+            fullDisplayText,
+            options,
+            correctAns,
+            textToSpeak,
+        );
 
         // PHÁT ÂM THANH
         await this.speak(instruction);
         await this.speak(textToSpeak);
 
         // SAU KHI ĐỌC XONG MỚI CHẠY TIMER (Ví dụ cho 20 giây)
-        this.startTimer(15000); 
+        this.startTimer(15000);
     },
 
     /**
      * Hàm render bổ sung có nút Nghe lại cho các dạng nghe
      */
-    renderUI_WithRepeat(instruction, questionText, options, correctValue, textToSpeak) {
-        this.renderUI(`${instruction}\n\n${questionText}`, options, correctValue);
+    renderUI_WithRepeat(
+        instruction,
+        questionText,
+        options,
+        correctValue,
+        textToSpeak,
+    ) {
+        this.renderUI(
+            `${instruction}\n\n${questionText}`,
+            options,
+            correctValue,
+        );
 
-        const optionsBox = document.getElementById('quiz-options');
+        const optionsBox = document.getElementById("quiz-options");
         if (optionsBox) {
             // Thêm nút Nghe lại 🔊 vào trên hàng nút đáp án hoặc dưới cùng
-            const repeatBtn = document.createElement('button');
+            const repeatBtn = document.createElement("button");
             repeatBtn.innerHTML = "🔊 Listen Again";
-            repeatBtn.style = "margin-bottom:15px; background:#3498db; color:white; border:none; cursor:pointer; padding:8px 20px; border-radius:20px; font-weight:bold; width:100%;";
+            repeatBtn.style =
+                "margin-bottom:15px; background:#3498db; color:white; border:none; cursor:pointer; padding:8px 20px; border-radius:20px; font-weight:bold; width:100%;";
             repeatBtn.onclick = () => this.speak(textToSpeak);
 
             // Chèn vào đầu danh sách options
@@ -594,15 +696,36 @@ window.QuizManager = {
         const correctAns = target.presentSent;
 
         let wrongs = this.poolData
-            .filter(item => item.lessonId !== target.lessonId)
-            .map(item => item.presentSent)
-            .filter(s => s && s !== correctAns);
+            .filter((item) => item.lessonId !== target.lessonId)
+            .map((item) => item.presentSent)
+            .filter((s) => s && s !== correctAns);
 
-        const opts = [correctAns, ...[...new Set(wrongs)].sort(() => 0.5 - Math.random()).slice(0, 3)].sort(() => 0.5 - Math.random());
+        const opts = [
+            correctAns,
+            ...[...new Set(wrongs)].sort(() => 0.5 - Math.random()).slice(0, 3),
+        ].sort(() => 0.5 - Math.random());
 
-        // Hiển thị biểu tượng loa để ép người dùng phải nghe
-        this.renderUI(`${instruction}\n\n🔊 Press to listen again`, opts, correctAns);
+        // 1. Gọi renderUI trước
+        this.renderUI(instruction, opts, correctAns);
 
+        // 2. Tùy biến lại wordBox để biến nó thành nút nghe lại
+        const wordBox = document.getElementById("quiz-word");
+        if (wordBox) {
+            wordBox.innerHTML = `
+                <div id="btn-replay-audio" style="cursor: pointer; padding: 10px;">
+                    <div style="font-size: 16px; color: #aaa; margin-bottom: 10px;">${instruction}</div>
+                    <div style="font-size: 40px; filter: drop-shadow(0 0 10px #2ecc71);">🔊</div>
+                    <div style="font-size: 14px; color: #2ecc71; margin-top: 5px;">(Tap to listen again)</div>
+                </div>
+            `;
+
+            // Gán sự kiện click trực tiếp vào box này
+            document.getElementById("btn-replay-audio").onclick = () => {
+                this.speak(target.presentSent);
+            };
+        }
+
+        // 3. Phát âm thanh lần đầu
         await this.speak(instruction);
         await this.speak(target.presentSent);
     },
@@ -615,10 +738,17 @@ window.QuizManager = {
      */
     async taskType6(target) {
         // 1. Xác định nội dung cần nói
-        const possibleTexts = [target.presentSent, target.question, target.finalAns].filter(t => t && t.length > 0);
-        const textToSay = (possibleTexts.length > 0) 
-            ? possibleTexts[Math.floor(Math.random() * possibleTexts.length)] 
-            : target.word;
+        const possibleTexts = [
+            target.presentSent,
+            target.question,
+            target.finalAns,
+        ].filter((t) => t && t.length > 0);
+        const textToSay =
+            possibleTexts.length > 0
+                ? possibleTexts[
+                      Math.floor(Math.random() * possibleTexts.length)
+                  ]
+                : target.word;
 
         const instruction = "Read this out loud!";
 
@@ -637,43 +767,59 @@ window.QuizManager = {
     renderUI_Speaking(instruction, textToSay) {
         this.stopTimer();
         this.correctAnswer = textToSay;
-        const overlay = document.getElementById('quiz-overlay');
+
+        // ĐỊNH NGHĨA LẠI CÁC BIẾN NÀY ĐỂ TRÁNH LỖI (Quan trọng)
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
         if (overlay) {
-            overlay.style.display = 'flex';
-            // SỬA TẠI ĐÂY: Thay rgba(0,0,0,0.9) thành transparent
-            overlay.style.backgroundColor = 'transparent'; 
-            overlay.style.backdropFilter = 'none'; // Đảm bảo không bị mờ
+            overlay.style.display = "flex";
+            overlay.style.backgroundColor = "transparent"; // Ép trong suốt
+            overlay.style.backdropFilter = "none";
         }
 
         if (wordBox) {
+            // Thêm nền mờ nhẹ để chữ trắng nổi bật trên mọi địa hình
+            wordBox.style.background = "rgba(0, 0, 0, 0.6)";
+            wordBox.style.padding = "15px";
+            wordBox.style.borderRadius = "15px";
             wordBox.innerHTML = `
-                <div style="font-family: sans-serif; text-align: center; padding: 10px;">
-                    <div style="font-size: 18px; color: #aaa; margin-bottom: 10px;">${instruction}</div>
-                    <div style="font-size: 14px; color: #ffeb3b;">(Listen and repeat)</div>
+                <div style="text-align: center;">
+                    <div style="font-size: 16px; color: #ffcb05; margin-bottom: 5px; font-weight: bold;">${instruction}</div>
+                    <div style="font-size: 22px; color: #fff; font-weight: bold;">"${textToSay}"</div>
+                    <div style="font-size: 13px; color: #2ecc71; margin-top: 5px;">(Nghe và lặp lại để thu phục Pokemon)</div>
                 </div>
             `;
         }
 
         if (optionsBox) {
             optionsBox.innerHTML = `
-                <div id="speechResult" style="color: #fff; margin-bottom: 20px; font-size: 16px; min-height: 40px; text-align: center;">
-                    Tap the PokéBall and Speak
+                <div id="speechResult" style="color: #fff; margin-bottom: 15px; font-size: 16px; min-height: 40px; text-align: center; text-shadow: 1px 1px 2px #000;">
+                    Nhấn PokéBall để nói
                 </div>
-                <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
-                    <button id="btn-mic-ball" style="background: none; border: none; cursor: pointer; transition: transform 0.2s;">
-                        <img src="https://cdn-icons-png.flaticon.com/512/361/361998.png" style="width: 100px; filter: drop-shadow(0 0 10px #fff);" />
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                    <button id="btn-mic-ball" style="background: none; border: none; cursor: pointer; transition: 0.2s;">
+                        <img src="https://cdn-icons-png.flaticon.com/512/361/361998.png" style="width: 80px; filter: drop-shadow(0 0 10px #fff);" />
                     </button>
-                    <button id="btn-listen-again" style="background: #444; color: white; border: none; padding: 5px 15px; border-radius: 15px; cursor: pointer; font-size:12px;">🔊 Listen</button>
-                    <button id="btn-skip-speak" style="background: none; color: #666; border: 1px solid #444; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size:11px; margin-top:10px;">Skip this turn</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="btn-listen-again" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid #fff; padding: 6px 15px; border-radius: 20px; cursor: pointer; font-size:12px;">🔊 Nghe lại</button>
+                        <button id="btn-skip-speak" style="background: rgba(0,0,0,0.3); color: #ccc; border: 1px solid #666; padding: 6px 15px; border-radius: 20px; cursor: pointer; font-size:12px;">⏭ Bỏ qua</button>
+                    </div>
                 </div>
             `;
 
-            document.getElementById('btn-listen-again').onclick = () => this.speak(textToSay);
-            document.getElementById('btn-skip-speak').onclick = () => this.handleSkip();
-            document.getElementById('btn-mic-ball').onclick = () => {
-                this.stopTimer(); // Dừng đếm ngược khi bắt đầu nói
-                this.startListeningLogic(textToSay, document.getElementById('btn-mic-ball'), document.getElementById('speechResult'));
+            document.getElementById("btn-listen-again").onclick = () =>
+                this.speak(textToSay);
+            document.getElementById("btn-skip-speak").onclick = () =>
+                this.handleSkip();
+            document.getElementById("btn-mic-ball").onclick = () => {
+                this.stopTimer();
+                this.startListeningLogic(
+                    textToSay,
+                    document.getElementById("btn-mic-ball"),
+                    document.getElementById("speechResult"),
+                );
             };
         }
         this.startAutoSkipTimer();
@@ -683,7 +829,8 @@ window.QuizManager = {
      * Logic nhận diện giọng nói khi nhấn bóng
      */
     startListeningLogic(targetText, micBtn, resultDiv) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
             resultDiv.innerText = "❌ Browser not supported!";
             return;
@@ -694,7 +841,8 @@ window.QuizManager = {
 
         // Hiệu ứng khi đang nghe
         micBtn.style.transform = "scale(1.2) rotate(20deg)";
-        resultDiv.innerHTML = "<span style='color: #00e5ff;'>⚡ Pokémon is listening...</span>";
+        resultDiv.innerHTML =
+            "<span style='color: #00e5ff;'>⚡ Pokémon is listening...</span>";
 
         recognition.start();
 
@@ -706,8 +854,8 @@ window.QuizManager = {
 
             resultDiv.innerHTML = `
                 <div style="font-size: 14px; color: #ccc;">"I heard: ${transcript}"</div>
-                <div style="font-size: 20px; color: ${isPass ? '#2ecc71' : '#e74c3c'}; font-weight: bold;">
-                    ${isPass ? '✨ GOTCHA!' : '💨 ESCAPED!'} (${accuracy}%)
+                <div style="font-size: 20px; color: ${isPass ? "#2ecc71" : "#e74c3c"}; font-weight: bold;">
+                    ${isPass ? "✨ GOTCHA!" : "💨 ESCAPED!"} (${accuracy}%)
                 </div>
             `;
 
@@ -721,11 +869,16 @@ window.QuizManager = {
     },
 
     checkAccuracy(userText, targetText) {
-        const clean = (str) => str.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim().split(/\s+/);
+        const clean = (str) =>
+            str
+                .toLowerCase()
+                .replace(/[^a-z0-9\s]/g, "")
+                .trim()
+                .split(/\s+/);
         const userWords = clean(userText);
         const targetWords = clean(targetText);
         let correct = 0;
-        targetWords.forEach(word => {
+        targetWords.forEach((word) => {
             if (userWords.includes(word)) correct++;
         });
         return Math.round((correct / targetWords.length) * 100);
@@ -736,7 +889,8 @@ window.QuizManager = {
      * Yêu cầu: Hiển thị cả Q và Ans, không đọc mẫu, check accuracy >= 70%
      */
     async taskType7(target) {
-        if (!target.question || !target.finalAns) return this.ask(this.callback);
+        if (!target.question || !target.finalAns)
+            return this.ask(this.callback);
 
         const instruction = "Read the script out loud!";
         // Gộp cả câu hỏi và câu trả lời thành kịch bản
@@ -757,16 +911,15 @@ window.QuizManager = {
     renderUI_ScriptSpeaking(instruction, displayScript, cleanScript) {
         this.stopTimer();
         this.correctAnswer = cleanScript;
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
-        
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
         if (overlay) {
-            overlay.style.display = 'flex';
+            overlay.style.display = "flex";
             // SỬA TẠI ĐÂY:
-            overlay.style.backgroundColor = 'transparent';
-            overlay.style.backdropFilter = 'none';
+            overlay.style.backgroundColor = "transparent";
+            overlay.style.backdropFilter = "none";
         }
 
         if (wordBox) {
@@ -774,7 +927,7 @@ window.QuizManager = {
                 <div style="font-family: sans-serif; text-align: center; padding: 10px;">
                     <div style="font-size: 16px; color: #aaa; margin-bottom: 10px;">${instruction}</div>
                     <div style="font-size: 20px; color: #fff; line-height: 1.5; background: #333; padding: 15px; border-radius: 10px; border-left: 5px solid #f1c40f;">
-                        ${displayScript.replace(/\n/g, '<br>')}
+                        ${displayScript.replace(/\n/g, "<br>")}
                     </div>
                 </div>
             `;
@@ -793,11 +946,17 @@ window.QuizManager = {
                 </div>
             `;
 
-            document.getElementById('btn-skip-speak-7').onclick = () => this.handleSkip();
-            document.getElementById('btn-mic-ball-7').onclick = () => {
+            document.getElementById("btn-skip-speak-7").onclick = () =>
+                this.handleSkip();
+            document.getElementById("btn-mic-ball-7").onclick = () => {
                 this.stopTimer();
                 // ✅ Truyền 70 vào tham số accuracy yêu cầu
-                this.startListeningLogic_V2(cleanScript, document.getElementById('btn-mic-ball-7'), document.getElementById('speechResult'), 70);
+                this.startListeningLogic_V2(
+                    cleanScript,
+                    document.getElementById("btn-mic-ball-7"),
+                    document.getElementById("speechResult"),
+                    70,
+                );
             };
         }
         this.startAutoSkipTimer();
@@ -807,7 +966,8 @@ window.QuizManager = {
      * Bản nâng cấp của startListeningLogic để tùy chỉnh mức độ % vượt qua
      */
     startListeningLogic_V2(targetText, micBtn, resultDiv, passScore = 70) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
             resultDiv.innerText = "❌ Browser not supported!";
             return;
@@ -816,7 +976,8 @@ window.QuizManager = {
         const recognition = new SpeechRecognition();
         recognition.lang = "en-US";
         micBtn.style.transform = "scale(1.2) rotate(20deg)";
-        resultDiv.innerHTML = "<span style='color: #f1c40f;'>⚡ Recording script...</span>";
+        resultDiv.innerHTML =
+            "<span style='color: #f1c40f;'>⚡ Recording script...</span>";
 
         recognition.start();
 
@@ -828,8 +989,8 @@ window.QuizManager = {
 
             resultDiv.innerHTML = `
                 <div style="font-size: 13px; color: #ccc;">"Detected: ${transcript}"</div>
-                <div style="font-size: 18px; color: ${isPass ? '#2ecc71' : '#e74c3c'}; font-weight: bold; margin-top:5px;">
-                    ${isPass ? '✨ PERFECT SCRIPT!' : '💨 MISREAD!'} (${accuracy}%)
+                <div style="font-size: 18px; color: ${isPass ? "#2ecc71" : "#e74c3c"}; font-weight: bold; margin-top:5px;">
+                    ${isPass ? "✨ PERFECT SCRIPT!" : "💨 MISREAD!"} (${accuracy}%)
                 </div>
             `;
 
@@ -856,7 +1017,7 @@ window.QuizManager = {
         // 1. Render giao diện nhập liệu
         this.renderUI_Writing(instruction, questionText, correctAns);
 
-        // 2. Đọc hướng dẫn và nghĩa (nếu sếp muốn máy đọc cả nghĩa tiếng Việt thì đổi lang, 
+        // 2. Đọc hướng dẫn và nghĩa (nếu sếp muốn máy đọc cả nghĩa tiếng Việt thì đổi lang,
         // nhưng thường dạng viết chỉ cần đọc hướng dẫn)
         await this.speak(instruction);
     },
@@ -871,24 +1032,27 @@ window.QuizManager = {
         this.stopTimer();
         this.correctAnswer = correctValue;
 
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
         // 1. Xử lý nền trong suốt tuyệt đối (Stage 6: Invisible Personalization)
         if (overlay) {
-            overlay.style.display = 'flex';
-            overlay.style.backgroundColor = 'transparent';
-            overlay.style.backdropFilter = 'none';
-            overlay.style.backgroundImage = 'none';
+            overlay.style.display = "flex";
+            overlay.style.backgroundColor = "transparent";
+            overlay.style.backdropFilter = "none";
+            overlay.style.backgroundImage = "none";
         }
 
         // 2. Tạo chuỗi gợi ý: Chữ đầu viết hoa + các dấu gạch dưới
-        const hintText = correctValue.split('').map((char, index) => {
-            if (index === 0) return char.toUpperCase(); 
-            if (char === " ") return "&nbsp;&nbsp;";    
-            return "_";
-        }).join(' ');
+        const hintText = correctValue
+            .split("")
+            .map((char, index) => {
+                if (index === 0) return char.toUpperCase();
+                if (char === " ") return "&nbsp;&nbsp;";
+                return "_";
+            })
+            .join(" ");
 
         if (wordBox) {
             wordBox.innerHTML = `
@@ -920,13 +1084,13 @@ window.QuizManager = {
                 </div>
             `;
 
-            const inputEl = document.getElementById('writing-input');
-            const submitBtn = document.getElementById('btn-submit-writing');
+            const inputEl = document.getElementById("writing-input");
+            const submitBtn = document.getElementById("btn-submit-writing");
 
             const checkWriting = () => {
                 const userVal = inputEl.value.trim().toLowerCase();
                 const correctVal = correctValue.toLowerCase();
-                const isCorrect = (userVal === correctVal);
+                const isCorrect = userVal === correctVal;
 
                 inputEl.disabled = true;
                 inputEl.style.borderColor = isCorrect ? "#2ecc71" : "#e74c3c";
@@ -934,7 +1098,7 @@ window.QuizManager = {
                 submitBtn.innerText = isCorrect ? "✨ CORRECT!" : "❌ WRONG!";
 
                 // Nếu sai, hiển thị đáp án đúng sau chữ WRONG
-                if(!isCorrect) {
+                if (!isCorrect) {
                     submitBtn.innerHTML = `❌ ${correctValue.toUpperCase()}`;
                 }
 
@@ -942,8 +1106,11 @@ window.QuizManager = {
             };
 
             submitBtn.onclick = checkWriting;
-            inputEl.onkeypress = (e) => { if (e.key === 'Enter') checkWriting(); };
-            document.getElementById('btn-skip-writing').onclick = () => this.handleSkip();
+            inputEl.onkeypress = (e) => {
+                if (e.key === "Enter") checkWriting();
+            };
+            document.getElementById("btn-skip-writing").onclick = () =>
+                this.handleSkip();
 
             setTimeout(() => inputEl.focus(), 100);
         }
@@ -962,13 +1129,14 @@ window.QuizManager = {
         const sources = [
             { text: target.question, label: "Question" },
             { text: target.finalAns, label: "Answer" },
-            { text: target.presentSent, label: "Presentation" }
-        ].filter(s => s.text && s.text.trim().length > 0);
+            { text: target.presentSent, label: "Presentation" },
+        ].filter((s) => s.text && s.text.trim().length > 0);
 
         if (sources.length === 0) return this.ask(this.callback);
 
         // 2. Bốc ngẫu nhiên 1 nguồn
-        const selectedSource = sources[Math.floor(Math.random() * sources.length)];
+        const selectedSource =
+            sources[Math.floor(Math.random() * sources.length)];
         const originalText = selectedSource.text.trim();
 
         const instruction = `Unscramble the ${selectedSource.label}!`;
@@ -987,11 +1155,11 @@ window.QuizManager = {
     },
     renderUI_Unscramble(instruction, shuffledWords, correctSequence) {
         this.stopTimer();
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
-        if (overlay) overlay.style.display = 'flex';
+        if (overlay) overlay.style.display = "flex";
 
         if (wordBox) {
             wordBox.innerHTML = `
@@ -1010,38 +1178,46 @@ window.QuizManager = {
                 </div>
             `;
 
-            const resultArea = document.getElementById('unscramble-result');
-            const poolArea = document.getElementById('unscramble-pool');
+            const resultArea = document.getElementById("unscramble-result");
+            const poolArea = document.getElementById("unscramble-pool");
             let userSequence = [];
 
             shuffledWords.forEach((word) => {
-                const btn = document.createElement('button');
+                const btn = document.createElement("button");
                 btn.innerText = word;
                 btn.className = "word-block-btn"; // Sếp có thể thêm CSS cho class này
-                btn.style = "background: #444; color: white; border: 1px solid #666; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 16px; transition: 0.2s;";
+                btn.style =
+                    "background: #444; color: white; border: 1px solid #666; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 16px; transition: 0.2s;";
 
                 btn.onclick = () => {
                     userSequence.push(word);
-                    btn.style.visibility = 'hidden'; // Dùng visibility để không làm nhảy vị trí các từ còn lại
+                    btn.style.visibility = "hidden"; // Dùng visibility để không làm nhảy vị trí các từ còn lại
 
-                    const resBtn = document.createElement('span');
+                    const resBtn = document.createElement("span");
                     resBtn.innerText = word;
-                    resBtn.style = "background: #2ecc71; color: white; padding: 5px 10px; border-radius: 5px; font-weight: bold; animation: popIn 0.3s;";
+                    resBtn.style =
+                        "background: #2ecc71; color: white; padding: 5px 10px; border-radius: 5px; font-weight: bold; animation: popIn 0.3s;";
                     resultArea.appendChild(resBtn);
                 };
                 poolArea.appendChild(btn);
             });
 
-            document.getElementById('btn-unscramble-reset').onclick = () => {
+            document.getElementById("btn-unscramble-reset").onclick = () => {
                 userSequence = [];
                 resultArea.innerHTML = "";
-                Array.from(poolArea.children).forEach(btn => btn.style.visibility = 'visible');
+                Array.from(poolArea.children).forEach(
+                    (btn) => (btn.style.visibility = "visible"),
+                );
             };
 
-            document.getElementById('btn-unscramble-check').onclick = () => {
-                const isCorrect = JSON.stringify(userSequence) === JSON.stringify(correctSequence);
+            document.getElementById("btn-unscramble-check").onclick = () => {
+                const isCorrect =
+                    JSON.stringify(userSequence) ===
+                    JSON.stringify(correctSequence);
                 // Dùng dấu cách để nối lại câu khi hiện đáp án đúng
-                const fullCorrectSentence = correctSequence.join(' ').replace(/\s([?.!,])/g, '$1'); 
+                const fullCorrectSentence = correctSequence
+                    .join(" ")
+                    .replace(/\s([?.!,])/g, "$1");
 
                 this.showFeedback(isCorrect, fullCorrectSentence);
             };
@@ -1054,7 +1230,8 @@ window.QuizManager = {
      * Trộn presentSent của mục tiêu với các câu khác để tạo "đoạn văn"
      */
     async taskType10(target) {
-        if (!target.presentSent || !target.question || !target.finalAns) return this.ask(this.callback);
+        if (!target.presentSent || !target.question || !target.finalAns)
+            return this.ask(this.callback);
 
         this.stopTimer();
 
@@ -1064,10 +1241,11 @@ window.QuizManager = {
         let noiseSentences = [];
 
         // 1. Lọc danh sách các bài có presentSent và không phải bài hiện tại
-        let otherLessons = this.poolData.filter(item => 
-            item.word !== target.word && 
-            item.presentSent && 
-            item.presentSent.trim() !== ""
+        let otherLessons = this.poolData.filter(
+            (item) =>
+                item.word !== target.word &&
+                item.presentSent &&
+                item.presentSent.trim() !== "",
         );
 
         // 2. Trộn ngẫu nhiên danh sách các bài này
@@ -1075,38 +1253,56 @@ window.QuizManager = {
 
         // 3. Lấy tối đa 5 bài khác nhau, mỗi bài 1 câu
         let selectedLessons = otherLessons.slice(0, 5);
-        noiseSentences = selectedLessons.map(item => item.presentSent.trim());
+        noiseSentences = selectedLessons.map((item) => item.presentSent.trim());
 
         // 4. Dự phòng: Nếu không đủ 5 bài khác nhau, lấy thêm câu từ chính các bài đó (nhưng câu khác)
         if (noiseSentences.length < 5) {
             let extraNeeded = 5 - noiseSentences.length;
             let extraSentences = this.poolData
-                .filter(item => item.presentSent && !noiseSentences.includes(item.presentSent.trim()) && item.presentSent.trim() !== target.presentSent.trim())
-                .map(item => item.presentSent.trim())
+                .filter(
+                    (item) =>
+                        item.presentSent &&
+                        !noiseSentences.includes(item.presentSent.trim()) &&
+                        item.presentSent.trim() !== target.presentSent.trim(),
+                )
+                .map((item) => item.presentSent.trim())
                 .sort(() => 0.5 - Math.random())
                 .slice(0, extraNeeded);
             noiseSentences = [...noiseSentences, ...extraSentences];
         }
 
         // Trộn câu đúng của bài hiện tại vào 5 câu nhiễu
-        const paragraphArray = [target.presentSent.trim(), ...noiseSentences].sort(() => 0.5 - Math.random());
-        const fullParagraph = paragraphArray.join(". , "); 
+        const paragraphArray = [
+            target.presentSent.trim(),
+            ...noiseSentences,
+        ].sort(() => 0.5 - Math.random());
+        const fullParagraph = paragraphArray.join(". , ");
 
         // --- PHẦN ĐÁP ÁN VÀ RENDER GIỮ NGUYÊN ---
         const correctAns = target.finalAns;
         let wrongs = this.poolData
-            .filter(item => item.word !== target.word && item.finalAns)
-            .map(item => item.finalAns)
-            .filter(a => a !== correctAns);
-        const finalWrongs = [...new Set(wrongs)].sort(() => 0.5 - Math.random()).slice(0, 3);
-        const options = [correctAns, ...finalWrongs].sort(() => 0.5 - Math.random());
+            .filter((item) => item.word !== target.word && item.finalAns)
+            .map((item) => item.finalAns)
+            .filter((a) => a !== correctAns);
+        const finalWrongs = [...new Set(wrongs)]
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 3);
+        const options = [correctAns, ...finalWrongs].sort(
+            () => 0.5 - Math.random(),
+        );
 
-        this.renderUI_ListeningParagraph(instruction, target.question, options, correctAns, fullParagraph);
+        this.renderUI_ListeningParagraph(
+            instruction,
+            target.question,
+            options,
+            correctAns,
+            fullParagraph,
+        );
 
         // QUY TRÌNH ĐỌC TỰ ĐỘNG
         await this.speak(instruction);
 
-        const btnPlay = document.getElementById('btn-play-paragraph');
+        const btnPlay = document.getElementById("btn-play-paragraph");
         if (btnPlay) {
             btnPlay.disabled = true;
             btnPlay.innerText = "⏳";
@@ -1119,16 +1315,22 @@ window.QuizManager = {
             btnPlay.disabled = false;
             btnPlay.innerText = "🔊";
         }
-        this.startTimer(40000); 
+        this.startTimer(40000);
     },
-    renderUI_ListeningParagraph(instruction, questionText, options, correctValue, paragraphText) {
+    renderUI_ListeningParagraph(
+        instruction,
+        questionText,
+        options,
+        correctValue,
+        paragraphText,
+    ) {
         this.stopTimer();
         this.correctAnswer = correctValue;
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
-        if (overlay) overlay.style.display = 'flex';
+        if (overlay) overlay.style.display = "flex";
 
         if (wordBox) {
             wordBox.innerHTML = `
@@ -1143,7 +1345,9 @@ window.QuizManager = {
                 </div>
             `;
 
-            document.getElementById('btn-play-paragraph').onclick = async (e) => {
+            document.getElementById("btn-play-paragraph").onclick = async (
+                e,
+            ) => {
                 const btn = e.currentTarget;
                 if (btn.disabled) return; // Chống bấm nhiều lần
 
@@ -1163,9 +1367,9 @@ window.QuizManager = {
 
         if (optionsBox) {
             optionsBox.innerHTML = "";
-            options.forEach(opt => {
-                const btn = document.createElement('button');
-                btn.className = 'option-btn';
+            options.forEach((opt) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
                 btn.innerText = opt;
                 btn.onclick = () => {
                     this.stopTimer();
@@ -1174,13 +1378,13 @@ window.QuizManager = {
                 optionsBox.appendChild(btn);
             });
 
-            const skipBtn = document.createElement('button');
+            const skipBtn = document.createElement("button");
             skipBtn.innerText = "⏭ Skip (15s)";
-            skipBtn.style = "margin-top:15px; background:none; border:1px solid #666; color:#666; cursor:pointer; padding:5px 10px; border-radius:5px; font-size:11px;";
+            skipBtn.style =
+                "margin-top:15px; background:none; border:1px solid #666; color:#666; cursor:pointer; padding:5px 10px; border-radius:5px; font-size:11px;";
             skipBtn.onclick = () => this.handleSkip();
             optionsBox.appendChild(skipBtn);
         }
-        
     },
 
     /**
@@ -1196,7 +1400,7 @@ window.QuizManager = {
      */
     async taskType11(target) {
         // Hiện thông báo đang tải ảnh để người dùng không thấy màn hình trống
-        this.renderLoading(); 
+        this.renderLoading();
 
         try {
             // Gọi hàm getImage từ instance imageCache
@@ -1212,18 +1416,23 @@ window.QuizManager = {
 
             // Đọc hướng dẫn
             await this.speak(instruction);
-
         } catch (error) {
             console.error("❌ Lỗi tải ảnh từ imagecache2:", error);
             // Nếu lỗi quá nặng, dùng ảnh Pokéball chữa cháy
-            const fallbackImg = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png";
-            this.renderUI_Vocab2("Look and say!", fallbackImg, target.meaning, target);
+            const fallbackImg =
+                "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png";
+            this.renderUI_Vocab2(
+                "Look and say!",
+                fallbackImg,
+                target.meaning,
+                target,
+            );
         }
     },
 
     // Hàm phụ để hiển thị trạng thái chờ nếu ảnh tải hơi lâu (do fetch nhiều lớp)
     renderLoading() {
-        const wordBox = document.getElementById('quiz-word');
+        const wordBox = document.getElementById("quiz-word");
         if (wordBox) {
             wordBox.innerHTML = `<div style="color: #ffd54f; font-size: 14px;">🔍 Đang tìm ảnh thực tế...</div>`;
         }
@@ -1232,20 +1441,21 @@ window.QuizManager = {
     renderUI_Vocab2(instruction, imgSrc, meaningText, target) {
         this.stopTimer();
         this.correctAnswer = target.word;
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
-        if (overlay) overlay.style.display = 'flex';
+        if (overlay) overlay.style.display = "flex";
 
         if (wordBox) {
             wordBox.innerHTML = `
                 <div style="text-align: center;">
                     <p style="font-size: 14px; color: #aaa; margin-bottom: 8px;">${instruction}</p>
                     <div class="image-container" style="min-height: 150px; display: flex; align-items: center; justify-content: center;">
-                        ${imgSrc 
-                            ? `<img src="${imgSrc}" style="max-width:180px; border-radius:15px; border: 3px solid #ffd54f; box-shadow: 0 4px 15px rgba(0,0,0,0.3);"/>` 
-                            : `<div style="color: #666; font-style: italic;">(No image available)</div>`
+                        ${
+                            imgSrc
+                                ? `<img src="${imgSrc}" style="max-width:180px; border-radius:15px; border: 3px solid #ffd54f; box-shadow: 0 4px 15px rgba(0,0,0,0.3);"/>`
+                                : `<div style="color: #666; font-style: italic;">(No image available)</div>`
                         }
                     </div>
                     <div style="font-size: 26px; font-weight: bold; color: #ffd54f; margin: 15px 0;">${meaningText}</div>
@@ -1254,8 +1464,8 @@ window.QuizManager = {
                     </button>
                 </div>
             `;
-            
-            document.getElementById('btn-v2-listen').onclick = () => {
+
+            document.getElementById("btn-v2-listen").onclick = () => {
                 this.speak(target.question || target.word);
             };
         }
@@ -1282,22 +1492,23 @@ window.QuizManager = {
             `;
 
             // GÁN SỰ KIỆN CHO NÚT SKIP
-            document.getElementById('btn-v2-skip').onclick = () => {
+            document.getElementById("btn-v2-skip").onclick = () => {
                 this.stopTimer(); // Dừng đếm ngược
                 this.showFeedback(false, target.word); // Tính là không đúng và chuyển câu
             };
 
-            const btnSpeak = document.getElementById('btn-v2-speak');
-            const status = document.getElementById('v2-status');
-            const resultDiv = document.getElementById('v2-result');
+            const btnSpeak = document.getElementById("btn-v2-speak");
+            const status = document.getElementById("v2-status");
+            const resultDiv = document.getElementById("v2-result");
 
             btnSpeak.onclick = () => {
-                const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const SR =
+                    window.SpeechRecognition || window.webkitSpeechRecognition;
                 if (!SR) return alert("Microphone not supported");
 
                 const rec = new SR();
                 rec.lang = "en-US";
-                
+
                 rec.onstart = () => {
                     status.innerText = "🎙️ Listening...";
                     status.style.color = "#f1c40f";
@@ -1306,12 +1517,16 @@ window.QuizManager = {
                 };
 
                 rec.onresult = (e) => {
-                    const transcript = e.results[0][0].transcript.toLowerCase().trim();
-                    const targetWord = target.word.toLowerCase().replace(/[^a-z0-9'\s]/g, "");
-                    
+                    const transcript = e.results[0][0].transcript
+                        .toLowerCase()
+                        .trim();
+                    const targetWord = target.word
+                        .toLowerCase()
+                        .replace(/[^a-z0-9'\s]/g, "");
+
                     const isCorrect = transcript.includes(targetWord);
                     resultDiv.innerHTML = `You said: <span style="color: #ffd54f;">"${transcript}"</span>`;
-                    
+
                     btnSpeak.style.transform = "scale(1)";
                     btnSpeak.style.boxShadow = "none";
 
@@ -1344,24 +1559,39 @@ window.QuizManager = {
             const imgSrc = imageResult ? imageResult.url : "";
 
             // 1. Lấy danh sách từ trong CÙNG bài (loại trừ từ đúng)
-            const sameLessonWords = [...new Set(
-                this.poolData
-                    .filter(item => item.lessonId === target.lessonId && item.word !== target.word)
-                    .map(item => item.word)
-            )];
+            const sameLessonWords = [
+                ...new Set(
+                    this.poolData
+                        .filter(
+                            (item) =>
+                                item.lessonId === target.lessonId &&
+                                item.word !== target.word,
+                        )
+                        .map((item) => item.word),
+                ),
+            ];
 
             // 2. Lấy danh sách từ BÀI KHÁC
-            const otherLessonWords = [...new Set(
-                this.poolData
-                    .filter(item => item.lessonId !== target.lessonId && item.word !== target.word)
-                    .map(item => item.word)
-            )];
+            const otherLessonWords = [
+                ...new Set(
+                    this.poolData
+                        .filter(
+                            (item) =>
+                                item.lessonId !== target.lessonId &&
+                                item.word !== target.word,
+                        )
+                        .map((item) => item.word),
+                ),
+            ];
 
             let distractors = [];
 
             // Lấy 1 từ cùng bài (nếu có)
             if (sameLessonWords.length > 0) {
-                const randomSame = sameLessonWords[Math.floor(Math.random() * sameLessonWords.length)];
+                const randomSame =
+                    sameLessonWords[
+                        Math.floor(Math.random() * sameLessonWords.length)
+                    ];
                 distractors.push(randomSame);
             }
 
@@ -1375,19 +1605,34 @@ window.QuizManager = {
 
             // Trường hợp hy hữu nếu vẫn thiếu (do pool quá ít), lấy đại từ bất kỳ miễn là không trùng
             if (distractors.length < 3) {
-                const allUnique = [...new Set(this.poolData.map(i => i.word).filter(w => w !== target.word && !distractors.includes(w)))];
-                distractors = distractors.concat(allUnique.slice(0, 3 - distractors.length));
+                const allUnique = [
+                    ...new Set(
+                        this.poolData
+                            .map((i) => i.word)
+                            .filter(
+                                (w) =>
+                                    w !== target.word &&
+                                    !distractors.includes(w),
+                            ),
+                    ),
+                ];
+                distractors = distractors.concat(
+                    allUnique.slice(0, 3 - distractors.length),
+                );
             }
 
             // 3. Trộn đáp án đúng với đáp án nhiễu
-            const options = [target.word, ...distractors].sort(() => 0.5 - Math.random());
+            const options = [target.word, ...distractors].sort(
+                () => 0.5 - Math.random(),
+            );
 
-            console.log(`[Dạng 12] Từ đúng: ${target.word} | Nhiễu: ${distractors.join(", ")}`);
+            console.log(
+                `[Dạng 12] Từ đúng: ${target.word} | Nhiễu: ${distractors.join(", ")}`,
+            );
 
             this.renderUI_ImageChoice(imgSrc, options, target);
 
             this.speak("Look at the picture. Which word is it?");
-
         } catch (error) {
             console.error("❌ Lỗi Dạng 12:", error);
             this.handleSkip();
@@ -1398,18 +1643,18 @@ window.QuizManager = {
         this.stopTimer();
         this.correctAnswer = target.word;
 
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
-        if (overlay) overlay.style.display = 'flex';
+        if (overlay) overlay.style.display = "flex";
 
         if (wordBox) {
             wordBox.innerHTML = `
                 <div style="text-align: center;">
                     <p style="font-size: 14px; color: #aaa; margin-bottom: 10px;">Choose the correct word</p>
                     <div class="image-container" style="min-height: 180px; display: flex; align-items: center; justify-content: center;">
-                        <img src="${imgSrc || 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png'}" 
+                        <img src="${imgSrc || "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png"}" 
                              style="max-width:200px; border-radius:15px; border: 4px solid #3498db; box-shadow: 0 5px 15px rgba(0,0,0,0.5);"/>
                     </div>
                     <div style="margin-top: 10px; font-style: italic; color: #ffd54f;">"${target.meaning}"</div>
@@ -1419,17 +1664,18 @@ window.QuizManager = {
 
         if (optionsBox) {
             optionsBox.innerHTML = `<div class="options-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px;"></div>`;
-            const grid = optionsBox.querySelector('.options-grid');
+            const grid = optionsBox.querySelector(".options-grid");
 
-            options.forEach(opt => {
-                const btn = document.createElement('button');
-                btn.className = 'poke-btn white option-btn';
-                btn.style = "padding: 15px 5px; font-weight: bold; font-size: 16px; text-transform: capitalize;";
+            options.forEach((opt) => {
+                const btn = document.createElement("button");
+                btn.className = "poke-btn white option-btn";
+                btn.style =
+                    "padding: 15px 5px; font-weight: bold; font-size: 16px; text-transform: capitalize;";
                 btn.innerText = opt;
 
                 btn.onclick = () => {
                     this.stopTimer(); // Dừng timer ngay khi bấm
-                    const isCorrect = (opt === target.word);
+                    const isCorrect = opt === target.word;
                     this.showFeedback(isCorrect, target.word);
                 };
                 grid.appendChild(btn);
@@ -1454,13 +1700,13 @@ window.QuizManager = {
             // Tạo chuỗi gợi ý: Chữ cái đầu + (_) cho các chữ còn lại
             // Ví dụ: "apple" -> "a _ _ _ _"
             const firstChar = target.word.charAt(0);
-            const placeholder = firstChar + " " + "_ ".repeat(target.word.length - 1).trim();
+            const placeholder =
+                firstChar + " " + "_ ".repeat(target.word.length - 1).trim();
 
             this.renderUI_ImageWriting(imgSrc, placeholder, target);
 
             // Đọc từ để người dùng có thêm manh mối âm thanh
             this.speak("Look at the blurred image and write the word.");
-
         } catch (error) {
             console.error("❌ Lỗi Dạng 13:", error);
             this.handleSkip();
@@ -1471,18 +1717,18 @@ window.QuizManager = {
         this.stopTimer();
         this.correctAnswer = target.word;
 
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
-        if (overlay) overlay.style.display = 'flex';
+        if (overlay) overlay.style.display = "flex";
 
         if (wordBox) {
             wordBox.innerHTML = `
                 <div style="text-align: center;">
                     <p style="font-size: 14px; color: #aaa; margin-bottom: 10px;">Type the word you see</p>
                     <div class="image-container" style="position: relative; min-height: 180px; display: flex; align-items: center; justify-content: center;">
-                        <img src="${imgSrc || 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png'}" 
+                        <img src="${imgSrc || "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png"}" 
                              id="blurImg"
                              style="max-width:220px; border-radius:15px; border: 4px solid #ffd54f; filter: blur(8px); transition: filter 0.5s ease;"/>
                     </div>
@@ -1509,9 +1755,9 @@ window.QuizManager = {
                 </div>
             `;
 
-            const inputEl = document.getElementById('writing-input');
-            const btnSubmit = document.getElementById('btn-submit-w');
-            const imgEl = document.getElementById('blurImg');
+            const inputEl = document.getElementById("writing-input");
+            const btnSubmit = document.getElementById("btn-submit-w");
+            const imgEl = document.getElementById("blurImg");
 
             // Tự động focus vào ô nhập
             setTimeout(() => inputEl.focus(), 500);
@@ -1524,14 +1770,14 @@ window.QuizManager = {
                 // Bỏ làm mờ ảnh khi trả lời
                 if (imgEl) imgEl.style.filter = "none";
 
-                const isCorrect = (userVal === target.word.toLowerCase());
+                const isCorrect = userVal === target.word.toLowerCase();
                 this.showFeedback(isCorrect, target.word);
             };
 
             btnSubmit.onclick = checkResult;
             // Logic hiển thị nghĩa khi ấn nút Hint
-            document.getElementById('btn-meaning-hint').onclick = function() {
-                const hintEl = document.getElementById('hint-text');
+            document.getElementById("btn-meaning-hint").onclick = function () {
+                const hintEl = document.getElementById("hint-text");
                 if (hintEl) {
                     // Lấy nghĩa từ dữ liệu target
                     const meaning = target.meaning || "No meaning available";
@@ -1543,8 +1789,11 @@ window.QuizManager = {
                 // Tự động focus lại ô nhập để người dùng gõ tiếp
                 inputEl.focus();
             };
-            inputEl.onkeydown = (e) => { if (e.key === "Enter") checkResult(); };
-            document.getElementById('btn-hint-w').onclick = () => this.speak(target.word);
+            inputEl.onkeydown = (e) => {
+                if (e.key === "Enter") checkResult();
+            };
+            document.getElementById("btn-hint-w").onclick = () =>
+                this.speak(target.word);
         }
 
         this.startTimer(30000);
@@ -1576,23 +1825,25 @@ window.QuizManager = {
         this.stopTimer();
         this.correctAnswer = cleanWord;
 
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
-        if (overlay) overlay.style.display = 'flex';
+        if (overlay) overlay.style.display = "flex";
 
         // 1. Hiển thị Grid ô chữ
         if (wordBox) {
-            const cellsHTML = letters.map((ch, i) => {
-                if (missingIndices.includes(i)) {
-                    return `<div class="pw-cell" style="width:35px; height:45px; border:2px solid #3498db; display:inline-flex; align-items:center; justify-content:center; margin:2px; border-radius:5px; background:#222;">
+            const cellsHTML = letters
+                .map((ch, i) => {
+                    if (missingIndices.includes(i)) {
+                        return `<div class="pw-cell" style="width:35px; height:45px; border:2px solid #3498db; display:inline-flex; align-items:center; justify-content:center; margin:2px; border-radius:5px; background:#222;">
                                 <input type="text" maxlength="1" class="pw-input" 
                                        style="width:100%; height:100%; background:transparent; border:none; color:#ffd54f; text-align:center; font-size:20px; font-weight:bold; outline:none; text-transform:uppercase;"/>
                             </div>`;
-                }
-                return `<div class="pw-cell" style="width:35px; height:45px; border:2px solid #555; display:inline-flex; align-items:center; justify-content:center; margin:2px; border-radius:5px; background:#333; color:#fff; font-size:20px; font-weight:bold;">${ch}</div>`;
-            }).join("");
+                    }
+                    return `<div class="pw-cell" style="width:35px; height:45px; border:2px solid #555; display:inline-flex; align-items:center; justify-content:center; margin:2px; border-radius:5px; background:#333; color:#fff; font-size:20px; font-weight:bold;">${ch}</div>`;
+                })
+                .join("");
 
             wordBox.innerHTML = `
                 <div style="text-align: center;">
@@ -1616,8 +1867,8 @@ window.QuizManager = {
                 </div>
             `;
 
-            const inputs = document.querySelectorAll('.pw-input');
-            const btnSubmit = document.getElementById('btn-submit-pw');
+            const inputs = document.querySelectorAll(".pw-input");
+            const btnSubmit = document.getElementById("btn-submit-pw");
 
             // Tự động nhảy ô khi gõ
             inputs.forEach((inp, i) => {
@@ -1640,23 +1891,24 @@ window.QuizManager = {
 
             const checkAction = () => {
                 let userGuess = "";
-                const cells = document.querySelectorAll('.pw-cell');
-                cells.forEach(cell => {
-                    const input = cell.querySelector('input');
-                    userGuess += input ? (input.value || "_") : cell.innerText;
+                const cells = document.querySelectorAll(".pw-cell");
+                cells.forEach((cell) => {
+                    const input = cell.querySelector("input");
+                    userGuess += input ? input.value || "_" : cell.innerText;
                 });
 
-                const isCorrect = (userGuess.toUpperCase() === cleanWord);
+                const isCorrect = userGuess.toUpperCase() === cleanWord;
                 this.stopTimer();
                 this.showFeedback(isCorrect, target.word);
             };
 
             btnSubmit.onclick = checkAction;
-            document.getElementById('btn-audio-pw').onclick = () => this.speak(target.word);
+            document.getElementById("btn-audio-pw").onclick = () =>
+                this.speak(target.word);
         }
 
         // PokéWord có thời gian suy nghĩ lâu hơn một chút (20s)
-        this.startAutoSkipTimer(30000); 
+        this.startAutoSkipTimer(30000);
     },
 
     /**
@@ -1670,15 +1922,23 @@ window.QuizManager = {
         this.stopTimer();
 
         // 2. Tách dữ liệu: Hỗ trợ cả dấu "/" và dấu xuống dòng "\n"
-        const splitPattern = /[\/\n]/; 
-        const enArray = (target.colD || "").split(splitPattern).map(s => s.trim()).filter(s => s !== "");
-        const viArray = (target.colE || "").split(splitPattern).map(s => s.trim()).filter(s => s !== "");
+        const splitPattern = /[\/\n]/;
+        const enArray = (target.colD || "")
+            .split(splitPattern)
+            .map((s) => s.trim())
+            .filter((s) => s !== "");
+        const viArray = (target.colE || "")
+            .split(splitPattern)
+            .map((s) => s.trim())
+            .filter((s) => s !== "");
 
         // Ghép cặp dữ liệu thành từng dòng (row)
-        let chunks = viArray.map((vi, i) => ({
-            vi: vi,
-            en: enArray[i] || ""
-        })).filter(item => item.en !== "");
+        let chunks = viArray
+            .map((vi, i) => ({
+                vi: vi,
+                en: enArray[i] || "",
+            }))
+            .filter((item) => item.en !== "");
 
         if (chunks.length === 0) {
             chunks.push({ en: target.word, vi: target.meaning });
@@ -1688,14 +1948,17 @@ window.QuizManager = {
     },
 
     renderUI_PhraseTranslation(chunks, target) {
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
         if (wordBox) {
-            const currentIdx = this.currentLessonData.length - this.wordQueue.length;
+            const currentIdx =
+                this.currentLessonData.length - this.wordQueue.length;
 
-            const rowsHTML = chunks.map((c, i) => `
+            const rowsHTML = chunks
+                .map(
+                    (c, i) => `
                 <div class="pair-row" style="display: flex; gap: 10px; margin-bottom: 12px; align-items: stretch;">
                     <!-- Chữ màu đỏ đậm trên nền hồng nhạt -->
                     <div class="vi-block" style="flex: 1; background: #ffe9e9; border: 1px solid #ff7675; border-radius: 10px; padding: 12px; color: #d63031; font-weight: bold; display: flex; align-items: center; justify-content: center; text-align: center;">
@@ -1707,7 +1970,9 @@ window.QuizManager = {
                            autocomplete="off"
                            style="flex: 1.2; background: #ebf5ff; border: 1px solid #3498db; border-radius: 10px; padding: 12px; color: #2d3436; font-weight: bold; outline: none;"/>
                 </div>
-            `).join("");
+            `,
+                )
+                .join("");
 
             wordBox.innerHTML = `
                 <div style="width: 100%; max-width: 550px; margin: 0 auto; background: #fff; padding: 10px; border-radius: 10px;">
@@ -1734,8 +1999,8 @@ window.QuizManager = {
                 </div>
             `;
 
-            const btnSubmit = document.getElementById('ov3Submit');
-            const inputs = document.querySelectorAll('.en-input-ov');
+            const btnSubmit = document.getElementById("ov3Submit");
+            const inputs = document.querySelectorAll(".en-input-ov");
 
             if (inputs[0]) setTimeout(() => inputs[0].focus(), 400);
 
@@ -1750,7 +2015,7 @@ window.QuizManager = {
 
             btnSubmit.onclick = () => {
                 let correctCount = 0;
-                inputs.forEach(inp => {
+                inputs.forEach((inp) => {
                     const user = inp.value.trim().toLowerCase();
                     const ans = inp.dataset.ans.trim().toLowerCase();
                     if (user === ans && user !== "") {
@@ -1768,14 +2033,18 @@ window.QuizManager = {
                 });
 
                 const ratio = correctCount / inputs.length;
-                this.showFeedback(ratio >= 0.7, `Đúng ${correctCount}/${inputs.length}`);
+                this.showFeedback(
+                    ratio >= 0.7,
+                    `Đúng ${correctCount}/${inputs.length}`,
+                );
             };
 
-            document.getElementById('ov3Skip').onclick = () => this.handleSkip();
+            document.getElementById("ov3Skip").onclick = () =>
+                this.handleSkip();
         }
 
-        if (overlay) overlay.style.display = 'flex';
-        this.timer = setTimeout(() => this.handleSkip(), 60000); 
+        if (overlay) overlay.style.display = "flex";
+        this.timer = setTimeout(() => this.handleSkip(), 60000);
     },
     /**
      * Dạng 16: Đọc hiểu đoạn văn (Tương tự Dạng 10 nhưng hiện text, không đọc)
@@ -1786,11 +2055,13 @@ window.QuizManager = {
      * Thời gian: 30s | Đảm bảo 6 câu có nội dung khác nhau hoàn toàn
      */
     async taskType16(target) {
-        if (!target.presentSent || !target.question || !target.finalAns) return this.ask(this.callback);
+        if (!target.presentSent || !target.question || !target.finalAns)
+            return this.ask(this.callback);
 
         this.stopTimer();
 
-        const instruction = "Read the 6-sentence paragraph and answer the question.";
+        const instruction =
+            "Read the 6-sentence paragraph and answer the question.";
 
         // --- LOGIC LỌC NỘI DUNG ĐỘC BẢN & THÊM DẤU CHẤM ---
         const ensureDot = (str) => {
@@ -1808,11 +2079,14 @@ window.QuizManager = {
         usedTexts.add(targetSentence.toLowerCase());
 
         // Lấy danh sách tiềm năng và trộn
-        let potentialLessons = this.poolData.filter(item => 
-            item.word !== target.word && 
-            item.presentSent && 
-            item.presentSent.trim() !== ""
-        ).sort(() => 0.5 - Math.random());
+        let potentialLessons = this.poolData
+            .filter(
+                (item) =>
+                    item.word !== target.word &&
+                    item.presentSent &&
+                    item.presentSent.trim() !== "",
+            )
+            .sort(() => 0.5 - Math.random());
 
         for (let item of potentialLessons) {
             let currentText = ensureDot(item.presentSent);
@@ -1824,7 +2098,9 @@ window.QuizManager = {
         }
 
         // Trộn câu đúng vào 5 câu nhiễu
-        const paragraphArray = [targetSentence, ...noiseSentences].sort(() => 0.5 - Math.random());
+        const paragraphArray = [targetSentence, ...noiseSentences].sort(
+            () => 0.5 - Math.random(),
+        );
 
         // Nối các câu bằng dấu cách (Vì mỗi câu đã có dấu chấm ở hàm ensureDot)
         const fullParagraphText = paragraphArray.join(" ");
@@ -1832,26 +2108,42 @@ window.QuizManager = {
         // --- CHUẨN BỊ ĐÁP ÁN ---
         const correctAns = target.finalAns;
         let wrongs = this.poolData
-            .filter(item => item.word !== target.word && item.finalAns)
-            .map(item => item.finalAns)
-            .filter(a => a !== correctAns);
-        const finalWrongs = [...new Set(wrongs)].sort(() => 0.5 - Math.random()).slice(0, 3);
-        const options = [correctAns, ...finalWrongs].sort(() => 0.5 - Math.random());
+            .filter((item) => item.word !== target.word && item.finalAns)
+            .map((item) => item.finalAns)
+            .filter((a) => a !== correctAns);
+        const finalWrongs = [...new Set(wrongs)]
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 3);
+        const options = [correctAns, ...finalWrongs].sort(
+            () => 0.5 - Math.random(),
+        );
 
         // Render giao diện
-        this.renderUI_ReadingParagraph(instruction, fullParagraphText, target.question, options, correctAns);
+        this.renderUI_ReadingParagraph(
+            instruction,
+            fullParagraphText,
+            target.question,
+            options,
+            correctAns,
+        );
 
         await this.speak(instruction);
-        this.startTimer(40000); 
+        this.startTimer(40000);
     },
 
-    renderUI_ReadingParagraph(instruction, paragraph, question, options, correctValue) {
+    renderUI_ReadingParagraph(
+        instruction,
+        paragraph,
+        question,
+        options,
+        correctValue,
+    ) {
         this.correctAnswer = correctValue;
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
-        if (overlay) overlay.style.display = 'flex';
+        if (overlay) overlay.style.display = "flex";
 
         if (wordBox) {
             wordBox.innerHTML = `
@@ -1873,10 +2165,11 @@ window.QuizManager = {
 
         if (optionsBox) {
             optionsBox.innerHTML = "";
-            options.forEach(opt => {
-                const btn = document.createElement('button');
-                btn.className = 'option-btn';
-                btn.style = "margin-bottom: 10px; width: 100%; text-align: left; padding: 12px 20px;";
+            options.forEach((opt) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.style =
+                    "margin-bottom: 10px; width: 100%; text-align: left; padding: 12px 20px;";
                 btn.innerText = opt;
                 btn.onclick = () => {
                     this.stopTimer();
@@ -1886,9 +2179,10 @@ window.QuizManager = {
             });
 
             // Nút Skip
-            const skipBtn = document.createElement('button');
+            const skipBtn = document.createElement("button");
             skipBtn.innerText = "⏭ Skip turn";
-            skipBtn.style = "margin-top:10px; background:none; border:1px solid #ccc; color:#999; cursor:pointer; padding:8px 15px; border-radius:5px; font-size:12px;";
+            skipBtn.style =
+                "margin-top:10px; background:none; border:1px solid #ccc; color:#999; cursor:pointer; padding:8px 15px; border-radius:5px; font-size:12px;";
             skipBtn.onclick = () => this.handleSkip();
             optionsBox.appendChild(skipBtn);
         }
@@ -1901,9 +2195,10 @@ window.QuizManager = {
         const instruction = "Unscramble the letters to form the correct word.";
 
         // Xáo trộn từ (ví dụ: elephant -> h-a-n-t-e-l-e-p)
-        const scrambled = target.word.split('')
+        const scrambled = target.word
+            .split("")
             .sort(() => 0.5 - Math.random())
-            .join('-')
+            .join("-")
             .toLowerCase();
 
         // Gợi ý: Ký tự đầu + Nghĩa của từ
@@ -1913,15 +2208,15 @@ window.QuizManager = {
 
         await this.speak(instruction);
         // Thiết lập thời gian 20 giây như sếp yêu cầu
-        this.startTimer(30000); 
+        this.startTimer(30000);
     },
     renderUI_ScrambledWord(instruction, scrambled, hintText, target) {
         this.correctAnswer = target.word;
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
 
-        if (overlay) overlay.style.display = 'flex';
+        if (overlay) overlay.style.display = "flex";
 
         if (wordBox) {
             wordBox.innerHTML = `
@@ -1955,8 +2250,8 @@ window.QuizManager = {
                 </div>
             `;
 
-            const inputEl = document.getElementById('scramble-input');
-            const hintEl = document.getElementById('hidden-hint');
+            const inputEl = document.getElementById("scramble-input");
+            const hintEl = document.getElementById("hidden-hint");
 
             // Tự động focus để sếp gõ luôn cho nhanh
             setTimeout(() => inputEl.focus(), 500);
@@ -1966,16 +2261,19 @@ window.QuizManager = {
                 const userVal = inputEl.value.trim().toLowerCase();
                 if (!userVal) return;
                 this.stopTimer();
-                const isCorrect = (userVal === target.word.toLowerCase());
+                const isCorrect = userVal === target.word.toLowerCase();
                 this.showFeedback(isCorrect, target.word);
             };
 
-            document.getElementById('btn-submit-scramble').onclick = checkAction;
-            inputEl.onkeydown = (e) => { if (e.key === "Enter") checkAction(); };
+            document.getElementById("btn-submit-scramble").onclick =
+                checkAction;
+            inputEl.onkeydown = (e) => {
+                if (e.key === "Enter") checkAction();
+            };
 
             // Logic hiện gợi ý khi ấn nút HINT
-            document.getElementById('btn-show-hint').onclick = () => {
-                hintEl.style.display = 'block';
+            document.getElementById("btn-show-hint").onclick = () => {
+                hintEl.style.display = "block";
                 this.speak(target.meaning); // Đọc nghĩa khi hiện gợi ý
             };
         }
@@ -1983,71 +2281,89 @@ window.QuizManager = {
 
     // --- DẠNG 18: CLOZE TEST (DEBUG MODE) ---
     async taskType18(target) {
-        if (typeof this.stopTimer === 'function') this.stopTimer();
+        if (typeof this.stopTimer === "function") this.stopTimer();
         this.userAnswers = {};
         // ✅ 1. Đọc hướng dẫn dẫn nhập
         const instruction = "Fill in the blanks";
-        if (typeof this.speak === 'function') {
+        if (typeof this.speak === "function") {
             this.speak(instruction);
         }
 
         // 1. Lấy 2 từ khác bài để đục lỗ bổ sung
         const otherItems = (this.poolData || [])
-            .filter(item => item.lessonId !== target.lessonId && item.word !== target.word && item.presentSent)
+            .filter(
+                (item) =>
+                    item.lessonId !== target.lessonId &&
+                    item.word !== target.word &&
+                    item.presentSent,
+            )
             .sort(() => 0.5 - Math.random())
             .slice(0, 2);
 
         const mainItems = [target, ...otherItems];
-        const targetWords = mainItems.map(item => item.word);
+        const targetWords = mainItems.map((item) => item.word);
 
         // 2. Lấy 4 câu nền (filler)
         const fillerSentences = (this.poolData || [])
-            .filter(item => !targetWords.includes(item.word) && item.presentSent)
+            .filter(
+                (item) => !targetWords.includes(item.word) && item.presentSent,
+            )
             .sort(() => 0.5 - Math.random())
             .slice(0, 4)
-            .map(item => this.ensureDot(item.presentSent));
+            .map((item) => this.ensureDot(item.presentSent));
 
         // 3. TRỘN TẤT CẢ CÂU TRƯỚC (3 câu chứa từ khóa + 4 câu nền)
         const fullSentences = [
-            ...mainItems.map(item => ({ word: item.word, text: this.ensureDot(item.presentSent) })),
-            ...fillerSentences.map(text => ({ word: null, text: text }))
+            ...mainItems.map((item) => ({
+                word: item.word,
+                text: this.ensureDot(item.presentSent),
+            })),
+            ...fillerSentences.map((text) => ({ word: null, text: text })),
         ].sort(() => 0.5 - Math.random());
 
         // 4. ĐỤC LỖ THEO THỨ TỰ XUẤT HIỆN TRONG ĐOẠN VĂN
         let blankCount = 0;
         const finalMainItems = []; // Lưu lại để chấm điểm đúng thứ tự 1-2-3
 
-        const paragraphText = fullSentences.map(obj => {
-            if (obj.word) {
-                blankCount++;
-                finalMainItems.push(obj); // Ghi nhớ từ gốc của lỗ (blankCount)
-                const regex = new RegExp(`\\b${obj.word}\\b`, 'gi');
-                return obj.text.replace(regex, `___(${blankCount})___`);
-            }
-            return obj.text;
-        }).join(" ");
+        const paragraphText = fullSentences
+            .map((obj) => {
+                if (obj.word) {
+                    blankCount++;
+                    finalMainItems.push(obj); // Ghi nhớ từ gốc của lỗ (blankCount)
+                    const regex = new RegExp(`\\b${obj.word}\\b`, "gi");
+                    return obj.text.replace(regex, `___(${blankCount})___`);
+                }
+                return obj.text;
+            })
+            .join(" ");
 
         // 5. Trộn 3 từ đáp án để hiển thị dưới nút
         const displayOptions = [...targetWords].sort(() => 0.5 - Math.random());
 
-        this.renderUI_SimpleReading(paragraphText, displayOptions, finalMainItems);
-        if (typeof this.startTimer === 'function') this.startTimer(45000);
+        this.renderUI_SimpleReading(
+            paragraphText,
+            displayOptions,
+            finalMainItems,
+        );
+        if (typeof this.startTimer === "function") this.startTimer(45000);
     },
     renderUI_SimpleReading(paragraph, options, finalMainItems) {
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const quizOverlay = document.getElementById('quiz-overlay'); 
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const quizOverlay = document.getElementById("quiz-overlay");
         const _self = this;
 
-        if (quizOverlay) quizOverlay.style.display = 'flex';
+        if (quizOverlay) quizOverlay.style.display = "flex";
 
         if (wordBox) {
             wordBox.style.textAlign = "left";
             wordBox.innerHTML = `
                 <b style="color: #6c5ce7; display: block; margin-bottom: 10px;">📝 ĐIỀN TỪ VÀO ĐOẠN VĂN:</b>
                 <div style="line-height: 2.2;">
-                    ${paragraph.replace(/___\((\d+)\)___/g, (m, p1) => 
-                        `<span id="ans-${p1}" style="color: #d63031; font-weight: bold; border-bottom: 2px solid #6c5ce7; min-width: 60px; display: inline-block; text-align: center; margin: 0 5px;">(${p1})</span>`
+                    ${paragraph.replace(
+                        /___\((\d+)\)___/g,
+                        (m, p1) =>
+                            `<span id="ans-${p1}" style="color: #d63031; font-weight: bold; border-bottom: 2px solid #6c5ce7; min-width: 60px; display: inline-block; text-align: center; margin: 0 5px;">(${p1})</span>`,
                     )}
                 </div>
             `;
@@ -2056,19 +2372,21 @@ window.QuizManager = {
         if (optionsBox) {
             optionsBox.innerHTML = `
                 <div id="temp-btns" style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 15px;">
-                    ${options.map(opt => `<button class="cloze-btn" style="padding: 10px 15px; border-radius: 8px; background: #6c5ce7; color: white; border: none; font-weight: bold; cursor: pointer;">${opt}</button>`).join('')}
+                    ${options.map((opt) => `<button class="cloze-btn" style="padding: 10px 15px; border-radius: 8px; background: #6c5ce7; color: white; border: none; font-weight: bold; cursor: pointer;">${opt}</button>`).join("")}
                 </div>
                 <button id="btn-check-18" class="poke-btn yellow" style="width: 100%; height: 45px; font-weight: bold;">KIỂM TRA (ĐÚNG 2/3 LÀ ĐẠT)</button>
             `;
 
-            const buttons = optionsBox.querySelectorAll('.cloze-btn');
-            buttons.forEach(btn => {
-                btn.onclick = function() {
+            const buttons = optionsBox.querySelectorAll(".cloze-btn");
+            buttons.forEach((btn) => {
+                btn.onclick = function () {
                     const word = this.innerText;
                     for (let i = 1; i <= 3; i++) {
                         if (!_self.userAnswers[i]) {
                             _self.userAnswers[i] = word;
-                            const targetBlank = document.getElementById(`ans-${i}`);
+                            const targetBlank = document.getElementById(
+                                `ans-${i}`,
+                            );
                             if (targetBlank) targetBlank.innerText = word;
                             this.style.opacity = "0.3";
                             this.style.pointerEvents = "none";
@@ -2078,7 +2396,7 @@ window.QuizManager = {
                 };
             });
 
-            document.getElementById('btn-check-18').onclick = function() {
+            document.getElementById("btn-check-18").onclick = function () {
                 _self.stopTimer();
                 let correctCount = 0;
 
@@ -2089,18 +2407,21 @@ window.QuizManager = {
                     }
                 });
 
-                const passed = (correctCount >= 2);
-                _self.showFeedback(passed, finalMainItems.map(i => i.word).join(", "));
+                const passed = correctCount >= 2;
+                _self.showFeedback(
+                    passed,
+                    finalMainItems.map((i) => i.word).join(", "),
+                );
             };
         }
     },
     //dạng 19: nối câu hỏi câu trả lời
     async taskType19(target) {
-        if (typeof this.stopTimer === 'function') this.stopTimer();
-        this.selectedQuestion = null; 
+        if (typeof this.stopTimer === "function") this.stopTimer();
+        this.selectedQuestion = null;
         this.userMatches = {};
         // ✅ Thêm phần đọc đề ngay khi vào bài
-        if (typeof this.speak === 'function') {
+        if (typeof this.speak === "function") {
             this.speak("Match the pairs.");
         }
 
@@ -2108,7 +2429,7 @@ window.QuizManager = {
         const getQA = (item) => ({
             q: item.question || "No Question",
             a: item.finalAns || "No Answer", // Đã đổi thành finalAns theo code của sếp
-            id: Math.random().toString(36).substr(2, 9)
+            id: Math.random().toString(36).substr(2, 9),
         });
 
         // 2. Lấy cặp chính từ bài hiện tại
@@ -2116,10 +2437,15 @@ window.QuizManager = {
 
         // 3. Lấy thêm 3 cặp từ poolData (Lọc những bài có đủ Q&A)
         const others = (this.poolData || [])
-            .filter(item => item.lessonId !== target.lessonId && item.question && item.finalAns)
+            .filter(
+                (item) =>
+                    item.lessonId !== target.lessonId &&
+                    item.question &&
+                    item.finalAns,
+            )
             .sort(() => 0.5 - Math.random())
             .slice(0, 3)
-            .map(item => getQA(item));
+            .map((item) => getQA(item));
 
         // 4. Tổng hợp 4 cặp
         const matchingPairs = [mainPair, ...others];
@@ -2129,18 +2455,18 @@ window.QuizManager = {
         const shuffledA = [...matchingPairs].sort(() => 0.5 - Math.random());
 
         this.renderUI_Matching(shuffledQ, shuffledA, matchingPairs);
-        if (typeof this.startTimer === 'function') this.startTimer(45000);
+        if (typeof this.startTimer === "function") this.startTimer(45000);
     },
     renderUI_Matching(questions, answers, originalPairs) {
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const quizOverlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const quizOverlay = document.getElementById("quiz-overlay");
         const _self = this;
 
-        const pairColors = ["#FFD1DC", "#B3E5FC", "#C8E6C9", "#FFF9C4"]; 
+        const pairColors = ["#FFD1DC", "#B3E5FC", "#C8E6C9", "#FFF9C4"];
         let currentColorIdx = 0;
 
-        if (quizOverlay) quizOverlay.style.display = 'flex';
+        if (quizOverlay) quizOverlay.style.display = "flex";
 
         if (wordBox) {
             wordBox.style.background = "transparent";
@@ -2157,20 +2483,24 @@ window.QuizManager = {
                 <button id="btn-submit-19" class="poke-btn yellow" style="width: 100%; height: 45px; font-weight: bold;">SUBMIT MATCHES</button>
             `;
 
-            const colQ = document.getElementById('col-q');
-            const colA = document.getElementById('col-a');
+            const colQ = document.getElementById("col-q");
+            const colA = document.getElementById("col-a");
 
             // Render cột Q (Giữ nguyên code chuẩn của sếp)
-            questions.forEach(item => {
-                const div = document.createElement('div');
+            questions.forEach((item) => {
+                const div = document.createElement("div");
                 div.className = "match-node q-node";
                 div.innerText = item.q;
                 div.dataset.id = item.id;
-                div.style = "background:#fff; padding:10px; border-radius:8px; cursor:pointer; border:2px solid #ccc; font-size:13px; text-align:center; min-height:50px; display:flex; align-items:center; justify-content:center; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); transition: 0.3s;";
-                div.onclick = function() {
+                div.style =
+                    "background:#fff; padding:10px; border-radius:8px; cursor:pointer; border:2px solid #ccc; font-size:13px; text-align:center; min-height:50px; display:flex; align-items:center; justify-content:center; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); transition: 0.3s;";
+                div.onclick = function () {
                     if (this.dataset.matched === "true") return;
-                    colQ.querySelectorAll('.q-node').forEach(n => {
-                        if (n.dataset.matched !== "true") { n.style.borderColor = "#ccc"; n.style.background = "#fff"; }
+                    colQ.querySelectorAll(".q-node").forEach((n) => {
+                        if (n.dataset.matched !== "true") {
+                            n.style.borderColor = "#ccc";
+                            n.style.background = "#fff";
+                        }
                     });
                     this.style.borderColor = "#6c5ce7";
                     this.style.background = "#f0edff";
@@ -2180,16 +2510,23 @@ window.QuizManager = {
             });
 
             // Render cột A (Giữ nguyên code chuẩn của sếp)
-            answers.forEach(item => {
-                const div = document.createElement('div');
+            answers.forEach((item) => {
+                const div = document.createElement("div");
                 div.className = "match-node a-node";
                 div.innerText = item.a;
                 div.dataset.id = item.id;
-                div.style = "background:#fff; padding:10px; border-radius:8px; cursor:pointer; border:2px solid #ccc; font-size:13px; text-align:center; min-height:50px; display:flex; align-items:center; justify-content:center; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); transition: 0.3s;";
-                div.onclick = function() {
-                    if (!_self.selectedQuestion || this.dataset.matched === "true") return;
-                    const selectedColor = pairColors[currentColorIdx % pairColors.length];
-                    _self.userMatches[_self.selectedQuestion.dataset.id] = this.dataset.id;
+                div.style =
+                    "background:#fff; padding:10px; border-radius:8px; cursor:pointer; border:2px solid #ccc; font-size:13px; text-align:center; min-height:50px; display:flex; align-items:center; justify-content:center; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); transition: 0.3s;";
+                div.onclick = function () {
+                    if (
+                        !_self.selectedQuestion ||
+                        this.dataset.matched === "true"
+                    )
+                        return;
+                    const selectedColor =
+                        pairColors[currentColorIdx % pairColors.length];
+                    _self.userMatches[_self.selectedQuestion.dataset.id] =
+                        this.dataset.id;
                     this.dataset.matched = "true";
                     _self.selectedQuestion.dataset.matched = "true";
                     this.style.background = selectedColor;
@@ -2202,23 +2539,25 @@ window.QuizManager = {
                 colA.appendChild(div);
             });
 
-            document.getElementById('btn-submit-19').onclick = function() {
+            document.getElementById("btn-submit-19").onclick = function () {
                 _self.stopTimer();
                 let correctCount = 0;
                 let correctInfo = "";
 
-                originalPairs.forEach(p => {
+                originalPairs.forEach((p) => {
                     if (_self.userMatches[p.id] === p.id) {
                         correctCount++;
                     } else {
                         // Gom đáp án đúng cho những câu bị nối sai
-                        correctInfo += `<div style="color:#e74c3c">✘ ${p.q.substring(0,10)}... → ${p.a}</div>`;
+                        correctInfo += `<div style="color:#e74c3c">✘ ${p.q.substring(0, 10)}... → ${p.a}</div>`;
                     }
                 });
 
                 if (correctCount < 3) {
                     // Nếu sai quá nhiều, hiện box đáp án ngay trên nút Submit
-                    const ansBox = document.getElementById('matching-answer-box');
+                    const ansBox = document.getElementById(
+                        "matching-answer-box",
+                    );
                     ansBox.style.display = "block";
                     ansBox.innerHTML = `<b>Correct Answers:</b>${correctInfo}`;
 
@@ -2235,25 +2574,26 @@ window.QuizManager = {
     //dạng 20: trả lời câu hỏi
 
     async taskType20(target) {
-        if (typeof this.stopTimer === 'function') this.stopTimer();
+        if (typeof this.stopTimer === "function") this.stopTimer();
 
         const instruction = "Answer the question"; // Câu lệnh hướng dẫn
         const questionText = target.question || "Please answer the question.";
 
         // ✅ 1. Trích xuất keyword từ cột K (keywordFix)
         const rawK = target.keywordFix || "";
-        const keywords = rawK.match(/"([^"]+)"/g)?.map(item => 
-            this.normalize(item.replace(/"/g, ""))
-        ) || [];
+        const keywords =
+            rawK
+                .match(/"([^"]+)"/g)
+                ?.map((item) => this.normalize(item.replace(/"/g, ""))) || [];
 
         // ✅ 2. Câu mẫu cột L (finalAns) làm Suggestion
         const suggestion = target.finalAns || "No suggestion available.";
 
         // ✅ 3. Đọc hướng dẫn trước, sau đó mới đọc câu hỏi
-        if (typeof this.speak === 'function') {
-            await this.speak(instruction); 
+        if (typeof this.speak === "function") {
+            await this.speak(instruction);
             // Nghỉ một chút giữa lệnh và câu hỏi cho tự nhiên
-            await new Promise(resolve => setTimeout(resolve, 500)); 
+            await new Promise((resolve) => setTimeout(resolve, 500));
             this.speak(questionText);
         }
 
@@ -2262,15 +2602,15 @@ window.QuizManager = {
     },
     renderUI_Speaking_Type20(question, keywords, suggestion) {
         this.stopTimer();
-        const wordBox = document.getElementById('quiz-word');
-        const optionsBox = document.getElementById('quiz-options');
-        const overlay = document.getElementById('quiz-overlay');
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
         const _self = this;
 
         if (overlay) {
-            overlay.style.display = 'flex';
-            overlay.style.backgroundColor = 'transparent'; // Ép về trong suốt
-            overlay.style.backdropFilter = 'none';        // Bỏ hiệu ứng mờ
+            overlay.style.display = "flex";
+            overlay.style.backgroundColor = "transparent"; // Ép về trong suốt
+            overlay.style.backdropFilter = "none"; // Bỏ hiệu ứng mờ
         }
 
         if (wordBox) {
@@ -2300,22 +2640,24 @@ window.QuizManager = {
             `;
 
             // Gán sự kiện
-            document.getElementById('btn-listen-q').onclick = () => this.speak(question);
-            document.getElementById('btn-skip-20').onclick = () => {
+            document.getElementById("btn-listen-q").onclick = () =>
+                this.speak(question);
+            document.getElementById("btn-skip-20").onclick = () => {
                 this.stopTimer();
                 // Truyền suggestion (câu mẫu) vào feedback để người dùng biết lẽ ra nên nói gì
-                this.showFeedback(false, suggestion); 
+                this.showFeedback(false, suggestion);
             };
 
-            document.getElementById('btn-mic-ball').onclick = function() {
+            document.getElementById("btn-mic-ball").onclick = function () {
                 const btn = this;
-                const resultDisplay = document.getElementById('speechResult');
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const resultDisplay = document.getElementById("speechResult");
+                const SpeechRecognition =
+                    window.SpeechRecognition || window.webkitSpeechRecognition;
 
                 if (!SpeechRecognition) return;
 
                 const recognition = new SpeechRecognition();
-                recognition.lang = 'en-US';
+                recognition.lang = "en-US";
 
                 resultDisplay.innerText = "Listening...";
                 resultDisplay.style.color = "#ffcb05";
@@ -2330,23 +2672,33 @@ window.QuizManager = {
                     resultDisplay.innerHTML = `I heard: <span style="color: #fff;">"${userInput}"</span>`;
 
                     // 2. Kiểm tra đúng/sai
-                    let isCorrect = (keywords.length === 0) ? true : keywords.some(kw => normInput.includes(kw));
+                    let isCorrect =
+                        keywords.length === 0
+                            ? true
+                            : keywords.some((kw) => normInput.includes(kw));
 
                     // 3. Hiệu ứng chữ sau khi máy nghe xong
                     setTimeout(() => {
                         if (isCorrect) {
                             resultDisplay.innerHTML = `<span style="color: #2ecc71;">✓ I heard: "${userInput}"</span>`;
-                            setTimeout(() => _self.showFeedback(true, "Excellent!"), 1000);
+                            setTimeout(
+                                () => _self.showFeedback(true, "Excellent!"),
+                                1000,
+                            );
                         } else {
                             resultDisplay.innerHTML = `<span style="color: #ff4757;">✗ I heard: "${userInput}"</span>`;
                             // Nếu sai, hiện cột L (suggestion) cho sếp xem đáp án đúng
-                            setTimeout(() => _self.showFeedback(false, suggestion), 1200);
+                            setTimeout(
+                                () => _self.showFeedback(false, suggestion),
+                                1200,
+                            );
                         }
                     }, 500);
                 };
 
                 recognition.onerror = () => {
-                    resultDisplay.innerText = "❌ Didn't catch that. Try again!";
+                    resultDisplay.innerText =
+                        "❌ Didn't catch that. Try again!";
                     resultDisplay.style.color = "#ff4757";
                     btn.style.transform = "scale(1)";
                 };
@@ -2360,6 +2712,5 @@ window.QuizManager = {
                 recognition.start();
             };
         }
-    }
+    },
 };
-
