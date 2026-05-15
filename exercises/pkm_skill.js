@@ -51,13 +51,13 @@ window.SkillManager = {
     },
 
     durationConfig: {
-        projectileFly: 400,
-        delayBetween: 150,
-        particleLife: 500,
-        electricBolt: 150,
-        shake: 400,
-        statusText: 800,
-        sceneTransition: 600 
+        projectileFly: 800,
+        delayBetween: 300,
+        particleLife: 1000,
+        electricBolt: 300,
+        shake: 800,
+        statusText: 1600,
+        sceneTransition: 1200 
     },
 
     systemConfig: {
@@ -99,7 +99,10 @@ window.SkillManager = {
             setTimeout(() => { 
                 overlay.style.display = 'none';
                 // Reset z-index
-                document.querySelectorAll('.pkm-unit').forEach(u => u.style.zIndex = '');
+                document.querySelectorAll('.pkm-unit').forEach(u => {
+                    u.style.zIndex = '';
+                    u.style.transform = 'translate(-50%,-50%)';
+                });
             }, 500); // Đợi hiệu ứng mờ dần xong mới ẩn hẳn
         }
     },
@@ -120,7 +123,9 @@ window.SkillManager = {
                 if (attacker) {
                     attacker.style.transition = "all 0.2s ease-in";
                     const moveY = attackerSide === 'player' ? -30 : 30;
-                    attacker.style.transform = `translateY(${moveY}px) scale(1.15)`;
+                    const aScale = attacker.dataset.scale || 1;
+                    const aFlip  = attacker.dataset.flip  || 1;
+                    attacker.style.transform = `translate(-50%,-50%) translateY(${moveY}px) scale(${aScale}) scaleX(${aFlip})`;
                 }
                 if (targetEl) {
                     targetEl.style.transition = "all 0.15s ease-out";
@@ -133,8 +138,16 @@ window.SkillManager = {
                 if (targetEl) this.showStatusText(targetEl, 'HỤT!', '#feca57');
 
                 await new Promise(r => setTimeout(r, 300));
-                if (attacker) attacker.style.transform = 'translateY(0) scale(1)';
-                if (targetEl) targetEl.style.transform = 'translateX(0)';
+                if (attacker) {
+                    const aScale = attacker.dataset.scale || 1;
+                    const aFlip  = attacker.dataset.flip  || 1;
+                    attacker.style.transform = 'translate(-50%,-50%)';
+                }
+                if (targetEl) {
+                    const tScale = targetEl.dataset.scale || 1;
+                    const tFlip  = targetEl.dataset.flip  || 1;
+                    targetEl.style.transform = 'translate(-50%,-50%)';
+                }
 
                 setTimeout(resolve, 300);
             });
@@ -161,7 +174,9 @@ window.SkillManager = {
                     const rectT = target.getBoundingClientRect();
                     const dist = (info.targetSide === 'enemy' ? 50 : -50);
 
-                    attacker.style.transform = `translate(${rectT.left - rectA.left - dist}px, ${rectT.top - rectA.top}px) scale(1.2)`;
+                    const aScale2 = attacker.dataset.scale || 1;
+                    const aFlip2  = attacker.dataset.flip  || 1;
+                    attacker.style.transform = `translate(calc(-50% + ${rectT.left - rectA.left - dist}px), calc(-50% + ${rectT.top - rectA.top}px))`;
 
                     await new Promise(r => setTimeout(r, 200));
 
@@ -169,14 +184,22 @@ window.SkillManager = {
                     this.createDamageText(target, info.damage);
                     target.classList.add('shake');
 
-                    attacker.style.transform = `translate(0, 0) scale(1)`;
+                    const aScale3 = attacker.dataset.scale || 1;
+                    const aFlip3  = attacker.dataset.flip  || 1;
+                    attacker.style.transform = 'translate(-50%,-50%)';
                     await new Promise(r => setTimeout(r, this.durationConfig.shake));
                     target.classList.remove('shake');
                 }
             } 
             // --- 3. XỬ LÝ SKILL (Có hiệu ứng & 1 tiếng SFX duy nhất) ---
+            // --- 3. XỬ LÝ SKILL (Di chuyển ra điểm giữa sân rồi tung chiêu) ---
             else {
                 let countPerTarget = 1, sizeScale = 1;
+                // Lấy scale & flip gốc của attacker để dùng trong animation gồng
+                const pos = {
+                    scale: parseFloat(attacker.dataset.scale) || 1,
+                    flip:  parseFloat(attacker.dataset.flip)  || 1
+                };
                 switch(info.gen) {
                     case 1: countPerTarget = 1; break;
                     case 2: countPerTarget = 2; sizeScale = 1.3; break;
@@ -184,14 +207,157 @@ window.SkillManager = {
                     case 'mega': case 4: countPerTarget = 8; sizeScale = 2.5; break;
                 }
 
-                // ✅ CHỈ GỌI 1 TIẾNG DUY NHẤT Ở GIỮA CHIÊU
-                setTimeout(() => this.playRandomSfx(), 800);
+                // ── BƯỚC 1: Tính toán điểm giữa sân (stage) ──
+                const arena = document.getElementById('battle-arena');
+                const rectArena = arena ? arena.getBoundingClientRect() : null;
+                const rectA = attacker.getBoundingClientRect();
+
+                // Điểm giữa sân = 50% ngang, 46% dọc (khớp với #arena-spotlight trong pkm_arena3d.js)
+                const stageCX = rectArena ? rectArena.left + rectArena.width  * 0.50 : window.innerWidth  * 0.50;
+                const stageCY = rectArena ? rectArena.top  + rectArena.height * 0.46 : window.innerHeight * 0.46;
+
+                // Offset để attacker đến đúng tâm stage
+                const moveX = stageCX - (rectA.left + rectA.width  / 2);
+                const moveY = stageCY - (rectA.top  + rectA.height / 2);
+
+                // ── BƯỚC 2: Pokemon lướt ra giữa sân ──
+                attacker.style.transition = 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                attacker.style.transform  = `translate(calc(-50% + ${moveX}px), calc(-50% + ${moveY}px))`;
+                attacker.style.zIndex     = '10001';
+                await new Promise(r => setTimeout(r, 380));
+
+                // ── BƯỚC 2.5: HIỆU ỨNG GỒNG ──
+                // Lấy màu theme nếu có (từ pkm_arena3d.js), fallback về vàng
+                const auraColor = (window.ArenaTheme && window.ArenaTheme.stage) ? window.ArenaTheme.stage : '#ffcb05';
+                const typeColor  = (this.systemConfig[info.type] || {}).color || auraColor;
+
+                // Tạo div hào quang xoay quanh người
+                const auraEl = document.createElement('div');
+                auraEl.style.cssText = `
+                    position: fixed;
+                    left: ${stageCX}px;
+                    top:  ${stageCY}px;
+                    width: 0; height: 0;
+                    pointer-events: none;
+                    z-index: 10002;
+                `;
+                // Vòng 1: hào quang ngoài xoay chậm
+                const ring1 = document.createElement('div');
+                ring1.style.cssText = `
+                    position:absolute;
+                    width:110px; height:110px;
+                    border-radius:50%;
+                    border: 3px solid ${typeColor};
+                    box-shadow: 0 0 18px ${typeColor}, inset 0 0 18px ${typeColor}44;
+                    transform: translate(-50%,-50%) scale(0.3);
+                    opacity:0;
+                    transition: transform 0.25s ease-out, opacity 0.2s;
+                `;
+                // Vòng 2: hào quang trong xoay nhanh hơn
+                const ring2 = document.createElement('div');
+                ring2.style.cssText = `
+                    position:absolute;
+                    width:75px; height:75px;
+                    border-radius:50%;
+                    border: 2px dashed ${auraColor};
+                    box-shadow: 0 0 12px ${auraColor};
+                    transform: translate(-50%,-50%) scale(0.3);
+                    opacity:0;
+                    transition: transform 0.2s ease-out, opacity 0.15s;
+                `;
+                auraEl.appendChild(ring1);
+                auraEl.appendChild(ring2);
+                document.body.appendChild(auraEl);
+
+                // Hiện vòng hào quang
+                requestAnimationFrame(() => {
+                    ring1.style.transform = 'translate(-50%,-50%) scale(1)';
+                    ring1.style.opacity   = '1';
+                    ring2.style.transform = 'translate(-50%,-50%) scale(1)';
+                    ring2.style.opacity   = '1';
+                });
+
+                // Xoay liên tục trong khi gồng
+                let ringAngle1 = 0, ringAngle2 = 0;
+                const spinId = setInterval(() => {
+                    ringAngle1 += 3;
+                    ringAngle2 -= 5;
+                    ring1.style.transform = `translate(-50%,-50%) scale(1) rotate(${ringAngle1}deg)`;
+                    ring2.style.transform = `translate(-50%,-50%) scale(1) rotate(${ringAngle2}deg)`;
+                }, 16);
+
+                // Thêm particles tia sáng bắn ra trong khi gồng
+                const chargeParticles = [];
+                for (let i = 0; i < 8; i++) {
+                    setTimeout(() => {
+                        const p = document.createElement('div');
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist  = 40 + Math.random() * 30;
+                        p.style.cssText = `
+                            position:fixed;
+                            left:${stageCX}px; top:${stageCY}px;
+                            width:6px; height:6px;
+                            border-radius:50%;
+                            background:${typeColor};
+                            box-shadow: 0 0 8px ${typeColor};
+                            pointer-events:none; z-index:10003;
+                            opacity:0.9;
+                        `;
+                        document.body.appendChild(p);
+                        chargeParticles.push(p);
+                        p.animate([
+                            { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.9 },
+                            { transform: `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px)) scale(0)`, opacity: 0 }
+                        ], { duration: 500, easing: 'ease-out' }).onfinish = () => p.remove();
+                    }, i * 80);
+                }
+
+                // GỒNG: nhỏ lại → nở ra theo nhịp
+                attacker.style.transition = 'none';
+
+                // Thu nhỏ (nín thở)
+                const imgWrapper = attacker.querySelector('div');
+                if (imgWrapper) {
+                    imgWrapper.style.transition = 'transform 0.2s ease-in';
+                    imgWrapper.style.transform  = `scale(${pos.scale * 0.6}) scaleX(${pos.flip})`;
+                }
+                await new Promise(r => setTimeout(r, 220));
+
+                // Nở ra mạnh hơn bình thường (nhún người)
+                if (imgWrapper) {
+                    imgWrapper.style.transition = 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)';
+                    imgWrapper.style.transform  = `scale(${pos.scale * 1.25}) scaleX(${pos.flip})`;
+                }
+                await new Promise(r => setTimeout(r, 160));
+
+                // Về đúng kích cỡ thường
+                if (imgWrapper) {
+                    imgWrapper.style.transition = 'transform 0.12s ease-out';
+                    imgWrapper.style.transform  = `scale(${pos.scale}) scaleX(${pos.flip})`;
+                }
+                await new Promise(r => setTimeout(r, 130));
+
+                // Dừng xoay, xóa hào quang
+                clearInterval(spinId);
+                ring1.style.opacity = '0';
+                ring2.style.opacity = '0';
+                setTimeout(() => auraEl.remove(), 300);
+
+                // ── BƯỚC 3: Tung chiêu tại điểm giữa ──
+                setTimeout(() => this.playRandomSfx(), 400);
 
                 const effectData = this.systemConfig[info.type] || this.systemConfig['normal'];
-                const allAnimations = aliveEnemies.map(targetIdx => 
+                const allAnimations = aliveEnemies.map(targetIdx =>
                     this.triggerMultiEffect(attacker, targetIdx, info.targetSide, countPerTarget, effectData, sizeScale, info.type, info.damage)
                 );
                 await Promise.all(allAnimations);
+
+                // ── BƯỚC 4: Pokemon lướt về vị trí gốc ──
+                attacker.style.transition = 'transform 0.3s ease-out';
+                attacker.style.transform  = 'translate(-50%,-50%)';
+                await new Promise(r => setTimeout(r, 320));
+                attacker.style.transition = '';
+                attacker.style.zIndex     = '';
             }
 
             // Kết thúc: Ẩn nền đen và kết thúc lượt
