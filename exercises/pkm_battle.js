@@ -14,6 +14,7 @@ window.BattleGame = {
     correctCount: 0,
     wrongCount: 0,
     totalCount: 0,
+    
 
     async init() {
         console.log("⚔️ [DEBUG] BattleGame.init() started");
@@ -108,7 +109,8 @@ window.BattleGame = {
         // 3. Tính toán máu thực tế (baseHP)
         // Công thức game của bạn: (Chỉ số * 10) + 200
         const baseHP = (hp * 15) + 200;
-        const randomPkmID = Math.floor(Math.random() * 1010) + 1;
+        // Thay vì 1010, ta chỉ lấy đến 649 (hết Gen 5)
+        const randomPkmID = Math.floor(Math.random() * 649) + 1;
 
         return {
             ...pkm,
@@ -252,34 +254,35 @@ window.BattleGame = {
         setTimeout(() => this.moveToNextUnit(), 1200); 
     },
 
-    
+
 
     renderBattlefield() {
+        const arena = document.getElementById('battle-arena');
+        if (arena) arena.className = 'battle-arena';
+
         const pContainer = document.getElementById('player-team-container');
         const eContainer = document.getElementById('enemy-team-container');
         if (!pContainer || !eContainer) return;
+
         pContainer.innerHTML = '';
         eContainer.innerHTML = '';
-        this.playerTeam.forEach((p, i) => { pContainer.innerHTML += this.createUnitHTML(p, i, 'player'); });
-        this.enemyTeam.forEach((p, i)  => { eContainer.innerHTML += this.createUnitHTML(p, i, 'enemy');  });
+
+        // ✅ QUAN TRỌNG: Gắn đúng class "player-side" và "enemy-side"
+        //pContainer.className = 'player-side';
+        //eContainer.className = 'enemy-side';
+
+        this.playerTeam.forEach((p, i) => { 
+            pContainer.innerHTML += this.createUnitHTML(p, i, 'player'); 
+        });
+        this.enemyTeam.forEach((p, i)  => { 
+            eContainer.innerHTML += this.createUnitHTML(p, i, 'enemy');  
+        });
+
         this.updateActiveStatus();
     },
-
     createUnitHTML(pkm, index, side) {
-        // 0,1 to (45%) chiếm hàng riêng, 2,3,4 nhỏ (30%) chiếm hàng riêng
-        const widthStyle = (index < 2) ? "width: 45%;" : "width: 30%;";
-        const imgPath = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pkm.id}.png`;
-
-        return `
-            <div class="pkm-unit" id="${side}-unit-${index}" style="${widthStyle}; margin-bottom: 10px;">
-                <img src="${imgPath}" id="${side}-img-${index}" style="width: 100%; height: auto; max-width: 80px;">
-                <div class="unit-stats">
-                    <div class="hp-text" id="${side}-hp-text-${index}" style="font-size: 10px;">${pkm.currentHp}/${pkm.maxHp}</div>
-                    <div class="hp-bar" style="height: 6px;">
-                        <div class="hp-fill" id="${side}-hp-fill-${index}" style="width: 100%"></div>
-                    </div>
-                </div>
-            </div>`;
+        // Chỉ gọi style, không xử lý ảnh ở đây nữa
+        return PkmStyles.renderUnit(pkm, index, side);
     },
 
     updateUI() {
@@ -343,7 +346,7 @@ window.BattleGame = {
         }
         return false;
     },
-    
+
 
     // ✅ Victory: hiện overlay đẹp, chờ bấm nút mới về map
     victory() {
