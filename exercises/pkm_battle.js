@@ -378,11 +378,11 @@ window.BattleGame = {
             }
         }
 
-        // ── 3. THƯỞNG 2: SỐ CÂU ĐÚNG / 5 ──
-        const reward2 = Math.round(this.correctCount / 5);
+        // ── 3. THƯỞNG 2: SỐ CÂU ĐÚNG / 2 ──
+        const reward2 = Math.round(this.correctCount / 2);
         if (reward2 > 0) {
             bonusEXP += reward2; bonusDV += reward2;
-            messages.push(`📝 ${this.correctCount} câu đúng ÷ 5 = <b>+${reward2} KN +${reward2} DV</b>`);
+            messages.push(`📝 ${this.correctCount} câu đúng ÷ 2 = <b>+${reward2} KN +${reward2} DV</b>`);
         }
 
         // ── 4. THƯỞNG 3: CHĂM CHỈ (chuỗi ngày liên tục) ──
