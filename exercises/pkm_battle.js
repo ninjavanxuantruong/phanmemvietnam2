@@ -62,37 +62,29 @@ window.BattleGame = {
     },
 
     calculateStats(pkm, isEnemy) {
-        // 1. Lấy chỉ số gốc từ dữ liệu
         const stats = pkm.baseStats || {};
-        let hp  = parseInt(stats.hp)  || parseInt(pkm.hp)  || 20;
-        let atk = parseInt(stats.atk) || parseInt(pkm.atk) || 20;
-        let def = parseInt(stats.def) || parseInt(pkm.def) || 15;
+        let hp   = parseInt(stats.hp)  || 20;
+        let atk  = parseInt(stats.atk) || 20;
+        let def  = parseInt(stats.def) || 15;
+        let sAtk = parseInt(stats.sAtk) || 20;
 
-        // 2. Tính toán Bonus Trang bị (Chỉ dành cho Quân mình)
         if (!isEnemy) {
-            // Đọc danh sách các ID trang bị đang mặc từ LocalStorage
+            // 1. ĐỌC VÀ CỘNG CHỈ SỐ TỪ TRANG BỊ
             const equipped = JSON.parse(localStorage.getItem('pkm_equipped')) || {};
-            const equippedIds = Object.values(equipped); // Ví dụ: ["weapon_silver", "armor_gold", ...]
+            const equippedIds = Object.values(equipped);
+            let bonusAtk = 0, bonusDef = 0, bonusHP = 0, bonusSAtk = 0;
 
-            let bonusAtk = 0, bonusDef = 0, bonusHP = 0;
-
-            // Bảng tra cứu bonus theo phẩm chất (Rank)
-            const rankBonusMap = { 
-                'silver': 0.02, // Bạc 2%
-                'gold':   0.03, // Vàng (Trung bình) 3%
-                'red':    0.04, // Đỏ (Cao cấp) 4%
-                'orange': 0.05  // Cam (Truyền thuyết) 5%
-            };
+            const rankBonusMap = { 'silver': 0.02, 'gold': 0.03, 'red': 0.04, 'orange': 0.05 };
 
             equippedIds.forEach(id => {
-                const parts = id.split('_'); // Tách chuỗi ví dụ "weapon_silver" -> ["weapon", "silver"]
+                const parts = id.split('_');
                 const type = parts[0];
                 const rank = parts[1];
                 const b = rankBonusMap[rank] || 0;
 
-                // Phân loại slot đồ cộng vào chỉ số nào
                 if (type === 'weapon' || type === 'gloves') {
                     bonusAtk += b;
+                    bonusSAtk += b;
                 } else if (type === 'armor' || type === 'earring') {
                     bonusDef += b;
                 } else if (type === 'helmet' || type === 'shoes') {
@@ -100,27 +92,33 @@ window.BattleGame = {
                 }
             });
 
-            // Áp dụng % bonus vào chỉ số gốc của Quân mình
             atk = Math.floor(atk * (1 + bonusAtk));
+            sAtk = Math.floor(sAtk * (1 + bonusSAtk));
             def = Math.floor(def * (1 + bonusDef));
             hp  = Math.floor(hp  * (1 + bonusHP));
+
+            // 2. TÍCH HỢP KIỂM TRA VÀ CỘNG BUFF ĐỘI HÌNH (+5% Toàn bộ chỉ số gốc + trang bị)
+            const teamBuffStatus = localStorage.getItem('pkm_team_buff');
+            if (teamBuffStatus === 'active') {
+                atk  = Math.floor(atk * 1.05);
+                sAtk = Math.floor(sAtk * 1.05);
+                def  = Math.floor(def * 1.05);
+                hp   = Math.floor(hp * 1.05);
+                console.log(`💪 [BUFF ACTIVE] Đã cộng 5% chỉ số chiến đấu cho: ${pkm.name}`);
+            }
         }
 
-        // 3. Tính toán máu thực tế (baseHP)
-        // Công thức game của bạn: (Chỉ số * 10) + 200
         const baseHP = (hp * 15) + 200;
-        // Thay vì 1010, ta chỉ lấy đến 649 (hết Gen 5)
         const randomPkmID = Math.floor(Math.random() * 649) + 1;
 
         return {
             ...pkm,
             id: isEnemy ? randomPkmID : pkm.id,
-            // ✅ SỬA TẠI ĐÂY: Nếu là địch, tạm thời để tên là "Đang tải..." 
-            // để sau đó hàm fetch sẽ đè tên đúng vào.
             name: isEnemy ? "Loading..." : pkm.name, 
             maxHp: isEnemy ? Math.floor(baseHP * 0.7) : baseHP,
             currentHp: isEnemy ? Math.floor(baseHP * 0.7) : baseHP,
             atk: atk, 
+            sAtk: sAtk,
             def: def,
             type: pkm.type || 'normal',
             gen: pkm.gen || 1
@@ -199,20 +197,22 @@ window.BattleGame = {
             });
         } 
         else if (attacker.personalTurn % 2 !== 0) {
-            // --- LƯỢT LẺ: ĐÁNH THƯỜNG ---
+            // --- LƯỢT LẺ: ĐÁNH THƯỜNG (Single Target - Atk x 2.5) ---
             const target = opponentTeam[targetIdx];
-            const damage = Math.max(15, attacker.atk - target.def);
-            target.currentHp = Math.max(0, target.currentHp - damage);
 
-            this.log(`${attacker.name} đánh thường vào ${target.name}!`);
+            // Công thức chia: Atk nhân hệ số cao / (1 + tỉ lệ giáp)
+            const damage = Math.max(15, Math.floor((attacker.atk * 2.5) / (1 + (target.def / 100))));
+
+            target.currentHp = Math.max(0, target.currentHp - damage);
+            this.log(`${attacker.name} tung đòn đánh vật lý cực mạnh!`);
 
             await window.SkillManager.play({
                 type: 'normal',
                 gen: 1,
                 attackerIndex: this.activeUnitIndex,
                 attackerSide: side,
-                attackerId: attacker.id,   // Thêm cái này
-                attackerName: attacker.name, // Thêm cái này
+                attackerId: attacker.id,
+                attackerName: attacker.name,
                 targetSide: side === 'player' ? 'enemy' : 'player',
                 damage,
                 isAOE: false,
@@ -221,26 +221,28 @@ window.BattleGame = {
             });
         } 
         else {
-            // --- LƯỢT CHẴN: SKILL AOE ---
+            // --- LƯỢT CHẴN: SKILL AOE (Multi Target - sAtk x 1.2) ---
             const aliveTargets = opponentTeam.map((p, i) => p.currentHp > 0 ? i : -1).filter(i => i !== -1);
             let lastDamage = 0; 
             const targetSide = side === 'player' ? 'enemy' : 'player';
 
             aliveTargets.forEach(idx => {
                 const target = opponentTeam[idx];
-                const damage = Math.max(20, Math.floor(attacker.atk - (target.def * 0.3)));
+
+                // Dùng sAtk cho Skill, hệ số 1.2 (vì đánh 3-5 con cùng lúc)
+                const damage = Math.max(20, Math.floor((attacker.sAtk * 1.2) / (1 + (target.def / 100))));
+
                 target.currentHp = Math.max(0, target.currentHp - damage);
                 lastDamage = damage; 
             });
 
-            // GỌI SKILL VỚI ĐẦY ĐỦ THÔNG TIN
             await window.SkillManager.play({
                 type: attacker.type || 'normal',
                 gen: attacker.gen || 1,
                 attackerIndex: this.activeUnitIndex,
                 attackerSide: side,
-                attackerId: attacker.id,   // Thêm cái này
-                attackerName: attacker.name, // Thêm cái này
+                attackerId: attacker.id,
+                attackerName: attacker.name,
                 targetSide: targetSide,
                 targets: aliveTargets,
                 damage: lastDamage,
@@ -368,7 +370,7 @@ window.BattleGame = {
             ? Math.round((this.correctCount / this.totalCount) * 100) : 0;
 
         if (isNewLesson) {
-            if (accuracy >= 90) {
+            if (accuracy >= 80) {
                 bonusEXP += 5; bonusDV += 5;
                 passedMaps.push(currentLessonId);
                 localStorage.setItem('pkm_passed_maps', JSON.stringify(passedMaps));
