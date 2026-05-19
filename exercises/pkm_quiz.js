@@ -72,7 +72,7 @@ window.QuizManager = {
         this.timer = setTimeout(() => {
             console.log("⏰ [Timer] Đã hết 15s, tự động bỏ qua.");
             this.handleSkip();
-        }, 15000);
+        }, 60000);
     },
 
     stopTimer() {
@@ -653,7 +653,7 @@ window.QuizManager = {
         await this.speak(textToSpeak);
 
         // SAU KHI ĐỌC XONG MỚI CHẠY TIMER (Ví dụ cho 20 giây)
-        this.startTimer(15000);
+        this.startTimer(60000);
     },
 
     /**
@@ -1315,7 +1315,7 @@ window.QuizManager = {
             btnPlay.disabled = false;
             btnPlay.innerText = "🔊";
         }
-        this.startTimer(40000);
+        this.startTimer(60000);
     },
     renderUI_ListeningParagraph(
         instruction,
@@ -1796,7 +1796,7 @@ window.QuizManager = {
                 this.speak(target.word);
         }
 
-        this.startTimer(30000);
+        this.startTimer(60000);
     },
 
     /**
@@ -1908,7 +1908,7 @@ window.QuizManager = {
         }
 
         // PokéWord có thời gian suy nghĩ lâu hơn một chút (20s)
-        this.startAutoSkipTimer(30000);
+        this.startAutoSkipTimer(60000);
     },
 
     /**
@@ -2128,7 +2128,7 @@ window.QuizManager = {
         );
 
         await this.speak(instruction);
-        this.startTimer(40000);
+        this.startTimer(60000);
     },
 
     renderUI_ReadingParagraph(
@@ -2208,7 +2208,7 @@ window.QuizManager = {
 
         await this.speak(instruction);
         // Thiết lập thời gian 20 giây như sếp yêu cầu
-        this.startTimer(30000);
+        this.startTimer(60000);
     },
     renderUI_ScrambledWord(instruction, scrambled, hintText, target) {
         this.correctAnswer = target.word;
