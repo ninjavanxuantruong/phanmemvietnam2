@@ -99,11 +99,12 @@
             align-items: center;
             padding: 40px;
             position: relative;
+            overflow-y: auto; /* Thêm cuộn nội bộ tránh tràn */
         }
 
         .pkm-display {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .pkm-main-img {
@@ -115,14 +116,14 @@
 
         .pkm-main-img:hover { transform: scale(1.05); }
 
-        /* Stats Grid */
+        /* --- SỬA LẠI GRID CHO ĐẸP 4 CHỈ SỐ --- */
         .stats-container {
             width: 100%;
             max-width: 500px;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr); /* 2 cột x 2 hàng cân xứng */
             gap: 15px;
-            margin-bottom: 40px;
+            margin: 25px 0;
         }
 
         .stat-card {
@@ -186,7 +187,7 @@
         }
 
         .back-link {
-            margin-top: 20px;
+            margin-top: 15px;
             display: inline-block;
             color: #888;
             text-decoration: none;
@@ -205,61 +206,58 @@
             100% { filter: brightness(1); }
         }
 
-        /* --- RESPONSIVE CHO ĐIỆN THOẠI --- */
+        /* --- RESPONSIVE CHO ĐIỆN THOẠI (ĐÃ SỬA LỖI CHỮ) --- */
         @media (max-width: 768px) {
-            /* Chuyển bố cục từ ngang sang dọc */
             .main-container {
                 flex-direction: column;
                 padding: 10px;
-                overflow-y: auto; /* Cho phép cuộn cả trang */
+                overflow-y: auto;
                 height: auto;
             }
 
-            /* Danh sách Pokemon bên trái chuyển lên trên hoặc thu nhỏ */
             .sidebar {
                 width: 100%;
-                height: 200px; /* Cố định chiều cao để không chiếm hết màn hình */
-                order: 2; /* Đẩy danh sách xuống dưới để bảng nâng cấp hiện lên trước */
+                height: 220px;
+                order: 2; 
             }
 
-            /* Bảng nâng cấp chính */
             .upgrade-panel {
                 width: 100%;
                 padding: 20px 10px;
-                order: 1; /* Ưu tiên bảng nâng cấp nằm trên cùng */
+                order: 1; 
+                box-sizing: border-box;
             }
 
-            /* Thu nhỏ ảnh Pokemon trên mobile */
             .pkm-main-img {
                 width: 150px;
                 height: 150px;
             }
 
-            /* Chỉnh lại các thẻ chỉ số (Stats) */
+            /* Điện thoại chuyển thành 2 cột hoặc dọc hẳn tùy diện tích */
             .stats-container {
-                grid-template-columns: 1fr 1fr 1fr; /* Vẫn giữ 3 cột nhưng thu nhỏ chữ */
-                gap: 8px;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                box-sizing: border-box;
+                padding: 0 10px;
             }
 
             .stat-card {
-                padding: 8px 5px;
+                padding: 10px 5px;
             }
 
             .stat-card .val {
-                font-size: 1.1rem;
+                font-size: 1.2rem;
             }
 
             .stat-card label {
-                font-size: 0.7rem;
+                font-size: 0.75rem;
             }
 
-            /* Nút bấm to ra cho dễ chạm (Touch-friendly) */
             .btn-upgrade {
                 padding: 15px;
                 font-size: 1rem;
             }
 
-            /* Header thu gọn */
             .header {
                 padding: 10px 15px;
                 flex-direction: column;
@@ -267,7 +265,7 @@
             }
         }
 
-        /* Nút Quay Lại phong cách Game */
+        /* Nút Quay Lại */
         .btn-back-hub {
             background: #e74c3c;
             color: white;
@@ -295,13 +293,11 @@
             box-shadow: none;
         }
 
-        /* Biểu tượng mũi tên */
         .btn-back-hub::before {
             content: "❮";
             font-size: 1rem;
         }
 
-        /* Responsive cho mobile để nút không chiếm diện tích */
         @media (max-width: 768px) {
             .btn-back-hub {
                 padding: 5px 10px;
@@ -324,15 +320,12 @@
     </div>
 
     <div class="main-container">
-        <!-- Bên trái: Danh sách -->
         <div class="sidebar">
             <h3 style="margin-top:0">Pokémon Của Bạn</h3>
             <div id="inventory-list" class="pkm-list">
-                <!-- JS render vào đây -->
-            </div>
+                </div>
         </div>
 
-        <!-- Bên phải: Bảng nâng cấp -->
         <div class="upgrade-panel" id="upgrade-area">
             <div id="empty-state" style="margin: auto; color: #666;">
                 <p>Vui lòng chọn một Pokémon để bắt đầu nâng cấp</p>
@@ -342,7 +335,7 @@
                 <div class="pkm-display">
                     <img id="main-img" class="pkm-main-img" src="" alt="">
                     <h1 id="pkm-name" style="text-transform: uppercase; margin: 10px 0;"></h1>
-                    <div id="pkm-lv-tag" style="color: var(--secondary); font-weight: bold;"></div>
+                    <div id="pkm-lv-tag" style="color: var(--secondary); font-weight: bold; font-size: 1.1rem;"></div>
                 </div>
 
                 <div class="stats-container">
@@ -361,98 +354,25 @@
                         <span class="val" id="stat-def">0</span>
                         <span class="next-val" id="next-def">+5%</span>
                     </div>
+                    <div class="stat-card" style="border-bottom-color: #a29bfe;">
+                        <label>KỸ NĂNG (sATK)</label>
+                        <span class="val" id="stat-satk">0</span>
+                        <span class="next-val" id="next-satk">+5%</span>
+                    </div>
                 </div>
 
                 <div class="controls">
                     <button id="upgrade-btn" class="btn-upgrade">
                         NÂNG CẤP (20 EXP)
                     </button>
-                    <p id="evo-notice" style="color: var(--secondary); font-size: 0.9rem; margin-top: 15px; font-weight: bold;"></p>
+                    <p id="evo-notice" style="color: var(--secondary); font-size: 0.9rem; margin-top: 15px; font-weight: bold; min-height: 20px;"></p>
                     <a href="pkm.html" class="back-link">Quay lại bản đồ</a>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Nhúng file logic -->
     <script src="pkm_upgrade.js"></script>
-    <script>
-        // Hàm cập nhật giao diện người dùng (UI)
-        function updateUI() {
-            updateExpDisplay();
-            const inventory = JSON.parse(localStorage.getItem('pkm_inventory')) || [];
-            const listContainer = document.getElementById('inventory-list');
-
-            listContainer.innerHTML = '';
-
-            inventory.forEach(p => {
-                const item = document.createElement('div');
-                item.className = `pkm-item ${selectedUid === p.uid ? 'active' : ''}`;
-                item.onclick = () => selectPkm(p.uid);
-                item.innerHTML = `
-                    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png">
-                    <div class="pkm-info">
-                        <b>${p.name}</b>
-                        <span>Cấp ${p.lv} | ${p.type}</span>
-                    </div>
-                `;
-                listContainer.appendChild(item);
-            });
-
-            if (selectedUid) {
-                renderDetail(selectedUid);
-            }
-        }
-
-        let selectedUid = null;
-
-        function selectPkm(uid) {
-            selectedUid = uid;
-            document.getElementById('empty-state').style.display = 'none';
-            document.getElementById('pkm-detail').style.display = 'block';
-            updateUI();
-        }
-
-        function renderDetail(uid) {
-            const inventory = JSON.parse(localStorage.getItem('pkm_inventory')) || [];
-            const p = inventory.find(i => i.uid === uid);
-            const globalExp = parseInt(localStorage.getItem('pkm_global_exp')) || 0;
-
-            document.getElementById('main-img').src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${p.id}.png`;
-            document.getElementById('pkm-name').innerText = p.name;
-            document.getElementById('pkm-lv-tag').innerText = `LEVEL ${p.lv}`;
-
-            document.getElementById('stat-hp').innerText = p.baseStats.hp;
-            document.getElementById('stat-atk').innerText = p.baseStats.atk;
-            document.getElementById('stat-def').innerText = p.baseStats.def;
-
-            const btn = document.getElementById('upgrade-btn');
-            const notice = document.getElementById('evo-notice');
-
-            if (p.lv >= 10) {
-                btn.innerText = "TIẾN HÓA NGAY";
-                notice.innerText = "Sẵn sàng tiến hóa sang hình thái mới!";
-                // Dự kiến tiến hóa không hiện +5%
-                document.querySelectorAll('.next-val').forEach(el => el.style.visibility = 'hidden');
-            } else {
-                btn.innerText = "NÂNG CẤP (20 EXP)";
-                notice.innerText = "";
-                document.querySelectorAll('.next-val').forEach(el => el.style.visibility = 'visible');
-            }
-
-            btn.disabled = globalExp < 20;
-            btn.onclick = async () => {
-                btn.disabled = true;
-                if(p.lv === 10) document.getElementById('main-img').classList.add('evo-flash');
-                await handleUpgrade(uid);
-                setTimeout(() => {
-                    document.getElementById('main-img').classList.remove('evo-flash');
-                }, 500);
-            };
-        }
-
-        // Khởi tạo lần đầu
-        updateUI();
-    </script>
+    
 </body>
 </html>
