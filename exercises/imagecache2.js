@@ -141,8 +141,5 @@ class ImageCacheManager {
 // Khởi tạo instance global
 const imageCache = new ImageCacheManager();
 
-// Export cho các file khác sử dụng
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = imageCache;
-}
-export default imageCache;
+// Gắn vào window để dùng được ở mọi script thường
+window.imageCache = imageCache;
