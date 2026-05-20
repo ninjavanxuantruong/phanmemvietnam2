@@ -24,6 +24,8 @@ window.GearSystem = {
         { id: 'gloves',  name: 'Găng tay',  stat: 'atk', label: 'Tấn công' },
         { id: 'earring', name: 'Khuyên tai',stat: 'def', label: 'Phòng thủ' },
         { id: 'shoes',   name: 'Giày',       stat: 'hp',  label: 'Sinh lực'  },
+        { id: 'cloak',  name: 'Áo choàng', stat: 'sAtk', label: 'Kỹ năng' },
+        { id: 'belt',   name: 'Thắt lưng', stat: 'sAtk', label: 'Kỹ năng' },
     ],
 
     // =============================================
@@ -221,6 +223,15 @@ window.GearSystem = {
             <line x1="40" y1="20" x2="40" y2="47" stroke="rgba(255,220,150,0.5)" stroke-width="2"/>
             <circle cx="20" cy="56" r="3" fill="rgba(255,200,0,0.5)"/>
             <circle cx="48" cy="56" r="3" fill="rgba(255,200,0,0.5)"/>`,
+        'cloak_silver': `<path d="M20 10 Q32 18 44 10 L50 55 Q32 60 14 55 Z" fill="url(#sv_w)" stroke="#888" stroke-width="1"/>`,
+        'cloak_gold':   `<path d="M20 10 Q32 18 44 10 L50 55 Q32 60 14 55 Z" fill="url(#gv_w)" stroke="#c8960a" stroke-width="1.5"/>`,
+        'cloak_red':    `<path d="M20 10 Q32 18 44 10 L50 55 Q32 60 14 55 Z" fill="url(#rv_w)" stroke="#900" stroke-width="1.5"/>`,
+        'cloak_orange': `<path d="M20 10 Q32 18 44 10 L50 55 Q32 60 14 55 Z" fill="url(#ov_w)" stroke="#c05000" stroke-width="2"/>`,
+
+        'belt_silver': `<rect x="10" y="27" width="44" height="10" rx="3" fill="url(#sv_w)" stroke="#888" stroke-width="1"/><rect x="28" y="22" width="8" height="20" rx="2" fill="#aaa"/>`,
+        'belt_gold':   `<rect x="10" y="27" width="44" height="10" rx="3" fill="url(#gv_w)" stroke="#c8960a" stroke-width="1.5"/><rect x="28" y="22" width="8" height="20" rx="2" fill="#c8960a"/>`,
+        'belt_red':    `<rect x="10" y="27" width="44" height="10" rx="3" fill="url(#rv_w)" stroke="#900" stroke-width="1.5"/><rect x="28" y="22" width="8" height="20" rx="2" fill="#900"/>`,
+        'belt_orange': `<rect x="10" y="27" width="44" height="10" rx="3" fill="url(#ov_w)" stroke="#c05000" stroke-width="2"/><rect x="28" y="22" width="8" height="20" rx="2" fill="#c05000"/>`,
     },
 
     // =============================================
