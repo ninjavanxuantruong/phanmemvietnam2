@@ -5,7 +5,7 @@
  * ==========================================
  */
 // Thêm chuỗi thời gian ngẫu nhiên để trình duyệt buộc phải tải lại file mới nhất từ server
-import imageCache from "./imagecache2.js?update=now";
+import imageCache from "./pkm-image.js?update=now";
 window.QuizManager = {
     callback: null,
     correctAnswer: "",
