@@ -3,196 +3,332 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pokémon Inventory</title>
+    <title>Pokémon RPG Inventory - Perfect Sync</title>
     <style>
-        body { background: #121212; color: white; font-family: sans-serif; padding: 20px; }
-        .inventory-layout { display: flex; gap: 30px; justify-content: center; }
+        :root {
+            --bg-dark: #0a0d14;
+            --panel-bg: #111622;
+            --slot-bg: rgba(20, 27, 43, 0.85);
+            --gold: #f1c40f;
+            --border-color: #232d42;
+            --text-gray: #94a3b8;
+        }
 
-        /* 6 Ô trang bị đang mặc */
-        .equip-slots { 
-            display: grid; grid-template-columns: repeat(2, 150px); gap: 15px; 
-            background: #1e1e1e; padding: 20px; border-radius: 15px; border: 2px solid #444;
+        body { 
+            background: var(--bg-dark); 
+            color: #e2e8f0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 0;
+            background-image: radial-gradient(circle at 50% 40%, #172033 0%, var(--bg-dark) 75%);
         }
-        .slot { 
-            height: 100px; background: #252525; border: 1px dashed #666; 
-            border-radius: 10px; display: flex; flex-direction: column; 
-            align-items: center; justify-content: center; font-size: 0.8rem; position: relative;
-        }
-        .slot.active { border-style: solid; border-color: #f1c40f; background: #2c3e50; }
-        .remove-btn { position: absolute; top: 5px; right: 5px; color: red; cursor: pointer; display: none; }
-        .slot.active .remove-btn { display: block; }
-
-        /* Danh sách đồ trong túi */
-        .bag { flex: 1; background: #1e1e1e; padding: 20px; border-radius: 15px; max-width: 600px; }
-        .bag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
-        .item-box { 
-            background: #333; padding: 10px; border-radius: 8px; cursor: pointer; 
-            text-align: center; font-size: 0.8rem; border: 2px solid transparent;
-        }
-        .item-box:hover { border-color: #f1c40f; }
-        .item-box.equipped { opacity: 0.5; border-color: #27ae60; cursor: not-allowed; }
-        .remove-btn { 
-            position: absolute; 
+        
+        .header { 
+            position: sticky; 
             top: 0; 
-            right: 0; 
-            color: red; 
-            cursor: pointer; 
-            display: none; 
-            padding: 10px; /* Tăng vùng bấm */
-            font-size: 1.2rem; /* Làm dấu X to hơn */
+            background: rgba(17, 22, 34, 0.95); 
+            backdrop-filter: blur(12px);
+            padding: 15px 30px;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            border-bottom: 2px solid var(--gold); 
+            z-index: 1000; 
+            box-shadow: 0 4px 25px rgba(0,0,0,0.7);
+        }
+        .currency { 
+            font-size: 1.3rem; 
+            color: var(--gold); 
+            font-weight: 800; 
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 12px rgba(241, 196, 15, 0.4);
+        }
+
+        .inventory-container {
+            max-width: 1300px;
+            margin: 25px auto;
+            display: flex;
+            gap: 25px;
+            padding: 0 20px;
+        }
+
+        /* ==================== PANEL NHÂN VẬT (BẢN PC CHUẨN) ==================== */
+        .character-panel {
+            flex: 0 0 480px; /* Khóa cứng chiều rộng trên PC không cho bóp méo */
+            background: var(--panel-bg);
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+            padding: 25px 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-sizing: border-box;
+        }
+        .panel-title {
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 2.5px;
+            color: var(--text-gray);
+            margin-bottom: 25px;
             font-weight: bold;
         }
 
-        /* --- RESPONSIVE CHO TRANG TRANG BỊ --- */
-        @media (max-width: 768px) {
-            /* 1. Bố cục chính: Xếp dọc */
-            .inventory-layout {
-                flex-direction: column;
-                align-items: center;
-                gap: 20px;
-            }
-
-            /* 2. Khu vực 6 slot đang mặc: Thu nhỏ để vừa màn hình */
-            .equip-slots {
-                grid-template-columns: repeat(3, 1fr); /* Đổi thành 3 cột, 2 hàng */
-                width: 90%;
-                padding: 10px;
-                gap: 10px;
-            }
-
-            .slot {
-                height: 80px; /* Giảm chiều cao slot */
-                font-size: 0.7rem;
-            }
-
-            .slot b {
-                font-size: 0.75rem;
-            }
-
-            /* 3. Khu vực túi đồ: Chiếm hết chiều rộng */
-            .bag {
-                width: 100%;
-                max-width: none;
-                padding: 15px;
-                box-sizing: border-box;
-            }
-
-            .bag-grid {
-                /* Hiển thị 3 món đồ trên 1 hàng cho gọn */
-                grid-template-columns: repeat(3, 1fr); 
-                gap: 8px;
-            }
-
-            .item-box {
-                padding: 8px 5px;
-                font-size: 0.7rem;
-                min-height: 50px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            /* 4. Tiêu đề và nút quay lại */
-            h1 {
-                font-size: 1.5rem;
-                margin-bottom: 15px;
-            }
+        /* Layout phân phối 3 vùng rạch ròi trên PC */
+        .mmo-doll-layout {
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            box-sizing: border-box;
         }
 
-        /* Thêm cho màn hình cực nhỏ (iPhone SE, v.v.) */
+        .equip-column {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            flex: 0 0 76px; /* Cố định chiều rộng cột đồ */
+        }
+
+        .trainer-center {
+            flex: 1;
+            height: 380px; 
+            display: flex;
+            align-items: flex-end; 
+            justify-content: center;
+            position: relative;
+            background: radial-gradient(circle, rgba(35,45,66,0.8) 0%, rgba(0,0,0,0) 75%);
+            border-radius: 20px;
+        }
+        .trainer-img {
+            height: 120%; 
+            object-fit: contain;
+            filter: drop-shadow(0 15px 20px rgba(0,0,0,0.85));
+            animation: floatAnimation 4s ease-in-out infinite;
+            z-index: 5;
+        }
+        @keyframes floatAnimation {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        /* Các ô chứa trang bị */
+        .gear-slot {
+            width: 76px;
+            height: 76px;
+            background: var(--slot-bg);
+            border: 2px solid #334155;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.25s ease;
+            cursor: pointer;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);
+            box-sizing: border-box;
+        }
+        .gear-slot::before {
+            content: attr(data-label);
+            position: absolute;
+            font-size: 0.65rem;
+            color: #475569;
+            bottom: -20px;
+            width: 100%;
+            text-align: center;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .gear-slot:hover { border-color: #475569; background: rgba(30, 41, 59, 0.5); }
+        .gear-slot.active { background: #151c2c; border-style: solid; }
+
+        .remove-tag {
+            position: absolute;
+            top: -5px; right: -5px; background: #ef4444; color: white;
+            border-radius: 50%; width: 18px; height: 18px; font-size: 11px;
+            display: none; align-items: center; justify-content: center; font-weight: bold;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5); z-index: 10;
+        }
+        .gear-slot.active:hover .remove-tag { display: flex; }
+
+        .gear-tooltip {
+            position: absolute; bottom: 115%; background: #0f172a; border: 1px solid #334155;
+            padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; white-space: nowrap;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 100;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.6); font-weight: bold;
+        }
+        .gear-slot:hover .gear-tooltip { opacity: 1; }
+
+        /* BẢNG CHỈ SỐ */
+        .stat-display-panel {
+            width: 100%;
+            margin-top: 30px;
+            background: rgba(20, 27, 43, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+            align-items: center;
+        }
+        .stat-row:last-child { margin-bottom: 0; }
+        .stat-val { font-weight: bold; color: #f1c40f; }
+        .buff-val { color: #2ecc71; font-weight: bold; text-align: right; }
+        .total-cp-box {
+            margin-top: 12px;
+            border-top: 1px solid #232d42;
+            padding-top: 10px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        /* PANEL HÒM ĐỒ DỰ TRỮ PHẢI */
+        .bag-panel {
+            flex: 1;
+            background: var(--panel-bg);
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            box-sizing: border-box;
+        }
+        .bag-header-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 25px;
+            color: #f8fafc;
+            border-left: 4px solid var(--gold);
+            padding-left: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .bag-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+            gap: 15px;
+            max-height: 620px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .bag-grid::-webkit-scrollbar { width: 6px; }
+        .bag-grid::-webkit-scrollbar-thumb { background: #232d42; border-radius: 4px; }
+
+        .item-box {
+            background: rgba(20, 27, 43, 0.6); border: 1px solid var(--border-color);
+            border-radius: 14px; padding: 12px 8px; cursor: pointer; display: flex;
+            flex-direction: column; justify-content: space-between; align-items: center;
+            gap: 8px; transition: all 0.2s ease; position: relative; box-sizing: border-box; min-height: 125px;
+        }
+        .item-box:hover { transform: translateY(-3px); border-color: #475569; }
+        .item-box.equipped { background: rgba(13, 148, 136, 0.1); border-color: #0d9488; }
+        .item-box.equipped::after {
+            content: "E"; position: absolute; top: 6px; left: 6px; background: #0d9488;
+            color: white; font-size: 9px; font-weight: bold; padding: 1px 5px; border-radius: 4px;
+        }
+
+        .item-title { font-size: 0.75rem; font-weight: 600; text-align: center; line-height: 1.3; }
+
+        .sell-btn {
+            background: rgba(153, 27, 27, 0.3); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 5px 0; border-radius: 8px; cursor: pointer; font-size: 0.65rem; font-weight: bold; width: 100%;
+        }
+        .sell-btn:hover { background: #dc2626; color: white; border-color: transparent; }
+        .item-box.equipped .sell-btn { background: #1e293b; color: #475569; border-color: transparent; opacity: 0.4; cursor: not-allowed; }
+
+        .back-btn {
+            background: transparent; color: white; border: 1px solid #334155;
+            padding: 8px 22px; border-radius: 8px; cursor: pointer; font-weight: 600;
+        }
+        .back-btn:hover { background: white; color: black; }
+
+        /* ==================== PHÂN TÁCH BIẾN ĐỔI RIÊNG CHO MOBILE ==================== */
+        @media (max-width: 900px) {
+            .inventory-container { flex-direction: column; gap: 20px; margin: 15px auto; padding: 0 10px; }
+            .character-panel, .bag-panel { width: 100%; flex: none; }
+            
+            /* Bản mobile ép cấu trúc Grid 3 phần tỉ lệ vàng để tránh đẩy 4 món bên phải ra rìa */
+            .mmo-doll-layout {
+                display: grid;
+                grid-template-columns: 1fr 1.3fr 1fr;
+                align-items: center;
+                gap: 5px;
+                width: 100%;
+            }
+            .equip-column { gap: 20px; flex: none; }
+            .trainer-center { 
+                height: 340px; 
+                width: 100%;
+                display: flex !important;
+            }
+            .trainer-img { height: 110%; width: 100%; object-fit: contain; }
+            
+            .gear-slot { width: 64px; height: 64px; border-radius: 12px; margin: 0 auto; }
+            .gear-slot::before { font-size: 0.58rem; bottom: -18px; }
+            .bag-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 400px; }
+        }
+
         @media (max-width: 380px) {
-            .equip-slots {
-                grid-template-columns: repeat(2, 1fr); /* Quay lại 2 cột nếu màn hình quá bé */
-            }
-            .bag-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
+            .mmo-doll-layout { grid-template-columns: 1fr 1.1fr 1fr; }
+            .gear-slot { width: 54px; height: 54px; border-radius: 10px; }
+            .gear-slot::before { font-size: 0.52rem; bottom: -15px; }
+            .trainer-center { height: 260px; }
+            .bag-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
 <body>
 
-    <h1 style="text-align:center">TRANG BỊ POKÉMON</h1>
+    <div class="header">
+        <div class="currency">💰 DANH VỌNG: <span id="dv-display">0</span> DV</div>
+        <button class="back-btn" onclick="window.location.href='pkm.html'">BACK</button>
+    </div>
 
-    <div class="inventory-layout">
-        <!-- Khu vực đang mặc đồ -->
-        <div class="equip-slots" id="equip-slots">
-            <!-- Render 6 slot: weapon, armor, helmet, gloves, earring, shoes -->
+    <div class="inventory-container">
+        
+        <div class="character-panel">
+            <div class="panel-title">Trang bị nhân vật</div>
+            
+            <div class="mmo-doll-layout">
+                <div class="equip-column">
+                    <div class="gear-slot" id="slot-helmet" data-label="Giáp mũ"></div>
+                    <div class="gear-slot" id="slot-armor" data-label="Giáp thân"></div>
+                    <div class="gear-slot" id="slot-belt" data-label="Thắt lưng"></div>
+                    <div class="gear-slot" id="slot-shoes" data-label="Giày"></div>
+                </div>
+
+                <div class="trainer-center">
+                    <img class="trainer-img" src="https://play.pokemonshowdown.com/sprites/trainers/red.png" alt="Trainer">
+                </div>
+
+                <div class="equip-column">
+                    <div class="gear-slot" id="slot-earring" data-label="Khuyên tai"></div>
+                    <div class="gear-slot" id="slot-cloak" data-label="Áo choàng"></div>
+                    <div class="gear-slot" id="slot-gloves" data-label="Găng tay"></div>
+                    <div class="gear-slot" id="slot-weapon" data-label="Bóng"></div>
+                </div>
+            </div>
+
+            <div class="stat-display-panel" id="stat-panel"></div>
+
         </div>
 
-        <!-- Khu vực túi đồ -->
-        <div class="bag">
-            <h3>Túi đồ của bạn</h3>
+        <div class="bag-panel">
+            <h3 class="bag-header-title">Hòm vật phẩm dự trữ</h3>
             <div class="bag-grid" id="bag-grid"></div>
         </div>
+        
     </div>
 
-    <div style="text-align:center; margin-top:30px;">
-        <button onclick="window.location.href='pkm.html'" style="padding:10px 30px; cursor:pointer;">BACK</button>
-    </div>
-
-<script>
-    // Dữ liệu mẫu (Giống hệt Store để khớp ID)
-    const TYPES = [
-        { id: 'weapon', name: 'Kiếm' }, { id: 'armor', name: 'Giáp thân' },
-        { id: 'helmet', name: 'Giáp mũ' }, { id: 'gloves', name: 'Găng tay' },
-        { id: 'earring', name: 'Khuyên tai' }, { id: 'shoes', name: 'Giày' }
-    ];
-    // Tạo lại danh sách 24 món đồ để tra cứu thông tin
-    const ALL_ITEMS = []; 
-    const RANKS = [{id:'silver', n:'Bạc', b:0.02, c:'#bdc3c7'}, {id:'gold', n:'Vàng', b:0.03, c:'#f1c40f'}, {id:'red', n:'Đỏ', b:0.04, c:'#e74c3c'}, {id:'orange', n:'Cam', b:0.05, c:'#f39c12'}];
-    TYPES.forEach(t => RANKS.forEach(r => ALL_ITEMS.push({id:`${t.id}_${r.id}`, name:`${t.name} ${r.n}`, type:t.id, bonus:r.b, color:r.c})));
-
-    function renderInventory() {
-        const ownedIds = JSON.parse(localStorage.getItem('pkm_owned_ids')) || [];
-        const equipped = JSON.parse(localStorage.getItem('pkm_equipped')) || {}; // {weapon: 'id', armor: 'id'...}
-
-        // 1. Render 6 Slots
-        const slotContainer = document.getElementById('equip-slots');
-        slotContainer.innerHTML = TYPES.map(t => {
-            const itemId = equipped[t.id];
-            const item = ALL_ITEMS.find(i => i.id === itemId);
-            return `
-                <div class="slot ${item ? 'active' : ''}" id="slot-${t.id}">
-                    <b>${t.name}</b>
-                    ${item ? `<span style="color:${item.color}">${item.name}</span><span class="remove-btn" onclick="unequip('${t.id}')">✖</span>` : '<small>Trống</small>'}
-                </div>
-            `;
-        }).join('');
-
-        // 2. Render Bag
-        const bagContainer = document.getElementById('bag-grid');
-        const equippedIds = Object.values(equipped);
-
-        bagContainer.innerHTML = ownedIds.map(id => {
-            const item = ALL_ITEMS.find(i => i.id === id);
-            const isEquipped = equippedIds.includes(id);
-            return `
-                <div class="item-box ${isEquipped ? 'equipped' : ''}" onclick="equip('${id}')">
-                    <div style="color:${item.color}">${item.name}</div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    window.equip = function(id) {
-        const item = ALL_ITEMS.find(i => i.id === id);
-        let equipped = JSON.parse(localStorage.getItem('pkm_equipped')) || {};
-
-        // Mặc đồ vào slot tương ứng (Ví dụ: Kiếm thì vào slot 'weapon')
-        equipped[item.type] = id;
-        localStorage.setItem('pkm_equipped', JSON.stringify(equipped));
-        renderInventory();
-    };
-
-    window.unequip = function(type) {
-        let equipped = JSON.parse(localStorage.getItem('pkm_equipped')) || {};
-        delete equipped[type];
-        localStorage.setItem('pkm_equipped', JSON.stringify(equipped));
-        renderInventory();
-    };
-
-    renderInventory();
-</script>
+    <script src="pkm_gear.js"></script>
+    <script src="pkm_items.js"></script>
 </body>
 </html>
