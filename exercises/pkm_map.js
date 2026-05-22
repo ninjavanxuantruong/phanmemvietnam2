@@ -264,7 +264,10 @@ window.handleNodeClick = function(title, vocabs, targetUrl) {
     }
 
     // Gán sự kiện cho nút bắt đầu
+    // Gán sự kiện cho nút bắt đầu (Đã đổi thành wordBank2)
     startBtn.onclick = () => {
+        // Lưu danh sách từ vựng vào wordBank2 để không xung đột với tính năng khác
+        localStorage.setItem('wordBank2', JSON.stringify(vocabs));
         window.location.href = targetUrl;
     };
 
