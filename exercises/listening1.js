@@ -222,13 +222,14 @@ function setResultListeningPart(mode, score, total) {
 }
 
 // ===== Khởi chạy =====
+// ===== Khởi chạy =====
 getVoices().then(async (voices) => {
-  // Ưu tiên chọn giọng tự nhiên hơn nếu có
-  voiceMale = voices.find(v => v.name.includes("Google US English Male")) || 
-              voices.find(v => v.name.includes("David")) || voices[0];
+  // Ép lấy giọng y hệt như cấu hình của file Listening 2
+  voiceMale = voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("david")) ||
+              voices.find(v => v.lang === "en-US");
 
-  voiceFemale = voices.find(v => v.name.includes("Google US English Female")) || 
-                voices.find(v => v.name.includes("Zira")) || voices[1] || voices[0];
+  voiceFemale = voices.find(v => v.lang === "en-US" && v.name.toLowerCase().includes("zira")) ||
+                voices.find(v => v.lang === "en-US");
 
   const res = await fetchListeningData();
   listeningData = res;
