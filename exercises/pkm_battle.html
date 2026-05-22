@@ -193,6 +193,8 @@
         #quiz-overlay, #victory-overlay {
             z-index: 1000 !important; 
         }
+        /* --- QUIZ STATS FLOATING STYLES --- */
+        
 
         
     </style>
@@ -206,12 +208,15 @@
             <div id="enemy-team-container"></div>   <!-- SẼ TỰ ĐỘNG CÓ CLASS "enemy-side" TỪ JS -->
             <div id="battle-log"></div>
             <div id="turn-display"></div>
-            <div id="quiz-stats">...</div>
+            
         </main>
 
         
     </div>
     <div id="skill-scene-overlay"></div>
+    <div id="quiz-stats" style="position: fixed !important; top: 15px !important; right: 15px !important; bottom: auto !important; left: auto !important; z-index: 9999 !important;">
+        ✅ 0 &nbsp; ❌ 0 &nbsp; 📊 0 câu
+    </div>
 
     <!-- QUIZ OVERLAY -->
     <div id="quiz-overlay">
@@ -238,7 +243,8 @@
     <script src="global-config.js"></script>
     <script src="pkm_skill.js"></script>
 
-    <script src="pkm_styles.js"></script> 
+    <script src="pkm_styles.js"></script>
+    <script src="pkm_vocabulary.js"></script>
 
     <script type="module" src="pkm_quiz.js"></script>
     <script src="pkm_arena3d.js"></script>
