@@ -55,10 +55,40 @@ window.BattleGame = {
             }
         }
 
-        if (window.QuizManager) window.QuizManager.prepareData();
+    if (window.QuizManager) window.QuizManager.prepareData();
 
         this.renderBattlefield();
-        setTimeout(() => this.nextTurn(), 500);
+
+        // 🔥 Tiến trình điều khiển: Học từ vựng (wordBank2) -> Đấu trắc nghiệm
+        // 🔥 Tiến trình điều khiển ĐÃ CHUẨN HÓA: Học từ vựng (VocabularyModule) -> Xong mới Đấu trắc nghiệm
+        (async () => {
+            // 1. Ẩn bảng câu hỏi trắc nghiệm khi bắt đầu vào trang để ưu tiên học từ
+            const quizOverlay = document.getElementById("quiz-overlay");
+            if (quizOverlay) quizOverlay.style.display = "none";
+
+            // 2. Định nghĩa hàm callback toàn cục để khi bên module Vocab học xong thì gọi ngược lại đây
+            window.startPokemonBattle = () => {
+                console.log("⚔️ Đã hoàn thành từ vựng! Mở bảng trắc nghiệm lên chiến đấu...");
+
+                const mainCard = document.getElementById("mainCard");
+                if (mainCard) mainCard.style.display = "none"; 
+
+                if (quizOverlay) quizOverlay.style.display = "flex"; 
+
+                // Bắt đầu tính toán lượt đánh nhau và gọi câu hỏi trắc nghiệm của Pokémon
+                this.nextTurn(); 
+            };
+
+            // 3. Kích hoạt gọi thằng VocabularyModule tự mò localStorage/sessionStorage bốc dữ liệu và chạy
+            if (window.VocabularyModule && typeof window.VocabularyModule.start === "function") {
+                console.log("📘 [Battle Script] Gọi VocabularyModule chạy phần học từ vựng...");
+                await window.VocabularyModule.start();
+            } else {
+                // Phương án dự phòng nếu file vocab bị lỗi hoặc không tải được, vào thẳng trận đấu luôn
+                console.warn("⚠️ Không tìm thấy VocabularyModule, tự động vào thẳng trận đấu!");
+                window.startPokemonBattle();
+            }
+        })();
     },
 
     calculateStats(pkm, isEnemy) {
@@ -89,6 +119,10 @@ window.BattleGame = {
                     bonusDef += b;
                 } else if (type === 'helmet' || type === 'shoes') {
                     bonusHP += b;
+                } else if (type === 'cloak' || type === 'belt') {
+                    bonusSAtk += b;
+                } else if (type === 'cloak' || type === 'belt') {
+                    bonusSAtk += b;
                 }
             });
 
@@ -108,7 +142,20 @@ window.BattleGame = {
             }
         }
 
-        const baseHP = (hp * 15) + 200;
+        // 🔥 ĐOẠN SỬA ĐỔI: Tối ưu HP co giãn riêng cho 1 con và 2 con, giữ nguyên 3-5 con
+        const inv = JSON.parse(localStorage.getItem('pkm_inventory')) || [];
+        const actualTeamSize = inv.filter(p => p.inTeam).length || 1;
+
+        let hpMultiplier = 15; // Mặc định là x15 cho các trường hợp 3, 4, 5 con
+
+        if (actualTeamSize === 1) {
+            hpMultiplier = 30; // Đi 1 con đơn độc: x30 máu để kéo dài trận đấu
+        } else if (actualTeamSize === 2) {
+            hpMultiplier = 25; // Đi 2 con: x25 máu để trận đấu vừa vặn
+        }
+
+        // Cả phe ta và phe địch đều sẽ áp dụng hệ số co giãn này
+        const baseHP = (hp * hpMultiplier) + 200;
         const randomPkmID = Math.floor(Math.random() * 649) + 1;
 
         return {
