@@ -1,13 +1,10 @@
-// pkm_list.js
-
 let inventory = [];
-let pkmToRelease = null;
+let pkmToRelease = null; // Lưu UID của Pokemon đang được chọn/xem chi tiết
 
 // Thêm hàm này để đồng bộ 100% công thức tính CP theo vai trò 16 hiệp từ egg.js
 function calculateCP(pkm) {
     if (!pkm.baseStats) return 0;
 
-    // Đảm bảo lấy đúng key (sAtk) và dự phòng nếu chỉ số trống
     const hp = pkm.baseStats.hp || 0;
     const atk = pkm.baseStats.atk || 0;
     const def = pkm.baseStats.def || 0;
@@ -26,6 +23,7 @@ function calculateCP(pkm) {
 function initInventory() {
     let localData = JSON.parse(localStorage.getItem("pkm_inventory"));
     if (!localData || localData.length === 0) {
+        // Tặng Pichu mặc định ban đầu
         inventory = [
             {
                 uid: "pichu_" + Date.now(),
@@ -35,7 +33,7 @@ function initInventory() {
                 stars: 1,
                 gen: 1, 
                 type: "electric",
-                baseStats: { hp: 20, atk: 40, def: 15, sAtk: 35 }, // Sử dụng sAtk đồng bộ với egg.js
+                baseStats: { hp: 20, atk: 40, def: 15, sAtk: 35 },
                 inTeam: false,
             },
         ];
@@ -49,20 +47,14 @@ function initInventory() {
 // 2. Hàm bổ trợ: Truy vấn PokeAPI để lấy "Gia phả" và "Chỉ số gốc"
 async function getPkmFamilyData(pkmIdOrName) {
     try {
-        // B1: Lấy species để lấy URL chuỗi tiến hóa
-        const speciesRes = await fetch(
-            `https://pokeapi.co/api/v2/pokemon-species/${pkmIdOrName}/`,
-        );
+        const speciesRes = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${pkmIdOrName}/`);
         const speciesData = await speciesRes.json();
 
-        // B2: Lấy chuỗi tiến hóa
         const evoRes = await fetch(speciesData.evolution_chain.url);
         const evoData = await evoRes.json();
 
-        // B3: Xác định tên con đời 1 (Root)
         const rootName = evoData.chain.species.name;
 
-        // B4: Đếm tổng số đời tiến hóa có thể đạt được
         let maxStage = 1;
         let chain = evoData.chain;
         while (chain.evolves_to.length > 0) {
@@ -70,13 +62,9 @@ async function getPkmFamilyData(pkmIdOrName) {
             chain = chain.evolves_to[0];
         }
 
-        // B5: Lấy stats của con đời 1 để đánh giá tố chất
-        const rootPkmRes = await fetch(
-            `https://pokeapi.co/api/v2/pokemon/${rootName}/`,
-        );
+        const rootPkmRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${rootName}/`);
         const rootPkmData = await rootPkmRes.json();
 
-        // HÀM TÌM STAT THEO TÊN (Cực kỳ an toàn)
         const findStat = (name) => {
             const s = rootPkmData.stats.find((item) => item.stat.name === name);
             return s ? s.base_stat : 20; 
@@ -86,7 +74,7 @@ async function getPkmFamilyData(pkmIdOrName) {
             hp: findStat("hp"),
             atk: findStat("attack"),
             def: findStat("defense"),
-            sAtk: findStat("special-attack"), // Map chuẩn vào sAtk
+            sAtk: findStat("special-attack"),
         };
 
         return { rootName, rootStats, maxStage };
@@ -102,8 +90,7 @@ function renderGrid() {
     if (!grid) return;
 
     grid.innerHTML = "";
-    document.getElementById("pkm-count").innerText =
-        `Tổng số: ${inventory.length}/10`;
+    document.getElementById("pkm-count").innerText = `Tổng số: ${inventory.length}/10`;
 
     for (let i = 0; i < 10; i++) {
         const slot = document.createElement("div");
@@ -111,9 +98,12 @@ function renderGrid() {
 
         if (inventory[i]) {
             const pkm = inventory[i];
-
-            // Gọi hàm calculateCP mới để hiển thị ngoài danh sách trùng khớp với chi tiết
             const cp = calculateCP(pkm);
+
+            // Thêm class active nếu ô này đang được chọn xem chi tiết
+            if (pkmToRelease === pkm.uid) {
+                slot.classList.add("active");
+            }
 
             slot.innerHTML = `
                 <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pkm.id}.png">
@@ -121,7 +111,12 @@ function renderGrid() {
                 <div class="pkm-cp-tag">CP: ${cp.toLocaleString()}</div>
                 ${pkm.inTeam ? '<div class="in-team-badge">TEAM</div>' : ""}
             `;
-            slot.onclick = () => showDetail(pkm);
+
+            slot.onclick = () => {
+                pkmToRelease = pkm.uid; // Ghi nhận UID phục vụ chức năng thả
+                renderGrid();           // Re-render để cập nhật viền vàng active
+                showDetail(pkm);
+            };
         } else {
             slot.innerHTML = `<span style="opacity:0.2">Trống</span>`;
         }
@@ -136,10 +131,12 @@ async function showDetail(pkm) {
     const detailImg = document.getElementById("detail-img");
     const detailEvo = document.getElementById("detail-evo");
     const detailStars = document.getElementById("detail-stars");
+    const releaseBtn = document.getElementById("btn-release-trigger");
 
     // Hiển thị ảnh và trạng thái chờ
     detailName.innerText = "ĐANG TRA CỨU...";
     detailImg.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${pkm.id}.gif`;
+    if (releaseBtn) releaseBtn.style.display = "none"; // Tạm ẩn nút thả khi đang tải dữ liệu
 
     // Gọi API lấy dữ liệu bổ sung
     const [evoData, typeData] = await Promise.all([
@@ -163,7 +160,7 @@ async function showDetail(pkm) {
         <div class="evo-path-box">🧬 Tiến hóa: ${evoData}</div>
     `;
 
-    // CẬP NHẬT PHẦN STATS (Sử dụng chuẩn sAtk viết hoa để lấy dữ liệu từ egg)
+    // CẬP NHẬT PHẦN STATS
     const cp = calculateCP(pkm);
     statsDiv.innerHTML = `
         <div style="margin-top:15px;">
@@ -173,17 +170,19 @@ async function showDetail(pkm) {
             ${renderStatBox("Kỹ năng (S.ATK)", pkm.baseStats.sAtk, "satk")} 
         </div>
         <div class="cp-display">TỔNG CHIẾN LỰC: ${cp.toLocaleString()}</div>
-        <button onclick="openReleaseModal('${pkm.uid}')" class="btn-release">THẢ POKÉMON</button>
     `;
+
+    // Hiển thị nút THẢ của HTML lên sau khi đã load xong dữ liệu chi tiết
+    if (releaseBtn) {
+        releaseBtn.style.display = "block";
+    }
 }
 
 // --- CÁC HÀM LOGIC BỔ TRỢ ---
 
 async function getFullEvolutionPath(pkmId) {
     try {
-        const speciesRes = await fetch(
-            `https://pokeapi.co/api/v2/pokemon-species/${pkmId}/`,
-        );
+        const speciesRes = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${pkmId}/`);
         const speciesData = await speciesRes.json();
         const evoRes = await fetch(speciesData.evolution_chain.url);
         const evoData = await evoRes.json();
@@ -223,7 +222,6 @@ async function getTypeEffectiveness(typeName) {
 }
 
 function renderStatBox(label, value, type) {
-    // Đã đồng bộ chia cho 200 giúp thanh UI cân đối hơn với chỉ số thực tế
     const percentage = Math.min((value / 200) * 100, 100);
     return `
         <div class="stat-bar">
@@ -239,8 +237,10 @@ function renderStatBox(label, value, type) {
 }
 
 // 5. Logic Thả Pokémon
-function openReleaseModal(uid) {
-    const pkm = inventory.find((p) => p.uid === uid);
+function openReleaseModal() {
+    if (!pkmToRelease) return;
+
+    const pkm = inventory.find((p) => p.uid === pkmToRelease);
     if (!pkm) return;
 
     if (pkm.inTeam) {
@@ -248,30 +248,53 @@ function openReleaseModal(uid) {
         return;
     }
 
-    pkmToRelease = uid;
     document.getElementById("release-pkm-name").innerText = pkm.name.toUpperCase();
     document.getElementById("confirm-modal").style.display = "flex";
 }
 
 function closeModal() {
     document.getElementById("confirm-modal").style.display = "none";
-    pkmToRelease = null;
 }
 
 function executeRelease() {
     if (!pkmToRelease) return;
+
+    // Tiến hành lọc bỏ Pokémon được chọn khỏi mảng dữ liệu hiện tại
     inventory = inventory.filter((p) => p.uid !== pkmToRelease);
 
+    // KIỂM TRA TÚI TRỐNG HOÀN TOÀN -> BAN TẶNG PICHU CỨU TRỢ MỚI
     if (inventory.length === 0) {
-        initInventory(); 
-        alert("Bạn đã thả con cuối cùng, hệ thống tặng bạn một Pichu mới!");
+        inventory = [
+            {
+                uid: "pichu_" + Date.now(),
+                id: 172,
+                name: "Pichu",
+                lv: 1,
+                stars: 1,
+                gen: 1, 
+                type: "electric",
+                baseStats: { hp: 20, atk: 40, def: 15, sAtk: 35 }, 
+                inTeam: false,
+            },
+        ];
+        saveLocal(); // Lưu ngay lập tức mảng chứa Pichu mới xuống LocalStorage
+        alert("Bạn đã thả con cuối cùng, hệ thống tự động tặng bạn một Pichu mới!");
     } else {
-        saveLocal();
+        saveLocal(); // Lưu mảng đã giảm số lượng xuống LocalStorage
     }
 
-    closeModal();
+    // Đóng Popup và reset mục tiêu chọn
+    document.getElementById("confirm-modal").style.display = "none";
+    pkmToRelease = null; 
+
+    // Vẽ lại giao diện danh sách
     renderGrid();
 
+    // Ẩn nút thả ở thanh bên phải
+    const releaseBtn = document.getElementById("btn-release-trigger");
+    if (releaseBtn) releaseBtn.style.display = "none";
+
+    // Khôi phục cột hiển thị chi tiết về trạng thái ban đầu
     document.getElementById("detail-name").innerText = "CHỌN POKÉMON";
     document.getElementById("detail-img").src = "";
     document.getElementById("detail-stats").innerHTML = "";
@@ -283,5 +306,5 @@ function saveLocal() {
     localStorage.setItem("pkm_inventory", JSON.stringify(inventory));
 }
 
-// Khởi chạy
+// Khởi chạy hệ thống
 initInventory();
