@@ -326,8 +326,10 @@ async function runVocab1() {
     });
 
     // Nút nghe chính
+    // ĐOẠN CODE MỚI ĐÃ ĐƯỢC ÉP NGÔN NGỮ CHUẨN TIẾNG ANH
     document.getElementById("v1PlayBtn").onclick = () => {
       const u = new SpeechSynthesisUtterance(cleanWord);
+      u.lang = "en-US"; // Đảm bảo luôn kích hoạt bộ đọc tiếng Anh kể cả khi vocabVoice chưa tải xong
       u.voice = (typeof vocabVoice !== 'undefined') ? vocabVoice : null;
       u.onend = () => {
         listenCount++;
