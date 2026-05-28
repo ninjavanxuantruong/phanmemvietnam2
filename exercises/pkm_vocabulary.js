@@ -644,7 +644,20 @@ window.VocabularyModule = {
         const mainCard = document.getElementById("mainCard");
         const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-        const rivalTrainerId = randInt(1, 100); 
+        // 🎯 1. DANH SÁCH 20 TRAINER CHUẨN ĐỂ RANDOM (FIX LỖI ẢNH TĨNH/CHẾT LINK)
+        const trainerList = [
+            { id: "blue", name: "Rival Blue" }, { id: "brock", name: "Brock" }, 
+            { id: "misty", name: "Misty" }, { id: "ltsurge", name: "Lt. Surge" }, 
+            { id: "erika", name: "Erika" }, { id: "koga", name: "Koga" }, 
+            { id: "sabrina", name: "Sabrina" }, { id: "blaine", name: "Blaine" }, 
+            { id: "giovanni", name: "Giovanni" }, { id: "lance", name: "Lance" },
+            { id: "steven", name: "Steven" }, { id: "wallace", name: "Wallace" }, 
+            { id: "cynthia", name: "Cynthia" }, { id: "alder", name: "Alder" }, 
+            { id: "iris", name: "Iris" }, { id: "diantha", name: "Diantha" }, 
+            { id: "green", name: "Green" }, { id: "ethan", name: "Ethan" }, 
+            { id: "lyra", name: "Lyra" }, { id: "lucas", name: "Lucas" }
+        ];
+        const randomTrainer = trainerList[randInt(0, trainerList.length - 1)];
 
         mainCard.innerHTML = `
             <div style="width: 100%; max-width: 700px; display: flex; flex-direction: column; box-sizing: border-box;">
@@ -656,13 +669,13 @@ window.VocabularyModule = {
                 <div id="battle-layer" style="position: relative; width: 100%; height: 420px; background: #2c3e50; border: 3px solid #ffcb05; border-radius: 16px; overflow: hidden; margin-bottom: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
 
                     <div id="pokeA" style="position: absolute; transform: translate(-50%, -50%); display: flex; align-items: flex-end; gap: 4px; pointer-events: auto; cursor: pointer; transition: all 0.3s; z-index: 1010;">
-                        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png" alt="Pikachu" style="height: 65px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));" />
-                        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/trainers/red.png" onerror="this.src='https://play.pokemonshowdown.com/sprites/trainers/red.png'" alt="Satoshi" style="height: 95px; object-fit: contain;" />
+                        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/25.gif" alt="Pikachu" style="height: 60px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));" />
+                        <img src="https://play.pokemonshowdown.com/sprites/trainers/red.png" alt="Satoshi" style="height: 95px; object-fit: contain;" />
                     </div>
 
                     <div id="pokeB" style="position: absolute; transform: translate(-50%, -50%); display: flex; align-items: flex-end; gap: 4px; pointer-events: auto; cursor: pointer; transition: all 0.3s; z-index: 1010;">
-                        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/trainers/${rivalTrainerId}.png" onerror="this.src='https://play.pokemonshowdown.com/sprites/trainers/blue.png'" alt="Rival" style="height: 95px; object-fit: contain;" />
-                        <img id="enemyPkmGif" src="" alt="Enemy Pokémon" style="height: 65px; display: none;" />
+                        <img src="https://play.pokemonshowdown.com/sprites/trainers/${randomTrainer.id}.png" onerror="this.src='https://play.pokemonshowdown.com/sprites/trainers/blue.png'" alt="${randomTrainer.name}" style="height: 95px; object-fit: contain;" />
+                        <img id="enemyPkmGif" src="" alt="Enemy Pokémon" style="height: 60px; display: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));" />
                     </div>
 
                     <div id="wild-container"></div>
@@ -695,13 +708,16 @@ window.VocabularyModule = {
             if(document.getElementById("bubble-image-B")) document.getElementById("bubble-image-B").style.display = "none";
         };
 
+        // 🎯 2. HÀM LẤY HÌNH ẢNH GIF ĐỘNG TỪ POKEAPI
         const getLivePokemonGifUrl = async () => {
             try {
-                const randomId = randInt(1, 151);
+                const randomId = randInt(1, 151); // Giới hạn Gen 1 để tải nhanh và ổn định
                 const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${randomId}`);
                 const data = await response.json();
-                return data.sprites?.front_default || "";
+                // Truy cập sâu vào kho sprite để lấy ảnh .gif Black/White hoạt họa
+                return data.sprites?.versions?.["generation-v"]?.["black-white"]?.animated?.front_default || data.sprites?.front_default || "";
             } catch (err) {
+                // Dự phòng nếu lỗi mạng hoặc không có GIF: Trả về ảnh tĩnh Pikachu hoặc Bulbasaur
                 return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png`;
             }
         };
@@ -710,6 +726,7 @@ window.VocabularyModule = {
         const B = document.getElementById("pokeB");
         const enemyPkmGif = document.getElementById("enemyPkmGif");
 
+        // Triệu hồi GIF Pokémon cho đối thủ
         const enemyPkmSrc = await getLivePokemonGifUrl();
         if (enemyPkmSrc && enemyPkmGif) {
             enemyPkmGif.src = enemyPkmSrc;
@@ -719,6 +736,7 @@ window.VocabularyModule = {
         placeSpriteRandom(A);
         placeSpriteRandom(B);
 
+        // Tạo các Pokémon hoang dã (Ảnh động GIF) bay nhảy xung quanh nền map
         const wildContainer = document.getElementById("wild-container");
         if (wildContainer) {
             wildContainer.innerHTML = "";
@@ -727,7 +745,7 @@ window.VocabularyModule = {
                     if (!src || !document.getElementById("wild-container")) return;
                     const wildImg = document.createElement("img");
                     wildImg.src = src;
-                    wildImg.style.cssText = `position: absolute; height: 45px; opacity: 0.75; transform: translate(-50%, -50%);`;
+                    wildImg.style.cssText = `position: absolute; height: 40px; opacity: 0.65; transform: translate(-50%, -50%);`;
                     const side = randInt(0, 3);
                     if (side === 0) { wildImg.style.top = "10%"; wildImg.style.left = `${randInt(15, 85)}%`; }
                     else if (side === 1) { wildImg.style.top = "90%"; wildImg.style.left = `${randInt(15, 85)}%`; }
@@ -738,6 +756,7 @@ window.VocabularyModule = {
             }
         }
 
+        // Sự kiện click nhân vật A (Hỏi)
         A.onclick = async () => {
             if (this.turnPhase !== "ask") return;
             hideAllBubbles();
@@ -754,13 +773,14 @@ window.VocabularyModule = {
                 this.turnPhase = "answer";
                 const statusBar = document.getElementById("battle-status-bar");
                 if(statusBar) {
-                    statusBar.innerText = "👉 ĐẾN LƯỢT! ẤN VÀO TRAINER ĐỐI THỦ (PHẢI) ĐỂ TRẢ LỜI";
+                    statusBar.innerText = `👉 ĐẾN LƯỢT! ẤN VÀO ${randomTrainer.name.toUpperCase()} ĐỂ TRẢ LỜI`;
                     statusBar.style.color = "#3498db";
                     statusBar.style.borderColor = "#3498db";
                 }
             });
         };
 
+        // Sự kiện click nhân vật B (Trả lời)
         B.onclick = async () => {
             if (this.turnPhase !== "answer") return;
             hideAllBubbles();
