@@ -187,6 +187,19 @@ window.VocabularyModule = {
             return;
         }
 
+        // 🔥 Tải ngầm module imageCache bằng Dynamic Import
+        try {
+            const module = await import("./pkm-image.js?update=now");
+            const imageCache = module.default;
+
+            const keywords = data.map(item => item.word);
+            imageCache.prefetchImagesBatch(keywords).catch(err => {
+                console.warn("⚠️ Prefetch ngầm lỗi nhẹ:", err);
+            });
+        } catch (e) {
+            console.warn("⚠️ Không thể tải ngầm module imageCache tại start():", e);
+        }
+
         this.currentIndex = 0;
         this.currentRound = 1;
         this.turnPhase = "ask";
@@ -251,9 +264,35 @@ window.VocabularyModule = {
         }
     },
 
-    renderVocabCard() {
+    async renderVocabCard() {
         const currentItem = this.currentLessonData[this.currentIndex];
         const mainCard = document.getElementById("mainCard");
+
+        mainCard.innerHTML = `
+            <div style="width: 100%; max-width: 500px; background: rgba(20, 24, 40, 0.7); padding: 30px; border-radius: 24px; border: 3px solid #ffcb05; box-shadow: 0 12px 40px rgba(0,0,0,0.5); box-sizing: border-box; text-align: center;">
+                <div style="color: #ffcb05; font-weight: bold; margin-bottom: 20px; font-size: 1.1rem; letter-spacing: 1px;">⚡ ĐANG ĐỒNG BỘ ẢNH THỰC TẾ TRỰC TUYẾN...</div>
+            </div>
+        `;
+
+        let finalImgUrl = "";
+        let imgSourceTag = "Fallback";
+
+        try {
+            // 🔥 Gọi Dynamic Import an toàn ngay tại lúc render card
+            const module = await import("./pkm-image.js?update=now");
+            const imageCache = module.default;
+
+            const cachedImage = await imageCache.getImage(currentItem.word);
+            if (cachedImage && cachedImage.url) {
+                finalImgUrl = cachedImage.url;
+                imgSourceTag = cachedImage.source;
+            } else {
+                finalImgUrl = `https://picsum.photos/500/300?random=${this.currentIndex}`;
+            }
+        } catch (err) {
+            console.warn("⚠️ Lỗi Engine ảnh, chuyển sang hình ngẫu nhiên:", err);
+            finalImgUrl = `https://picsum.photos/500/300?random=${this.currentIndex}`;
+        }
 
         mainCard.innerHTML = `
             <div style="width: 100%; max-width: 500px; background: rgba(20, 24, 40, 0.7); padding: 30px; border-radius: 24px; border: 3px solid #ffcb05; box-shadow: 0 12px 40px rgba(0,0,0,0.5); box-sizing: border-box;">
@@ -261,9 +300,12 @@ window.VocabularyModule = {
                     <span>📖 HỌC TỪ VỰNG: <span style="background:#ffcb05; color:#000; padding:2px 8px; border-radius:10px;">VÒNG ${this.currentRound}/2</span></span>
                     <span>TỪ: ${this.currentIndex + 1}/${this.currentLessonData.length}</span>
                 </div>
-                <div style="width: 100%; height: 180px; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 2px solid #333; background: #000;">
-                    <img src="https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=500&q=80" style="width: 100%; height: 100%; object-fit: cover;">
+
+                <div style="width: 100%; height: 200px; border-radius: 12px; overflow: hidden; margin-bottom: 15px; border: 2px solid #333; background: #000; position: relative;">
+                    <img src="${finalImgUrl}" style="width: 100%; height: 100%; object-fit: cover;">
+                    <span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #2ecc71; font-size: 11px; padding: 3px 8px; border-radius: 4px; font-family: monospace;">Nguồn: ${imgSourceTag}</span>
                 </div>
+
                 <h1 style="font-size: 2.8rem; margin: 5px 0; letter-spacing: 1px; color: #fff;">${currentItem.word}</h1>
                 <p style="font-size: 1.3rem; color: #f1c40f; font-weight: bold; margin-bottom: 20px;">🎯 ${currentItem.meaning}</p>
 
@@ -519,6 +561,15 @@ window.VocabularyModule = {
             const wrappers = getAllUnits();
             if (!wrappers.length) return;
 
+            const nextBtn = document.getElementById("phonicsNextBtn");
+
+            // 🔥 KHÓA NÚT "TỪ TIẾP": Đổi màu mờ đi và vô hiệu hóa click
+            if (nextBtn) {
+                nextBtn.setAttribute("disabled", "true");
+                nextBtn.style.opacity = "0.3";
+                nextBtn.style.cursor = "not-allowed";
+            }
+
             window.MobileAudioEngine.unlock();
             isReading = true;
             autoBtn.innerHTML = "⏹️ Dừng";
@@ -531,7 +582,6 @@ window.VocabularyModule = {
             if (progressBar) progressBar.style.width = "0%";
 
             // ── PRELOAD BLOCKING: fetch hết tất cả file MP3 TRƯỚC khi bắt đầu đọc ──
-            // Điều này tránh tình trạng mạng chậm làm delay giữa các âm trên mobile
             const allIpaList = [];
             wrappers.forEach(w => {
                 w.querySelectorAll(".sound-unit:not(.silent)").forEach(u => {
@@ -540,15 +590,23 @@ window.VocabularyModule = {
                 });
             });
 
-            // Hiện thông báo đang tải để user biết (quan trọng cho mobile mạng chậm)
             if (allIpaList.length > 0) {
                 autoBtn.innerHTML = "⏳ Đang tải âm...";
                 await window.MobileAudioEngine.preload(allIpaList); // blocking await
-                if (!isReading) { autoBtn.innerHTML = "▶️ Đọc từng âm"; return; }
+                if (!isReading) { 
+                    autoBtn.innerHTML = "▶️ Đọc từng âm"; 
+                    // Mở khóa lại nếu tiến trình bị hủy lúc đang tải âm
+                    if (nextBtn) {
+                        nextBtn.removeAttribute("disabled");
+                        nextBtn.style.opacity = "1";
+                        nextBtn.style.cursor = "pointer";
+                    }
+                    return; 
+                }
                 autoBtn.innerHTML = "⏹️ Dừng";
             }
 
-            // VÒNG LẶP CHÍNH — lúc này tất cả file đã có trong cache, không còn lag mạng
+            // VÒNG LẶP CHÍNH
             for (let i = 0; i < wrappers.length; i++) {
                 if (!isReading) break;
 
@@ -567,9 +625,9 @@ window.VocabularyModule = {
 
                     if (ipa) {
                         await window.MobileAudioEngine.playIpa(ipa);
-                        await sleep(150); // khoảng nghỉ tự nhiên giữa các âm
+                        await sleep(150); 
                     } else {
-                        await sleep(350); // chữ câm
+                        await sleep(350); 
                     }
 
                     highlightUnit(unit, false);
@@ -577,7 +635,6 @@ window.VocabularyModule = {
 
                 if (!isReading) break;
 
-                // Flash cả cụm → đánh dấu done
                 wrappers.forEach(u => u.classList.remove("ph-active"));
                 wrapper.classList.add("ph-active");
                 if (progressBar) progressBar.style.width = `${((i + 1) / wrappers.length) * 100}%`;
@@ -586,7 +643,7 @@ window.VocabularyModule = {
                 wrapper.classList.add("ph-done");
             }
 
-            // Đọc cả từ TTS khi kết thúc
+            // Đọc cả từ TTS khi kết thúc hoàn tất vòng lặp
             if (isReading) {
                 wrappers.forEach(w => w.classList.remove("ph-done"));
                 if (progressBar) progressBar.style.width = "100%";
@@ -596,8 +653,16 @@ window.VocabularyModule = {
 
             isReading = false;
             autoBtn.innerHTML = "▶️ Đọc từng âm";
+
+            // 🔥 MỞ KHÓA NÚT "TỪ TIẾP": Trả lại trạng thái ban đầu sau khi hoàn thành đọc
+            if (nextBtn) {
+                nextBtn.removeAttribute("disabled");
+                nextBtn.style.opacity = "1";
+                nextBtn.style.cursor = "pointer";
+            }
         };
 
+        // Cập nhật thêm logic mở khóa nút "Từ tiếp" nếu người dùng bấm nút "Dừng" thủ công
         autoBtn.onclick = () => {
             if (isReading) {
                 isReading = false;
@@ -605,6 +670,14 @@ window.VocabularyModule = {
                 getAllUnits().forEach(u => u.classList.remove("ph-active", "ph-done"));
                 if (progressBar) progressBar.style.width = "0%";
                 autoBtn.innerHTML = "▶️ Đọc từng âm";
+
+                // 🔥 Giải phóng nút "Từ tiếp" lập tức khi bấm Dừng
+                const nextBtn = document.getElementById("phonicsNextBtn");
+                if (nextBtn) {
+                    nextBtn.removeAttribute("disabled");
+                    nextBtn.style.opacity = "1";
+                    nextBtn.style.cursor = "pointer";
+                }
             } else {
                 doAutoRead();
             }
@@ -618,7 +691,10 @@ window.VocabularyModule = {
             window.speechSynthesis.speak(u);
         };
 
-        document.getElementById("phonicsNextBtn").onclick = () => {
+        document.getElementById("phonicsNextBtn").onclick = (e) => {
+            // Nếu nút đang bị khóa (có thuộc tính disabled hoặc style mờ), không cho chuyển từ
+            if (e.currentTarget.hasAttribute("disabled")) return;
+
             isReading = false;
             window.speechSynthesis.cancel();
             this.currentIndex++;
