@@ -1,125 +1,434 @@
-/* ========== PKM ARENA 3D — Thay thế toàn bộ .battle-arena trong pkm_3d.css ========== */
+/* ===================================================
+   PKM ARENA 3D — ANIME SPEED LINES BACKGROUND
+   =================================================== */
 
-.battle-arena {
-    flex: 1;
-    position: relative;
+.pokemon-attack-bg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
     overflow: hidden;
-    /* Màu nền fallback, sẽ bị ghi đè bởi JS random */
-    background: #0d1b3e;
+    z-index: 1 !important;
+    --theme-color: #3498db;
+    --glow-pos: 50% 50%;
+    --spin-center: 50% 50%;
+
+    background:
+        radial-gradient(ellipse 30% 40% at var(--glow-pos), rgba(255,255,255,0.12) 0%, transparent 100%),
+        radial-gradient(ellipse 90% 90% at 50% 50%,
+            #03020a 0%, #06050f 30%,
+            color-mix(in srgb, var(--theme-color) 60%, #000) 75%,
+            color-mix(in srgb, var(--theme-color) 90%, #fff) 100%
+        ) !important;
 }
 
-/* ── SVG SÂN ĐẤU (inject bằng JS) nằm sát đáy, phủ toàn arena ── */
-#arena-svg-bg {
+/* ── SPEED LINES: dùng chung 1 animation 2s cho tất cả hệ ── */
+.pokemon-attack-bg::before {
+    content: "";
     position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
     pointer-events: none;
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(255,255,255,0.06) 15deg, rgba(255,255,255,0.10) 17deg,
+        rgba(255,255,255,0.06) 19deg, transparent 20deg,
+        transparent 33deg,
+        rgba(255,255,255,0.04) 34deg, rgba(255,255,255,0.22) 36deg,
+        rgba(255,255,255,0.28) 38deg,
+        color-mix(in srgb, var(--theme-color) 70%, #fff) 40deg,
+        rgba(255,255,255,0.22) 42deg, rgba(255,255,255,0.08) 44deg,
+        transparent 46deg, transparent 58deg,
+        rgba(255,255,255,0.05) 59deg, rgba(255,255,255,0.14) 61deg,
+        rgba(255,255,255,0.18) 63deg,
+        color-mix(in srgb, var(--theme-color) 50%, #fff) 64deg,
+        rgba(255,255,255,0.14) 65deg, rgba(255,255,255,0.05) 67deg,
+        transparent 68deg, transparent 80deg,
+        rgba(255,255,255,0.03) 81deg, rgba(255,255,255,0.08) 83deg,
+        rgba(255,255,255,0.03) 85deg, transparent 86deg
+    );
+    transform: rotate(135deg);
+    animation: speedLinesSpin 2s linear infinite;
+    mix-blend-mode: screen;
+    opacity: 1;
 }
 
-/* ── SPOTLIGHT Ở GIỮA SÂN ── */
-#arena-spotlight {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 90px;
-    height: 90px;
-    border-radius: 50%;
-    z-index: 5;
-    pointer-events: none;
-    animation: spotlightPulse 2.5s ease-in-out infinite;
+@keyframes speedLinesSpin {
+    from { transform: rotate(135deg); }
+    to   { transform: rotate(135deg) rotate(360deg); }
 }
 
-@keyframes spotlightPulse {
-    0%, 100% { opacity: 0.7; transform: translate(-50%,-50%) scale(1); }
-    50%       { opacity: 1;   transform: translate(-50%,-50%) scale(1.15); }
-}
-
-/* ── POKEMON UNITS: luôn nổi trên nền ── */
-#player-team-container,
-#enemy-team-container {
+/* ── VIGNETTE ── */
+.pokemon-attack-bg::after {
+    content: "";
     position: absolute;
     top: 0; left: 0;
     width: 100%; height: 100%;
     pointer-events: none;
-    z-index: 10;
+    display: block;
+    background:
+        radial-gradient(ellipse 120% 120% at 50% 50%,
+            transparent 0%, transparent 40%,
+            rgba(0,0,0,0.3) 65%, rgba(0,0,0,0.75) 100%),
+        radial-gradient(ellipse 45% 55% at var(--glow-pos),
+            rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 50%, transparent 100%);
+    mix-blend-mode: multiply;
+    opacity: 0.9;
 }
 
-/* ── BÓNG ĐỔ DƯỚI CHÂN POKEMON ── */
-.pkm-shadow {
-    width: 60px;
-    height: 14px;
-    border-radius: 50%;
-    background: rgba(0,0,0,0.35);
-    filter: blur(4px);
-    margin-top: -6px;
-    flex-shrink: 0;
+/* ===================================================
+   CÁC HỆ: chỉ set --theme-color + override background ::before
+   KHÔNG còn animation riêng — dùng chung 2s từ ::before gốc
+   =================================================== */
+
+.bg-skill-electric { --theme-color: #f1c40f; }
+.bg-skill-electric::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(255,240,100,0.08) 15deg, rgba(255,240,100,0.12) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(255,255,200,0.15) 34deg, rgba(255,255,100,0.35) 36deg,
+        rgba(255,255,255,0.40) 38deg, rgba(255,230,50,0.35) 40deg,
+        rgba(255,255,100,0.15) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(255,240,100,0.10) 59deg, rgba(255,240,100,0.22) 61deg,
+        rgba(255,255,150,0.28) 63deg, rgba(255,240,100,0.22) 65deg,
+        rgba(255,240,100,0.10) 67deg, transparent 68deg,
+        transparent 80deg, rgba(255,240,100,0.06) 83deg, transparent 86deg
+    );
 }
 
-/* ── POKEMON ĐỨNG TRÊN VÒNG TRÒN: thêm ring sáng dưới chân ── */
-.pkm-unit.active-unit::after {
-    content: '';
-    position: absolute;
-    bottom: 18px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 70px;
-    height: 20px;
-    border-radius: 50%;
-    border: 2px solid #ffcb05;
-    box-shadow: 0 0 12px #ffcb05, 0 0 24px rgba(255,203,5,0.4);
-    animation: ringGlow 1s ease-in-out infinite alternate;
-    pointer-events: none;
-    z-index: -1;
+.bg-skill-fire { --theme-color: #e67e22; }
+.bg-skill-fire::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(255,180,60,0.08) 15deg, rgba(255,140,40,0.12) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(255,200,80,0.12) 34deg, rgba(255,160,50,0.30) 36deg,
+        rgba(255,220,120,0.38) 38deg, rgba(255,150,40,0.30) 40deg,
+        rgba(255,180,60,0.12) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(255,180,60,0.08) 59deg, rgba(255,160,50,0.20) 61deg,
+        rgba(255,210,100,0.26) 63deg, rgba(255,160,50,0.20) 65deg,
+        rgba(255,180,60,0.08) 67deg, transparent 68deg,
+        transparent 80deg, rgba(255,160,50,0.05) 83deg, transparent 86deg
+    );
 }
 
-@keyframes ringGlow {
-    from { opacity: 0.6; }
-    to   { opacity: 1; }
+.bg-skill-water { --theme-color: #3498db; }
+.bg-skill-water::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(100,180,255,0.08) 15deg, rgba(80,160,240,0.12) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(120,200,255,0.12) 34deg, rgba(60,150,230,0.28) 36deg,
+        rgba(180,230,255,0.38) 38deg, rgba(60,150,230,0.28) 40deg,
+        rgba(100,180,255,0.12) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(100,180,255,0.08) 59deg, rgba(80,160,240,0.20) 61deg,
+        rgba(160,220,255,0.26) 63deg, rgba(80,160,240,0.20) 65deg,
+        rgba(100,180,255,0.08) 67deg, transparent 68deg,
+        transparent 80deg, rgba(80,160,240,0.05) 83deg, transparent 86deg
+    );
 }
 
-/* ── ĐIỂM GIỮA SÂN: pokemon sẽ di chuyển lên đây khi ra skill ── */
-#skill-stage {
-    position: absolute;
-    left: 50%;
-    top: 46%;
-    transform: translate(-50%, -50%);
-    width: 110px;
-    height: 110px;
-    border-radius: 50%;
-    z-index: 6;
-    pointer-events: none;
-    animation: stagePulse 3s ease-in-out infinite;
+.bg-skill-grass { --theme-color: #2ecc71; }
+.bg-skill-grass::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(100,220,120,0.07) 15deg, rgba(80,200,100,0.11) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(120,230,140,0.10) 34deg, rgba(50,180,80,0.26) 36deg,
+        rgba(180,255,200,0.34) 38deg, rgba(50,180,80,0.26) 40deg,
+        rgba(100,220,120,0.10) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(100,220,120,0.07) 59deg, rgba(80,200,100,0.18) 61deg,
+        rgba(160,245,180,0.24) 63deg, rgba(80,200,100,0.18) 65deg,
+        rgba(100,220,120,0.07) 67deg, transparent 68deg,
+        transparent 80deg, rgba(80,200,100,0.04) 83deg, transparent 86deg
+    );
 }
 
-@keyframes stagePulse {
-    0%, 100% { opacity: 0.5; transform: translate(-50%,-50%) scale(1);    }
-    50%       { opacity: 0.9; transform: translate(-50%,-50%) scale(1.08); }
+.bg-skill-psychic { --theme-color: #f85888; }
+.bg-skill-psychic::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(255,120,160,0.08) 15deg, rgba(230,80,130,0.12) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(255,150,180,0.12) 34deg, rgba(220,60,120,0.28) 36deg,
+        rgba(255,200,220,0.36) 38deg, rgba(220,60,120,0.28) 40deg,
+        rgba(255,130,170,0.12) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(255,120,160,0.08) 59deg, rgba(230,80,130,0.20) 61deg,
+        rgba(255,180,210,0.26) 63deg, rgba(230,80,130,0.20) 65deg,
+        rgba(255,120,160,0.08) 67deg, transparent 68deg,
+        transparent 80deg, rgba(230,80,130,0.05) 83deg, transparent 86deg
+    );
 }
 
-/* ── PARTICLE NỀN: các hạt sáng nhỏ bay lên ── */
-.arena-particle {
-    position: absolute;
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: 1;
-    animation: particleRise linear infinite;
-    opacity: 0;
+.bg-skill-ghost { --theme-color: #705898; }
+.bg-skill-ghost::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(140,100,200,0.07) 15deg, rgba(120,80,180,0.10) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(160,120,220,0.10) 34deg, rgba(100,60,160,0.24) 36deg,
+        rgba(200,160,255,0.32) 38deg, rgba(100,60,160,0.24) 40deg,
+        rgba(140,100,200,0.10) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(140,100,200,0.07) 59deg, rgba(120,80,180,0.16) 61deg,
+        rgba(180,140,240,0.22) 63deg, rgba(120,80,180,0.16) 65deg,
+        rgba(140,100,200,0.07) 67deg, transparent 68deg,
+        transparent 80deg, rgba(120,80,180,0.04) 83deg, transparent 86deg
+    );
 }
 
-@keyframes particleRise {
-    0%   { transform: translateY(0)   scale(1);   opacity: 0; }
-    10%  { opacity: 0.6; }
-    90%  { opacity: 0.3; }
-    100% { transform: translateY(-120px) scale(0.3); opacity: 0; }
+.bg-skill-fighting { --theme-color: #e74c3c; }
+.bg-skill-fighting::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(255,100,80,0.08) 15deg, rgba(230,60,50,0.12) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(255,130,100,0.12) 34deg, rgba(220,40,30,0.28) 36deg,
+        rgba(255,180,160,0.36) 38deg, rgba(220,40,30,0.28) 40deg,
+        rgba(255,110,90,0.12) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(255,100,80,0.08) 59deg, rgba(230,60,50,0.20) 61deg,
+        rgba(255,160,140,0.26) 63deg, rgba(230,60,50,0.20) 65deg,
+        rgba(255,100,80,0.08) 67deg, transparent 68deg,
+        transparent 80deg, rgba(230,60,50,0.05) 83deg, transparent 86deg
+    );
 }
 
-/* ── MEDIA MOBILE ── */
-@media (max-width: 480px) {
-    #arena-spotlight { width: 60px; height: 60px; }
-    #skill-stage     { width: 75px; height: 75px; }
-    .pkm-shadow      { width: 44px; height: 10px; }
+.bg-skill-ice { --theme-color: #74b9ff; }
+.bg-skill-ice::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(180,230,255,0.09) 15deg, rgba(160,210,255,0.13) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(200,240,255,0.13) 34deg, rgba(140,200,255,0.30) 36deg,
+        rgba(230,250,255,0.40) 38deg, rgba(140,200,255,0.30) 40deg,
+        rgba(180,230,255,0.13) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(180,230,255,0.09) 59deg, rgba(160,210,255,0.22) 61deg,
+        rgba(220,245,255,0.28) 63deg, rgba(160,210,255,0.22) 65deg,
+        rgba(180,230,255,0.09) 67deg, transparent 68deg,
+        transparent 80deg, rgba(160,210,255,0.05) 83deg, transparent 86deg
+    );
+}
+
+.bg-skill-poison { --theme-color: #a040a0; }
+.bg-skill-poison::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(180,60,180,0.07) 15deg, rgba(160,40,160,0.11) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(200,80,200,0.11) 34deg, rgba(140,30,140,0.26) 36deg,
+        rgba(230,130,230,0.34) 38deg, rgba(140,30,140,0.26) 40deg,
+        rgba(180,60,180,0.11) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(180,60,180,0.07) 59deg, rgba(160,40,160,0.18) 61deg,
+        rgba(210,110,210,0.24) 63deg, rgba(160,40,160,0.18) 65deg,
+        rgba(180,60,180,0.07) 67deg, transparent 68deg,
+        transparent 80deg, rgba(160,40,160,0.04) 83deg, transparent 86deg
+    );
+}
+
+.bg-skill-ground { --theme-color: #e2bf65; }
+.bg-skill-ground::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(230,190,80,0.08) 15deg, rgba(200,160,50,0.12) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(240,210,100,0.12) 34deg, rgba(180,140,40,0.28) 36deg,
+        rgba(255,230,150,0.36) 38deg, rgba(180,140,40,0.28) 40deg,
+        rgba(220,180,70,0.12) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(220,180,70,0.08) 59deg, rgba(200,160,50,0.20) 61deg,
+        rgba(245,220,130,0.26) 63deg, rgba(200,160,50,0.20) 65deg,
+        rgba(220,180,70,0.08) 67deg, transparent 68deg,
+        transparent 80deg, rgba(200,160,50,0.05) 83deg, transparent 86deg
+    );
+}
+
+.bg-skill-flying { --theme-color: #a890f0; }
+.bg-skill-flying::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(180,160,255,0.08) 15deg, rgba(160,140,240,0.12) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(200,180,255,0.12) 34deg, rgba(140,120,220,0.28) 36deg,
+        rgba(230,220,255,0.36) 38deg, rgba(140,120,220,0.28) 40deg,
+        rgba(180,160,255,0.12) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(180,160,255,0.08) 59deg, rgba(160,140,240,0.20) 61deg,
+        rgba(220,210,255,0.26) 63deg, rgba(160,140,240,0.20) 65deg,
+        rgba(180,160,255,0.08) 67deg, transparent 68deg,
+        transparent 80deg, rgba(160,140,240,0.05) 83deg, transparent 86deg
+    );
+}
+
+.bg-skill-bug { --theme-color: #a8b820; }
+.bg-skill-bug::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(180,200,40,0.07) 15deg, rgba(160,180,20,0.11) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(200,220,60,0.11) 34deg, rgba(140,160,10,0.26) 36deg,
+        rgba(230,250,100,0.34) 38deg, rgba(140,160,10,0.26) 40deg,
+        rgba(180,200,40,0.11) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(180,200,40,0.07) 59deg, rgba(160,180,20,0.18) 61deg,
+        rgba(215,235,80,0.24) 63deg, rgba(160,180,20,0.18) 65deg,
+        rgba(180,200,40,0.07) 67deg, transparent 68deg,
+        transparent 80deg, rgba(160,180,20,0.04) 83deg, transparent 86deg
+    );
+}
+
+.bg-skill-rock { --theme-color: #b8a038; }
+.bg-skill-rock::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(200,170,60,0.07) 15deg, rgba(180,150,40,0.10) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(215,185,75,0.10) 34deg, rgba(160,130,30,0.24) 36deg,
+        rgba(240,210,110,0.32) 38deg, rgba(160,130,30,0.24) 40deg,
+        rgba(200,170,60,0.10) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(200,170,60,0.07) 59deg, rgba(180,150,40,0.16) 61deg,
+        rgba(225,195,90,0.22) 63deg, rgba(180,150,40,0.16) 65deg,
+        rgba(200,170,60,0.07) 67deg, transparent 68deg,
+        transparent 80deg, rgba(180,150,40,0.04) 83deg, transparent 86deg
+    );
+}
+
+.bg-skill-dark { --theme-color: #705848; }
+.bg-skill-dark::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(120,80,50,0.08) 15deg, rgba(100,60,40,0.12) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(140,100,70,0.12) 34deg, rgba(80,50,30,0.28) 36deg,
+        rgba(180,140,110,0.36) 38deg, rgba(80,50,30,0.28) 40deg,
+        rgba(120,80,50,0.12) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(120,80,50,0.08) 59deg, rgba(100,60,40,0.20) 61deg,
+        rgba(160,120,90,0.26) 63deg, rgba(100,60,40,0.20) 65deg,
+        rgba(120,80,50,0.08) 67deg, transparent 68deg,
+        transparent 80deg, rgba(100,60,40,0.05) 83deg, transparent 86deg
+    );
+}
+
+.bg-skill-steel { --theme-color: #b8b8d0; }
+.bg-skill-steel::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(210,210,230,0.09) 15deg, rgba(190,190,215,0.14) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(220,220,240,0.14) 34deg, rgba(180,180,210,0.32) 36deg,
+        rgba(245,245,255,0.42) 38deg, rgba(180,180,210,0.32) 40deg,
+        rgba(210,210,230,0.14) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(210,210,230,0.09) 59deg, rgba(190,190,215,0.24) 61deg,
+        rgba(235,235,250,0.30) 63deg, rgba(190,190,215,0.24) 65deg,
+        rgba(210,210,230,0.09) 67deg, transparent 68deg,
+        transparent 80deg, rgba(190,190,215,0.06) 83deg, transparent 86deg
+    );
+}
+
+.bg-skill-dragon { --theme-color: #7038f8; }
+.bg-skill-dragon::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(130,80,255,0.09) 15deg, rgba(110,60,240,0.13) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(150,100,255,0.13) 34deg, rgba(90,40,220,0.30) 36deg,
+        rgba(200,160,255,0.40) 38deg, rgba(90,40,220,0.30) 40deg,
+        rgba(130,80,255,0.13) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(130,80,255,0.09) 59deg, rgba(110,60,240,0.22) 61deg,
+        rgba(180,140,255,0.28) 63deg, rgba(110,60,240,0.22) 65deg,
+        rgba(130,80,255,0.09) 67deg, transparent 68deg,
+        transparent 80deg, rgba(110,60,240,0.06) 83deg, transparent 86deg
+    );
+}
+
+.bg-skill-fairy { --theme-color: #ee99ac; }
+.bg-skill-fairy::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(255,180,200,0.09) 15deg, rgba(240,150,175,0.13) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(255,200,215,0.13) 34deg, rgba(225,130,155,0.30) 36deg,
+        rgba(255,230,238,0.40) 38deg, rgba(225,130,155,0.30) 40deg,
+        rgba(255,190,210,0.13) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(255,180,200,0.09) 59deg, rgba(240,150,175,0.22) 61deg,
+        rgba(255,220,230,0.28) 63deg, rgba(240,150,175,0.22) 65deg,
+        rgba(255,180,200,0.09) 67deg, transparent 68deg,
+        transparent 80deg, rgba(240,150,175,0.06) 83deg, transparent 86deg
+    );
+}
+
+.bg-skill-normal { --theme-color: #a8a878; }
+.bg-skill-normal::before {
+    background: repeating-conic-gradient(
+        from 0deg at var(--spin-center),
+        transparent 0deg, transparent 14deg,
+        rgba(200,200,160,0.07) 15deg, rgba(180,180,140,0.11) 17deg, transparent 20deg,
+        transparent 33deg,
+        rgba(215,215,175,0.11) 34deg, rgba(160,160,120,0.26) 36deg,
+        rgba(240,240,210,0.34) 38deg, rgba(160,160,120,0.26) 40deg,
+        rgba(200,200,160,0.11) 42deg, transparent 46deg,
+        transparent 58deg,
+        rgba(200,200,160,0.07) 59deg, rgba(180,180,140,0.18) 61deg,
+        rgba(225,225,190,0.24) 63deg, rgba(180,180,140,0.18) 65deg,
+        rgba(200,200,160,0.07) 67deg, transparent 68deg,
+        transparent 80deg, rgba(180,180,140,0.04) 83deg, transparent 86deg
+    );
+}
+
+/* ===================================================
+   SUSTAIN FLASH KHI DÍNH ĐÒN
+   =================================================== */
+.sustain-electric { animation: sustainFlash 0.1s steps(1) infinite; }
+.sustain-fire      { animation: sustainFlash 0.15s steps(1) infinite; }
+.sustain-water     { animation: sustainFlash 0.18s steps(1) infinite; }
+.sustain-ice       { animation: sustainFlash 0.20s steps(1) infinite; }
+.sustain-psychic   { animation: sustainFlash 0.14s steps(1) infinite; }
+.sustain-dragon    { animation: sustainFlash 0.12s steps(1) infinite; }
+.sustain-ghost     { animation: sustainFlash 0.22s steps(1) infinite; }
+.sustain-dark      { animation: sustainFlash 0.18s steps(1) infinite; }
+.sustain-steel     { animation: sustainFlash 0.16s steps(1) infinite; }
+.sustain-fighting  { animation: sustainFlash 0.10s steps(1) infinite; }
+.sustain-grass     { animation: sustainFlash 0.20s steps(1) infinite; }
+.sustain-poison    { animation: sustainFlash 0.22s steps(1) infinite; }
+.sustain-ground    { animation: sustainFlash 0.17s steps(1) infinite; }
+.sustain-flying    { animation: sustainFlash 0.19s steps(1) infinite; }
+.sustain-bug       { animation: sustainFlash 0.18s steps(1) infinite; }
+.sustain-rock      { animation: sustainFlash 0.16s steps(1) infinite; }
+.sustain-fairy     { animation: sustainFlash 0.21s steps(1) infinite; }
+.sustain-normal    { animation: sustainFlash 0.22s steps(1) infinite; }
+
+@keyframes sustainFlash {
+    0%   { filter: brightness(1) contrast(1); }
+    50%  { filter: brightness(2.5) contrast(1.4) saturate(1.8); }
+    100% { filter: brightness(1) contrast(1); }
 }
