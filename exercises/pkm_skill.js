@@ -51,7 +51,12 @@ window.SkillManager = {
     },
 
     durationConfig: {
-        projectileFly: 800,
+        // --- 3 MỐC THỜI GIAN LIFECYCLE MỚI THEO Ý SẾP ---
+        chargeAura: 600,       // Giai đoạn 1: Thời gian gồng hào quang (nhún người, tích khí)
+        projectileFly: 2000,   // Giai đoạn 2: Thời gian chiêu sinh ra và di chuyển từ từ đến đích
+        targetSustain: 3000,   // Giai đoạn 3: Thời gian giữ nguyên chiêu + địch dính chưởng tại chỗ
+
+        // Các cấu hình cũ sếp giữ nguyên phía dưới
         delayBetween: 300,
         particleLife: 1000,
         electricBolt: 300,
@@ -74,36 +79,97 @@ window.SkillManager = {
         'fairy': { color: '#ee99ac' },    // Hệ Tiên (Màu hồng phấn)
     },
     toggleSkillScene(show, side = '', attackerIndex = null, type = 'normal') {
-        const overlay = document.getElementById('skill-scene-overlay');
-        if (!overlay) return;
+        const overlay   = document.getElementById('skill-scene-overlay');
+        const arena     = document.getElementById('battle-arena');
+        const svgBg     = document.getElementById('arena-svg-bg');
+        const spotlight = document.getElementById('arena-spotlight');
 
         if (show) {
-            // 1. Xóa hết các class màu cũ (để tránh bị chồng chéo màu)
-            overlay.className = ''; 
+            // Ẩn ảnh nền thật, để SVG arena3d lộ ra
+            if (arena) arena.style.setProperty('background-image', 'none', 'important');
 
-            // 2. Thêm class màu tương ứng với hệ (type) của Pokemon
-            overlay.classList.add(`bg-skill-${type}`);
+            // Hiện SVG sân + spotlight + particles
+            if (svgBg)     svgBg.style.removeProperty('display');
+            if (spotlight) spotlight.style.removeProperty('display');
+            if (arena) arena.querySelectorAll('.arena-particle').forEach(p => p.style.removeProperty('display'));
 
-            // 3. Hiện overlay
-            overlay.style.display = 'block';
-            overlay.style.opacity = '1';
+            // 🟢 BƯỚC 1: Khi xuất chiêu -> Chỉ hiện Attacker + Địch, đồng thời đẩy z-index lên trên nền
+            document.querySelectorAll('.pkm-unit').forEach(u => {
+                const isAttacker = u.id === `${side}-unit-${attackerIndex}`;
+                const isEnemy    = side === 'player' ? u.id.startsWith('enemy-') : u.id.startsWith('player-');
+                const visible    = isAttacker || isEnemy;
 
-            // 4. Đẩy Pokemon lên trên
-            if (side && attackerIndex !== null) {
-                const attacker = document.getElementById(`${side}-unit-${attackerIndex}`);
-                if (attacker) attacker.style.zIndex = '10000';
-            }
-        } else {
-            // Ẩn overlay
-            overlay.style.opacity = '0';
-            setTimeout(() => { 
-                overlay.style.display = 'none';
-                // Reset z-index
-                document.querySelectorAll('.pkm-unit').forEach(u => {
+                u.style.opacity    = visible ? '1' : '0';
+                u.style.visibility = visible ? 'visible' : 'hidden';
+
+                if (visible) {
+                    u.style.zIndex = '10000'; // Đẩy cả attacker và địch lên trên lớp nền anime
+                } else {
                     u.style.zIndex = '';
-                    u.style.transform = 'translate(-50%,-50%)';
-                });
-            }, 500); // Đợi hiệu ứng mờ dần xong mới ẩn hẳn
+                }
+            });
+
+            // Overlay màu hệ tích hợp hiệu ứng Anime Speed Lines
+            // --- TÌM ĐOẠN NÀY TRONG KHỐI IF (SHOW) CỦA HÀM toggleSkillScene ---
+            if (overlay) {
+                overlay.className = ''; 
+                overlay.classList.add('pokemon-attack-bg', `bg-skill-${type}`); 
+
+                const typeColor = this.systemConfig[type]?.color || '#ffffff';
+                overlay.style.setProperty('--theme-color', typeColor);
+
+                // 🌟 CẬP NHẬT ĐỘNG TẠI ĐÂY: Lấy phần tử Pokemon đang tung chiêu
+                const rx = 25 + Math.random() * 50;
+                const ry = 25 + Math.random() * 50;
+                overlay.style.setProperty('--spin-center', `${rx}% ${ry}%`);
+                const attackerEl = document.getElementById(`${side}-unit-${attackerIndex}`);
+                if (attackerEl) {
+                    // Đọc tọa độ từ data-attribute mà file pkm_style.js đã ghi vào thẻ
+                    const posX = attackerEl.getAttribute('data-left') || '50';
+                    const posY = attackerEl.getAttribute('data-top') || '50';
+
+                    // Truyền thẳng tọa độ này làm tâm phát sáng cho CSS
+                    overlay.style.setProperty('--glow-pos', `${posX}% ${posY}%`);
+                } else {
+                    // Phòng hờ nếu không tìm thấy thẻ thì lấy đại trung tâm
+                    overlay.style.setProperty('--glow-pos', '50% 50%');
+                    // thêm vào đây
+                    const rx = 25 + Math.random() * 50;
+                    const ry = 25 + Math.random() * 50;
+                    overlay.style.setProperty('--spin-center', `${rx}% ${ry}%`);
+                }
+
+                overlay.style.display = 'block';
+                overlay.style.opacity = '1';
+            }
+
+        } else {
+            // Trả lại ảnh nền thật
+            if (arena && window.ArenaBgUrl) {
+                arena.style.setProperty('background-image', `url('${window.ArenaBgUrl}')`, 'important');
+            }
+
+            // Ẩn SVG + spotlight + particles
+            if (svgBg)     svgBg.style.display = 'none';
+            if (spotlight) spotlight.style.display = 'none';
+            if (arena) arena.querySelectorAll('.arena-particle').forEach(p => p.style.display = 'none');
+
+            // 🟢 BƯỚC 2: Khi HẾT chiêu -> Trả lại trạng thái bình thường cho TOÀN BỘ Pokémon trên sân
+            document.querySelectorAll('.pkm-unit').forEach(u => {
+                u.style.opacity    = '1';
+                u.style.visibility = 'visible';
+                u.style.zIndex     = '';
+                u.style.transform  = 'translate(-50%,-50%)';
+            });
+
+            // Ẩn overlay và dọn dẹp class hiệu ứng anime
+            if (overlay) {
+                overlay.style.opacity = '0';
+                setTimeout(() => { 
+                    overlay.style.display = 'none'; 
+                    overlay.classList.remove('pokemon-attack-bg'); 
+                }, 500);
+            }
         }
     },
 
@@ -155,7 +221,10 @@ window.SkillManager = {
 
         return new Promise(async (resolve) => {
             // Bật nền tối kỹ năng
-            this.toggleSkillScene(true, attackerSide, attackerIndex, info.type);
+            // Bật nền Arena 3D chỉ khi là skill thật sự
+            if (info.isSkill) {
+                this.toggleSkillScene(true, attackerSide, attackerIndex, info.type);
+            }
 
             // Đẩy các mục tiêu lên z-index cao để nổi trên nền đen
             aliveEnemies.forEach(idx => {
@@ -164,195 +233,189 @@ window.SkillManager = {
             });
 
             // --- 2. XỬ LÝ ĐÁNH THƯỜNG (Lao vào húc - Im lặng) ---
-            if (!info.isSkill) {
-                const targetIdx = aliveEnemies[0];
-                const target = document.getElementById(`${info.targetSide}-unit-${targetIdx}`);
+                // --- 2. XỬ LÝ ĐÁNH THƯỜNG (3 kiểu random) ---
+                if (!info.isSkill) {
+                    const targetIdx = aliveEnemies[0];
+                    const target = document.getElementById(`${info.targetSide}-unit-${targetIdx}`);
+                    const normalStyle = Math.floor(Math.random() * 3); // 0, 1, 2
 
-                if (attacker && target) {
-                    attacker.style.transition = "all 0.2s ease-in";
-                    const rectA = attacker.getBoundingClientRect();
-                    const rectT = target.getBoundingClientRect();
-                    const dist = (info.targetSide === 'enemy' ? 50 : -50);
+                    if (attacker && target) {
+                        const rectA = attacker.getBoundingClientRect();
+                        const rectT = target.getBoundingClientRect();
+                        const dx = rectT.left - rectA.left;
+                        const dy = rectT.top  - rectA.top;
+                        const dist = info.targetSide === 'enemy' ? 50 : -50;
 
-                    const aScale2 = attacker.dataset.scale || 1;
-                    const aFlip2  = attacker.dataset.flip  || 1;
-                    attacker.style.transform = `translate(calc(-50% + ${rectT.left - rectA.left - dist}px), calc(-50% + ${rectT.top - rectA.top}px))`;
+                        if (normalStyle === 0) {
+                            // --- KIỂU 1: Lao húc thẳng vào (như cũ) ---
+                            attacker.style.transition = "all 0.2s ease-in";
+                            attacker.style.transform = `translate(calc(-50% + ${dx - dist}px), calc(-50% + ${dy}px))`;
+                            await new Promise(r => setTimeout(r, 200));
+                            this.createDamageText(target, info.damage);
+                            target.classList.add('shake');
+                            attacker.style.transform = 'translate(-50%,-50%)';
+                            await new Promise(r => setTimeout(r, this.durationConfig.shake));
+                            target.classList.remove('shake');
 
-                    await new Promise(r => setTimeout(r, 200));
+                        } else if (normalStyle === 1) {
+                            // --- KIỂU 2: Tiến gần rồi đấm liên tục ---
+                            attacker.style.transition = "all 0.25s ease-in";
+                            attacker.style.transform = `translate(calc(-50% + ${dx * 0.6}px), calc(-50% + ${dy * 0.6}px))`;
+                            await new Promise(r => setTimeout(r, 250));
 
-                    // Không phát bất kỳ âm thanh nào ở đây theo ý sếp
-                    this.createDamageText(target, info.damage);
-                    target.classList.add('shake');
+                            // Đấm 3 cái liên tiếp
+                            for (let i = 0; i < 3; i++) {
+                                attacker.style.transition = "all 0.08s ease-in";
+                                attacker.style.transform = `translate(calc(-50% + ${dx * 0.6 + (dist > 0 ? 30 : -30)}px), calc(-50% + ${dy * 0.6}px))`;
+                                await new Promise(r => setTimeout(r, 80));
+                                attacker.style.transform = `translate(calc(-50% + ${dx * 0.6}px), calc(-50% + ${dy * 0.6}px))`;
+                                await new Promise(r => setTimeout(r, 80));
+                                if (i === 0) this.createDamageText(target, Math.floor(info.damage * 0.4));
+                                if (i === 1) this.createDamageText(target, Math.floor(info.damage * 0.3));
+                                if (i === 2) this.createDamageText(target, Math.floor(info.damage * 0.3));
+                                target.classList.add('shake');
+                                await new Promise(r => setTimeout(r, 100));
+                                target.classList.remove('shake');
+                                if (this.playRandomSfx) this.playRandomSfx();
+                            }
 
-                    const aScale3 = attacker.dataset.scale || 1;
-                    const aFlip3  = attacker.dataset.flip  || 1;
-                    attacker.style.transform = 'translate(-50%,-50%)';
-                    await new Promise(r => setTimeout(r, this.durationConfig.shake));
-                    target.classList.remove('shake');
-                }
-            } 
+                            // Rút về
+                            attacker.style.transition = "all 0.2s ease-out";
+                            attacker.style.transform = 'translate(-50%,-50%)';
+                            await new Promise(r => setTimeout(r, 200));
+
+                        } else {
+                            // --- KIỂU 3: Chạy vòng quanh đối thủ rồi tấn công ---
+                            const r1 = dist * 1.5;
+                            attacker.style.transition = "all 0.18s ease-in";
+
+                            // Điểm 1: lướt sang một bên
+                            attacker.style.transform = `translate(calc(-50% + ${dx + r1}px), calc(-50% + ${dy - 40}px))`;
+                            await new Promise(r => setTimeout(r, 180));
+
+                            // Điểm 2: vòng sang bên kia
+                            attacker.style.transition = "all 0.18s linear";
+                            attacker.style.transform = `translate(calc(-50% + ${dx - r1}px), calc(-50% + ${dy + 40}px))`;
+                            await new Promise(r => setTimeout(r, 180));
+
+                            // Điểm 3: đâm thẳng vào
+                            attacker.style.transition = "all 0.12s ease-in";
+                            attacker.style.transform = `translate(calc(-50% + ${dx - dist}px), calc(-50% + ${dy}px))`;
+                            await new Promise(r => setTimeout(r, 120));
+
+                            this.createDamageText(target, info.damage);
+                            target.classList.add('shake');
+                            if (this.playRandomSfx) this.playRandomSfx();
+
+                            // Bật về
+                            attacker.style.transition = "all 0.2s ease-out";
+                            attacker.style.transform = 'translate(-50%,-50%)';
+                            await new Promise(r => setTimeout(r, this.durationConfig.shake));
+                            target.classList.remove('shake');
+                        }
+                    }
+                } 
             // --- 3. XỬ LÝ SKILL (Có hiệu ứng & 1 tiếng SFX duy nhất) ---
             // --- 3. XỬ LÝ SKILL (Di chuyển ra điểm giữa sân rồi tung chiêu) ---
+            // --- XỬ LÝ SKILL CHUẨN HÓA THEO NHỊP ĐỘ MỚI ---
             else {
                 let countPerTarget = 1, sizeScale = 1;
-                // Lấy scale & flip gốc của attacker để dùng trong animation gồng
                 const pos = {
                     scale: parseFloat(attacker.dataset.scale) || 1,
                     flip:  parseFloat(attacker.dataset.flip)  || 1
                 };
+                // ====================================================================
+                // ĐOẠN CODE ĐÃ ĐƯỢC ĐIỀU CHỈNH CHỈ SỐ BUFF ĐỜI 1 (Thay cho đoạn cũ)
+                // ====================================================================
                 switch(info.gen) {
-                    case 1: countPerTarget = 1; break;
-                    case 2: countPerTarget = 2; sizeScale = 1.3; break;
-                    case 3: countPerTarget = 4; sizeScale = 1.8; break;
-                    case 'mega': case 4: countPerTarget = 8; sizeScale = 2.5; break;
+                    case 1: 
+                        countPerTarget = 4; // TĂNG TẦN SUẤT: Đời 1 giờ bắn hẳn 4 hạt/tia liên tục thay vì 1
+                        sizeScale = 1.6;    // TĂNG ĐỘ TO: Kích thước skill Đời 1 to gấp 1.6 lần mặc định
+                        break;          
+                    case 2: 
+                        countPerTarget = 5; // Tăng nhẹ Đời 2 để không bị Đời 1 đuổi kịp
+                        sizeScale = 1.8; 
+                        break;
+                    case 3: 
+                        countPerTarget = 6; 
+                        sizeScale = 2.2; 
+                        break;
+                    case 'mega': 
+                    case 4: 
+                        countPerTarget = 10; 
+                        sizeScale = 3.0; 
+                        break;
                 }
+                // ====================================================================
 
-                // ── BƯỚC 1: Tính toán điểm giữa sân (stage) ──
+                // 1. Pokémon di chuyển mượt mà ra giữa sân
+                // --- THAY THẾ ĐOẠN ĐIỀU HƯỚNG VÀ DI CHUYỂN CŨ BẰNG ĐOẠN NÀY ---
+
+                // 1. Lấy vị trí hiện tại của Pokémon để làm tâm gồng chiêu (Bỏ di chuyển ra giữa sân)
                 const arena = document.getElementById('battle-arena');
                 const rectArena = arena ? arena.getBoundingClientRect() : null;
                 const rectA = attacker.getBoundingClientRect();
 
-                // Điểm giữa sân = 50% ngang, 46% dọc (khớp với #arena-spotlight trong pkm_arena3d.js)
-                const stageCX = rectArena ? rectArena.left + rectArena.width  * 0.50 : window.innerWidth  * 0.50;
-                const stageCY = rectArena ? rectArena.top  + rectArena.height * 0.46 : window.innerHeight * 0.46;
+                // Tâm chiêu thức giờ sẽ xuất hiện ngay tại vị trí hiện tại của Pokémon đang đứng
+                const stageCX = rectA.left + rectA.width / 2;
+                const stageCY = rectA.top + rectA.height / 2;
 
-                // Offset để attacker đến đúng tâm stage
-                const moveX = stageCX - (rectA.left + rectA.width  / 2);
+                // TẮT CÁC DÒNG DI CHUYỂN RA GIỮA SÂN (Giữ nguyên vị trí ban đầu)
+                /* const moveX = stageCX - (rectA.left + rectA.width  / 2);
                 const moveY = stageCY - (rectA.top  + rectA.height / 2);
-
-                // ── BƯỚC 2: Pokemon lướt ra giữa sân ──
                 attacker.style.transition = 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
                 attacker.style.transform  = `translate(calc(-50% + ${moveX}px), calc(-50% + ${moveY}px))`;
-                attacker.style.zIndex     = '10001';
-                await new Promise(r => setTimeout(r, 380));
+                */
 
-                // ── BƯỚC 2.5: HIỆU ỨNG GỒNG ──
-                // Lấy màu theme nếu có (từ pkm_arena3d.js), fallback về vàng
-                const auraColor = (window.ArenaTheme && window.ArenaTheme.stage) ? window.ArenaTheme.stage : '#ffcb05';
-                const typeColor  = (this.systemConfig[info.type] || {}).color || auraColor;
+                // Giữ nguyên z-index cao để nổi bật khi gồng chiêu tại chỗ
+                attacker.style.zIndex     = '10001'; 
+                await new Promise(r => setTimeout(r, 100)); // Giảm thời gian chờ lướt đi vô ích xuống còn 100ms cho mượt
 
-                // Tạo div hào quang xoay quanh người
+                // 2. PHASE GỒNG CHIÊU (Thời gian chạy chạy khép kín bằng durationConfig.chargeAura)
+                const typeColor = (this.systemConfig[info.type] || {}).color || '#ffcb05';
                 const auraEl = document.createElement('div');
-                auraEl.style.cssText = `
-                    position: fixed;
-                    left: ${stageCX}px;
-                    top:  ${stageCY}px;
-                    width: 0; height: 0;
-                    pointer-events: none;
-                    z-index: 10002;
-                `;
-                // Vòng 1: hào quang ngoài xoay chậm
+                auraEl.style.cssText = `position: fixed; left: ${stageCX}px; top: ${stageCY}px; width: 0; height: 0; pointer-events: none; z-index: 10002;`;
+
                 const ring1 = document.createElement('div');
-                ring1.style.cssText = `
-                    position:absolute;
-                    width:110px; height:110px;
-                    border-radius:50%;
-                    border: 3px solid ${typeColor};
-                    box-shadow: 0 0 18px ${typeColor}, inset 0 0 18px ${typeColor}44;
-                    transform: translate(-50%,-50%) scale(0.3);
-                    opacity:0;
-                    transition: transform 0.25s ease-out, opacity 0.2s;
-                `;
-                // Vòng 2: hào quang trong xoay nhanh hơn
-                const ring2 = document.createElement('div');
-                ring2.style.cssText = `
-                    position:absolute;
-                    width:75px; height:75px;
-                    border-radius:50%;
-                    border: 2px dashed ${auraColor};
-                    box-shadow: 0 0 12px ${auraColor};
-                    transform: translate(-50%,-50%) scale(0.3);
-                    opacity:0;
-                    transition: transform 0.2s ease-out, opacity 0.15s;
-                `;
+                ring1.style.cssText = `position:absolute; width:110px; height:110px; border-radius:50%; border: 3px solid ${typeColor}; box-shadow: 0 0 18px ${typeColor}; transform: translate(-50%,-50%) scale(0.3); opacity:0; transition: transform 0.25s ease-out, opacity 0.2s;`;
                 auraEl.appendChild(ring1);
-                auraEl.appendChild(ring2);
                 document.body.appendChild(auraEl);
 
-                // Hiện vòng hào quang
-                requestAnimationFrame(() => {
-                    ring1.style.transform = 'translate(-50%,-50%) scale(1)';
-                    ring1.style.opacity   = '1';
-                    ring2.style.transform = 'translate(-50%,-50%) scale(1)';
-                    ring2.style.opacity   = '1';
-                });
+                requestAnimationFrame(() => { ring1.style.transform = 'translate(-50%,-50%) scale(1)'; ring1.style.opacity = '1'; });
 
-                // Xoay liên tục trong khi gồng
-                let ringAngle1 = 0, ringAngle2 = 0;
-                const spinId = setInterval(() => {
-                    ringAngle1 += 3;
-                    ringAngle2 -= 5;
-                    ring1.style.transform = `translate(-50%,-50%) scale(1) rotate(${ringAngle1}deg)`;
-                    ring2.style.transform = `translate(-50%,-50%) scale(1) rotate(${ringAngle2}deg)`;
-                }, 16);
-
-                // Thêm particles tia sáng bắn ra trong khi gồng
-                const chargeParticles = [];
-                for (let i = 0; i < 8; i++) {
-                    setTimeout(() => {
-                        const p = document.createElement('div');
-                        const angle = Math.random() * Math.PI * 2;
-                        const dist  = 40 + Math.random() * 30;
-                        p.style.cssText = `
-                            position:fixed;
-                            left:${stageCX}px; top:${stageCY}px;
-                            width:6px; height:6px;
-                            border-radius:50%;
-                            background:${typeColor};
-                            box-shadow: 0 0 8px ${typeColor};
-                            pointer-events:none; z-index:10003;
-                            opacity:0.9;
-                        `;
-                        document.body.appendChild(p);
-                        chargeParticles.push(p);
-                        p.animate([
-                            { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.9 },
-                            { transform: `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px)) scale(0)`, opacity: 0 }
-                        ], { duration: 500, easing: 'ease-out' }).onfinish = () => p.remove();
-                    }, i * 80);
-                }
-
-                // GỒNG: nhỏ lại → nở ra theo nhịp
-                attacker.style.transition = 'none';
-
-                // Thu nhỏ (nín thở)
+                // Hiệu ứng co giãn cơ thể Pokémon theo thời gian gồng chiêu
+                attacker.style.transition = `transform ${(this.durationConfig.chargeAura / 2) / 1000}s ease-in-out`;
                 const imgWrapper = attacker.querySelector('div');
                 if (imgWrapper) {
-                    imgWrapper.style.transition = 'transform 0.2s ease-in';
-                    imgWrapper.style.transform  = `scale(${pos.scale * 0.6}) scaleX(${pos.flip})`;
+                    imgWrapper.style.transition = `transform ${(this.durationConfig.chargeAura / 2) / 1000}s ease-in`;
+                    imgWrapper.style.transform  = `scale(${pos.scale * 0.7}) scaleX(${pos.flip})`; // Thu nhỏ nén khí
                 }
-                await new Promise(r => setTimeout(r, 220));
 
-                // Nở ra mạnh hơn bình thường (nhún người)
+                await new Promise(r => setTimeout(r, this.durationConfig.chargeAura / 2));
+
                 if (imgWrapper) {
-                    imgWrapper.style.transition = 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)';
-                    imgWrapper.style.transform  = `scale(${pos.scale * 1.25}) scaleX(${pos.flip})`;
+                    imgWrapper.style.transition = `transform ${(this.durationConfig.chargeAura / 2) / 1000}s cubic-bezier(0.34,1.56,0.64,1)`;
+                    imgWrapper.style.transform  = `scale(${pos.scale * 1.2}) scaleX(${pos.flip})`; // Nở mạnh giải phóng chiêu
                 }
-                await new Promise(r => setTimeout(r, 160));
 
-                // Về đúng kích cỡ thường
-                if (imgWrapper) {
-                    imgWrapper.style.transition = 'transform 0.12s ease-out';
-                    imgWrapper.style.transform  = `scale(${pos.scale}) scaleX(${pos.flip})`;
-                }
-                await new Promise(r => setTimeout(r, 130));
+                await new Promise(r => setTimeout(r, this.durationConfig.chargeAura / 2));
 
-                // Dừng xoay, xóa hào quang
-                clearInterval(spinId);
+                // Reset wrapper Pokémon về trạng thái gốc
+                if (imgWrapper) { imgWrapper.style.transform = `scale(${pos.scale}) scaleX(${pos.flip})`; }
                 ring1.style.opacity = '0';
-                ring2.style.opacity = '0';
                 setTimeout(() => auraEl.remove(), 300);
 
-                // ── BƯỚC 3: Tung chiêu tại điểm giữa ──
-                setTimeout(() => this.playRandomSfx(), 400);
-
+                // 3. TUNG CHIÊU + DI CHUYỂN ĐẾN ĐỊCH + ĐỊCH DÍNH CHƯỞNG
+                if (this.playRandomSfx) this.playRandomSfx();
                 const effectData = this.systemConfig[info.type] || this.systemConfig['normal'];
+
+                // Kích hoạt chuỗi và ĐỢI cho đến khi toàn bộ mục tiêu hoàn thành xong hành trình dính đòn
                 const allAnimations = aliveEnemies.map(targetIdx =>
                     this.triggerMultiEffect(attacker, targetIdx, info.targetSide, countPerTarget, effectData, sizeScale, info.type, info.damage)
                 );
                 await Promise.all(allAnimations);
 
-                // ── BƯỚC 4: Pokemon lướt về vị trí gốc ──
+                // 4. THU QUÂN: Pokémon lướt về vị trí cũ trên map
                 attacker.style.transition = 'transform 0.3s ease-out';
                 attacker.style.transform  = 'translate(-50%,-50%)';
                 await new Promise(r => setTimeout(r, 320));
@@ -361,8 +424,9 @@ window.SkillManager = {
             }
 
             // Kết thúc: Ẩn nền đen và kết thúc lượt
+            // Kết thúc: Ẩn nền Arena 3D và kết thúc lượt
             setTimeout(() => { 
-                this.toggleSkillScene(false); 
+                if (info.isSkill) this.toggleSkillScene(false); 
                 resolve(); 
             }, this.durationConfig.sceneTransition);
         });
@@ -372,30 +436,50 @@ window.SkillManager = {
         const target = document.getElementById(`${targetSide}-unit-${targetIdx}`);
         if (!target) return;
 
-        // 1. Khởi tạo hiệu ứng hệ trước (ví dụ: bão lá, nứt đất bắt đầu diễn ra)
-        const methodName = `spawn${type.charAt(0).toUpperCase() + type.slice(1)}`;
-        const action = typeof this[methodName] === 'function' ? this[methodName] : this.spawnDefault;
+        // 1. Sinh tên hàm cơ sở (Ví dụ: 'spawnElectric', 'spawnFire')
+        const baseMethodName = `spawn${type.charAt(0).toUpperCase() + type.slice(1)}`;
 
-        // Chạy hiệu ứng animation
-        const animationPromise = action.call(this, attacker, target, count, sizeScale, effectData);
+        // 2. Thuật toán Random chia đều tỷ lệ cho tối đa 3 chiêu (Không số, số 2, số 3)
+        const rand = Math.random();
+        let methodName = baseMethodName; 
 
-        // 2. Đợi một khoảng trễ nhỏ (tùy chiêu) hoặc đợi va chạm rồi mới RUNG và hiện SÁT THƯƠNG
-        // Ở đây mình đợi khoảng 400ms - 600ms để effect kịp bay tới mục tiêu
-        await new Promise(r => setTimeout(r, 500)); 
+        if (rand < 0.33) {
+            methodName = baseMethodName;       // Chiêu 1: Ví dụ spawnElectric
+        } else if (rand < 0.66) {
+            methodName = `${baseMethodName}2`;  // Chiêu 2: Ví dụ spawnElectric2
+        } else {
+            methodName = `${baseMethodName}3`;  // Chiêu 3: Ví dụ spawnElectric3
+        }
 
-        // --- ĐƯA RUNG VÀO ĐÂY ĐỂ CẢM GIÁC VA CHẠM LÚC CUỐI ---
+        // 3. Kiểm tra an toàn: Nếu chưa viết chiêu 2 hoặc 3, tự động fallback về chiêu 1
+        let action = typeof this[methodName] === 'function' ? this[methodName] : this[baseMethodName];
+
+        // Nếu ngay cả chiêu 1 hệ đó cũng chưa viết, dùng spawnDefault hệ thống
+        if (typeof action !== 'function') {
+            action = this.spawnDefault;
+        }
+
+        // ==========================================
+        // GIAI ĐOẠN A: CHIÊU DI CHUYỂN ĐẾN ĐỊCH
+        // ==========================================
+        // Chạy hàm chiêu thức đã chọn (Hàm này sẽ chạy trong khoảng thời gian durationConfig.projectileFly)
+        await action.call(this, attacker, target, count, sizeScale, effectData);
+
+        // GIAI ĐOẠN B: VA CHẠM → KÍCH HOẠT HIỆU ỨNG CSS THEO HỆ
+        // ==========================================
         this.applyGlobalShake(sizeScale);
         this.createDamageText(target, damage);
 
-        // 3. Đợi toàn bộ quá trình kết thúc
-        await Promise.all([
-            animationPromise,
-            new Promise(r => setTimeout(r, 1500)) 
-        ]);
+        // 1. CHUYỂN TỪ SHAKE SANG HIỆU ỨNG HỆ (CSS)
+        // Thay vì chỉ add 'shake', ta thêm class hệ: 'sustain-electric', 'sustain-fire',...
+        const sustainClass = `sustain-${type}`;
+        target.classList.add('shake', sustainClass);
 
-        // 4. Rung riêng của Pokemon (CSS shake)
-        target.classList.add('shake');
-        setTimeout(() => target.classList.remove('shake'), this.durationConfig.shake);
+        // 2. GIỮ NGUYÊN THỜI GIAN ĐỢI THEO CONFIG
+        await new Promise(r => setTimeout(r, this.durationConfig.targetSustain));
+
+        // 3. XÓA BỎ CẢ HIỆU ỨNG CSS VÀ LẮC LƯ SAU KHI XONG
+        target.classList.remove('shake', sustainClass);
     },
 
 
@@ -403,29 +487,209 @@ window.SkillManager = {
 
     // --- CÁC HÀM SPAWN GIỮ NGUYÊN NHƯ FILE CŨ CỦA BẠN ---
     async spawnElectric(startEl, endEl, count, scale) {
-        const duration = 2000; 
-        const numBolts = Math.max(2, count / 2);
+        // Sử dụng projectileFly từ config
+        const duration = this.durationConfig.projectileFly;
+        const numBolts = Math.max(4, count * 2); 
         const interval = duration / numBolts;
 
-        for (let i = 0; i < numBolts; i++) {
-            setTimeout(() => {
-                const rectS = startEl.getBoundingClientRect();
-                const rectE = endEl.getBoundingClientRect();
-                let curX = rectS.left + rectS.width / 2, curY = rectS.top + rectS.height / 2;
-                const endX = rectE.left + rectE.width / 2, endY = rectE.top + rectE.height / 2;
-                const segments = 5;
-                for (let j = 1; j <= segments; j++) {
-                    const nextX = curX + (endX - curX) * (1 / (segments - j + 1)) + (Math.random() - 0.5) * 40;
-                    const nextY = curY + (endY - curY) * (1 / (segments - j + 1)) + (Math.random() - 0.5) * 40;
-                    const dx = nextX - curX, dy = nextY - curY, dist = Math.sqrt(dx * dx + dy * dy);
-                    const bolt = document.createElement('div');
-                    bolt.className = 'pkm-particle particle-electric';
-                    bolt.style.cssText = `left:${curX}px; top:${curY}px; width:${dist}px; height:${3 * scale}px; transform:rotate(${Math.atan2(dy, dx)*180/Math.PI}deg); transform-origin:0 50%;`;
-                    document.body.appendChild(bolt);
-                    setTimeout(() => bolt.remove(), this.durationConfig.electricBolt);
-                    curX = nextX; curY = nextY;
-                }
-            }, i * interval);
+        return new Promise((resolve) => {
+            for (let i = 0; i < numBolts; i++) {
+                setTimeout(() => {
+                    const rectS = startEl.getBoundingClientRect();
+                    const rectE = endEl.getBoundingClientRect();
+
+                    let curX = rectS.left + rectS.width / 2;
+                    let curY = rectS.top + rectS.height / 2;
+                    const endX = rectE.left + rectE.width / 2;
+                    const endY = rectE.top + rectE.height / 2;
+
+                    const segments = 12; 
+                    for (let j = 1; j <= segments; j++) {
+                        const noise = (Math.random() - 0.5) * 60; 
+                        const nextX = curX + (endX - curX) * (1 / (segments - j + 1)) + noise;
+                        const nextY = curY + (endY - curY) * (1 / (segments - j + 1)) + (Math.random() - 0.5) * 30;
+
+                        const dx = nextX - curX;
+                        const dy = nextY - curY;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+
+                        const bolt = document.createElement('div');
+                        bolt.className = 'pkm-particle particle-electric';
+
+                        const boltHeight = (2 + Math.random() * 2) * scale;
+                        bolt.style.cssText = `
+                            position: fixed; left: ${curX}px; top: ${curY}px;
+                            width: ${dist}px; height: ${boltHeight}px;
+                            background: rgba(255, 255, 255, 0.9);
+                            transform: rotate(${Math.atan2(dy, dx) * 180 / Math.PI}deg);
+                            transform-origin: 0 50%;
+                            box-shadow: 0 0 ${4 * scale}px #fff, 0 0 ${8 * scale}px #f1c40f;
+                            z-index: 9999; pointer-events: none;
+                        `;
+
+                        document.body.appendChild(bolt);
+                        setTimeout(() => bolt.remove(), 100);
+
+                        curX = nextX;
+                        curY = nextY;
+                    }
+                }, i * interval);
+            }
+            setTimeout(resolve, duration);
+        });
+    },
+    async spawnElectric2(startEl, endEl, count, scale) {
+        const rectS = startEl.getBoundingClientRect();
+        const rectE = endEl.getBoundingClientRect();
+
+        const orb = document.createElement('div');
+        orb.style.cssText = `
+            position: fixed;
+            left: ${rectS.left + rectS.width/2}px; top: ${rectS.top + rectS.height/2}px;
+            width: ${20 * scale}px; height: ${20 * scale}px;
+            background: #fff; border-radius: 50%;
+            box-shadow: 0 0 10px #fff, 0 0 20px #f1c40f, 0 0 40px #f1c40f;
+            z-index: 9999; pointer-events: none;
+        `;
+        document.body.appendChild(orb);
+
+        await orb.animate([
+            { transform: 'scale(1)', opacity: 1 },
+            { transform: 'scale(2.5)', opacity: 0.8 },
+            { transform: 'scale(0.8)', opacity: 1 }
+        ], { duration: this.durationConfig.chargeAura, easing: 'ease-in-out' }).finished;
+
+        orb.style.background = 'radial-gradient(circle, #fff 20%, #f1c40f 50%, #2980b9 100%)';
+        orb.style.border = `2px solid #fff`;
+        orb.style.width = `${40 * scale}px`;
+        orb.style.height = `${40 * scale}px`;
+        orb.style.boxShadow = `0 0 20px #f1c40f, inset 0 0 15px #fff`;
+
+        for(let i=0; i<4; i++) {
+            const spark = document.createElement('div');
+            spark.style.cssText = `position: absolute; width: 4px; height: 10px; background: #fff; border-radius: 2px;`;
+            orb.appendChild(spark);
+        }
+
+        await orb.animate([
+            { left: `${rectS.left + rectS.width/2}px`, top: `${rectS.top + rectS.height/2}px` },
+            { left: `${rectE.left + rectE.width/2}px`, top: `${rectE.top + rectE.height/2}px` }
+        ], { duration: this.durationConfig.projectileFly, easing: 'linear' }).finished;
+
+        orb.remove();
+
+        // SỬA LỖI: Gọi trực tiếp qua window.SkillManager để đảm bảo scope
+        if (typeof window.SkillManager !== 'undefined') {
+            window.SkillManager.createElectricBurst(rectE.left + rectE.width/2, rectE.top + rectE.height/2, scale);
+        } else {
+            this.createElectricBurst(rectE.left + rectE.width/2, rectE.top + rectE.height/2, scale);
+        }
+    },
+
+    createElectricBurst(x, y, scale) {
+        for(let i=0; i<8; i++) {
+            const burst = document.createElement('div');
+            const angle = (i / 8) * 360;
+            burst.style.cssText = `
+                position: fixed; left: ${x}px; top: ${y}px;
+                width: ${30 * scale}px; height: 2px; background: #f1c40f;
+                transform: rotate(${angle}deg); transform-origin: 0 50%;
+                z-index: 9999; pointer-events: none;
+            `;
+            document.body.appendChild(burst);
+            burst.animate([{ opacity: 1, width: '0px' }, { opacity: 0, width: `${50 * scale}px` }], 300)
+                 .onfinish = () => burst.remove();
+        }
+    },
+    //skill lửa 3 bão điện
+    async spawnElectric3(startEl, endEl, count, scale) {
+        const rectE = endEl.getBoundingClientRect();
+        const centerX = rectE.left + rectE.width / 2;
+        const cloudY = rectE.top - 80 * scale;
+
+        // 1. TẠO ĐÁM MÂY (Giai đoạn Gồng - Prep Phase)
+        const cloud = document.createElement('div');
+        cloud.style.cssText = `
+            position: fixed; left: ${centerX - 100 * scale}px; top: ${cloudY}px;
+            width: ${200 * scale}px; height: ${100 * scale}px;
+            background: radial-gradient(ellipse at center, #34495e 20%, #1c2833 70%, transparent 100%);
+            border-radius: 50%; opacity: 0; z-index: 9998;
+            filter: blur(10px); transition: opacity 0.6s ease-in, transform 0.6s ease-out;
+            transform: scale(0.5);
+        `;
+        document.body.appendChild(cloud);
+
+        // Hiệu ứng mây tụ to dần
+        requestAnimationFrame(() => { 
+            cloud.style.opacity = '0.9';
+            cloud.style.transform = 'scale(1)'; 
+        });
+
+        // Giai đoạn Gồng (Charge)
+        await new Promise(r => setTimeout(r, this.durationConfig.chargeAura));
+
+        // 2. GIỮ CHIÊU & GIÁNG SÉT (Sustain & Strike Phase)
+        // Bật hiệu ứng tia tĩnh điện quanh mây trong lúc giữ chiêu
+        const sparkInterval = setInterval(() => {
+            const spark = document.createElement('div');
+            spark.style.cssText = `
+                position: fixed; left: ${centerX + (Math.random()-0.5)*150*scale}px; 
+                top: ${cloudY + (Math.random())*50*scale}px;
+                width: ${2*scale}px; height: ${2*scale}px; background: #fff;
+                box-shadow: 0 0 5px #f1c40f; z-index: 9999;
+            `;
+            document.body.appendChild(spark);
+            setTimeout(() => spark.remove(), 80);
+        }, 50);
+
+        // Chạy loop bắn sét trong suốt thời gian targetSustain
+        const strikeLoop = setInterval(() => {
+            window.SkillManager.createZigzagBolt(
+                centerX + (Math.random()-0.5)*120*scale, cloudY + 50*scale, 
+                centerX + (Math.random()-0.5)*80*scale, rectE.top + rectE.height/2, 
+                scale
+            );
+        }, this.durationConfig.delayBetween);
+
+        // Đợi hết thời gian giữ chiêu
+        await new Promise(r => setTimeout(r, this.durationConfig.targetSustain));
+
+        // 3. KẾT THÚC (Tan đám mây)
+        clearInterval(sparkInterval);
+        clearInterval(strikeLoop);
+        cloud.style.opacity = '0';
+        cloud.style.transform = 'scale(0.5)';
+        setTimeout(() => cloud.remove(), 600);
+    },
+
+    createZigzagBolt(x1, y1, x2, y2, scale) {
+        const segments = 10;
+        let curX = x1, curY = y1;
+
+        for (let i = 1; i <= segments; i++) {
+            const targetX = x1 + (x2 - x1) * (i / segments);
+            const targetY = y1 + (y2 - y1) * (i / segments);
+
+            const noise = (Math.random() - 0.5) * 70 * scale;
+            const nextX = i < segments ? targetX + noise : x2;
+            const nextY = targetY;
+
+            const dist = Math.sqrt((nextX - curX)**2 + (nextY - curY)**2);
+
+            const bolt = document.createElement('div');
+            bolt.style.cssText = `
+                position: fixed; left: ${curX}px; top: ${curY}px;
+                width: ${dist}px; height: ${1.5 * scale}px; 
+                background: #fff;
+                transform: rotate(${Math.atan2(nextY - curY, nextX - curX) * 180 / Math.PI}deg);
+                transform-origin: 0 50%;
+                box-shadow: 0 0 8px #fff, 0 0 15px #f1c40f;
+                z-index: 9999; pointer-events: none;
+            `;
+            document.body.appendChild(bolt);
+            setTimeout(() => bolt.remove(), 120);
+
+            curX = nextX; curY = nextY;
         }
     },
 
@@ -1901,11 +2165,5 @@ window.SkillManager = {
 
     createDamageText(targetEl, damage) { this.showStatusText(targetEl, `-${damage}`, '#ff4757'); },
     calcAngle(s, e) { return Math.atan2(e.top - s.top, e.left - s.left) * 180 / Math.PI + 90; },
-    toggleSkillScene(isActive, side, index) {
-        document.body.classList.toggle('skill-mode', isActive);
-        document.querySelectorAll('.pkm-unit').forEach(unit => {
-            const isActiveUnit = unit.id === `${side}-unit-${index}` || unit.id.includes(side === 'player' ? 'enemy' : 'player');
-            unit.style.opacity = isActive && !isActiveUnit ? '0.1' : '1';
-        });
-    }
+    
 };
