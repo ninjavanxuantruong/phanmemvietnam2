@@ -121,8 +121,7 @@ window.BattleGame = {
                     bonusHP += b;
                 } else if (type === 'cloak' || type === 'belt') {
                     bonusSAtk += b;
-                } else if (type === 'cloak' || type === 'belt') {
-                    bonusSAtk += b;
+                
                 }
             });
 
