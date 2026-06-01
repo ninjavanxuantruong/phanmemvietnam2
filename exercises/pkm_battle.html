@@ -37,42 +37,113 @@
             pointer-events: none;
         }
 
-        /* --- QUIZ OVERLAY --- */
-        /* --- QUIZ OVERLAY --- */
-        #quiz-overlay {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            /* Giữ màu nền tối nhẹ để nổi bật câu hỏi, nhưng xóa blur */
-            background-color: rgba(0, 0, 0, 0.6); 
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            /* Xóa bỏ dòng backdrop-filter: blur(2px) cũ ở đây */
-        }
-        .quiz-card {
-            background: white;
-            color: #333;
-            width: 90%;          /* Chỉnh lại độ rộng cho mobile */
-            max-width: 400px;
-            padding: 25px;
-            border-radius: 15px;
-            text-align: center;
-            border: 4px solid #ffcb05;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5); /* Thêm bóng đổ để tách biệt với nền */
+        /* ===== LAYOUT CHIA ĐÔI: BATTLEFIELD + QUIZ ZONE ===== */
+
+        /* Reset body/html để không bị scroll ngoài */
+        html, body {
+            height: 100%;
+            overflow: hidden;
         }
 
-        .quiz-question { font-size: 22px; font-weight: bold; margin-bottom: 20px; }
-        .options-grid { display: grid; gap: 10px; }
+        /* game-viewport là flex container bọc 2 vùng */
+        .game-viewport {
+            display: flex;
+            flex-direction: column;
+            height: 100dvh;          /* ← dvh thay vh, tự trừ thanh browser */
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        #battle-arena {
+            flex: 0 0 67dvh;         /* ← dvh cho nhất quán */
+            overflow: hidden;
+            position: relative;
+        }
+
+        #quiz-overlay {
+            flex: 1;
+            min-height: 0;
+            position: relative !important;
+            top: auto !important;
+            left: auto !important;
+            width: 100% !important;
+            height: auto !important;
+            background: #0d0d1a;
+            border-top: 3px solid #ffcb05;
+            display: flex !important;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;   /* ← thêm dòng này cho iOS */
+            z-index: 10 !important;
+            padding: 8px 6px 40px;              /* ← padding-bottom 40px để nút không bị che */
+            box-sizing: border-box;
+        }
+
+        /* PC: battlefield trái 62%, quiz phải 38% */
+        @media (min-width: 768px) {
+            .game-viewport {
+                flex-direction: row;   /* PC: trái/phải */
+            }
+            #battle-arena {
+                flex: 0 0 62vw;
+                height: 100vh;
+            }
+            #quiz-overlay {
+                flex: 1;
+                height: 100vh !important;
+                border-top: none;
+                border-left: 3px solid #ffcb05;
+                padding: 20px 12px;
+                align-items: center;
+                justify-content: flex-start;
+            }
+        }
+
+        /* --- QUIZ CARD: trong suốt, không có box trắng nữa --- */
+        .quiz-card {
+            background: transparent;
+            color: #fff;
+            width: 100%;
+            max-width: 100%;
+            padding: 6px 8px;
+            border-radius: 0;
+            text-align: center;
+            border: none;
+            box-shadow: none;
+        }
+
+        .quiz-question {
+            font-size: 17px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #fff;
+            line-height: 1.4;
+        }
+
+        .options-grid {
+            display: grid;
+            gap: 8px;
+            width: 100%;
+        }
+
         .option-btn {
-            background: #f8f9fa;
-            border: 2px solid #ddd;
-            padding: 12px;
+            background: #1e1e35;
+            border: 2px solid #3a3a5c;
+            color: #fff;
+            padding: 10px 12px;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
             cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            text-align: left;
+        }
+
+        .option-btn:active {
+            background: #2a2a50;
         }
 
         /* --- ✅ VICTORY OVERLAY --- */
@@ -190,8 +261,9 @@
             background: radial-gradient(circle, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.9) 100%);
         }
 
-        #quiz-overlay, #victory-overlay {
-            z-index: 1000 !important; 
+        /* victory-overlay vẫn cần z-index cao để che hết */
+        #victory-overlay {
+            z-index: 99999 !important;
         }
         /* --- QUIZ STATS FLOATING STYLES --- */
         
@@ -201,31 +273,28 @@
 </head>
 <body>
     <div class="game-viewport">
-        
-
         <main id="battle-arena" class="battle-arena">
-            <div id="player-team-container"></div>  <!-- SẼ TỰ ĐỘNG CÓ CLASS "player-side" TỪ JS -->
-            <div id="enemy-team-container"></div>   <!-- SẼ TỰ ĐỘNG CÓ CLASS "enemy-side" TỪ JS -->
+            <div id="player-team-container"></div>
+            <div id="enemy-team-container"></div>
             <div id="battle-log"></div>
             <div id="turn-display"></div>
-            
         </main>
 
-        
+        <!-- QUIZ ZONE: vùng độc lập, không che battlefield -->
+        <div id="quiz-overlay">
+            <div class="quiz-card">
+                <div class="quiz-question" id="quiz-word">
+                    <div style="color:#555; font-size:13px; margin-top:20px;">⏳ Đang chuẩn bị trận đấu...</div>
+                </div>
+                <div class="options-grid" id="quiz-options"></div>
+            </div>
+        </div>
     </div>
+
     <div id="skill-scene-overlay"></div>
     <div id="quiz-stats" style="position: fixed !important; top: 15px !important; right: 15px !important; bottom: auto !important; left: auto !important; z-index: 9999 !important;">
         ✅ 0 &nbsp; ❌ 0 &nbsp; 📊 0 câu
     </div>
-
-    <!-- QUIZ OVERLAY -->
-    <div id="quiz-overlay">
-        <div class="quiz-card">
-            <div class="quiz-question" id="quiz-word">Question?</div>
-            <div class="options-grid" id="quiz-options"></div>
-        </div>
-    </div>
-    
 
     <!-- ✅ VICTORY OVERLAY -->
     <div id="victory-overlay">
@@ -241,13 +310,53 @@
     </div>
 
     <script src="global-config.js"></script>
+    <script src="tacham.js"></script>
     <script src="pkm_skill.js"></script>
-
     <script src="pkm_styles.js"></script>
     <script src="pkm_vocabulary.js"></script>
+
+    <!-- 
+        OVERRIDE: quiz-overlay giờ là vùng cố định, không phải popup.
+        Chặn các lệnh display:none từ pkm_quiz.js để quiz zone luôn hiển thị.
+    -->
+    <script>
+        // Chạy sau khi DOM ready, trước khi pkm_quiz.js init
+        document.addEventListener('DOMContentLoaded', () => {
+            const overlay = document.getElementById('quiz-overlay');
+            if (!overlay) return;
+
+            // Override style.display bằng getter/setter
+            // Mọi chỗ trong pkm_quiz.js set display="none" sẽ bị bắt và bỏ qua
+            let _display = 'flex';
+            Object.defineProperty(overlay.style, 'display', {
+                get() { return _display; },
+                set(val) {
+                    // Chỉ cho phép 'flex', block 'none'
+                    if (val === 'none') return; 
+                    _display = val;
+                    // Không set thật vì CSS đã lo (position:relative + flex:1)
+                },
+                configurable: true
+            });
+
+            // Tương tự cho backgroundColor và backdropFilter 
+            // (pkm_quiz.js hay set transparent, không ảnh hưởng nhưng để sạch)
+            Object.defineProperty(overlay.style, 'backgroundColor', {
+                get() { return ''; },
+                set(val) { /* bỏ qua */ },
+                configurable: true
+            });
+            Object.defineProperty(overlay.style, 'backdropFilter', {
+                get() { return 'none'; },
+                set(val) { /* bỏ qua */ },
+                configurable: true
+            });
+        });
+    </script>
 
     <script type="module" src="pkm_quiz.js"></script>
     <script src="pkm_arena3d.js"></script>
     <script src="pkm_battle.js"></script>
+    
 </body>
 </html>
