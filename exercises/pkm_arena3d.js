@@ -195,27 +195,46 @@ window.ArenaBuilder = (function () {
     }
 
     // ── MAIN: gọi khi DOM ready ──
+    // ── DANH SÁCH ẢNH BACKGROUND THẬT ──
+    const BG_IMAGES = Array.from({length: 8}, (_, i) =>
+        `https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/pm%20(${i+1}).jpg`
+    );
+
+    // ── MAIN: gọi khi DOM ready ──
     function build() {
         const arena = document.getElementById('battle-arena');
         if (!arena) return;
 
         const t = getTheme();
 
-        // 1. Set màu nền body/arena theo theme
-        arena.style.background = `linear-gradient(180deg, ${t.bg1} 0%, ${t.bg2} 100%)`;
-        document.body.style.background = t.bg1;
+        // 1. Set ảnh thật làm background bình thường (random 1 trong 8 ảnh pm)
+        const storedBg = sessionStorage.getItem('pkm_arena_bg_idx');
+        const bgIdx = storedBg !== null ? parseInt(storedBg) : Math.floor(Math.random() * BG_IMAGES.length);
+        sessionStorage.setItem('pkm_arena_bg_idx', bgIdx);
+        const bgUrl = BG_IMAGES[bgIdx];
 
-        // 2. Inject SVG sân đấu
-        arena.insertAdjacentHTML('afterbegin', buildArenaSVG(t));
+        arena.style.backgroundImage = `url('${bgUrl}')`;
+        arena.style.backgroundSize  = 'cover';
+        arena.style.backgroundPosition = 'center';
+        document.body.style.background = '#000';
 
-        // 3. Spotlight div
-        arena.insertBefore(buildSpotlight(t), arena.firstChild.nextSibling);
-
-        // 4. Particles
-        spawnParticles(arena, t);
-
-        // Expose theme màu cho các module khác dùng
+        // Lưu bgUrl để toggleSkillScene dùng
+        window.ArenaBgUrl = bgUrl;
         window.ArenaTheme = t;
+
+        // 2. Inject SVG sân đấu (ẩn bình thường, chỉ hiện khi ra chiêu)
+        arena.insertAdjacentHTML('afterbegin', buildArenaSVG(t));
+        const svgBg = document.getElementById('arena-svg-bg');
+        if (svgBg) svgBg.style.display = 'none';
+
+        // 3. Spotlight (ẩn bình thường)
+        const spotlight = buildSpotlight(t);
+        spotlight.style.display = 'none';
+        arena.insertBefore(spotlight, arena.firstChild.nextSibling);
+
+        // 4. Particles (ẩn bình thường)
+        spawnParticles(arena, t);
+        arena.querySelectorAll('.arena-particle').forEach(p => p.style.display = 'none');
     }
 
     // Tự chạy sau khi DOM load
@@ -225,5 +244,5 @@ window.ArenaBuilder = (function () {
         build();
     }
 
-    return { build, getTheme };
+    return { build, getTheme, BG_IMAGES };
 })();
