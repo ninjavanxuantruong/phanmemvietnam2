@@ -164,8 +164,7 @@ window.QuizManager = {
 
     async refreshTaskQueue() {
         let tasks = [
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-            20,
+            11, 19,
         ];
         const micOk = await this.isMicrophoneAvailable();
         if (!micOk) tasks = tasks.filter((t) => t !== 6);
@@ -2493,7 +2492,7 @@ window.QuizManager = {
                 div.innerText = item.q;
                 div.dataset.id = item.id;
                 div.style =
-                    "background:#fff; padding:10px; border-radius:8px; cursor:pointer; border:2px solid #ccc; font-size:13px; text-align:center; min-height:50px; display:flex; align-items:center; justify-content:center; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); transition: 0.3s;";
+                    "background:#fff; color:#000; padding:10px; border-radius:8px; cursor:pointer; border:2px solid #ccc; font-size:13px; text-align:center; min-height:50px; display:flex; align-items:center; justify-content:center; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); transition: 0.3s;";
                 div.onclick = function () {
                     if (this.dataset.matched === "true") return;
                     colQ.querySelectorAll(".q-node").forEach((n) => {
@@ -2516,7 +2515,7 @@ window.QuizManager = {
                 div.innerText = item.a;
                 div.dataset.id = item.id;
                 div.style =
-                    "background:#fff; padding:10px; border-radius:8px; cursor:pointer; border:2px solid #ccc; font-size:13px; text-align:center; min-height:50px; display:flex; align-items:center; justify-content:center; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); transition: 0.3s;";
+                    "background:#fff; color:#000; padding:10px; border-radius:8px; cursor:pointer; border:2px solid #ccc; font-size:13px; text-align:center; min-height:50px; display:flex; align-items:center; justify-content:center; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); transition: 0.3s;";
                 div.onclick = function () {
                     if (
                         !_self.selectedQuestion ||
