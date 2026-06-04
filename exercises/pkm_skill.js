@@ -13,6 +13,30 @@
 window.SkillManager = {
     // --- CẤU HÌNH ÂM THANH MỚI ---
     audioBaseUrl: "https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/s%20(",
+    skillPools: {},
+
+    getNextSkillMethod(baseMethodName) {
+        // Khởi tạo pool cho hệ này nếu chưa có hoặc đã hết
+        if (!this.skillPools[baseMethodName] || this.skillPools[baseMethodName].length === 0) {
+            // Xây danh sách các chiêu tồn tại thực sự (1, 2, 3)
+            const candidates = [
+                baseMethodName,
+                `${baseMethodName}2`,
+                `${baseMethodName}3`
+            ].filter(name => typeof this[name] === 'function');
+
+            // Shuffle danh sách
+            for (let i = candidates.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+            }
+
+            this.skillPools[baseMethodName] = candidates;
+        }
+
+        // Rút 1 chiêu ra dùng (pop từ cuối)
+        return this.skillPools[baseMethodName].pop();
+    },
 
     // Hàm đọc tên Pokemon
     speakName(name) {
@@ -79,98 +103,297 @@ window.SkillManager = {
         'fairy': { color: '#ee99ac' },    // Hệ Tiên (Màu hồng phấn)
     },
     toggleSkillScene(show, side = '', attackerIndex = null, type = 'normal') {
-        const overlay   = document.getElementById('skill-scene-overlay');
-        const arena     = document.getElementById('battle-arena');
-        const svgBg     = document.getElementById('arena-svg-bg');
-        const spotlight = document.getElementById('arena-spotlight');
+        const overlay = document.getElementById('skill-scene-overlay');
+        const arena   = document.getElementById('battle-arena');
 
         if (show) {
-            // Ẩn ảnh nền thật, để SVG arena3d lộ ra
+            // Ẩn nền arena
             if (arena) arena.style.setProperty('background-image', 'none', 'important');
 
-            // Hiện SVG sân + spotlight + particles
-            if (svgBg)     svgBg.style.removeProperty('display');
-            if (spotlight) spotlight.style.removeProperty('display');
-            if (arena) arena.querySelectorAll('.arena-particle').forEach(p => p.style.removeProperty('display'));
-
-            // 🟢 BƯỚC 1: Khi xuất chiêu -> Chỉ hiện Attacker + Địch, đồng thời đẩy z-index lên trên nền
+            // Teleport các Pokemon unit ra body để thoát stacking context
             document.querySelectorAll('.pkm-unit').forEach(u => {
                 const isAttacker = u.id === `${side}-unit-${attackerIndex}`;
-                const isEnemy    = side === 'player' ? u.id.startsWith('enemy-') : u.id.startsWith('player-');
-                const visible    = isAttacker || isEnemy;
-
-                u.style.opacity    = visible ? '1' : '0';
-                u.style.visibility = visible ? 'visible' : 'hidden';
+                const isEnemy    = side === 'player'
+                    ? u.id.startsWith('enemy-')
+                    : u.id.startsWith('player-');
+                const visible = isAttacker || isEnemy;
 
                 if (visible) {
-                    u.style.zIndex = '10000'; // Đẩy cả attacker và địch lên trên lớp nền anime
+                    // Lấy tọa độ thực trên màn hình TRƯỚC khi di chuyển DOM
+                    const rect = u.getBoundingClientRect();
+
+                    // Lưu thông tin để restore sau
+                    u._teleportData = {
+                        parent:      u.parentNode,
+                        nextSibling: u.nextSibling,
+                        origStyle:   u.getAttribute('style') || ''
+                    };
+
+                    // Gắn position: fixed với tọa độ thực, z-index cao hơn overlay (50)
+                    u.style.cssText = `
+                        position: fixed !important;
+                        left: ${rect.left + rect.width  / 2}px !important;
+                        top:  ${rect.top  + rect.height / 2}px !important;
+                        width:  ${rect.width}px  !important;
+                        height: ${rect.height}px !important;
+                        transform: translate(-50%, -50%) !important;
+                        z-index: 200 !important;
+                        opacity: 1 !important;
+                        visibility: visible !important;
+                        margin: 0 !important;
+                        pointer-events: none;
+                    `;
+
+                    // Chuyển ra body để thoát khỏi stacking context của arena
+                    document.body.appendChild(u);
                 } else {
-                    u.style.zIndex = '';
+                    // Ẩn các unit không liên quan (vẫn nằm trong DOM cũ)
+                    u.style.opacity    = '0';
+                    u.style.visibility = 'hidden';
                 }
             });
 
-            // Overlay màu hệ tích hợp hiệu ứng Anime Speed Lines
-            // --- TÌM ĐOẠN NÀY TRONG KHỐI IF (SHOW) CỦA HÀM toggleSkillScene ---
+            // Bật overlay background
             if (overlay) {
-                overlay.className = ''; 
-                overlay.classList.add('pokemon-attack-bg', `bg-skill-${type}`); 
-
-                const typeColor = this.systemConfig[type]?.color || '#ffffff';
-                overlay.style.setProperty('--theme-color', typeColor);
-
-                // 🌟 CẬP NHẬT ĐỘNG TẠI ĐÂY: Lấy phần tử Pokemon đang tung chiêu
-                const rx = 25 + Math.random() * 50;
-                const ry = 25 + Math.random() * 50;
-                overlay.style.setProperty('--spin-center', `${rx}% ${ry}%`);
+                overlay.className = '';
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 0; left: 0;
+                    width: 100vw; height: 100vh;
+                    overflow: hidden;
+                    z-index: 50;
+                    pointer-events: none;
+                    display: block;
+                    opacity: 1;
+                `;
                 const attackerEl = document.getElementById(`${side}-unit-${attackerIndex}`);
-                if (attackerEl) {
-                    // Đọc tọa độ từ data-attribute mà file pkm_style.js đã ghi vào thẻ
-                    const posX = attackerEl.getAttribute('data-left') || '50';
-                    const posY = attackerEl.getAttribute('data-top') || '50';
-
-                    // Truyền thẳng tọa độ này làm tâm phát sáng cho CSS
-                    overlay.style.setProperty('--glow-pos', `${posX}% ${posY}%`);
-                } else {
-                    // Phòng hờ nếu không tìm thấy thẻ thì lấy đại trung tâm
-                    overlay.style.setProperty('--glow-pos', '50% 50%');
-                    // thêm vào đây
-                    const rx = 25 + Math.random() * 50;
-                    const ry = 25 + Math.random() * 50;
-                    overlay.style.setProperty('--spin-center', `${rx}% ${ry}%`);
+                const posX = attackerEl?.getAttribute('data-left') || '50';
+                const posY = attackerEl?.getAttribute('data-top')  || '50';
+                if (window.PkmSkillBack) {
+                    window.PkmSkillBack.show(overlay, type, posX, posY);
                 }
-
-                overlay.style.display = 'block';
-                overlay.style.opacity = '1';
             }
 
         } else {
-            // Trả lại ảnh nền thật
+            // Trả lại nền arena
             if (arena && window.ArenaBgUrl) {
                 arena.style.setProperty('background-image', `url('${window.ArenaBgUrl}')`, 'important');
             }
 
-            // Ẩn SVG + spotlight + particles
-            if (svgBg)     svgBg.style.display = 'none';
-            if (spotlight) spotlight.style.display = 'none';
-            if (arena) arena.querySelectorAll('.arena-particle').forEach(p => p.style.display = 'none');
-
-            // 🟢 BƯỚC 2: Khi HẾT chiêu -> Trả lại trạng thái bình thường cho TOÀN BỘ Pokémon trên sân
+            // Restore tất cả Pokemon về vị trí DOM gốc
             document.querySelectorAll('.pkm-unit').forEach(u => {
-                u.style.opacity    = '1';
-                u.style.visibility = 'visible';
-                u.style.zIndex     = '';
-                u.style.transform  = 'translate(-50%,-50%)';
+                if (u._teleportData) {
+                    const { parent, nextSibling, origStyle } = u._teleportData;
+                    // Đưa về đúng chỗ cũ trong DOM
+                    if (nextSibling) {
+                        parent.insertBefore(u, nextSibling);
+                    } else {
+                        parent.appendChild(u);
+                    }
+                    // Restore style gốc, đảm bảo visible
+                    u.setAttribute('style', origStyle);
+                    u.style.opacity    = '1';
+                    u.style.visibility = 'visible';
+                    u.style.zIndex     = '';
+                    // Chỉ set transform nếu chưa có (tránh ghi đè animation đang chạy)
+                    if (!u.style.transform || u.style.transform === 'none') {
+                        u.style.transform = 'translate(-50%,-50%)';
+                    }
+                    delete u._teleportData;
+                } else {
+                    // Các unit không được teleport, chỉ bỏ ẩn
+                    u.style.opacity    = '1';
+                    u.style.visibility = 'visible';
+                    u.style.zIndex     = '';
+                }
             });
 
-            // Ẩn overlay và dọn dẹp class hiệu ứng anime
+            // Dừng và ẩn overlay
             if (overlay) {
+                if (window.PkmSkillBack) window.PkmSkillBack.hide(overlay);
                 overlay.style.opacity = '0';
-                setTimeout(() => { 
-                    overlay.style.display = 'none'; 
-                    overlay.classList.remove('pokemon-attack-bg'); 
-                }, 500);
+                setTimeout(() => { overlay.style.display = 'none'; }, 500);
             }
         }
+    },
+    async playSkillSelectAura(attackerEl, type, chosenMethod, baseMethodName) {
+        const allMethods = [baseMethodName, `${baseMethodName}2`, `${baseMethodName}3`]
+            .filter(name => typeof this[name] === 'function');
+        const count     = allMethods.length;
+        const rectA     = attackerEl.getBoundingClientRect();
+        const cx        = rectA.left + rectA.width  / 2;
+        const cy        = rectA.top  + rectA.height / 2;
+        const orbR      = rectA.width * 1.6;
+        const orbSize   = rectA.width * 0.85;
+        const typeColor = (this.systemConfig[type] || {}).color || '#ffcb05';
+        const SCALE     = 0.66;
+        const LOOP_MS   = 500;
+
+        // 1. Tạo container clip cho từng orb
+        const items = allMethods.map((name, i) => {
+            const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+            const x = cx + Math.cos(angle) * orbR;
+            const y = cy + Math.sin(angle) * orbR;
+
+            // Container: position fixed, overflow hidden, border-radius 50% → clip tròn
+            const container = document.createElement('div');
+            container.style.cssText = `
+                position: fixed;
+                left: ${x}px; top: ${y}px;
+                width: ${orbSize}px; height: ${orbSize}px;
+                border-radius: 50%;
+                overflow: hidden;
+                pointer-events: none;
+                z-index: 10009;
+                transform: translate(-50%, -50%) scale(0);
+                transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), opacity 0.22s ease-out;
+                box-shadow: 0 0 16px ${typeColor}, 0 0 32px ${typeColor}55;
+                border: none;
+                background: radial-gradient(circle, rgba(0,0,0,0.55) 0%, transparent 80%);
+            `;
+            document.body.appendChild(container);
+
+            // FakeEl: đặt ở tâm container, dùng làm startEl và endEl cho spawn
+            // Kích thước bằng container để getBoundingClientRect() trả về đúng tâm
+            const fakeEl = document.createElement('div');
+            fakeEl.style.cssText = `
+                position: fixed;
+                left: ${x}px; top: ${y}px;
+                width: ${orbSize}px; height: ${orbSize}px;
+                transform: translate(-50%, -50%);
+                pointer-events: none;
+                z-index: -1;
+            `;
+            document.body.appendChild(fakeEl);
+
+            return { container, fakeEl, method: name, angle, stopped: false, loopTimer: null };
+        });
+
+        // 2. Orb xuất hiện
+        requestAnimationFrame(() => {
+            items.forEach(it => { it.container.style.transform = 'translate(-50%, -50%) scale(1)'; });
+        });
+        await new Promise(r => setTimeout(r, 320));
+
+        // 3. Monkey-patch appendChild + vị trí: intercept các element spawn tạo ra
+        //    Khi spawn gọi document.body.appendChild(el), ta bắt lại:
+        //    - Tính offset của el so với tâm fakeEl
+        //    - Đổi left/top thành tương đối với container (position absolute)
+        //    - Append vào container thay vì body
+        const patchForItem = (item) => {
+            const origAppend = document.body.appendChild.bind(document.body);
+            document.body.appendChild = (el) => {
+                if (item.stopped) { document.body.appendChild = origAppend; return origAppend(el); }
+                if (el && el.style && el.style.position === 'fixed') {
+                    // Lấy tọa độ fixed hiện tại
+                    const elLeft = parseFloat(el.style.left) || 0;
+                    const elTop  = parseFloat(el.style.top)  || 0;
+                    // Tâm container
+                    const cRect  = item.container.getBoundingClientRect();
+                    const cCX    = cRect.left + cRect.width  / 2;
+                    const cCY    = cRect.top  + cRect.height / 2;
+                    // Đổi sang absolute tương đối với container
+                    el.style.position = 'absolute';
+                    el.style.left     = `${elLeft - cRect.left}px`;
+                    el.style.top      = `${elTop  - cRect.top}px`;
+                    item.container.appendChild(el);
+                    return el;
+                }
+                return origAppend(el);
+            };
+        };
+
+        // 4. Loop spawn cho từng item
+        const runLoop = (item) => {
+            const fn = () => {
+                if (item.stopped) return;
+                patchForItem(item);
+                const spawnFn = this[item.method];
+                if (typeof spawnFn === 'function') {
+                    spawnFn.call(this, item.fakeEl, item.fakeEl, 1, SCALE, {});
+                }
+                // Restore sau 100ms (đủ để spawn append xong)
+                setTimeout(() => {
+                    document.body.appendChild = document.body.appendChild.__orig__ 
+                        || document.body.appendChild;
+                }, 100);
+                item.loopTimer = setTimeout(fn, LOOP_MS);
+            };
+            fn();
+        };
+
+        // PHASE 1 (~1200ms): tất cả chạy + xoay chậm
+        const phase1Dur = 1200;
+        const t0        = performance.now();
+        items.forEach(item => runLoop(item));
+
+        await new Promise(resolve => {
+            const tick = () => {
+                const elapsed = performance.now() - t0;
+                const offset  = (elapsed / phase1Dur) * Math.PI * 0.5;
+                items.forEach(item => {
+                    const a  = item.angle + offset;
+                    const x  = cx + Math.cos(a) * orbR;
+                    const y  = cy + Math.sin(a) * orbR;
+                    item.container.style.left = `${x}px`;
+                    item.container.style.top  = `${y}px`;
+                    item.fakeEl.style.left    = `${x}px`;
+                    item.fakeEl.style.top     = `${y}px`;
+                });
+                if (elapsed < phase1Dur) requestAnimationFrame(tick);
+                else resolve();
+            };
+            requestAnimationFrame(tick);
+        });
+
+        // PHASE 2a: dừng + fade out chiêu không được chọn
+        items.forEach(item => {
+            if (item.method !== chosenMethod) {
+                item.stopped = true;
+                clearTimeout(item.loopTimer);
+                item.container.style.transform = 'translate(-50%, -50%) scale(0)';
+                item.container.style.opacity   = '0';
+                setTimeout(() => { item.container.remove(); item.fakeEl.remove(); }, 250);
+            }
+        });
+
+        const chosen = items.find(i => i.method === chosenMethod);
+        if (!chosen) { items.forEach(i => { i.container.remove(); i.fakeEl.remove(); }); return; }
+
+        // Orb được chọn sáng hơn
+        chosen.container.style.boxShadow = `0 0 28px ${typeColor}, 0 0 56px ${typeColor}, 0 0 84px ${typeColor}66`;
+        chosen.container.style.border    = 'none';
+
+        // PHASE 2b (~700ms): chiêu được chọn xoay nhanh
+        const angleAtEnd = Math.PI * 1.5;
+        const phase2Dur  = 700;
+        const t1         = performance.now();
+
+        await new Promise(resolve => {
+            const tick = () => {
+                const elapsed = performance.now() - t1;
+                const a = chosen.angle + angleAtEnd + (elapsed / phase2Dur) * Math.PI * 4;
+                const x = cx + Math.cos(a) * orbR;
+                const y = cy + Math.sin(a) * orbR;
+                chosen.container.style.left = `${x}px`;
+                chosen.container.style.top  = `${y}px`;
+                chosen.fakeEl.style.left    = `${x}px`;
+                chosen.fakeEl.style.top     = `${y}px`;
+                if (elapsed < phase2Dur) requestAnimationFrame(tick);
+                else resolve();
+            };
+            requestAnimationFrame(tick);
+        });
+
+        // Nổ tung → xuất chiêu
+        chosen.stopped = true;
+        clearTimeout(chosen.loopTimer);
+        chosen.container.style.transition = 'transform 0.15s ease-out, opacity 0.15s';
+        chosen.container.style.transform  = 'translate(-50%, -50%) scale(2.5)';
+        chosen.container.style.opacity    = '0';
+        await new Promise(r => setTimeout(r, 160));
+        chosen.container.remove();
+        chosen.fakeEl.remove();
     },
 
     async play(info) {
@@ -370,48 +593,35 @@ window.SkillManager = {
                 // Giữ nguyên z-index cao để nổi bật khi gồng chiêu tại chỗ
                 attacker.style.zIndex     = '10001'; 
                 await new Promise(r => setTimeout(r, 100)); // Giảm thời gian chờ lướt đi vô ích xuống còn 100ms cho mượt
+                const baseMethodName = `spawn${info.type.charAt(0).toUpperCase() + info.type.slice(1)}`;
+                const chosenMethod = this.getNextSkillMethod(baseMethodName);
 
-                // 2. PHASE GỒNG CHIÊU (Thời gian chạy chạy khép kín bằng durationConfig.chargeAura)
-                const typeColor = (this.systemConfig[info.type] || {}).color || '#ffcb05';
-                const auraEl = document.createElement('div');
-                auraEl.style.cssText = `position: fixed; left: ${stageCX}px; top: ${stageCY}px; width: 0; height: 0; pointer-events: none; z-index: 10002;`;
-
-                const ring1 = document.createElement('div');
-                ring1.style.cssText = `position:absolute; width:110px; height:110px; border-radius:50%; border: 3px solid ${typeColor}; box-shadow: 0 0 18px ${typeColor}; transform: translate(-50%,-50%) scale(0.3); opacity:0; transition: transform 0.25s ease-out, opacity 0.2s;`;
-                auraEl.appendChild(ring1);
-                document.body.appendChild(auraEl);
-
-                requestAnimationFrame(() => { ring1.style.transform = 'translate(-50%,-50%) scale(1)'; ring1.style.opacity = '1'; });
-
-                // Hiệu ứng co giãn cơ thể Pokémon theo thời gian gồng chiêu
-                attacker.style.transition = `transform ${(this.durationConfig.chargeAura / 2) / 1000}s ease-in-out`;
+                // 2. PHASE GỒNG CHIÊU - Preview tất cả skill xoay quanh pokemon
                 const imgWrapper = attacker.querySelector('div');
                 if (imgWrapper) {
-                    imgWrapper.style.transition = `transform ${(this.durationConfig.chargeAura / 2) / 1000}s ease-in`;
-                    imgWrapper.style.transform  = `scale(${pos.scale * 0.7}) scaleX(${pos.flip})`; // Thu nhỏ nén khí
+                    imgWrapper.style.transition = `transform 0.3s ease-in`;
+                    imgWrapper.style.transform  = `scale(${pos.scale * 0.85}) scaleX(${pos.flip})`;
                 }
 
-                await new Promise(r => setTimeout(r, this.durationConfig.chargeAura / 2));
+                await this.playSkillSelectAura(attacker, info.type, chosenMethod, baseMethodName);
 
+                // Bung ra khi chiêu được chọn
                 if (imgWrapper) {
-                    imgWrapper.style.transition = `transform ${(this.durationConfig.chargeAura / 2) / 1000}s cubic-bezier(0.34,1.56,0.64,1)`;
-                    imgWrapper.style.transform  = `scale(${pos.scale * 1.2}) scaleX(${pos.flip})`; // Nở mạnh giải phóng chiêu
+                    imgWrapper.style.transition = `transform 0.2s cubic-bezier(0.34,1.56,0.64,1)`;
+                    imgWrapper.style.transform  = `scale(${pos.scale * 1.2}) scaleX(${pos.flip})`;
+                    await new Promise(r => setTimeout(r, 200));
+                    imgWrapper.style.transform  = `scale(${pos.scale}) scaleX(${pos.flip})`;
                 }
-
-                await new Promise(r => setTimeout(r, this.durationConfig.chargeAura / 2));
-
-                // Reset wrapper Pokémon về trạng thái gốc
-                if (imgWrapper) { imgWrapper.style.transform = `scale(${pos.scale}) scaleX(${pos.flip})`; }
-                ring1.style.opacity = '0';
-                setTimeout(() => auraEl.remove(), 300);
 
                 // 3. TUNG CHIÊU + DI CHUYỂN ĐẾN ĐỊCH + ĐỊCH DÍNH CHƯỞNG
                 if (this.playRandomSfx) this.playRandomSfx();
                 const effectData = this.systemConfig[info.type] || this.systemConfig['normal'];
 
+                
+
                 // Kích hoạt chuỗi và ĐỢI cho đến khi toàn bộ mục tiêu hoàn thành xong hành trình dính đòn
                 const allAnimations = aliveEnemies.map(targetIdx =>
-                    this.triggerMultiEffect(attacker, targetIdx, info.targetSide, countPerTarget, effectData, sizeScale, info.type, info.damage)
+                    this.triggerMultiEffect(attacker, targetIdx, info.targetSide, countPerTarget, effectData, sizeScale, info.type, info.damage, chosenMethod)
                 );
                 await Promise.all(allAnimations);
 
@@ -432,7 +642,7 @@ window.SkillManager = {
         });
     },
 
-    async triggerMultiEffect(attacker, targetIdx, targetSide, count, effectData, sizeScale, type, damage) {
+    async triggerMultiEffect(attacker, targetIdx, targetSide, count, effectData, sizeScale, type, damage, methodName) {
         const target = document.getElementById(`${targetSide}-unit-${targetIdx}`);
         if (!target) return;
 
@@ -440,17 +650,7 @@ window.SkillManager = {
         const baseMethodName = `spawn${type.charAt(0).toUpperCase() + type.slice(1)}`;
 
         // 2. Thuật toán Random chia đều tỷ lệ cho tối đa 3 chiêu (Không số, số 2, số 3)
-        const rand = Math.random();
-        let methodName = baseMethodName; 
-
-        if (rand < 0.33) {
-            methodName = baseMethodName;       // Chiêu 1: Ví dụ spawnElectric
-        } else if (rand < 0.66) {
-            methodName = `${baseMethodName}2`;  // Chiêu 2: Ví dụ spawnElectric2
-        } else {
-            methodName = `${baseMethodName}3`;  // Chiêu 3: Ví dụ spawnElectric3
-        }
-
+        // 2. Dùng methodName đã được chọn sẵn từ bên ngoài (truyền vào qua tham số)
         // 3. Kiểm tra an toàn: Nếu chưa viết chiêu 2 hoặc 3, tự động fallback về chiêu 1
         let action = typeof this[methodName] === 'function' ? this[methodName] : this[baseMethodName];
 
