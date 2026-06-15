@@ -145,12 +145,12 @@ window.BattleGame = {
         const inv = JSON.parse(localStorage.getItem('pkm_inventory')) || [];
         const actualTeamSize = inv.filter(p => p.inTeam).length || 1;
 
-        let hpMultiplier = 20; // Mặc định là x15 cho các trường hợp 3, 4, 5 con
+        let hpMultiplier = 17; // Mặc định là x15 cho các trường hợp 3, 4, 5 con
 
         if (actualTeamSize === 1) {
             hpMultiplier = 45; // Đi 1 con đơn độc: x30 máu để kéo dài trận đấu
         } else if (actualTeamSize === 2) {
-            hpMultiplier = 32; // Đi 2 con: x25 máu để trận đấu vừa vặn
+            hpMultiplier = 25; // Đi 2 con: x25 máu để trận đấu vừa vặn
         }
 
         // Cả phe ta và phe địch đều sẽ áp dụng hệ số co giãn này
