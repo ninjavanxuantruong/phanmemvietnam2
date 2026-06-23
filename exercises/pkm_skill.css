@@ -164,3 +164,100 @@
 .bg-skill-water { background: radial-gradient(circle, #051937, #000); }
 .bg-skill-bug { background: radial-gradient(circle, #1d2b1a, #000); }
 .bg-skill-normal { background: radial-gradient(circle, #333, #000); }
+
+/* --- CẤU HÌNH CƠ BẢN CHO MỌI HIỆU ỨNG DÍNH CHƯỞNG --- */
+.pkm-unit { transition: all 0.2s ease; }
+
+/* 1. ĐIỆN (Electric) - Sét giật bao quanh */
+.sustain-electric { animation: eff-elec 0.1s infinite; filter: brightness(1.5) drop-shadow(0 0 20px #f1c40f); }
+@keyframes eff-elec { 0% { transform: translate(-50%, -50%) skewX(5deg); } 100% { transform: translate(-50%, -50%) skewX(-5deg); } }
+
+/* 2. LỬA (Fire) - Bốc hỏa thiêu đốt */
+.sustain-fire { filter: sepia(0.5) hue-rotate(-20deg) saturate(3) drop-shadow(0 0 15px #e67e22); animation: eff-fire 0.3s infinite alternate; }
+@keyframes eff-fire { from { filter: sepia(0.5) hue-rotate(-20deg) saturate(3) drop-shadow(0 0 15px #e67e22); } to { filter: sepia(0.5) hue-rotate(-20deg) saturate(3) drop-shadow(0 0 35px #ff5e00); } }
+
+/* 3. NƯỚC (Water) - Đóng băng/Bọt nước */
+.sustain-water { filter: hue-rotate(180deg) brightness(1.2) drop-shadow(0 0 20px #3498db); }
+
+/* 4. CỎ (Grass) - Rễ cây/Dây leo cuốn */
+.sustain-grass { filter: sepia(0.3) saturate(2) drop-shadow(0 0 12px #2ecc71); }
+
+/* 5. BĂNG (Ice) - Đóng băng cứng */
+.sustain-ice { filter: hue-rotate(200deg) brightness(1.3) saturate(0.5) drop-shadow(0 0 30px #74b9ff); transform: scale(0.95); }
+
+/* 6. CHIẾN ĐẤU (Fighting) - Vết bầm/Sức ép */
+.sustain-fighting { filter: saturate(2.5) contrast(1.2) drop-shadow(0 0 15px #e74c3c); transform: scale(1.05); }
+
+/* 7. ĐỘC (Poison) - Bong bóng tím, hiệu ứng ốm */
+.sustain-poison { filter: hue-rotate(60deg) saturate(2) brightness(0.8); animation: eff-poison 0.5s infinite; }
+@keyframes eff-poison { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+/* 8. ĐẤT (Ground) - Bụi đất bám vào */
+.sustain-ground { filter: sepia(0.8) contrast(1.5) drop-shadow(0 0 20px #b8a038); }
+
+/* 9. BAY (Flying) - Luồng gió sắc */
+.sustain-flying { filter: brightness(1.2); transform: translateX(5px); animation: eff-wind 0.1s infinite; }
+@keyframes eff-wind { 0% { transform: translate(-50%, -50%) translateX(2px); } 100% { transform: translate(-50%, -50%) translateX(-2px); } }
+
+/* 10. SIÊU LINH (Psychic) - Biến dạng không gian */
+.sustain-psychic { filter: hue-rotate(120deg) invert(0.1) drop-shadow(0 0 25px #9b59b6); transform: scale(1.1); }
+
+/* 11. CÔN TRÙNG (Bug) - Mạng nhện/Phấn hoa */
+.sustain-bug { filter: sepia(0.4) brightness(1.1) drop-shadow(0 0 15px #a8b820); }
+
+/* 12. ĐÁ (Rock) - Hóa đá */
+.sustain-rock { filter: grayscale(0.5) brightness(0.7) drop-shadow(0 0 10px #b8a038); transform: scale(0.98); }
+
+/* 13. MA (Ghost) - Trong suốt, u linh */
+.sustain-ghost { opacity: 0.6; filter: hue-rotate(270deg) blur(1px); }
+
+/* 14. RỒNG (Dragon) - Năng lượng rồng tím */
+.sustain-dragon { filter: hue-rotate(300deg) saturate(2); animation: eff-dragon 0.5s infinite; }
+@keyframes eff-dragon { 0% { filter: hue-rotate(300deg) saturate(2) drop-shadow(0 0 10px #7038f8); } 100% { filter: hue-rotate(300deg) saturate(2) drop-shadow(0 0 40px #ff00ff); } }
+
+/* 15. THÉP (Steel) - Phủ kim loại */
+.sustain-steel { filter: brightness(1.5) contrast(1.2) grayscale(0.5) drop-shadow(0 0 15px #b8b8d0); }
+
+/* 16. BÓNG TỐI (Dark) - Hút ánh sáng */
+.sustain-dark { filter: brightness(0.2) drop-shadow(0 0 20px #000); }
+
+/* 17. TIÊN (Fairy) - Lấp lánh */
+.sustain-fairy { filter: hue-rotate(330deg) saturate(1.5); animation: eff-fairy 0.5s infinite; }
+@keyframes eff-fairy { 0% { filter: hue-rotate(330deg) saturate(1.5) brightness(1); } 50% { filter: hue-rotate(330deg) saturate(1.5) brightness(1.5); } }
+
+/* 18. THƯỜNG (Normal) - Choáng */
+.sustain-normal { filter: saturate(0) brightness(0.8); }
+
+/* CHỈ THÊM NÀY VÀO CUỐI FILE CSS HIỆN TẠI (không sửa gì cũ) */
+
+/* 1. Làm tia điện sáng hơn khi va chạm */
+.particle-electric {
+    animation: electricFlicker 0.05s infinite alternate !important;
+}
+@keyframes electricFlicker {
+    0% { box-shadow: 0 0 5px #fff, 0 0 10px #f1c40f; }
+    100% { box-shadow: 0 0 15px #fff, 0 0 30px #f1c40f, 0 0 45px #f39c12; }
+}
+
+/* 2. Thêm hiệu ứng tia lửa bắn ra khi kết thúc (chứ không sửa lúc đang bay) */
+.spark-burst {
+    position: fixed;
+    width: 4px;
+    height: 4px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #f1c40f;
+    animation: sparkFly 0.4s ease-out forwards;
+}
+@keyframes sparkFly {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: translate(var(--dx, 20px), var(--dy, -20px)) scale(0); opacity: 0; }
+}
+
+/* 3. Chữ damage giữ nguyên, chỉ to hơn 1 chút */
+.damage-text {
+    font-size: 36px; /* từ 32 lên 36 */
+    text-shadow: 3px 3px 0 #000, 0 0 20px #ff0000; /* thêm glow đỏ */
+}
+
+/* 4. Không sửa gì thêm! */
