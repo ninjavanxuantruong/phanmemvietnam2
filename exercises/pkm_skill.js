@@ -13,6 +13,14 @@
 window.SkillManager = {
     // --- CẤU HÌNH ÂM THANH MỚI ---
     audioBaseUrl: "https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/s%20(",
+    // Đếm số lượt skill đang chạy đồng thời (để xử lý 2 bên cùng đánh)
+    _activeSceneCount: 0,
+    _activeAttackers: new Set(),
+    // Mỗi bên có 1 background-instance riêng để 2 nền có thể chạy chồng lên nhau
+    _bgInstances: {
+        player: null,
+        enemy:  null,
+    },// Lưu các unit đang là attacker trong lượt hiện tại
     skillPools: {},
 
     getNextSkillMethod(baseMethodName) {
@@ -103,117 +111,127 @@ window.SkillManager = {
         'fairy': { color: '#ee99ac' },    // Hệ Tiên (Màu hồng phấn)
     },
     toggleSkillScene(show, side = '', attackerIndex = null, type = 'normal') {
-        const overlay = document.getElementById('skill-scene-overlay');
-        const arena   = document.getElementById('battle-arena');
+        const arena = document.getElementById('battle-arena');
 
         if (show) {
+            this._activeSceneCount++;
+            this._activeAttackers.add(`${side}-unit-${attackerIndex}`);
+
             // Ẩn nền arena
             if (arena) arena.style.setProperty('background-image', 'none', 'important');
 
-            // Teleport các Pokemon unit ra body để thoát stacking context
+            // Teleport TẤT CẢ Pokemon còn sống ra body, không ẩn ai cả
             document.querySelectorAll('.pkm-unit').forEach(u => {
-                const isAttacker = u.id === `${side}-unit-${attackerIndex}`;
-                const isEnemy    = side === 'player'
-                    ? u.id.startsWith('enemy-')
-                    : u.id.startsWith('player-');
-                const visible = isAttacker || isEnemy;
+                if (u.dataset.dead === '1') return;
+                if (u._teleportData) return;
 
-                if (visible) {
-                    // Lấy tọa độ thực trên màn hình TRƯỚC khi di chuyển DOM
-                    const rect = u.getBoundingClientRect();
+                const rect = u.getBoundingClientRect();
 
-                    // Lưu thông tin để restore sau
-                    u._teleportData = {
-                        parent:      u.parentNode,
-                        nextSibling: u.nextSibling,
-                        origStyle:   u.getAttribute('style') || ''
-                    };
+                u._teleportData = {
+                    parent:      u.parentNode,
+                    nextSibling: u.nextSibling,
+                    origStyle:   u.getAttribute('style') || ''
+                };
 
-                    // Gắn position: fixed với tọa độ thực, z-index cao hơn overlay (50)
-                    u.style.cssText = `
-                        position: fixed !important;
-                        left: ${rect.left + rect.width  / 2}px !important;
-                        top:  ${rect.top  + rect.height / 2}px !important;
-                        width:  ${rect.width}px  !important;
-                        height: ${rect.height}px !important;
-                        transform: translate(-50%, -50%) !important;
-                        z-index: 200 !important;
-                        opacity: 1 !important;
-                        visibility: visible !important;
-                        margin: 0 !important;
-                        pointer-events: none;
-                    `;
+                u.style.cssText = `
+                    position: fixed !important;
+                    left: ${rect.left + rect.width  / 2}px !important;
+                    top:  ${rect.top  + rect.height / 2}px !important;
+                    width:  ${rect.width}px  !important;
+                    height: ${rect.height}px !important;
+                    transform: translate(-50%, -50%) !important;
+                    z-index: 200 !important;
+                    opacity: 1 !important;
+                    visibility: visible !important;
+                    margin: 0 !important;
+                    pointer-events: none;
+                `;
 
-                    // Chuyển ra body để thoát khỏi stacking context của arena
-                    document.body.appendChild(u);
-                } else {
-                    // Ẩn các unit không liên quan (vẫn nằm trong DOM cũ)
-                    u.style.opacity    = '0';
-                    u.style.visibility = 'hidden';
-                }
+                document.body.appendChild(u);
             });
 
-            // Bật overlay background
-            if (overlay) {
-                overlay.className = '';
-                overlay.style.cssText = `
-                    position: fixed;
-                    top: 0; left: 0;
-                    width: 100vw; height: 100vh;
-                    overflow: hidden;
-                    z-index: 50;
-                    pointer-events: none;
-                    display: block;
-                    opacity: 1;
-                `;
-                const attackerEl = document.getElementById(`${side}-unit-${attackerIndex}`);
-                const posX = attackerEl?.getAttribute('data-left') || '50';
-                const posY = attackerEl?.getAttribute('data-top')  || '50';
-                if (window.PkmSkillBack) {
-                    window.PkmSkillBack.show(overlay, type, posX, posY);
-                }
+            // Mỗi bên (player/enemy) có overlay + instance nền RIÊNG để 2 nền chồng lên nhau được
+            let sideOverlay = document.getElementById(`skill-scene-overlay-${side}`);
+            if (!sideOverlay) {
+                sideOverlay = document.createElement('div');
+                sideOverlay.id = `skill-scene-overlay-${side}`;
+                document.body.appendChild(sideOverlay);
+            }
+            sideOverlay.style.cssText = `
+                position: fixed;
+                top: 0; left: 0;
+                width: 100vw; height: 100vh;
+                overflow: hidden;
+                z-index: 50;
+                pointer-events: none;
+                display: block;
+                opacity: 1;
+            `;
+
+            if (!this._bgInstances[side] && window.PkmSkillBack) {
+                this._bgInstances[side] = window.PkmSkillBack.createInstance();
+            }
+
+            const attackerEl = document.getElementById(`${side}-unit-${attackerIndex}`);
+            const posX = attackerEl?.getAttribute('data-left') || '50';
+            const posY = attackerEl?.getAttribute('data-top')  || '50';
+            if (this._bgInstances[side]) {
+                this._bgInstances[side].show(sideOverlay, type, posX, posY);
             }
 
         } else {
+            // Tắt riêng nền của bên này ngay (không phải đợi bên kia)
+            const sideOverlay = document.getElementById(`skill-scene-overlay-${side}`);
+            if (sideOverlay && this._bgInstances[side]) {
+                this._bgInstances[side].hide(sideOverlay);
+                sideOverlay.style.opacity = '0';
+                setTimeout(() => { sideOverlay.style.display = 'none'; }, 500);
+            }
+
+            this._activeSceneCount = Math.max(0, this._activeSceneCount - 1);
+
+            // Còn bên kia đang chạy → chưa restore DOM Pokemon, chưa trả lại nền arena
+            if (this._activeSceneCount > 0) {
+                return;
+            }
+
+            this._activeAttackers.clear();
+
             // Trả lại nền arena
             if (arena && window.ArenaBgUrl) {
                 arena.style.setProperty('background-image', `url('${window.ArenaBgUrl}')`, 'important');
             }
 
-            // Restore tất cả Pokemon về vị trí DOM gốc
+            // Restore tất cả Pokemon còn sống về vị trí DOM gốc
             document.querySelectorAll('.pkm-unit').forEach(u => {
                 if (u._teleportData) {
                     const { parent, nextSibling, origStyle } = u._teleportData;
-                    // Đưa về đúng chỗ cũ trong DOM
                     if (nextSibling) {
                         parent.insertBefore(u, nextSibling);
                     } else {
                         parent.appendChild(u);
                     }
-                    // Restore style gốc, đảm bảo visible
                     u.setAttribute('style', origStyle);
-                    u.style.opacity    = '1';
-                    u.style.visibility = 'visible';
-                    u.style.zIndex     = '';
-                    // Chỉ set transform nếu chưa có (tránh ghi đè animation đang chạy)
-                    if (!u.style.transform || u.style.transform === 'none') {
-                        u.style.transform = 'translate(-50%,-50%)';
-                    }
                     delete u._teleportData;
-                } else {
-                    // Các unit không được teleport, chỉ bỏ ẩn
+
+                    if (u.dataset.dead === '1') {
+                        u.style.opacity    = '0';
+                        u.style.visibility = 'hidden';
+                        u.style.pointerEvents = 'none';
+                    } else {
+                        u.style.opacity    = '1';
+                        u.style.visibility = 'visible';
+                        u.style.zIndex     = '';
+                        if (!u.style.transform || u.style.transform === 'none') {
+                            u.style.transform = 'translate(-50%,-50%)';
+                        }
+                    }
+                } else if (u.dataset.dead !== '1') {
                     u.style.opacity    = '1';
                     u.style.visibility = 'visible';
                     u.style.zIndex     = '';
                 }
             });
-
-            // Dừng và ẩn overlay
-            if (overlay) {
-                if (window.PkmSkillBack) window.PkmSkillBack.hide(overlay);
-                overlay.style.opacity = '0';
-                setTimeout(() => { overlay.style.display = 'none'; }, 500);
-            }
         }
     },
     async playSkillSelectAura(attackerEl, type, chosenMethod, baseMethodName) {
@@ -445,7 +463,7 @@ window.SkillManager = {
         return new Promise(async (resolve) => {
             // Bật nền tối kỹ năng
             // Bật nền Arena 3D chỉ khi là skill thật sự
-            if (info.isSkill) {
+            if (info.isSkill && !info.skipScene) {
                 this.toggleSkillScene(true, attackerSide, attackerIndex, info.type);
             }
 
@@ -603,7 +621,7 @@ window.SkillManager = {
                     imgWrapper.style.transform  = `scale(${pos.scale * 0.85}) scaleX(${pos.flip})`;
                 }
 
-                await this.playSkillSelectAura(attacker, info.type, chosenMethod, baseMethodName);
+                //await this.playSkillSelectAura(attacker, info.type, chosenMethod, baseMethodName);
 
                 // Bung ra khi chiêu được chọn
                 if (imgWrapper) {
@@ -636,7 +654,7 @@ window.SkillManager = {
             // Kết thúc: Ẩn nền đen và kết thúc lượt
             // Kết thúc: Ẩn nền Arena 3D và kết thúc lượt
             setTimeout(() => { 
-                if (info.isSkill) this.toggleSkillScene(false); 
+                if (info.isSkill && !info.skipScene) this.toggleSkillScene(false, attackerSide); 
                 resolve(); 
             }, this.durationConfig.sceneTransition);
         });
