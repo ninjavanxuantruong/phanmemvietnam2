@@ -174,133 +174,180 @@ window.BattleGame = {
     nextTurn() {
         if (this.isProcessing || this.checkGameOver()) return;
 
-        // Xác định con đang đứng ở vị trí hiện tại của phe đang đến lượt
-        const attacker = this.isPlayerSide ? 
-            this.playerTeam[this.activeUnitIndex] : 
-            this.enemyTeam[this.activeUnitIndex];
+        const playerAttacker = this.playerTeam[this.activeUnitIndex];
+        const enemyAttacker  = this.enemyTeam[this.activeUnitIndex];
 
-        // Nếu con này đã chết, bỏ qua chuyển sang thực thể tiếp theo
-        if (!attacker || attacker.currentHp <= 0) {
-            return this.moveToNextUnit();
+        // Nếu cả 2 con ở vị trí này đều đã chết, qua vị trí tiếp theo luôn
+        const playerAlive = playerAttacker && playerAttacker.currentHp > 0;
+        const enemyAlive  = enemyAttacker  && enemyAttacker.currentHp  > 0;
+
+        if (!playerAlive && !enemyAlive) {
+            this.activeUnitIndex = (this.activeUnitIndex + 1) % this.playerTeam.length;
+            return this.nextTurn();
         }
 
-        if (this.isPlayerSide) {
-            this.log(`Lượt của ${attacker.name} (Phe mình)`);
+        // Nếu chỉ phe mình còn sống ở vị trí này → chỉ mình đánh (không hỏi quiz AI)
+        if (playerAlive && !enemyAlive) {
+            this.log(`Lượt của ${playerAttacker.name} (Phe mình)`);
             if (window.QuizManager) {
-                window.QuizManager.ask((isCorrect) => this.handleAction(isCorrect, 'player'));
+                window.QuizManager.ask((isCorrect) => this.handleAction(isCorrect, 'player', null));
             }
-        } else {
-            this.log(`Lượt của ${attacker.name} (Đối thủ)`);
-            setTimeout(() => this.handleAction(true, 'enemy'), 1000);
+            return;
+        }
+
+        // Nếu chỉ phe địch còn sống ở vị trí này → chỉ địch đánh
+        if (!playerAlive && enemyAlive) {
+            this.log(`Lượt của ${enemyAttacker.name} (Đối thủ)`);
+            setTimeout(() => this.handleAction(true, 'enemy', null), 1000);
+            return;
+        }
+
+        // CẢ 2 BÊN CÒN SỐNG: hỏi quiz người chơi xong mới biết kết quả, rồi đánh CÙNG LÚC
+        this.log(`${playerAttacker.name} và ${enemyAttacker.name} đối đầu!`);
+        if (window.QuizManager) {
+            window.QuizManager.ask((isCorrect) => {
+                this.handleSimultaneousTurn(isCorrect);
+            });
         }
     },
 
-    // Hàm bổ trợ để chuyển lượt
-    moveToNextUnit() {
-        if (this.isPlayerSide) {
-            this.isPlayerSide = false; // Xong lượt mình vị trí X -> sang lượt địch vị trí X
-        } else {
-            this.isPlayerSide = true; 
-            this.activeUnitIndex = (this.activeUnitIndex + 1) % this.playerTeam.length; // Sang vị trí X+1
+    // Xử lý 2 bên cùng đánh 1 lượt: tính damage độc lập, rồi gộp animation chạy song song
+    async handleSimultaneousTurn(playerCorrect) {
+        this.isProcessing = true;
+
+        // Đếm thống kê (chỉ tính lượt player)
+        this.totalCount++;
+        if (playerCorrect) this.correctCount++; else this.wrongCount++;
+        const statEl = document.getElementById('quiz-stats');
+        if (statEl) statEl.innerHTML =
+            `✅ ${this.correctCount} &nbsp; ❌ ${this.wrongCount} &nbsp; 📊 ${this.totalCount} câu`;
+
+        const playerAttacker = this.playerTeam[this.activeUnitIndex];
+        const enemyAttacker  = this.enemyTeam[this.activeUnitIndex];
+
+        if (playerAttacker && playerAttacker.name && window.SkillManager) {
+            window.SkillManager.speakName(playerAttacker.name);
         }
+
+        // Chuẩn bị thông tin đòn đánh của TỪNG BÊN độc lập (không apply damage ngay)
+        // Chuẩn bị thông tin đòn đánh của TỪNG BÊN độc lập (không apply damage ngay)
+        const playerAction = this.prepareAction(playerAttacker, this.enemyTeam, 'player', playerCorrect);
+        const enemyAction   = this.prepareAction(enemyAttacker, this.playerTeam, 'enemy', true); // AI luôn đánh trúng
+
+        // Áp damage của CẢ 2 đòn trước khi chạy animation (để HP cập nhật đồng thời)
+        if (playerAction) playerAction.applyDamage();
+        if (enemyAction)  enemyAction.applyDamage();
+
+        // Nếu CẢ 2 đều ra skill (isSkill: true) cùng lúc → chỉ random giữ lại 1 nền,
+        // bên còn lại vẫn đánh skill bình thường nhưng KHÔNG mở nền riêng (tránh đè nền)
+        const playerIsSkill = playerAction && playerAction.playInfo.isSkill;
+        const enemyIsSkill  = enemyAction && enemyAction.playInfo.isSkill;
+
+        if (playerIsSkill && enemyIsSkill) {
+            const skipSide = Math.random() < 0.5 ? 'player' : 'enemy';
+            const skippedAction = skipSide === 'player' ? playerAction : enemyAction;
+            skippedAction.playInfo.skipScene = true;
+        }
+
+        // Chạy animation CÙNG LÚC
+        const playPromises = [];
+        if (playerAction) playPromises.push(window.SkillManager.play(playerAction.playInfo));
+        if (enemyAction)  playPromises.push(window.SkillManager.play(enemyAction.playInfo));
+
+        await Promise.all(playPromises);
+
+        this.updateUI();
+        this.isProcessing = false;
+        setTimeout(() => this.moveToNextUnit(), 1200);
+    },
+
+    // Chuẩn bị 1 đòn đánh: trả về playInfo + hàm applyDamage (chưa thực thi damage ngay)
+    prepareAction(attacker, opponentTeam, side, isCorrect) {
+        if (!attacker || attacker.currentHp <= 0) return null;
+
+        const targetIdx = opponentTeam.findIndex(p => p.currentHp > 0);
+        if (targetIdx === -1) return null;
+
+        attacker.personalTurn = (attacker.personalTurn || 0) + 1;
+        const targetSide = side === 'player' ? 'enemy' : 'player';
+        const activeIdx = this.activeUnitIndex;
+
+        if (!isCorrect) {
+            this.log(`${attacker.name} đánh hụt!`);
+            return {
+                applyDamage() {},
+                playInfo: {
+                    attackerIndex: activeIdx,
+                    attackerSide: side,
+                    targetSide,
+                    missed: true,
+                    targets: []
+                }
+            };
+        }
+
+        if (attacker.personalTurn % 2 !== 0) {
+            // Đánh thường
+            const target = opponentTeam[targetIdx];
+            const damage = Math.max(15, Math.floor((attacker.atk * 2.5) / (1 + (target.def / 100))));
+            this.log(`${attacker.name} tung đòn đánh vật lý cực mạnh!`);
+            return {
+                applyDamage() {
+                    target.currentHp = Math.max(0, target.currentHp - damage);
+                },
+                playInfo: {
+                    type: 'normal',
+                    gen: 1,
+                    attackerIndex: activeIdx,
+                    attackerSide: side,
+                    attackerId: attacker.id,
+                    attackerName: attacker.name,
+                    targetSide,
+                    damage,
+                    isAOE: false,
+                    targets: [targetIdx],
+                    isSkill: false
+                }
+            };
+        } else {
+            // Skill AOE
+            const aliveTargets = opponentTeam.map((p, i) => p.currentHp > 0 ? i : -1).filter(i => i !== -1);
+            let lastDamage = 0;
+            return {
+                applyDamage() {
+                    aliveTargets.forEach(idx => {
+                        const target = opponentTeam[idx];
+                        const damage = Math.max(20, Math.floor((attacker.sAtk * 1.2) / (1 + (target.def / 100))));
+                        target.currentHp = Math.max(0, target.currentHp - damage);
+                        lastDamage = damage;
+                    });
+                },
+                playInfo: {
+                    type: attacker.type || 'normal',
+                    gen: attacker.gen || 1,
+                    attackerIndex: activeIdx,
+                    attackerSide: side,
+                    attackerId: attacker.id,
+                    attackerName: attacker.name,
+                    targetSide,
+                    targets: aliveTargets,
+                    damage: lastDamage,
+                    isAOE: true,
+                    isSkill: true
+                }
+            };
+        }
+    },
+
+    // Hàm bổ trợ để chuyển lượt (chỉ chuyển sang vị trí tiếp theo, không cần đổi isPlayerSide nữa)
+    moveToNextUnit() {
+        this.activeUnitIndex = (this.activeUnitIndex + 1) % this.playerTeam.length;
         this.nextTurn();
     },
 
     // Tìm đến đoạn async handleAction(isCorrect, side) và thay đổi phần nội dung bên trong:
 
-    async handleAction(isCorrect, side) {
-        this.isProcessing = true;
-        // Chỉ đếm lượt của player
-        if (side === 'player') {
-            this.totalCount++;
-            if (isCorrect) this.correctCount++;
-            else this.wrongCount++;
-            // Cập nhật UI thống kê
-            const statEl = document.getElementById('quiz-stats');
-            if (statEl) statEl.innerHTML = 
-                `✅ ${this.correctCount} &nbsp; ❌ ${this.wrongCount} &nbsp; 📊 ${this.totalCount} câu`;
-        }
-        const attacker = side === 'player' ? this.playerTeam[this.activeUnitIndex] : this.enemyTeam[this.activeUnitIndex];
-        const opponentTeam = side === 'player' ? this.enemyTeam : this.playerTeam;
-        // ✅ THÊM DÒNG NÀY Ở ĐÂY: Đọc tên Pokemon ngay khi bắt đầu hành động
-        if (attacker && attacker.name && window.SkillManager) {
-            window.SkillManager.speakName(attacker.name);
-        }
-
-        // 1. Tìm mục tiêu hàng thủ (luôn ưu tiên con đầu tiên còn sống)
-        const targetIdx = opponentTeam.findIndex(p => p.currentHp > 0);
-        if (targetIdx === -1) return this.checkGameOver();
-
-        attacker.personalTurn = (attacker.personalTurn || 0) + 1;
-
-        if (!isCorrect) {
-            this.log(`${attacker.name} đánh hụt!`);
-            await window.SkillManager.play({ 
-                attackerIndex: this.activeUnitIndex, 
-                attackerSide: side, 
-                missed: true,
-                targets: [] // ✅ Thêm để tránh lỗi .map()
-            });
-        } 
-        else if (attacker.personalTurn % 2 !== 0) {
-            // --- LƯỢT LẺ: ĐÁNH THƯỜNG (Single Target - Atk x 2.5) ---
-            const target = opponentTeam[targetIdx];
-
-            // Công thức chia: Atk nhân hệ số cao / (1 + tỉ lệ giáp)
-            const damage = Math.max(15, Math.floor((attacker.atk * 2.5) / (1 + (target.def / 100))));
-
-            target.currentHp = Math.max(0, target.currentHp - damage);
-            this.log(`${attacker.name} tung đòn đánh vật lý cực mạnh!`);
-
-            await window.SkillManager.play({
-                type: 'normal',
-                gen: 1,
-                attackerIndex: this.activeUnitIndex,
-                attackerSide: side,
-                attackerId: attacker.id,
-                attackerName: attacker.name,
-                targetSide: side === 'player' ? 'enemy' : 'player',
-                damage,
-                isAOE: false,
-                targets: [targetIdx],
-                isSkill: false
-            });
-        } 
-        else {
-            // --- LƯỢT CHẴN: SKILL AOE (Multi Target - sAtk x 1.2) ---
-            const aliveTargets = opponentTeam.map((p, i) => p.currentHp > 0 ? i : -1).filter(i => i !== -1);
-            let lastDamage = 0; 
-            const targetSide = side === 'player' ? 'enemy' : 'player';
-
-            aliveTargets.forEach(idx => {
-                const target = opponentTeam[idx];
-
-                // Dùng sAtk cho Skill, hệ số 1.2 (vì đánh 3-5 con cùng lúc)
-                const damage = Math.max(20, Math.floor((attacker.sAtk * 1.2) / (1 + (target.def / 100))));
-
-                target.currentHp = Math.max(0, target.currentHp - damage);
-                lastDamage = damage; 
-            });
-
-            await window.SkillManager.play({
-                type: attacker.type || 'normal',
-                gen: attacker.gen || 1,
-                attackerIndex: this.activeUnitIndex,
-                attackerSide: side,
-                attackerId: attacker.id,
-                attackerName: attacker.name,
-                targetSide: targetSide,
-                targets: aliveTargets,
-                damage: lastDamage,
-                isAOE: true,
-                isSkill: true
-            });
-        }
-
-        this.updateUI();
-        this.isProcessing = false;
-        setTimeout(() => this.moveToNextUnit(), 1200); 
-    },
+    
 
 
 
@@ -343,6 +390,7 @@ window.BattleGame = {
                 fill.style.background = pct > 50 ? "#2ecc71" : pct > 25 ? "#f1c40f" : "#e74c3c";
             }
             if (text) text.innerText = `${Math.max(0, p.currentHp)}/${p.maxHp}`;
+            this.markDeadIfNeeded(`player-unit-${i}`, p.currentHp);
         });
 
         [...this.enemyTeam.entries()].forEach(([i, p]) => {
@@ -354,9 +402,26 @@ window.BattleGame = {
                 fill.style.background = pct > 50 ? "#2ecc71" : pct > 25 ? "#f1c40f" : "#e74c3c";
             }
             if (text) text.innerText = `${Math.max(0, p.currentHp)}/${p.maxHp}`;
+            this.markDeadIfNeeded(`enemy-unit-${i}`, p.currentHp);
         });
 
         this.updateActiveStatus();
+    },
+
+    // Đánh dấu Pokemon chết và ẩn vĩnh viễn khỏi màn hình
+    markDeadIfNeeded(unitId, currentHp) {
+        const el = document.getElementById(unitId);
+        if (!el) return;
+        if (currentHp <= 0) {
+            el.dataset.dead = '1';
+            // Nếu đang không bị teleport (không nằm trong animation), ẩn ngay
+            // Nếu đang teleport (đang chạy animation), việc ẩn sẽ được xử lý khi toggleSkillScene restore nó về
+            if (!el._teleportData) {
+                el.style.opacity    = '0';
+                el.style.visibility = 'hidden';
+                el.style.pointerEvents = 'none';
+            }
+        }
     },
 
     updateActiveStatus() {
