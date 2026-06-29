@@ -36,6 +36,34 @@ window.QuizManager = {
      * @param {string} correctValue - Đáp án đúng để hiển thị nếu làm sai
      */
     showFeedback(isCorrect, correctValue) {
+        if (this._feedbackShown) return;
+        this._feedbackShown = true;
+
+        // Lock tất cả các nút submit có thể có
+        [
+            "btn-submit-writing",
+            "btn-submit-w",
+            "btn-submit-pw",
+            "btn-submit-scramble",
+            "btn-unscramble-check",
+            "btn-check-18",
+            "btn-submit-19",
+            "ov3Submit",
+            "btn-skip-speak",
+            "btn-skip-speak-7",
+            "btn-skip-writing",
+            "btn-skip-20",
+            "ov3Skip",
+            "btn-v2-skip",
+            "btn-show-hint",
+        ].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.disabled = true;
+                el.style.opacity = "0.5";
+            }
+        });
+
         const allBtns = document.querySelectorAll(".option-btn");
         const inputEl = document.getElementById("writing-input");
         const wordBox = document.getElementById("quiz-word");
@@ -315,6 +343,8 @@ window.QuizManager = {
     },
 
     async executeAsk() {
+        this._answerLocked = false;
+        this._feedbackShown = false;
         if (this.wordQueue.length === 0) this.refreshWordQueue();
         if (this.taskQueue.length === 0) await this.refreshTaskQueue();
 
@@ -467,13 +497,13 @@ window.QuizManager = {
     },
 
     handleAnswer(selected, btn) {
-        const isCorrect = selected === this.correctAnswer;
+        if (this._answerLocked) return;
+        this._answerLocked = true;
 
-        // Đổi màu nút người dùng vừa chọn
+        const isCorrect = selected === this.correctAnswer;
         btn.style.background = isCorrect ? "#2ecc71" : "#e74c3c";
         btn.style.color = "white";
 
-        // Gọi hàm phản hồi dùng chung
         this.showFeedback(isCorrect, this.correctAnswer);
     },
 
