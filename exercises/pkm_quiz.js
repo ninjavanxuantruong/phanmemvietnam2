@@ -36,35 +36,29 @@ window.QuizManager = {
      * @param {string} correctValue - Đáp án đúng để hiển thị nếu làm sai
      */
     showFeedback(isCorrect, correctValue) {
-        if (this._feedbackShown) return;
-        this._feedbackShown = true;
+    if (this._feedbackShown) return;
+    this._feedbackShown = true;
 
-        // Lock tất cả các nút submit có thể có
-        [
-            "btn-submit-writing",
-            "btn-submit-w",
-            "btn-submit-pw",
-            "btn-submit-scramble",
-            "btn-unscramble-check",
-            "btn-check-18",
-            "btn-submit-19",
-            "ov3Submit",
-            "btn-skip-speak",
-            "btn-skip-speak-7",
-            "btn-skip-writing",
-            "btn-skip-20",
-            "ov3Skip",
-            "btn-v2-skip",
-            "btn-show-hint",
-        ].forEach((id) => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.disabled = true;
-                el.style.opacity = "0.5";
-            }
-        });
+    // Xóa sự kiện click khỏi tất cả các nút để tránh click queue
+    document.querySelectorAll(".option-btn, .cloze-btn, .match-node").forEach(el => {
+        const clone = el.cloneNode(true);
+        el.parentNode?.replaceChild(clone, el);
+    });
 
-        const allBtns = document.querySelectorAll(".option-btn");
+    ["btn-submit-writing", "btn-submit-w", "btn-submit-pw", 
+     "btn-submit-scramble", "btn-unscramble-check", "btn-check-18",
+     "btn-submit-19", "ov3Submit",
+     "btn-skip-speak", "btn-skip-speak-7", "btn-skip-writing",
+     "btn-skip-20", "ov3Skip", "btn-v2-skip", "btn-show-hint"].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const clone = el.cloneNode(true);
+        el.parentNode?.replaceChild(clone, el);
+        clone.disabled = true;
+        clone.style.opacity = "0.5";
+    });
+
+    const allBtns = document.querySelectorAll(".option-btn");
         const inputEl = document.getElementById("writing-input");
         const wordBox = document.getElementById("quiz-word");
         const overlay = document.getElementById("quiz-overlay"); // Thêm dòng này
@@ -123,8 +117,18 @@ window.QuizManager = {
     },
 
     handleSkip() {
+        if (this._feedbackShown) return;
+        this._feedbackShown = true;
+
         this.stopTimer();
         window.speechSynthesis.cancel();
+
+        // Khoá toàn bộ nút bấm để chống spam click
+        document.querySelectorAll(".option-btn, .cloze-btn, .match-node, button").forEach(el => {
+            const clone = el.cloneNode(true);
+            el.parentNode?.replaceChild(clone, el);
+        });
+
         const overlay = document.getElementById("quiz-overlay");
         if (overlay) overlay.style.display = "none";
         if (this.callback) this.callback(false);
