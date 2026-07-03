@@ -464,6 +464,7 @@ window.BattleGame = {
     // ✅ Victory: hiện overlay đẹp, chờ bấm nút mới về map
     victory() {
         this.log("🏆 CHIẾN THẮNG!");
+         this.saveBattleResult();
 
         // ── 1. ĐỌC DỮ LIỆU ──
         const missionData     = localStorage.getItem('current_mission');
@@ -576,9 +577,27 @@ window.BattleGame = {
 
         return streak;
     },
+    saveBattleResult() {
+        try {
+            const prev = JSON.parse(localStorage.getItem('result_battle')) || { score: 0, total: 0 };
+            const updated = {
+                score: (prev.score || 0) + this.correctCount,
+                total: (prev.total || 0) + this.totalCount
+            };
+            localStorage.setItem('result_battle', JSON.stringify(updated));
+
+            if (!localStorage.getItem('startTime_global')) {
+                localStorage.setItem('startTime_global', Date.now().toString());
+            }
+            console.log('📊 [Battle] Cộng dồn result_battle:', updated);
+        } catch (e) {
+            console.error('❌ Lỗi lưu result_battle:', e);
+        }
+    },
     defeat() {
         this.log("💀 BẠN ĐÃ THẤT BẠI!");
         this.isProcessing = true; 
+        this.saveBattleResult();
 
         // 1. Cập nhật hình ảnh Pokemon thất bại (làm xám)
         const firstPkm = this.playerTeam[0];
