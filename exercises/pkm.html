@@ -547,7 +547,8 @@
             </a>
 
             <!-- EXIT GATE -->
-            <a href="../exercise.html" class="building b-exit">
+            <!-- EXIT GATE -->
+            <a href="../exercise.html" class="building b-exit" id="exit-gate">
                 <div class="building-roof"></div>
                 <div class="building-body">
                     <div class="building-icon">🚪</div>
@@ -632,6 +633,20 @@
         }
 
         window.addEventListener('load', loadDataFromFirebase);
+    </script>
+    <!-- ✅ THÊM: nạp file đồng bộ điểm học tập (bao gồm cả Battle) -->
+    <script type="module" src="pkm_sync_score.js"></script>
+    <script>
+        document.getElementById('exit-gate').addEventListener('click', function (e) {
+            e.preventDefault();
+            const href = this.getAttribute('href');
+            const goNow = () => window.location.href = href;
+            if (window.syncLearningResultToFirebase) {
+                window.syncLearningResultToFirebase().finally(goNow);
+            } else {
+                goNow();
+            }
+        });
     </script>
 </body>
 </html>
