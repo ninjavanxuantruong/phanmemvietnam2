@@ -32,7 +32,8 @@ const parts = [
   { key: "phonics",        label: "Phát âm" },
   { key: "overview",       label: "Bài viết" },
   { key: "communication",  label: "Giao tiếp" },
-  { key: "grade8",         label: "Bài tập cấp 2" }
+  { key: "grade8",         label: "Bài tập cấp 2" },
+  { key: "battle",         label: "⚔️ Chiến đấu (Battle)" } // ✅ THÊM
 ];
 
 let totalScore = 0;
@@ -70,6 +71,12 @@ parts.forEach(({ key, label }, index) => {
   tableBody.innerHTML += row;
 });
 
+// ✅ THÊM: Kiểm tra đã chơi Battle chưa (dùng để quy đổi tương đương các phần bên dưới)
+const battleResult = JSON.parse(localStorage.getItem('result_battle'));
+const battlePlayed = (battleResult?.total || 0) > 0;
+// ✅ Battle tương đương các phần này khi tính Chăm chỉ / Kỹ năng (không cộng điểm ảo)
+const battleEquivalentLabels = ["Từ vựng", "Hình ảnh", "Trò chơi", "Bài tập nghe", "Bài tập nói", "Bài viết"];
+
 // ✅ Xử lý phần đã làm và chưa làm
 const completedParts = [];
 const zeroParts = [];
@@ -85,6 +92,15 @@ parts.forEach(({ key, label }) => {
     zeroParts.push(label);
   }
 });
+
+// ✅ THÊM: Nếu đã chơi Battle → coi như đã hoàn thành thêm các phần tương đương
+if (battlePlayed) {
+  battleEquivalentLabels.forEach(label => {
+    if (!completedParts.includes(label)) completedParts.push(label);
+    const idx = zeroParts.indexOf(label);
+    if (idx >= 0) zeroParts.splice(idx, 1);
+  });
+}
 
 // 👉 Tổng kết cuối
 const finalPercent = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
@@ -109,6 +125,11 @@ parts.forEach(({ key }) => {
     learnedGroups.add(skillGroups[key]);
   }
 });
+
+// ✅ THÊM: Nếu đã chơi Battle → cộng thêm các nhóm kỹ năng tương đương
+if (battlePlayed) {
+  ["Từ vựng", "Hình ảnh", "Trò chơi", "Nghe", "Nói", "Viết"].forEach(g => learnedGroups.add(g));
+}
 
 // ✅ Gọi hàm đánh giá
 const evaluation = getFullEvaluation({
@@ -272,7 +293,8 @@ function getTodayEntry() {
     { key: "phonics",       label: "Phát âm" },
     { key: "overview",      label: "Bài viết" },
     { key: "communication", label: "Giao tiếp" },
-    { key: "grade8",        label: "Bài tập cấp 2" }
+    { key: "grade8",        label: "Bài tập cấp 2" },
+    { key: "battle",        label: "⚔️ Chiến đấu (Battle)" } // ✅ THÊM
   ];
 
   const completedParts = partsMeta
