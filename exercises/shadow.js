@@ -1,19 +1,17 @@
-/* ===== Shadow Teleprompter — Pokémon Theme (logic) =====
+/* ===== Shadowing Studio (logic) =====
    - Lọc theo chủ đề (cột G)
-   - Giới hạn theo max lesson như Speaking 3 (dựa vào trainerClass trong localStorage)
+   - Giới hạn theo max lesson (dựa vào trainerClass trong localStorage)
    - Mỗi lessonName lấy 1 câu trước; nếu thiếu thì vòng lại lấy thêm câu khác trong cùng bài, không trùng câu
-   - Hiển thị kiểu máy nhắc chữ: 5–7 từ, từ giữa highlight vàng, chạy theo nhịp audio TTS
+   - Hiển thị kiểu teleprompter theo CẢ ĐOẠN VĂN (không phải từng cửa sổ 5-7 từ):
+     toàn bộ câu trong 1 batch được render thành 1 đoạn, từ đang đọc sáng màu và
+     tự cuộn theo, các từ đã đọc mờ dần, các từ chưa tới còn mờ hơn.
    - Log chi tiết toàn bộ các bước để debug
 ========================================================= */
 
 // ===== Config =====
-// Service TTS
 const TTS_BASE = "https://googlevoice-tinh.onrender.com";
 
-// Sheet chính (giống Speaking 3)
-
-
-// Mapping cột (0-based)
+// Mapping cột (0-based) - giữ lại để tham chiếu, các hàm extract dùng tên thuộc tính trước
 const COL = {
   lessonName: 1,    // B: mã bài (vd "3-07-2")
   targets: 2,       // C: vocab/từ khóa
@@ -22,26 +20,45 @@ const COL = {
   meaning: 24       // Y: nghĩa (nếu có)
 };
 
-const LOWER_BOUND_UNIT = 3011; // giống Speaking 3
-const WINDOW_SIZE = 7;         // hiển thị 5–7 từ
+const LOWER_BOUND_UNIT = 3011;
+
+// Kích thước batch dùng NỘI BỘ để gộp buffer audio cho mượt (không ảnh hưởng hiển thị)
+const BATCH_SIZE_CONTINUOUS = 7;
+const PAUSE_SEC = 0.6;
+const PAUSE_FACTOR = 2;
+const USE_DOUBLE_PAUSE = true;
+
+// Số giây tự động đếm ngược trước khi đọc tiếp ở chế độ "Dừng để nhại lại"
+const PAUSE_WAIT_SECONDS = 6;
 
 // ===== UI refs =====
 const topicSelect = document.getElementById("topicSelect");
 const countSelect = document.getElementById("countSelect");
 const speedControl = document.getElementById("speedControl");
+const modeSelect = document.getElementById("modeSelect");
+const pauseChunkField = document.getElementById("pauseChunkField");
+const pauseChunkSelect = document.getElementById("pauseChunkSelect");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const lineInner = document.getElementById("lineInner");
 const statusLine = document.getElementById("statusLine");
 const toastEl = document.getElementById("shadowToast");
+const progressFill = document.getElementById("progressFill");
+const progressLabel = document.getElementById("progressLabel");
+const onAirLabel = document.getElementById("onAirLabel");
+const pausePanel = document.getElementById("pausePanel");
+const pauseCountdownEl = document.getElementById("pauseCountdown");
+const replayBtn = document.getElementById("replayBtn");
+const continueBtn = document.getElementById("continueBtn");
 
-// ===== Audio =====
+// ===== Audio / state =====
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let isPlaying = false;
+let stopRequested = false;
 let currentSource = null;
 let currentTimer = null;
+let activePauseResolve = null; // cho phép Stop huỷ ngay lượt đang đếm ngược/nghe lại
 
-// Autoplay policy: resume khi có gesture
 document.addEventListener("click", async () => {
   if (audioCtx.state !== "running") {
     try { await audioCtx.resume(); } catch {}
@@ -61,6 +78,9 @@ async function initShadow() {
     countSelect.value = localStorage.getItem("shadow_count") || "10";
     const rememberedTopic = localStorage.getItem("shadow_topic");
     if (rememberedTopic) topicSelect.value = rememberedTopic;
+    modeSelect.value = localStorage.getItem("shadow_mode") || "continuous";
+    pauseChunkSelect.value = localStorage.getItem("shadow_pause_chunk") || "1";
+    updateModeFieldVisibility();
     status("Sẵn sàng.");
   } catch (err) {
     console.error("❌ Init error:", err);
@@ -74,20 +94,23 @@ function bindControls() {
   stopBtn.onclick = stopShadow;
   topicSelect.onchange = () => localStorage.setItem("shadow_topic", topicSelect.value);
   countSelect.onchange = () => localStorage.setItem("shadow_count", countSelect.value);
+  modeSelect.onchange = () => {
+    localStorage.setItem("shadow_mode", modeSelect.value);
+    updateModeFieldVisibility();
+  };
+  pauseChunkSelect.onchange = () => localStorage.setItem("shadow_pause_chunk", pauseChunkSelect.value);
 }
 
+function updateModeFieldVisibility() {
+  const isPause = modeSelect.value === "pause";
+  pauseChunkField.classList.toggle("hidden", !isPause);
+}
 
-// ===== Config =====
-const BATCH_SIZE = 7;       // ghép 6–7 câu một batch
-const PAUSE_SEC = 0.6;      // ngắt nghỉ tương đương "1 dấu chấm"
-const PAUSE_FACTOR = 2;     // 2 dấu chấm → ngắt dài hơn (nhân đôi)
-const USE_DOUBLE_PAUSE = true; // bật/tắt 2 dấu chấm
-
-// ===== Helpers =====
-function concatAudioBuffers(audioCtx, buffers) {
+// ===== Helpers: audio buffers =====
+function concatAudioBuffers(ctx, buffers) {
   const sampleRate = buffers[0].sampleRate;
   const totalLength = buffers.reduce((sum, b) => sum + b.length, 0);
-  const result = audioCtx.createBuffer(1, totalLength, sampleRate);
+  const result = ctx.createBuffer(1, totalLength, sampleRate);
   let offset = 0;
   for (const b of buffers) {
     result.getChannelData(0).set(b.getChannelData(0), offset);
@@ -96,11 +119,9 @@ function concatAudioBuffers(audioCtx, buffers) {
   return result;
 }
 
-function makeSilenceBuffer(audioCtx, durationSec) {
-  const len = Math.max(1, Math.floor(audioCtx.sampleRate * durationSec));
-  const silence = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
-  // Mặc định kênh = 0 đã là silence (zero-filled)
-  return silence;
+function makeSilenceBuffer(ctx, durationSec) {
+  const len = Math.max(1, Math.floor(ctx.sampleRate * durationSec));
+  return ctx.createBuffer(1, len, ctx.sampleRate);
 }
 
 async function fetchBuffersSequential(sentences, speed) {
@@ -112,8 +133,6 @@ async function fetchBuffersSequential(sentences, speed) {
       buffers.push(buf);
     } catch (e) {
       console.warn(`⚠️ Câu ${i + 1} lỗi, bỏ qua:`, e);
-      // Bỏ câu lỗi để khỏi làm lệch tổng
-      // Nếu muốn giữ, có thể tạo dummy + đặt duration giả, nhưng sẽ lệch audio thực
     }
   }
   return buffers;
@@ -129,8 +148,11 @@ function chunkArray(arr, size) {
 async function startShadow() {
   if (isPlaying) return;
   isPlaying = true;
+  stopRequested = false;
   startBtn.disabled = true;
   stopBtn.disabled = false;
+  lineInner.innerHTML = "";
+  updateProgress(0, 0);
 
   if (audioCtx.state === "suspended") { try { await audioCtx.resume(); } catch {} }
 
@@ -139,8 +161,10 @@ async function startShadow() {
     const topic = topicSelect.value;
     const count = parseInt(countSelect.value, 10);
     const speed = parseFloat(speedControl.value);
+    const mode = modeSelect.value; // "continuous" | "pause"
+    const pauseChunkSize = parseInt(pauseChunkSelect.value, 10) || 1;
 
-    console.log("🎛️ User selection:", { topic, count, speed });
+    console.log("🎛️ User selection:", { topic, count, speed, mode, pauseChunkSize });
 
     const maxLessonCode = await getMaxLessonCode();
     const rows = await fetchGVizRows(SHEET_URL);
@@ -154,7 +178,6 @@ async function startShadow() {
       return;
     }
 
-    // 1) Lấy buffer từng câu (tuần tự, tránh giới hạn)
     status("Đang tải audio từng câu...");
     const speechBuffers = await fetchBuffersSequential(sentences, speed);
     if (speechBuffers.length === 0) {
@@ -163,32 +186,37 @@ async function startShadow() {
       return;
     }
 
-    // 2) Tạo pause buffer cho mỗi câu
     const pauseSec = PAUSE_SEC * (USE_DOUBLE_PAUSE ? PAUSE_FACTOR : 1);
     const pauseBuf = makeSilenceBuffer(audioCtx, pauseSec);
 
-    // 3) Tạo dữ liệu batch (mỗi câu = speech + pause)
-    const batches = [];
-    const sentenceMeta = []; // giữ metadata để highlight
-    const sampleRate = audioCtx.sampleRate;
-
-    const pairs = []; // mảng các {sentence, speechBuf}
+    const pairs = [];
     let bi = 0;
     for (let i = 0; i < sentences.length && bi < speechBuffers.length; i++, bi++) {
       pairs.push({ sentence: sentences[i], speechBuf: speechBuffers[bi] });
     }
 
-    const chunks = chunkArray(pairs, BATCH_SIZE);
+    // Chỉ tính trước offset (toán học), KHÔNG dựng DOM ở đây.
+    // Câu nào sẽ hiện ra đúng lúc câu đó tới lượt đọc (xem playChunk).
+    const { sentenceOffsets } = buildSentenceOffsets(pairs.map(p => p.sentence));
+    const wordSpans = [];            // sẽ được điền dần khi từng câu xuất hiện
+    const appendedSentences = new Set();
+    const lastIdxRef = { value: -1 };
+
+    // Chọn kích thước gộp theo chế độ: liên tục gộp nhiều câu cho mượt,
+    // "dừng để nhại lại" thì gộp đúng 1-2 câu mỗi lượt để có điểm dừng.
+    const chunkSize = mode === "pause" ? pauseChunkSize : BATCH_SIZE_CONTINUOUS;
+
+    const batches = [];
+    const chunks = chunkArray(pairs, chunkSize);
     for (const chunk of chunks) {
       const batchBuffers = [];
       const batchMeta = [];
       for (const { sentence, speechBuf } of chunk) {
-        // durations theo mẫu để khớp tuyệt đối
         const speechSec = speechBuf.length / speechBuf.sampleRate;
         const pauseSecEff = pauseBuf.length / pauseBuf.sampleRate;
 
         batchBuffers.push(speechBuf);
-        batchBuffers.push(pauseBuf); // thêm ngắt nghỉ sau câu
+        batchBuffers.push(pauseBuf);
 
         batchMeta.push({
           text: sentence.text,
@@ -199,17 +227,22 @@ async function startShadow() {
           pauseSec: pauseSecEff
         });
       }
-
       const batchBuffer = concatAudioBuffers(audioCtx, batchBuffers);
       batches.push({ batchBuffer, batchMeta });
-      sentenceMeta.push(...batchMeta);
     }
 
-    // 4) Phát lần lượt từng batch, highlight tuyệt đối theo mẫu
-    status("Bắt đầu đọc mượt theo batch 6–7 câu...");
-    await playFromBatches(batches);
+    status(mode === "pause" ? "Bắt đầu — sẽ dừng lại để bạn nhại theo..." : "Bắt đầu đọc mượt theo đoạn văn...");
+    await playSession({
+      batches,
+      totalSentences: pairs.length,
+      mode,
+      wordSpans,
+      sentenceOffsets,
+      appendedSentences,
+      lastIdxRef
+    });
 
-    status("Hoàn tất.");
+    if (!stopRequested) status("Hoàn tất.");
     stopShadow();
   } catch (err) {
     console.error("❌ Start shadow error:", err);
@@ -218,29 +251,104 @@ async function startShadow() {
   }
 }
 
-async function playFromBatches(batches) {
-  for (let bIndex = 0; bIndex < batches.length; bIndex++) {
-    const { batchBuffer, batchMeta } = batches[bIndex];
+// ===== Compute word-count offsets for the whole session (index math only) =====
+// Không dựng DOM ở đây nữa — chỉ tính trước "câu thứ i bắt đầu ở vị trí từ toàn cục nào"
+// để khi 1 câu được thêm vào đoạn văn, ta biết đúng global index của từng từ trong nó.
+function buildSentenceOffsets(sentenceList) {
+  const sentenceOffsets = [];
+  let g = 0;
+  sentenceList.forEach((s) => {
+    const words = s.text.trim().split(/\s+/).filter(Boolean);
+    sentenceOffsets.push(g);
+    g += words.length;
+  });
+  return { sentenceOffsets, totalWords: g };
+}
 
-    // 1) Phát batch
+// ===== Append ONE sentence to the paragraph, right when its turn comes =====
+// Câu trước đó không bị xoá — câu mới chỉ được NỐI THÊM vào cuối.
+// Câu chưa tới lượt thì hoàn toàn không có trong DOM (không lộ trước).
+function appendSentenceToParagraph(globalSentenceIdx, words, wordSpansArray, baseOffset) {
+  const sentenceEl = document.createElement("span");
+  sentenceEl.className = "sentence";
+  sentenceEl.dataset.sentence = String(globalSentenceIdx);
+
+  words.forEach((w, i) => {
+    const g = baseOffset + i;
+    const span = document.createElement("span");
+    span.className = "word upcoming";
+    span.dataset.g = String(g);
+    span.textContent = w;
+    sentenceEl.appendChild(span);
+    sentenceEl.appendChild(document.createTextNode(" "));
+    wordSpansArray[g] = span;
+  });
+
+  lineInner.appendChild(sentenceEl);
+}
+
+// ===== Update highlight on words already in the DOM, gently auto-scroll =====
+function setActiveWord(wordSpansArray, globalIdx, lastIdxRef) {
+  if (globalIdx === lastIdxRef.value) return;
+  for (let i = 0; i < wordSpansArray.length; i++) {
+    const span = wordSpansArray[i];
+    if (!span) continue;
+    span.classList.remove("read", "active", "upcoming");
+    if (i < globalIdx) span.classList.add("read");
+    else if (i === globalIdx) span.classList.add("active");
+    else span.classList.add("upcoming");
+  }
+  lastIdxRef.value = globalIdx;
+  const activeEl = wordSpansArray[globalIdx];
+  if (activeEl && typeof activeEl.scrollIntoView === "function") {
+    // "nearest" chỉ cuộn khi từ thật sự nằm ngoài khung nhìn, không ép về giữa
+    // -> không còn bị cắt mất phần đầu câu dài như bản trước.
+    activeEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+  }
+}
+
+function setPlayingIndicator(playing) {
+  document.body.classList.toggle("is-playing", playing);
+  if (onAirLabel) onAirLabel.textContent = playing ? "Đang đọc" : "Sẵn sàng";
+}
+
+function updateProgress(current, total) {
+  if (progressLabel) progressLabel.textContent = `${current}/${total}`;
+  if (progressFill) progressFill.style.width = total > 0 ? `${Math.min(100, (current / total) * 100)}%` : "0%";
+}
+
+// ===== Play one audio chunk; mỗi câu trong chunk được NỐI vào đoạn văn đúng lúc tới lượt =====
+// startSentenceIndex = vị trí câu đầu tiên của chunk này trong toàn bộ session.
+function playChunk({ batchBuffer, batchMeta, startSentenceIndex, totalSentences, wordSpans, sentenceOffsets, appendedSentences, lastIdxRef }) {
+  return new Promise((resolve) => {
+    const ensureAppended = (localSIdx) => {
+      const globalSIdx = startSentenceIndex + localSIdx;
+      if (appendedSentences.has(globalSIdx)) return;
+      appendedSentences.add(globalSIdx);
+      appendSentenceToParagraph(globalSIdx, batchMeta[localSIdx].words, wordSpans, sentenceOffsets[globalSIdx]);
+    };
+
+    // Câu đầu tiên của chunk hiện ra ngay khi audio bắt đầu
+    ensureAppended(0);
+
     let source = null;
     try {
       source = audioCtx.createBufferSource();
       source.buffer = batchBuffer;
       source.connect(audioCtx.destination);
       source.start();
-      console.log(`🔈 Batch ${bIndex + 1}/${batches.length} start, dur(s):`, batchBuffer.duration);
+      currentSource = source;
+      console.log(`🔈 Chunk (câu ${startSentenceIndex + 1}..${startSentenceIndex + batchMeta.length}) start, dur(s):`, batchBuffer.duration);
     } catch (e) {
-      console.error("❌ Batch audio start error:", e);
-      continue;
+      console.error("❌ Chunk audio start error:", e);
+      resolve();
+      return;
     }
 
-    // 2) Tạo mốc thời gian tuyệt đối theo mẫu (speech + pause)
     const sr = batchBuffer.sampleRate;
-    const cumulativeEndsSec = []; // mốc kết thúc mỗi câu trong batch (tính cả pause)
-    const cumulativeStartsSec = []; // mốc bắt đầu mỗi câu
+    const cumulativeEndsSec = [];
+    const cumulativeStartsSec = [];
     let accSamples = 0;
-
     for (const m of batchMeta) {
       cumulativeStartsSec.push(accSamples / sr);
       accSamples += m.speechSamples;
@@ -248,25 +356,24 @@ async function playFromBatches(batches) {
       cumulativeEndsSec.push(accSamples / sr);
     }
 
-    // 3) rAF loop: highlight theo elapsed tuyệt đối
     const t0 = audioCtx.currentTime;
     let lastSentenceIdx = -1;
-    let lastWordIdx = -1;
     const EPS = 1e-3;
 
     const frame = () => {
+      if (stopRequested) return;
       const elapsed = audioCtx.currentTime - t0;
 
-      // Kết thúc batch: ép từ cuối của câu cuối trong batch
       if (elapsed >= batchBuffer.duration - EPS) {
-        const lastIdx = batchMeta.length - 1;
-        const words = batchMeta[lastIdx].words;
-        renderWindow(words, words.length - 1, WINDOW_SIZE);
-        console.log("🏁 Batch audio ended (clamp)");
+        const lastLocalSIdx = batchMeta.length - 1;
+        const lastWIdx = batchMeta[lastLocalSIdx].words.length - 1;
+        ensureAppended(lastLocalSIdx);
+        const globalSIdx = startSentenceIndex + lastLocalSIdx;
+        setActiveWord(wordSpans, sentenceOffsets[globalSIdx] + lastWIdx, lastIdxRef);
+        console.log("🏁 Chunk audio ended (clamp)");
         return;
       }
 
-      // Xác định câu hiện tại trong batch
       let sIdx = 0;
       for (let i = 0; i < cumulativeEndsSec.length; i++) {
         if (elapsed < cumulativeEndsSec[i] - EPS) { sIdx = i; break; }
@@ -275,54 +382,148 @@ async function playFromBatches(batches) {
       const sStart = cumulativeStartsSec[sIdx];
       const sEnd = cumulativeEndsSec[sIdx];
       const sElapsed = Math.max(0, Math.min(elapsed - sStart, sEnd - sStart));
-
-      // Phần speech của câu hiện tại
       const speechSec = batchMeta[sIdx].speechSec;
       const words = batchMeta[sIdx].words;
 
-      // Nếu đang ở vùng pause cuối câu → giữ từ cuối
       let wIdx;
       if (sElapsed >= speechSec - EPS) {
         wIdx = words.length - 1;
       } else {
-        // Chạy đều theo số từ trong phần speech
         const p = sElapsed / Math.max(1e-6, speechSec);
         wIdx = Math.floor(p * words.length);
         if (wIdx >= words.length) wIdx = words.length - 1;
       }
 
-      // Chuyển câu: reset cửa sổ
+      const globalSIdx = startSentenceIndex + sIdx;
+
       if (sIdx !== lastSentenceIdx) {
-        status(`Đang đọc câu ${sIdx + 1}/${batchMeta.length} (batch ${bIndex + 1}/${batches.length})`);
-        renderWindow(words, 0, WINDOW_SIZE);
+        ensureAppended(sIdx);
+        updateProgress(globalSIdx + 1, totalSentences);
         lastSentenceIdx = sIdx;
-        lastWordIdx = -1;
-      }
-      if (wIdx !== lastWordIdx) {
-        renderWindow(words, wIdx, WINDOW_SIZE);
-        lastWordIdx = wIdx;
       }
 
+      setActiveWord(wordSpans, sentenceOffsets[globalSIdx] + wIdx, lastIdxRef);
       requestAnimationFrame(frame);
     };
 
     requestAnimationFrame(frame);
 
-    // 4) Chờ batch kết thúc thật sự
-    await new Promise((resolve) => {
-      source.onended = () => {
-        console.log("🏁 Batch source onended");
-        resolve();
-      };
-    });
-  }
+    source.onended = () => {
+      console.log("🏁 Chunk source onended");
+      resolve();
+    };
+  });
 }
 
+// ===== Play a raw buffer with no highlight logic (used by "Nghe lại") =====
+function playRawBuffer(buffer) {
+  return new Promise((resolve) => {
+    try {
+      const src = audioCtx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(audioCtx.destination);
+      currentSource = src;
+      src.onended = () => resolve();
+      src.start();
+    } catch (e) {
+      console.error("❌ Replay error:", e);
+      resolve();
+    }
+  });
+}
 
+// ===== Pause gate for "Dừng để nhại lại": countdown + Nghe lại + Đọc tiếp ngay =====
+function runPauseGate(chunkBuffer, seconds) {
+  return new Promise((resolve) => {
+    let remaining = seconds;
+    let timerId = null;
+    let settled = false;
 
+    const cleanup = () => {
+      if (timerId) clearInterval(timerId);
+      pausePanel.classList.remove("visible");
+      replayBtn.onclick = null;
+      continueBtn.onclick = null;
+      activePauseResolve = null;
+    };
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+
+    activePauseResolve = finish;
+
+    const renderCountdown = () => {
+      pauseCountdownEl.textContent = `${remaining}s`;
+    };
+
+    const tick = () => {
+      if (stopRequested) { finish(); return; }
+      remaining -= 1;
+      if (remaining <= 0) { finish(); return; }
+      renderCountdown();
+    };
+
+    pausePanel.classList.add("visible");
+    renderCountdown();
+    timerId = setInterval(tick, 1000);
+
+    continueBtn.onclick = () => finish();
+
+    replayBtn.onclick = async () => {
+      if (settled) return;
+      clearInterval(timerId);
+      pauseCountdownEl.textContent = "đang nghe lại…";
+      await playRawBuffer(chunkBuffer);
+      if (settled || stopRequested) return;
+      remaining = seconds;
+      renderCountdown();
+      timerId = setInterval(tick, 1000);
+    };
+  });
+}
+
+// ===== Drive the whole session: 1 đoạn văn cố định, phát theo chunk =====
+// mode "continuous": chạy hết các chunk liên tiếp, không dừng.
+// mode "pause": sau mỗi chunk (trừ chunk cuối), dừng lại chờ học sinh nhại theo.
+async function playSession({ batches, totalSentences, mode, wordSpans, sentenceOffsets, appendedSentences, lastIdxRef }) {
+  setPlayingIndicator(true);
+  let startSentenceIndex = 0;
+
+  for (let bIndex = 0; bIndex < batches.length; bIndex++) {
+    if (stopRequested) break;
+    const { batchBuffer, batchMeta } = batches[bIndex];
+
+    await playChunk({
+      batchBuffer,
+      batchMeta,
+      startSentenceIndex,
+      totalSentences,
+      wordSpans,
+      sentenceOffsets,
+      appendedSentences,
+      lastIdxRef
+    });
+
+    startSentenceIndex += batchMeta.length;
+
+    const isLastChunk = bIndex === batches.length - 1;
+    if (mode === "pause" && !isLastChunk && !stopRequested) {
+      status("Tạm dừng — tự nhại lại câu vừa nghe...");
+      await runPauseGate(batchBuffer, PAUSE_WAIT_SECONDS);
+      if (!stopRequested) status(mode === "pause" ? "Đang đọc tiếp..." : "");
+    }
+  }
+
+  setPlayingIndicator(false);
+}
 
 // ===== Stop =====
 function stopShadow() {
+  stopRequested = true;
   isPlaying = false;
   startBtn.disabled = false;
   stopBtn.disabled = true;
@@ -331,12 +532,12 @@ function stopShadow() {
   currentSource = null;
 
   if (currentTimer) { clearInterval(currentTimer); currentTimer = null; }
+  if (activePauseResolve) activePauseResolve();
+  setPlayingIndicator(false);
   status("Đã dừng.");
 }
 
-
 // ===== TTS =====
-// ===== TTS fetchBuffer =====
 async function fetchBuffer(text, speed = 1, lang = "en-US", voice = "") {
   const url = `${TTS_BASE}/tts?q=${encodeURIComponent(text)}&speed=${encodeURIComponent(speed)}&lang=${encodeURIComponent(lang)}&voice=${encodeURIComponent(voice)}`;
   console.log("🎧 TTS URL:", url);
@@ -357,177 +558,19 @@ async function fetchBuffer(text, speed = 1, lang = "en-US", voice = "") {
   return buffer;
 }
 
-async function playFromFullBuffer(sentences, durations, fullBuffer) {
-  try {
-    currentSource = audioCtx.createBufferSource();
-    currentSource.buffer = fullBuffer;
-    currentSource.connect(audioCtx.destination);
-    currentSource.start();
-    console.log("🔈 Full audio start, duration(s):", fullBuffer.duration);
-  } catch (e) {
-    console.error("❌ Full audio start error:", e);
-    currentSource = null;
-  }
-
-  // Highlight từng từ trong từng câu theo durations
-  let sIdx = 0;
-
-  const runSentence = () => {
-    if (sIdx >= sentences.length) return;
-
-    const sentence = sentences[sIdx].text.trim();
-    const words = sentence.split(/\s+/).filter(Boolean);
-    const totalSec = durations[sIdx] || 4;
-    const intervalMs = (totalSec * 1000) / Math.max(1, words.length);
-
-    status(`Đang đọc câu ${sIdx + 1}/${sentences.length}`);
-    console.log(`▶️ Highlight [${sIdx + 1}]`, sentence);
-
-    let i = 0;
-    renderWindow(words, i, WINDOW_SIZE);
-
-    const timer = setInterval(() => {
-      i++;
-      if (i < words.length) {
-        renderWindow(words, i, WINDOW_SIZE);
-      } else {
-        clearInterval(timer);
-        sIdx++;
-        runSentence(); // chuyển sang câu tiếp theo
-      }
-    }, intervalMs);
-  };
-
-  runSentence();
-
-  // Chờ audio kết thúc
-  await new Promise((resolve) => {
-    currentSource.onended = () => {
-      console.log("🏁 Full audio ended");
-      resolve();
-    };
-  });
-}
-
-
-
-
-// ===== Teleprompter per sentence =====
-async function playSentenceSmooth(sentence, speed = 1) {
-  console.log("▶️ playSentenceSmooth: start", { sentence, speed });
-
-  if (audioCtx.state === "suspended") {
-    try { await audioCtx.resume(); } catch (e) {
-      console.warn("⚠️ AudioContext resume failed at play start:", e);
-    }
-  }
-
-  let buffer;
-  try {
-    buffer = await fetchBuffer(sentence, speed, "en-US", ""); // giữ tiếng Anh, bỏ voice nếu backend không hỗ trợ
-  } catch (e) {
-    console.warn("⚠️ TTS failed, fallback to silent timing:", e);
-    buffer = { duration: Math.max(3, sentence.split(/\s+/).length * 0.4) };
-  }
-
-  const words = sentence.split(/\s+/).filter(Boolean);
-  const totalSec = buffer.duration || 4;
-  const intervalMs = (totalSec * 1000) / Math.max(1, words.length);
-
-  if (buffer && buffer instanceof AudioBuffer) {
-    try {
-      currentSource = audioCtx.createBufferSource();
-      currentSource.buffer = buffer;
-      currentSource.connect(audioCtx.destination);
-      currentSource.start();
-      console.log("🔈 Audio start, duration(s):", buffer.duration);
-    } catch (e) {
-      console.error("❌ Audio start error:", e);
-      currentSource = null;
-    }
-  } else {
-    currentSource = null;
-    console.log("🔈 Fallback timing (no audio buffer)");
-  }
-
-  let i = 0;
-  renderWindow(words, i, WINDOW_SIZE);
-
-  await new Promise((resolve) => {
-    currentTimer = setInterval(() => {
-      i++;
-      if (i < words.length) {
-        renderWindow(words, i, WINDOW_SIZE);
-      } else {
-        clearInterval(currentTimer);
-        currentTimer = null;
-        console.log("⏱️ Timer finished for sentence");
-        resolve();
-      }
-    }, intervalMs);
-  });
-
-  const endTimeoutMs = (totalSec * 1000) + 1000;
-
-  if (currentSource) {
-    await Promise.race([
-      new Promise((r) => {
-        currentSource.onended = () => {
-          console.log("🏁 Audio onended fired");
-          r();
-        };
-      }),
-      new Promise((r) => setTimeout(() => {
-        console.warn("⏳ Audio end timeout reached, proceeding");
-        r();
-      }, endTimeoutMs))
-    ]);
-  }
-
-  console.log("✅ playSentenceSmooth: done");
-}
-
-
-
-// ===== Teleprompter window render =====
-function renderWindow(words, currentIndex, windowSize) {
-  const half = Math.floor(windowSize / 2);
-  const start = Math.max(0, currentIndex - half);
-  const end = Math.min(words.length, currentIndex + half + 1);
-  const windowWords = words.slice(start, end);
-
-  const html = windowWords.map((w, i) => {
-    const realIndex = start + i;
-    let cls = "word";
-    if (realIndex < currentIndex) cls += " read";
-    if (realIndex === currentIndex) cls += " active";
-    if (realIndex > currentIndex) cls += " upcoming";
-    return `<span class="${cls}">${escapeHTML(w)}</span>`;
-  }).join(" ");
-  lineInner.innerHTML = html;
-}
-
 // ===== GViz fetch =====
 async function fetchGVizRows(url) {
-    console.log("🔗 Fetching Exec API:", url);
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Network response was not ok");
-    const data = await res.json();
-
-    // Web App thường trả về { data: [...] } hoặc trực tiếp mảng [...]
-    const rows = data.data || data; 
-    console.log("📥 Exec parsed rows:", rows.length);
-
-    // Chuẩn hóa: Nếu exec trả về object, ta giữ nguyên để extract sau
-    return rows; 
+  console.log("🔗 Fetching Exec API:", url);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Network response was not ok");
+  const data = await res.json();
+  const rows = data.data || data;
+  console.log("📥 Exec parsed rows:", rows.length);
+  return rows;
 }
 
 // ===== Topics =====
 function buildTopicDropdown(rows) {
-  const topicSelect = document.getElementById("topicSelect");
-  if (!topicSelect) return;
-
-  // Lấy danh sách Topic duy nhất, kiểm tra cả kiểu Object (exec) và kiểu Array (gviz cũ)
   const topics = [...new Set(rows.map(r => {
     return (r.topic || r.Topic || r.ChuDe || (r.c ? r.c[6]?.v : r[6]))?.toString().trim();
   }).filter(Boolean))];
@@ -544,7 +587,6 @@ function buildTopicDropdown(rows) {
 
 function filterByTopic(rows, topic) {
   if (!topic || topic === "ALL") return rows;
-
   return rows.filter(r => {
     const val = (r.topic || r.Topic || r.ChuDe || (r.c ? r.c[6]?.v : r[6]) || "").toString().trim();
     return val === String(topic).trim();
@@ -565,32 +607,29 @@ function normalizeUnitId(unitStr) {
 }
 
 async function getMaxLessonCode() {
-    const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
-    console.log("🎒 trainerClass:", trainerClass || "(chưa đặt)");
+  const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
+  console.log("🎒 trainerClass:", trainerClass || "(chưa đặt)");
 
-    // Gọi API Exec cho bảng bài học
-    const res = await fetch(window.SHEET_BAI_HOC);
-    const data = await res.json();
-    const rows = data.data || data;
+  const res = await fetch(window.SHEET_BAI_HOC);
+  const data = await res.json();
+  const rows = data.data || data;
 
-    const baiList = rows
-        .map(r => {
-            // Lưu ý: Tên thuộc tính (lop, bai) phải khớp với tên cột trong file GS của bạn
-            const lop = r.lop || r.Lop || r.Class; 
-            const bai = r.bai || r.Bai || r.Lesson;
-            return lop === trainerClass && bai ? parseInt(bai, 10) : null;
-        })
-        .filter(v => typeof v === "number");
+  const baiList = rows
+    .map(r => {
+      const lop = r.lop || r.Lop || r.Class;
+      const bai = r.bai || r.Bai || r.Lesson;
+      return lop === trainerClass && bai ? parseInt(bai, 10) : null;
+    })
+    .filter(v => typeof v === "number");
 
-    if (baiList.length === 0) return Number.MAX_SAFE_INTEGER;
-    return Math.max(...baiList);
+  if (baiList.length === 0) return Number.MAX_SAFE_INTEGER;
+  return Math.max(...baiList);
 }
 
 // ===== Extract presentation data (theo chủ đề + giới hạn max lesson) =====
 function extractPresentationData(rows, maxLessonCode) {
   const items = [];
   for (const r of rows) {
-    // Ưu tiên lấy theo tên thuộc tính (exec), nếu không có mới lấy theo index (gviz)
     const lessonName = safeStr(r.lessonName || r.Lesson || r.MaBai || (r.c ? r.c[1]?.v : r[1]));
     const presentation = safeStr(r.presentation || r.Sentence || r.CauHoi || (r.c ? r.c[8]?.v : r[8])).replace(/\s+/g, " ").trim();
     const meaning = safeStr(r.meaning || r.Vietnamese || r.Nghia || (r.c ? r.c[24]?.v : r[24]));
@@ -602,8 +641,7 @@ function extractPresentationData(rows, maxLessonCode) {
 
     if (!lessonName || !presentation) continue;
 
-    // Lọc theo khoảng bài học (3011 đến max)
-    if (unitNum >= 3011 && unitNum <= maxLessonCode) {
+    if (unitNum >= LOWER_BOUND_UNIT && unitNum <= maxLessonCode) {
       items.push({ lessonName, unitNum, presentation, meaning, targets, topic });
     }
   }
@@ -619,13 +657,11 @@ function buildSentences(items, count) {
     byLesson.get(key).push(it);
   }
 
-  // Log các bài và số câu mỗi bài
   console.log("📚 Bản đồ bài → số câu:", [...byLesson.entries()].map(([k, v]) => ({ lesson: k, count: v.length })));
 
   const picked = [];
   const usedPerLesson = new Map();
 
-  // Lấy mỗi bài 1 câu đầu tiên (random)
   for (const [lesson, arr] of byLesson.entries()) {
     const randomIdx = Math.floor(Math.random() * arr.length);
     const chosen = arr[randomIdx];
@@ -640,13 +676,11 @@ function buildSentences(items, count) {
   }
   console.log("🟢 Sau pass đầu (mỗi bài 1 câu):", picked.length);
 
-  // Nếu thiếu, vòng lại lấy thêm câu khác trong cùng bài (không trùng, random)
   let loopCount = 0;
-  while (picked.length < count && loopCount < 20) { // tránh vòng vô hạn
+  while (picked.length < count && loopCount < 20) {
     let added = false;
     for (const [lesson, arr] of byLesson.entries()) {
       const used = usedPerLesson.get(lesson) || new Set();
-      // lọc ra các câu chưa dùng
       const candidates = arr.filter(it => !used.has(it.presentation));
       if (candidates.length > 0) {
         const randomIdx = Math.floor(Math.random() * candidates.length);
@@ -670,17 +704,11 @@ function buildSentences(items, count) {
     }
   }
 
-  // Log danh sách câu cuối cùng
   console.table(picked.map((p, i) => ({ idx: i + 1, lesson: p.lesson, text: p.text })));
   return picked;
 }
 
-// ===== TTS fetchBuffer =====
-
-
-
 // ===== Utilities =====
-function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 function safeStr(v) { return v == null ? "" : String(v); }
 function escapeHTML(str) {
   return String(str).replace(/[&<>"']/g, (ch) => ({
