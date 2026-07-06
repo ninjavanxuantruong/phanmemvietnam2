@@ -765,55 +765,68 @@ window.SkillManager = {
 
     // --- CÁC HÀM SPAWN GIỮ NGUYÊN NHƯ FILE CŨ CỦA BẠN ---
     async spawnElectric(startEl, endEl, count, scale) {
-        // Sử dụng projectileFly từ config
-        const duration = this.durationConfig.projectileFly;
-        const numBolts = Math.max(4, count * 2); 
-        const interval = duration / numBolts;
+        const rectS = startEl.getBoundingClientRect();
+        const rectE = endEl.getBoundingClientRect();
 
-        return new Promise((resolve) => {
-            for (let i = 0; i < numBolts; i++) {
-                setTimeout(() => {
-                    const rectS = startEl.getBoundingClientRect();
-                    const rectE = endEl.getBoundingClientRect();
+        const totalSpan  = this.durationConfig.projectileFly;
+        const numBolts    = Math.max(6, count * 3); // NHIỀU tia hơn bản cũ
+        const boltDuration = 150;
 
-                    let curX = rectS.left + rectS.width / 2;
-                    let curY = rectS.top + rectS.height / 2;
-                    const endX = rectE.left + rectE.width / 2;
-                    const endY = rectE.top + rectE.height / 2;
+        const startX = rectS.left + rectS.width / 2;
+        const startY = rectS.top + rectS.height / 2;
+        const endX   = rectE.left + rectE.width / 2;
+        const endY   = rectE.top + rectE.height / 2;
 
-                    const segments = 12; 
-                    for (let j = 1; j <= segments; j++) {
-                        const noise = (Math.random() - 0.5) * 60; 
-                        const nextX = curX + (endX - curX) * (1 / (segments - j + 1)) + noise;
-                        const nextY = curY + (endY - curY) * (1 / (segments - j + 1)) + (Math.random() - 0.5) * 30;
+        const allBolts = [];
 
-                        const dx = nextX - curX;
-                        const dy = nextY - curY;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
+        // Tạo TOÀN BỘ tia sét NGAY (đồng bộ) — chỉ delay phần hiển thị
+        for (let i = 0; i < numBolts; i++) {
+            const delay = (i / numBolts) * totalSpan;
+            let curX = startX, curY = startY;
+            const segments = 12;
 
-                        const bolt = document.createElement('div');
-                        bolt.className = 'pkm-particle particle-electric';
+            for (let j = 1; j <= segments; j++) {
+                const noise = (Math.random() - 0.5) * 60;
+                const nextX = curX + (endX - curX) * (1 / (segments - j + 1)) + noise;
+                const nextY = curY + (endY - curY) * (1 / (segments - j + 1)) + (Math.random() - 0.5) * 30;
 
-                        const boltHeight = (2 + Math.random() * 2) * scale;
-                        bolt.style.cssText = `
-                            position: fixed; left: ${curX}px; top: ${curY}px;
-                            width: ${dist}px; height: ${boltHeight}px;
-                            background: rgba(255, 255, 255, 0.9);
-                            transform: rotate(${Math.atan2(dy, dx) * 180 / Math.PI}deg);
-                            transform-origin: 0 50%;
-                            box-shadow: 0 0 ${4 * scale}px #fff, 0 0 ${8 * scale}px #f1c40f;
-                            z-index: 9999; pointer-events: none;
-                        `;
+                const dx = nextX - curX;
+                const dy = nextY - curY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
 
-                        document.body.appendChild(bolt);
-                        setTimeout(() => bolt.remove(), 100);
+                const bolt = document.createElement('div');
+                bolt.className = 'pkm-particle particle-electric';
+                const boltHeight = (2 + Math.random() * 2) * scale;
+                bolt.style.cssText = `
+                    position: fixed; left: ${curX}px; top: ${curY}px;
+                    width: ${dist}px; height: ${boltHeight}px;
+                    background: rgba(255, 255, 255, 0.9);
+                    transform: rotate(${Math.atan2(dy, dx) * 180 / Math.PI}deg);
+                    transform-origin: 0 50%;
+                    box-shadow: 0 0 ${4 * scale}px #fff, 0 0 ${8 * scale}px #f1c40f;
+                    z-index: 9999; pointer-events: none;
+                    opacity: 0;
+                `;
+                document.body.appendChild(bolt);
+                allBolts.push(bolt);
 
-                        curX = nextX;
-                        curY = nextY;
-                    }
-                }, i * interval);
+                bolt.animate([
+                    { opacity: 0 },
+                    { opacity: 1, offset: 0.15 },
+                    { opacity: 1, offset: 0.5 },
+                    { opacity: 0 }
+                ], { duration: boltDuration, delay, fill: 'forwards' });
+
+                curX = nextX;
+                curY = nextY;
             }
-            setTimeout(resolve, duration);
+        }
+
+        await new Promise((resolve) => {
+            setTimeout(() => {
+                allBolts.forEach((b) => b.remove());
+                resolve();
+            }, totalSpan + boltDuration);
         });
     },
     async spawnElectric2(startEl, endEl, count, scale) {
@@ -883,61 +896,71 @@ window.SkillManager = {
     async spawnElectric3(startEl, endEl, count, scale) {
         const rectE = endEl.getBoundingClientRect();
         const centerX = rectE.left + rectE.width / 2;
-        const cloudY = rectE.top - 80 * scale;
+        const centerY = rectE.top + rectE.height / 2;
+        const cloudY  = rectE.top - 50 * scale;
 
-        // 1. TẠO ĐÁM MÂY (Giai đoạn Gồng - Prep Phase)
+        const chargeMs  = this.durationConfig.chargeAura;
+        const sustainMs = this.durationConfig.targetSustain;
+        const totalMs   = chargeMs + sustainMs;
+
+        const allEls = [];
+
+        // 1. Mây (kích thước co theo scale để không tràn quá orb nhỏ khi ở màn chọn skill)
+        const cloudW = 110 * scale;
+        const cloudH = 55  * scale;
         const cloud = document.createElement('div');
         cloud.style.cssText = `
-            position: fixed; left: ${centerX - 100 * scale}px; top: ${cloudY}px;
-            width: ${200 * scale}px; height: ${100 * scale}px;
+            position: fixed; left: ${centerX - cloudW / 2}px; top: ${cloudY - cloudH / 2}px;
+            width: ${cloudW}px; height: ${cloudH}px;
             background: radial-gradient(ellipse at center, #34495e 20%, #1c2833 70%, transparent 100%);
-            border-radius: 50%; opacity: 0; z-index: 9998;
-            filter: blur(10px); transition: opacity 0.6s ease-in, transform 0.6s ease-out;
-            transform: scale(0.5);
+            border-radius: 50%; z-index: 9998;
+            filter: blur(${6 * scale}px); pointer-events: none;
+            opacity: 0; transform: scale(0.5);
         `;
         document.body.appendChild(cloud);
+        allEls.push(cloud);
 
-        // Hiệu ứng mây tụ to dần
-        requestAnimationFrame(() => { 
-            cloud.style.opacity = '0.9';
-            cloud.style.transform = 'scale(1)'; 
-        });
+        cloud.animate([
+            { opacity: 0, transform: 'scale(0.5)' },
+            { opacity: 0.9, transform: 'scale(1)' }
+        ], { duration: chargeMs, fill: 'forwards', easing: 'ease-out' });
 
-        // Giai đoạn Gồng (Charge)
-        await new Promise(r => setTimeout(r, this.durationConfig.chargeAura));
-
-        // 2. GIỮ CHIÊU & GIÁNG SÉT (Sustain & Strike Phase)
-        // Bật hiệu ứng tia tĩnh điện quanh mây trong lúc giữ chiêu
-        const sparkInterval = setInterval(() => {
+        // 2. Tia tĩnh điện lấm tấm quanh mây — tạo hết 1 lần, tự chớp tắt theo delay riêng
+        const sparkCount = Math.max(12, count * 5);
+        for (let i = 0; i < sparkCount; i++) {
             const spark = document.createElement('div');
+            const sx = centerX + (Math.random() - 0.5) * cloudW;
+            const sy = cloudY  + (Math.random() - 0.5) * cloudH;
+            const delay = chargeMs * 0.2 + Math.random() * (totalMs - chargeMs * 0.2);
             spark.style.cssText = `
-                position: fixed; left: ${centerX + (Math.random()-0.5)*150*scale}px; 
-                top: ${cloudY + (Math.random())*50*scale}px;
-                width: ${2*scale}px; height: ${2*scale}px; background: #fff;
-                box-shadow: 0 0 5px #f1c40f; z-index: 9999;
+                position: fixed; left: ${sx}px; top: ${sy}px;
+                width: ${2 * scale}px; height: ${2 * scale}px; background: #fff;
+                box-shadow: 0 0 ${5 * scale}px #f1c40f; z-index: 9999; pointer-events: none;
+                opacity: 0;
             `;
             document.body.appendChild(spark);
-            setTimeout(() => spark.remove(), 80);
-        }, 50);
+            allEls.push(spark);
+            spark.animate([
+                { opacity: 0 }, { opacity: 1, offset: 0.5 }, { opacity: 0 }
+            ], { duration: 220, delay, fill: 'forwards' });
+        }
 
-        // Chạy loop bắn sét trong suốt thời gian targetSustain
-        const strikeLoop = setInterval(() => {
-            window.SkillManager.createZigzagBolt(
-                centerX + (Math.random()-0.5)*120*scale, cloudY + 50*scale, 
-                centerX + (Math.random()-0.5)*80*scale, rectE.top + rectE.height/2, 
-                scale
-            );
-        }, this.durationConfig.delayBetween);
+        // 3. NHIỀU tia sét giáng xuống hơn — tạo hết ngay, rải delay đều trong lúc giữ chiêu
+        const boltCount = Math.max(8, count * 4); // tăng đáng kể số tia so với bản cũ
+        const strikeStart = chargeMs;
+        const strikeSpan  = sustainMs;
 
-        // Đợi hết thời gian giữ chiêu
-        await new Promise(r => setTimeout(r, this.durationConfig.targetSustain));
+        for (let i = 0; i < boltCount; i++) {
+            const delay = strikeStart + (i / boltCount) * strikeSpan + Math.random() * 100;
+            const x1 = centerX + (Math.random() - 0.5) * cloudW * 0.7;
+            const y1 = cloudY;
+            const x2 = centerX + (Math.random() - 0.5) * cloudW * 0.4;
+            const y2 = centerY;
+            this.createZigzagBoltDelayed(x1, y1, x2, y2, scale, delay, allEls);
+        }
 
-        // 3. KẾT THÚC (Tan đám mây)
-        clearInterval(sparkInterval);
-        clearInterval(strikeLoop);
-        cloud.style.opacity = '0';
-        cloud.style.transform = 'scale(0.5)';
-        setTimeout(() => cloud.remove(), 600);
+        await new Promise((r) => setTimeout(r, totalMs));
+        allEls.forEach((el) => el.remove());
     },
 
     createZigzagBolt(x1, y1, x2, y2, scale) {
@@ -966,6 +989,46 @@ window.SkillManager = {
             `;
             document.body.appendChild(bolt);
             setTimeout(() => bolt.remove(), 120);
+
+            curX = nextX; curY = nextY;
+        }
+    },
+    // Tạo 1 tia sét zigzag NGAY LẬP TỨC (đồng bộ), chỉ delay phần HIỂN THỊ bằng animate()
+    // để tương thích với cơ chế "khoanh vùng orb" khi chọn skill.
+    createZigzagBoltDelayed(x1, y1, x2, y2, scale, delay, collector) {
+        const segments = 10;
+        let curX = x1, curY = y1;
+
+        for (let i = 1; i <= segments; i++) {
+            const targetX = x1 + (x2 - x1) * (i / segments);
+            const targetY = y1 + (y2 - y1) * (i / segments);
+
+            const noise = (Math.random() - 0.5) * 60 * scale;
+            const nextX = i < segments ? targetX + noise : x2;
+            const nextY = targetY;
+
+            const dist = Math.sqrt((nextX - curX) ** 2 + (nextY - curY) ** 2);
+
+            const bolt = document.createElement('div');
+            bolt.style.cssText = `
+                position: fixed; left: ${curX}px; top: ${curY}px;
+                width: ${dist}px; height: ${1.5 * scale}px;
+                background: #fff;
+                transform: rotate(${Math.atan2(nextY - curY, nextX - curX) * 180 / Math.PI}deg);
+                transform-origin: 0 50%;
+                box-shadow: 0 0 ${8 * scale}px #fff, 0 0 ${15 * scale}px #f1c40f;
+                z-index: 9999; pointer-events: none;
+                opacity: 0;
+            `;
+            document.body.appendChild(bolt);
+            if (collector) collector.push(bolt);
+
+            bolt.animate([
+                { opacity: 0 },
+                { opacity: 1, offset: 0.2 },
+                { opacity: 1, offset: 0.6 },
+                { opacity: 0 }
+            ], { duration: 150, delay, fill: 'forwards' });
 
             curX = nextX; curY = nextY;
         }
