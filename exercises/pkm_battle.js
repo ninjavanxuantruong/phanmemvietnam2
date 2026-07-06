@@ -312,29 +312,31 @@ window.BattleGame = {
         } else {
             // Skill AOE
             const aliveTargets = opponentTeam.map((p, i) => p.currentHp > 0 ? i : -1).filter(i => i !== -1);
-            let lastDamage = 0;
+
+            const playInfo = {
+                type: attacker.type || 'normal',
+                gen: attacker.gen || 1,
+                attackerIndex: activeIdx,
+                attackerSide: side,
+                attackerId: attacker.id,
+                attackerName: attacker.name,
+                targetSide,
+                targets: aliveTargets,
+                damage: 0,
+                isAOE: true,
+                isSkill: true
+            };
+
             return {
                 applyDamage() {
                     aliveTargets.forEach(idx => {
                         const target = opponentTeam[idx];
                         const damage = Math.max(20, Math.floor((attacker.sAtk * 1.2) / (1 + (target.def / 100))));
                         target.currentHp = Math.max(0, target.currentHp - damage);
-                        lastDamage = damage;
+                        playInfo.damage = damage;
                     });
                 },
-                playInfo: {
-                    type: attacker.type || 'normal',
-                    gen: attacker.gen || 1,
-                    attackerIndex: activeIdx,
-                    attackerSide: side,
-                    attackerId: attacker.id,
-                    attackerName: attacker.name,
-                    targetSide,
-                    targets: aliveTargets,
-                    damage: lastDamage,
-                    isAOE: true,
-                    isSkill: true
-                }
+                playInfo
             };
         }
     },
