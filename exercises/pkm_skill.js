@@ -23,27 +23,56 @@ window.SkillManager = {
     },// Lưu các unit đang là attacker trong lượt hiện tại
     skillPools: {},
 
-    getNextSkillMethod(baseMethodName) {
-        // Khởi tạo pool cho hệ này nếu chưa có hoặc đã hết
+    // Xem (và tạo nếu cần) danh sách chiêu còn lại của hệ này trong vòng hiện tại — KHÔNG rút ra
+    peekSkillPool(baseMethodName) {
         if (!this.skillPools[baseMethodName] || this.skillPools[baseMethodName].length === 0) {
-            // Xây danh sách các chiêu tồn tại thực sự (1, 2, 3)
             const candidates = [
                 baseMethodName,
                 `${baseMethodName}2`,
                 `${baseMethodName}3`
             ].filter(name => typeof this[name] === 'function');
 
-            // Shuffle danh sách
             for (let i = candidates.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
             }
-
             this.skillPools[baseMethodName] = candidates;
         }
+        return this.skillPools[baseMethodName];
+    },
 
-        // Rút 1 chiêu ra dùng (pop từ cuối)
-        return this.skillPools[baseMethodName].pop();
+    // Rút 1 chiêu cụ thể khỏi pool (dùng sau khi đã biết chiêu nào được chọn)
+    consumeSkillFromPool(baseMethodName, methodName) {
+        const pool = this.skillPools[baseMethodName];
+        if (!pool) return;
+        const idx = pool.indexOf(methodName);
+        if (idx !== -1) pool.splice(idx, 1);
+    },
+
+    // Giữ hàm cũ để tương thích (AI địch dùng auto-random)
+    getNextSkillMethod(baseMethodName) {
+        const pool = this.peekSkillPool(baseMethodName);
+        const methodName = pool[Math.floor(Math.random() * pool.length)];
+        this.consumeSkillFromPool(baseMethodName, methodName);
+        return methodName;
+    },
+
+    // Điều phối: người chơi được chọn skill trong 3s, AI địch tự chọn ngay
+    async chooseSkillInteractive(attacker, type, baseMethodName, isPlayerControlled) {
+        const pool = this.peekSkillPool(baseMethodName).slice();
+
+        // Chỉ còn 1 chiêu duy nhất -> không cần hỏi, dùng luôn
+        if (pool.length === 1) {
+            const methodName = pool[0];
+            this.consumeSkillFromPool(baseMethodName, methodName);
+            await this.playSkillSelectAura(attacker, type, methodName, baseMethodName, pool, false);
+            return methodName;
+        }
+
+        const interactive = !!isPlayerControlled;
+        const chosen = await this.playSkillSelectAura(attacker, type, null, baseMethodName, pool, interactive);
+        this.consumeSkillFromPool(baseMethodName, chosen);
+        return chosen;
     },
 
     // Hàm đọc tên Pokemon
@@ -83,12 +112,10 @@ window.SkillManager = {
     },
 
     durationConfig: {
-        // --- 3 MỐC THỜI GIAN LIFECYCLE MỚI THEO Ý SẾP ---
-        chargeAura: 600,       // Giai đoạn 1: Thời gian gồng hào quang (nhún người, tích khí)
-        projectileFly: 2000,   // Giai đoạn 2: Thời gian chiêu sinh ra và di chuyển từ từ đến đích
-        targetSustain: 3000,   // Giai đoạn 3: Thời gian giữ nguyên chiêu + địch dính chưởng tại chỗ
-
-        // Các cấu hình cũ sếp giữ nguyên phía dưới
+        chargeAura: 900,        // tăng từ 600
+        projectileFly: 3000,    // tăng từ 2000 - đạn bay chậm hơn
+        targetSustain: 4000,    // tăng từ 3000 - giữ hiệu ứng lâu hơn
+        skillChoiceWindow: 3000, // MỚI: 3s cho người chơi chọn skill
         delayBetween: 300,
         particleLife: 1000,
         electricBolt: 300,
@@ -157,10 +184,13 @@ window.SkillManager = {
                 sideOverlay.id = `skill-scene-overlay-${side}`;
                 document.body.appendChild(sideOverlay);
             }
+            const arenaRectForOverlay = arena
+                ? arena.getBoundingClientRect()
+                : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
             sideOverlay.style.cssText = `
                 position: fixed;
-                top: 0; left: 0;
-                width: 100vw; height: 100vh;
+                top: ${arenaRectForOverlay.top}px; left: ${arenaRectForOverlay.left}px;
+                width: ${arenaRectForOverlay.width}px; height: ${arenaRectForOverlay.height}px;
                 overflow: hidden;
                 z-index: 50;
                 pointer-events: none;
@@ -234,10 +264,9 @@ window.SkillManager = {
             });
         }
     },
-    async playSkillSelectAura(attackerEl, type, chosenMethod, baseMethodName) {
-        const allMethods = [baseMethodName, `${baseMethodName}2`, `${baseMethodName}3`]
-            .filter(name => typeof this[name] === 'function');
-        const count     = allMethods.length;
+    async playSkillSelectAura(attackerEl, type, chosenMethod, baseMethodName, pool, interactive) {
+        const methods   = (pool && pool.length > 0) ? pool : [baseMethodName];
+        const count     = methods.length;
         const rectA     = attackerEl.getBoundingClientRect();
         const cx        = rectA.left + rectA.width  / 2;
         const cy        = rectA.top  + rectA.height / 2;
@@ -247,13 +276,14 @@ window.SkillManager = {
         const SCALE     = 0.66;
         const LOOP_MS   = 500;
 
-        // 1. Tạo container clip cho từng orb
-        const items = allMethods.map((name, i) => {
+        let resolveChoice;
+        const choicePromise = new Promise(res => { resolveChoice = res; });
+
+        const items = methods.map((name, i) => {
             const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
             const x = cx + Math.cos(angle) * orbR;
             const y = cy + Math.sin(angle) * orbR;
 
-            // Container: position fixed, overflow hidden, border-radius 50% → clip tròn
             const container = document.createElement('div');
             container.style.cssText = `
                 position: fixed;
@@ -261,18 +291,17 @@ window.SkillManager = {
                 width: ${orbSize}px; height: ${orbSize}px;
                 border-radius: 50%;
                 overflow: hidden;
-                pointer-events: none;
+                pointer-events: ${interactive ? 'auto' : 'none'};
+                cursor: ${interactive ? 'pointer' : 'default'};
                 z-index: 10009;
                 transform: translate(-50%, -50%) scale(0);
                 transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), opacity 0.22s ease-out;
                 box-shadow: 0 0 16px ${typeColor}, 0 0 32px ${typeColor}55;
-                border: none;
+                border: ${interactive ? '3px solid rgba(255,255,255,0.85)' : 'none'};
                 background: radial-gradient(circle, rgba(0,0,0,0.55) 0%, transparent 80%);
             `;
             document.body.appendChild(container);
 
-            // FakeEl: đặt ở tâm container, dùng làm startEl và endEl cho spawn
-            // Kích thước bằng container để getBoundingClientRect() trả về đúng tâm
             const fakeEl = document.createElement('div');
             fakeEl.style.cssText = `
                 position: fixed;
@@ -284,33 +313,45 @@ window.SkillManager = {
             `;
             document.body.appendChild(fakeEl);
 
-            return { container, fakeEl, method: name, angle, stopped: false, loopTimer: null };
+            const item = { container, fakeEl, method: name, angle, stopped: false, loopTimer: null };
+
+            if (interactive) {
+                container.addEventListener('click', () => {
+                    if (item.stopped) return;
+                    resolveChoice(name);
+                });
+            }
+            return item;
         });
 
-        // 2. Orb xuất hiện
+        // Đếm ngược hiển thị khi tới lượt người chơi chọn
+        let countdownEl = null;
+        if (interactive) {
+            countdownEl = document.createElement('div');
+            countdownEl.style.cssText = `
+                position: fixed;
+                left: ${cx}px; top: ${cy - orbR - 40}px;
+                transform: translate(-50%, -50%);
+                color: #fff; font-weight: 900; font-size: 20px;
+                text-shadow: 2px 2px 4px #000;
+                z-index: 10010; pointer-events: none; white-space: nowrap;
+            `;
+            document.body.appendChild(countdownEl);
+        }
+
         requestAnimationFrame(() => {
             items.forEach(it => { it.container.style.transform = 'translate(-50%, -50%) scale(1)'; });
         });
         await new Promise(r => setTimeout(r, 320));
 
-        // 3. Monkey-patch appendChild + vị trí: intercept các element spawn tạo ra
-        //    Khi spawn gọi document.body.appendChild(el), ta bắt lại:
-        //    - Tính offset của el so với tâm fakeEl
-        //    - Đổi left/top thành tương đối với container (position absolute)
-        //    - Append vào container thay vì body
         const patchForItem = (item) => {
             const origAppend = document.body.appendChild.bind(document.body);
             document.body.appendChild = (el) => {
                 if (item.stopped) { document.body.appendChild = origAppend; return origAppend(el); }
                 if (el && el.style && el.style.position === 'fixed') {
-                    // Lấy tọa độ fixed hiện tại
                     const elLeft = parseFloat(el.style.left) || 0;
                     const elTop  = parseFloat(el.style.top)  || 0;
-                    // Tâm container
                     const cRect  = item.container.getBoundingClientRect();
-                    const cCX    = cRect.left + cRect.width  / 2;
-                    const cCY    = cRect.top  + cRect.height / 2;
-                    // Đổi sang absolute tương đối với container
                     el.style.position = 'absolute';
                     el.style.left     = `${elLeft - cRect.left}px`;
                     el.style.top      = `${elTop  - cRect.top}px`;
@@ -321,7 +362,6 @@ window.SkillManager = {
             };
         };
 
-        // 4. Loop spawn cho từng item
         const runLoop = (item) => {
             const fn = () => {
                 if (item.stopped) return;
@@ -330,7 +370,6 @@ window.SkillManager = {
                 if (typeof spawnFn === 'function') {
                     spawnFn.call(this, item.fakeEl, item.fakeEl, 1, SCALE, {});
                 }
-                // Restore sau 100ms (đủ để spawn append xong)
                 setTimeout(() => {
                     document.body.appendChild = document.body.appendChild.__orig__ 
                         || document.body.appendChild;
@@ -340,12 +379,12 @@ window.SkillManager = {
             fn();
         };
 
-        // PHASE 1 (~1200ms): tất cả chạy + xoay chậm
-        const phase1Dur = 1200;
+        // PHASE 1: xoay + (nếu interactive) chờ bấm chọn hoặc hết giờ
+        const phase1Dur = interactive ? this.durationConfig.skillChoiceWindow : 1200;
         const t0        = performance.now();
         items.forEach(item => runLoop(item));
 
-        await new Promise(resolve => {
+        const spinPromise = new Promise(resolve => {
             const tick = () => {
                 const elapsed = performance.now() - t0;
                 const offset  = (elapsed / phase1Dur) * Math.PI * 0.5;
@@ -358,15 +397,31 @@ window.SkillManager = {
                     item.fakeEl.style.left    = `${x}px`;
                     item.fakeEl.style.top     = `${y}px`;
                 });
+                if (countdownEl) {
+                    const remain = Math.max(0, Math.ceil((phase1Dur - elapsed) / 1000));
+                    countdownEl.innerText = `⏱ ${remain}s — Chọn chiêu!`;
+                }
                 if (elapsed < phase1Dur) requestAnimationFrame(tick);
                 else resolve();
             };
             requestAnimationFrame(tick);
         });
 
-        // PHASE 2a: dừng + fade out chiêu không được chọn
+        let finalChoice;
+        if (interactive) {
+            finalChoice = await Promise.race([choicePromise, spinPromise.then(() => null)]);
+            if (!finalChoice) {
+                finalChoice = methods[Math.floor(Math.random() * methods.length)];
+            }
+            if (countdownEl) countdownEl.remove();
+        } else {
+            await spinPromise;
+            finalChoice = chosenMethod || methods[Math.floor(Math.random() * methods.length)];
+        }
+
+        // PHASE 2a: loại các orb không được chọn
         items.forEach(item => {
-            if (item.method !== chosenMethod) {
+            if (item.method !== finalChoice) {
                 item.stopped = true;
                 clearTimeout(item.loopTimer);
                 item.container.style.transform = 'translate(-50%, -50%) scale(0)';
@@ -375,14 +430,14 @@ window.SkillManager = {
             }
         });
 
-        const chosen = items.find(i => i.method === chosenMethod);
-        if (!chosen) { items.forEach(i => { i.container.remove(); i.fakeEl.remove(); }); return; }
+        const chosen = items.find(i => i.method === finalChoice);
+        if (!chosen) { items.forEach(i => { i.container.remove(); i.fakeEl.remove(); }); return finalChoice; }
 
-        // Orb được chọn sáng hơn
+        chosen.container.style.pointerEvents = 'none';
         chosen.container.style.boxShadow = `0 0 28px ${typeColor}, 0 0 56px ${typeColor}, 0 0 84px ${typeColor}66`;
         chosen.container.style.border    = 'none';
 
-        // PHASE 2b (~700ms): chiêu được chọn xoay nhanh
+        // PHASE 2b: xoay nhanh rồi nổ ra chiêu
         const angleAtEnd = Math.PI * 1.5;
         const phase2Dur  = 700;
         const t1         = performance.now();
@@ -403,7 +458,6 @@ window.SkillManager = {
             requestAnimationFrame(tick);
         });
 
-        // Nổ tung → xuất chiêu
         chosen.stopped = true;
         clearTimeout(chosen.loopTimer);
         chosen.container.style.transition = 'transform 0.15s ease-out, opacity 0.15s';
@@ -412,6 +466,8 @@ window.SkillManager = {
         await new Promise(r => setTimeout(r, 160));
         chosen.container.remove();
         chosen.fakeEl.remove();
+
+        return finalChoice;
     },
 
     async play(info) {
@@ -610,18 +666,22 @@ window.SkillManager = {
 
                 // Giữ nguyên z-index cao để nổi bật khi gồng chiêu tại chỗ
                 attacker.style.zIndex     = '10001'; 
-                await new Promise(r => setTimeout(r, 100)); // Giảm thời gian chờ lướt đi vô ích xuống còn 100ms cho mượt
+                await new Promise(r => setTimeout(r, 100));
                 const baseMethodName = `spawn${info.type.charAt(0).toUpperCase() + info.type.slice(1)}`;
-                const chosenMethod = this.getNextSkillMethod(baseMethodName);
 
-                // 2. PHASE GỒNG CHIÊU - Preview tất cả skill xoay quanh pokemon
+                // 2. PHASE GỒNG CHIÊU
                 const imgWrapper = attacker.querySelector('div');
                 if (imgWrapper) {
                     imgWrapper.style.transition = `transform 0.3s ease-in`;
                     imgWrapper.style.transform  = `scale(${pos.scale * 0.85}) scaleX(${pos.flip})`;
                 }
 
-                //await this.playSkillSelectAura(attacker, info.type, chosenMethod, baseMethodName);
+                // ✅ Người chơi được chọn chiêu trong 3s; AI địch tự chọn ngay
+                const chosenMethod = await this.chooseSkillInteractive(
+                    attacker, info.type, baseMethodName, attackerSide === 'player'
+                );
+
+                // Bung ra khi chiêu được chọn
 
                 // Bung ra khi chiêu được chọn
                 if (imgWrapper) {
