@@ -102,25 +102,52 @@ async function fetchPhysicalData() {
     }
 }
 
-// ===== Biến trạng thái nâng cấp =====
+// ===== Bộ máy chọn hình ảnh KHÔNG TRÙNG LẶP (deck-based) =====
+//
+// Nguyên tắc: xáo (shuffle) toàn bộ 20 hình thành 1 "cỗ bài" (deck).
+// Mỗi câu hỏi rút 2 hình từ đầu deck ra dùng -> hình đã rút sẽ KHÔNG
+// xuất hiện lại cho tới khi hết cả cỗ bài (tức phải dùng hết 20 hình
+// mới bắt đầu xáo lại), nên không bao giờ trùng hình trong 1 vòng.
+//
+// Vấn đề của bản cũ: khi cỗ bài cạn, code random lại từ đầu ngay lập
+// tức, nên 2 hình vừa dùng ở câu NGAY TRƯỚC đó có thể bị random trúng
+// lại cho câu NGAY SAU -> gây cảm giác "2 câu liền nhau trùng hình".
+// Bản mới: khi xáo lại deck mới, sẽ tráo vị trí để đảm bảo các hình
+// vừa dùng ở câu ngay trước không đứng ở đầu deck mới -> không trùng
+// hình giữa 2 câu liên tiếp, kể cả lúc giao ranh giữa 2 vòng.
 
-let imageHistory = []; // Theo dõi các hình đã dùng
+let imageDeck = [];
+let lastUsedImages = [];
 
-// 1. Hàm bốc hình ảnh không trùng lặp cho đến khi hết lượt
-function getUnusedActions(count) {
-    // Nếu kho hình còn lại ít hơn số lượng cần lấy, reset kho hình
-    let availableActions = STICKMAN_ACTIONS.filter(action => !imageHistory.includes(action.img));
+function shuffle(arr) {
+    return arr
+        .map(v => ({ v, r: Math.random() }))
+        .sort((a, b) => a.r - b.r)
+        .map(o => o.v);
+}
 
-    if (availableActions.length < count) {
-        imageHistory = []; // Reset vòng đời hình ảnh
-        availableActions = [...STICKMAN_ACTIONS];
+function refillImageDeck() {
+    imageDeck = shuffle(STICKMAN_ACTIONS);
+
+    // Đảm bảo hình vừa dùng ở câu trước không nằm ở đầu deck mới
+    for (let i = 0; i < imageDeck.length; i++) {
+        if (lastUsedImages.includes(imageDeck[i].img)) {
+            for (let j = imageDeck.length - 1; j > i; j--) {
+                if (!lastUsedImages.includes(imageDeck[j].img)) {
+                    [imageDeck[i], imageDeck[j]] = [imageDeck[j], imageDeck[i]];
+                    break;
+                }
+            }
+        }
     }
+}
 
-    // Trộn và lấy ra số lượng cần thiết
-    const selected = availableActions.sort(() => 0.5 - Math.random()).slice(0, count);
-
-    // Lưu vào lịch sử đã dùng
-    selected.forEach(s => imageHistory.push(s.img));
+function getUnusedActions(count) {
+    if (imageDeck.length < count) {
+        refillImageDeck();
+    }
+    const selected = imageDeck.splice(0, count);
+    lastUsedImages = selected.map(s => s.img);
     return selected;
 }
 
@@ -154,7 +181,7 @@ async function initGame() {
         }
         const randomWrong = wrongPool[Math.floor(Math.random() * wrongPool.length)];
 
-        // LẤY HÌNH ẢNH THEO CHU KỲ
+        // LẤY HÌNH ẢNH THEO DECK KHÔNG TRÙNG LẶP
         const actions = getUnusedActions(2);
 
         gamePool.push({
@@ -178,7 +205,7 @@ function renderQuestion() {
     if (currentIndex >= gamePool.length) {
         // TỰ ĐỘNG KHỞI TẠI VÒNG MỚI KHI HẾT BÀI
         alert("🎉 Hết một lượt bài tập! Bắt đầu vòng mới với các câu hỏi khác.");
-        initGame(); 
+        initGame();
         return;
     }
 
