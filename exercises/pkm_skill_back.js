@@ -1939,10 +1939,15 @@ window.PkmSkillBack = (() => {
             state._renderFn = _candidates[Math.floor(Math.random() * _candidates.length)] || R.normal;
 
             // Style cơ bản cho overlay
+            // Style cơ bản cho overlay — giới hạn trong khung battle-arena, không full màn hình
+            const arenaElForBg = document.getElementById('battle-arena');
+            const arenaRectBg = arenaElForBg
+                ? arenaElForBg.getBoundingClientRect()
+                : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
             el.style.cssText = `
                 position: fixed;
-                top: 0; left: 0;
-                width: 100vw; height: 100vh;
+                top: ${arenaRectBg.top}px; left: ${arenaRectBg.left}px;
+                width: ${arenaRectBg.width}px; height: ${arenaRectBg.height}px;
                 overflow: hidden;
                 z-index: 50;
                 pointer-events: none;
@@ -1967,8 +1972,8 @@ window.PkmSkillBack = (() => {
                 canvas.style.cssText = `position:absolute;inset:0;z-index:1;pointer-events:none;mix-blend-mode:screen;`;
                 el.appendChild(canvas);
             }
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            canvas.width = arenaRectBg.width;
+            canvas.height = arenaRectBg.height;
             ctx = canvas.getContext("2d");
 
             // Bắt đầu loop
