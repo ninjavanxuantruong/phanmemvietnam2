@@ -375,6 +375,8 @@ window.QuizManager = {
                     candidates[Math.floor(Math.random() * candidates.length)];
             }
         }
+        // ✅ CÂU HỎI PHỤ: kiểm tra nghĩa trước, lặp đến khi đúng mới cho qua
+        await this.runPreMeaningCheck(actualTarget);
 
         const method = `taskType${type}`;
         console.group(
@@ -396,6 +398,108 @@ window.QuizManager = {
             await this[method](actualTarget);
         } else {
             if (this.callback) this.callback(true);
+        }
+    },
+    /**
+     * CÂU HỎI PHỤ: Hỏi nghĩa của từ trước khi vào câu hỏi chính.
+     * Không tính điểm. Lặp lại đến khi chọn đúng mới resolve.
+     */
+    async runPreMeaningCheck(target) {
+        return new Promise((resolve) => {
+            const attempt = () => {
+                // Ngẫu nhiên chiều hỏi: Anh->Việt hoặc Việt->Anh
+                const isEnToVi = Math.random() < 0.5;
+                const correctAns = isEnToVi ? target.meaning : target.word;
+
+                // Lấy nhiễu từ CÙNG BÀI (cùng lessonId), khác từ mục tiêu
+                const sameLessonItems = this.poolData.filter(
+                    (item) => item.lessonId === target.lessonId && item.word !== target.word
+                );
+                let wrongPool = sameLessonItems
+                    .map((item) => (isEnToVi ? item.meaning : item.word))
+                    .filter((v) => v && v !== correctAns);
+
+                // Dự phòng nếu bài quá ít từ, lấy thêm từ currentLessonData
+                if (wrongPool.length < 3) {
+                    const extra = this.currentLessonData
+                        .map((item) => (isEnToVi ? item.meaning : item.word))
+                        .filter((v) => v && v !== correctAns);
+                    wrongPool = [...new Set([...wrongPool, ...extra])];
+                }
+
+                const finalWrongs = [...new Set(wrongPool)]
+                    .sort(() => 0.5 - Math.random())
+                    .slice(0, 3);
+                const options = [correctAns, ...finalWrongs].sort(() => 0.5 - Math.random());
+
+                const questionText = isEnToVi
+                    ? `What is the meaning of "${target.word}"?`
+                    : `Which word means "${target.meaning}"?`;
+
+                this.renderPreMeaningUI(questionText, options, correctAns, () => {
+                    resolve(); // Đúng -> cho qua câu hỏi chính
+                }, attempt); // Sai -> hỏi lại (random lại chiều + nhiễu)
+            };
+            attempt();
+        });
+    },
+
+    renderPreMeaningUI(questionText, options, correctAns, onCorrect, onWrongRetry) {
+        const wordBox = document.getElementById("quiz-word");
+        const optionsBox = document.getElementById("quiz-options");
+        const overlay = document.getElementById("quiz-overlay");
+
+        if (overlay) {
+            overlay.style.display = "flex";
+            overlay.style.backgroundColor = "transparent";
+            overlay.style.backdropFilter = "none";
+        }
+
+        if (wordBox) {
+            wordBox.innerHTML = `
+                <div style="text-align:center;">
+                    <div style="font-size:12px; color:#ffcb05; margin-bottom:6px; text-transform:uppercase;">🔎 Kiểm tra nhanh (không tính điểm)</div>
+                    <div style="font-size:20px; color:#fff; font-weight:bold;">${questionText}</div>
+                </div>
+            `;
+            wordBox.style.background = "rgba(0,0,0,0.6)";
+            wordBox.style.padding = "20px";
+            wordBox.style.borderRadius = "15px";
+        }
+
+        if (optionsBox) {
+            optionsBox.innerHTML = "";
+            options.forEach((opt) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = opt;
+                btn.onclick = () => {
+                    optionsBox.querySelectorAll(".option-btn").forEach((b) => (b.style.pointerEvents = "none"));
+
+                    const isCorrect = opt === correctAns;
+                    btn.style.background = isCorrect ? "#2ecc71" : "#e74c3c";
+                    btn.style.color = "white";
+
+                    if (!isCorrect) {
+                        // Hiện đáp án đúng để người học biết ngay
+                        optionsBox.querySelectorAll(".option-btn").forEach((b) => {
+                            if (b.innerText === correctAns) {
+                                b.style.background = "#2ecc71";
+                                b.style.color = "white";
+                            }
+                        });
+                    }
+
+                    setTimeout(() => {
+                        if (isCorrect) {
+                            onCorrect();
+                        } else {
+                            onWrongRetry(); // hỏi lại, chưa cho qua
+                        }
+                    }, 900);
+                };
+                optionsBox.appendChild(btn);
+            });
         }
     },
 
