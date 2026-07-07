@@ -11,9 +11,7 @@ import { prefetchImagesBatch, getImageFromMap } from "./imageCache.js";
 // ─── DANH SÁCH CÁC STAGE (theo thứ tự quy trình) ───────────────────────────
 const STAGES = [
   { id: "intro", label: "🌸 Giới thiệu", emoji: "🌸" },
-  { id: "vocab1",       label: "📘 Từ vựng 1",       emoji: "📘" },
-  { id: "vocab2",       label: "🎯 Từ vựng 2",       emoji: "🎯" },
-  { id: "image_d1",    label: "🧠 Hình ảnh – Dạng 1", emoji: "🧠" },
+  
   { id: "image_d2",    label: "🖼️ Hình ảnh – Dạng 2", emoji: "🖼️" },
   { id: "image_d3",    label: "🎨 Hình ảnh – Dạng 3", emoji: "🎨" },
   { id: "pokeword",    label: "🔤 PokéWord",           emoji: "🔤" },
@@ -189,7 +187,24 @@ async function fetchAllVocabData() {
     return [];
   }
 }
-
+// ─── CACHED RAW SHEET ROWS ────────────────────────────────────────────────────
+let _sheetRowsCache = null;
+async function getSheetRows() {
+  if (_sheetRowsCache) return _sheetRowsCache;
+  const cacheKey = "sheet_rows_" + wordBank.length;
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) {
+    _sheetRowsCache = JSON.parse(cached);
+    console.log("🚀 Sheet rows từ cache");
+    return _sheetRowsCache;
+  }
+  console.log("🌐 Fetching sheet rows...");
+  const res  = await fetch(window.SHEET_URL);
+  const data = await res.json();
+  _sheetRowsCache = data.data || data;
+  sessionStorage.setItem(cacheKey, JSON.stringify(_sheetRowsCache));
+  return _sheetRowsCache;
+}
 async function getMaxLessonCode() {
   const trainerClass = localStorage.getItem("trainerClass")?.trim() || "";
   try {
@@ -222,49 +237,143 @@ async function getPhonetic(phrase) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════
+// MOBILE AUDIO ENGINE
 // ═══════════════════════════════════════════════════════════════════════════
-// STAGE 0 — INTRO (Shizuku giới thiệu từ + Haru & Shizuku hội thoại)
+window.IntroAudio = window.IntroAudio || (() => {
+  const TTS_BASE = "https://googlevoice-tinh.onrender.com";
+  let ctx = null;
+  const cache = new Map();
+
+  function getCtx() {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+  function unlock() {
+    getCtx();
+  }
+  document.addEventListener('touchstart', unlock, { once: true });
+  document.addEventListener('mousedown',  unlock, { once: true });
+
+  async function fetchAudio(text, lang = 'en-US', speed = 0.9) {
+    const key = `${lang}|${speed}|${text}`;
+    if (cache.has(key)) return cache.get(key);
+    const url = `${TTS_BASE}/tts?q=${encodeURIComponent(text)}&speed=${speed}&lang=${encodeURIComponent(lang)}&voice=`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`TTS ${res.status}`);
+    const ab = await res.arrayBuffer();
+    const ac = getCtx();
+    const buf = await ac.decodeAudioData(ab);
+    cache.set(key, buf);
+    return buf;
+  }
+
+  // Phát audio, trả về { duration, stop }
+  function playBuffer(buf) {
+    const ac = getCtx();
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    src.connect(ac.destination);
+    src.start();
+    return {
+      duration: buf.duration,
+      promise: new Promise(r => { src.onended = r; }),
+      stop: () => { try { src.stop(); } catch(e){} }
+    };
+  }
+
+  async function speak(text, lang = 'en-US', speed = 0.9) {
+    const buf = await fetchAudio(text, lang, speed);
+    return playBuffer(buf);
+  }
+
+  async function preloadIpa(ipa) {
+    const url = `https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/${ipa}.mp3`;
+    if (cache.has('ipa|'+ipa)) return cache.get('ipa|'+ipa);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const ab = await res.arrayBuffer();
+      const ac = getCtx();
+      const buf = await ac.decodeAudioData(ab.slice(0));
+      cache.set('ipa|'+ipa, buf);
+      return buf;
+    } catch { return null; }
+  }
+
+  async function playIpa(ipa) {
+    const buf = await preloadIpa(ipa);
+    if (!buf) return;
+    return new Promise(r => {
+      const ac = getCtx();
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+      src.connect(ac.destination);
+      src.onended = r;
+      setTimeout(r, buf.duration * 1000 + 400);
+      src.start();
+    });
+  }
+
+  return { speak, playIpa, preloadIpa, unlock, getCtx };
+})();
+
 // ═══════════════════════════════════════════════════════════════════════════
-const INTRO_MODELS = {
-  haru:    'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/haru/haru_greeter_t03.model3.json',
-  shizuku: 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/shizuku/shizuku.model.json'
-};
+// STAGE 0 — INTRO
+// ═══════════════════════════════════════════════════════════════════════════
+const INTRO_BASE = "https://raw.githubusercontent.com/ninjavanxuantruong/Open-LLM-VTuber-main/main/";
+const INTRO_CHAR_LIST = [
+  ["Chitose",         "live2d-models/Chitose/runtime/chitose.model3.json"],
+  ["Haruto",          "live2d-models/haruto/runtime/haruto.model3.json"],
+  ["Hibiki",          "live2d-models/Hibiki/runtime/hibiki.model3.json"],
+  ["Hiyori",          "live2d-models/hiyori_free/runtime/hiyori_free_t08.model3.json"],
+  ["Izumi",           "live2d-models/Izumi/runtime/izumi_illust.model3.json"],
+  ["Jin Natori",      "live2d-models/Jin Natori/runtime/natori_pro_t06.model3.json"],
+  ["Kei",             "live2d-models/kei_basic_free/runtime/kei_basic_free.model3.json"],
+  ["Koharu",          "live2d-models/koharu/runtime/koharu.model3.json"],
+  ["Mao",             "live2d-models/mao_pro/runtime/mao_pro.model3.json"],
+  ["Mark-kun",        "live2d-models/Mark-kun/runtime/mark_free_t04.model3.json"],
+  ["Ren Foster",      "live2d-models/ren foster/runtime/ren.model3.json"],
+  ["Rice Glassfield", "live2d-models/Rice Glassfield/runtime/rice_pro_t03.model3.json"],
+  ["Shizuku",         "live2d-models/shizuku/runtime/shizuku.model3.json"],
+  ["Tororo",          "live2d-models/tororo/runtime/tororo.model3.json"],
+  ["Tsumuki",         "live2d-models/Tsumiki Harugasa/runtime/tsumiki.model3.json"],
+  ["Unity-chan",       "live2d-models/Unity-chan/runtime/unitychan.model3.json"],
+  ["Wankoromochi",    "live2d-models/Wankoromochi/runtime/wanko_touch.model3.json"],
+  ["Nito",            "live2d-models/Nito/runtime/nito.model3.json"],
+  ["Hijiki",          "live2d-models/hijiki/runtime/hijiki.model3.json"],
+];
+
+let introSelectedMain = INTRO_CHAR_LIST[12];
+let introSelectedSub  = INTRO_CHAR_LIST[0];
 let introPixiApps = {};
 let introModels   = {};
 let introLipRAFs  = {};
-let introVoices   = { haru: null, shizuku: null };
 
-// ── VOICE SETUP ──────────────────────────────────────────────────────────────
-function initIntroVoices() {
-  const all = speechSynthesis.getVoices();
-  const en  = all.filter(v => v.lang.startsWith('en'));
+// ── KỊCH BẢN ĐA DẠNG ─────────────────────────────────────────────────────────
+const INTRO_SCRIPTS = [
+  (name, n) => [`Hey there! I'm ${name}, and I'll be your guide today!`, `We have ${n} exciting new words to explore together.`],
+  (name, n) => [`Welcome back! ${name} here, ready to teach you something new!`, `Today's lesson has ${n} words. Let's dive right in!`],
+  (name, n) => [`Hello my friend! Great to see you again, I'm ${name}!`, `Get ready — we're going to learn ${n} brand new words today!`],
+  (name, n) => [`Hi! ${name} speaking. Hope you're ready to learn!`, `I've prepared ${n} wonderful words just for you today.`],
+  (name, n) => [`Good to have you here! This is ${name}.`, `Today we'll go through ${n} new vocabulary words together. Let's start!`],
+];
+const INTRO_WORD_LINES = [
+  (ord, w) => `The ${ord} word is... ${w}.`,
+  (ord, w) => `Next up, number ${ord}: ${w}.`,
+  (ord, w) => `Word number ${ord} is ${w}. Remember this one!`,
+  (ord, w) => `Let's look at the ${ord} word — ${w}.`,
+  (ord, w) => `Our ${ord} word today is ${w}.`,
+];
+const INTRO_CLOSING = [
+  `Great job! Now let's practice how to pronounce these words!`,
+  `Wonderful! Time to work on your pronunciation. Let's go!`,
+  `Well done! Next up — pronunciation practice!`,
+  `Excellent! Now let's move on to phonics!`,
+];
+const ORDINALS = ['first','second','third','fourth','fifth','sixth','seventh','eighth','ninth','tenth'];
 
-  const findVoice = (...names) => {
-    for (const n of names) {
-      const found = en.find(v => v.name.toLowerCase().includes(n.toLowerCase()));
-      if (found) return found;
-    }
-    return null;
-  };
-
-  // Shizuku: ưu tiên Zira (Windows female)
-  introVoices.shizuku =
-    findVoice('zira') ||
-    findVoice('samantha') ||
-    en.find(v => /female/i.test(v.name)) ||
-    en[0] || null;
-
-  // Haru: tìm giọng nữ KHÁC shizuku
-  const shizukuName = introVoices.shizuku?.name || '';
-  introVoices.haru =
-    en.find(v => v !== introVoices.shizuku && (
-      /zira|samantha|female|hazel|susan|karen|moira|fiona|victoria|allison|ava/i.test(v.name)
-    )) ||
-    en.find(v => v.name !== shizukuName) ||
-    introVoices.shizuku;
-}
-
-// ── PIXI / LIVE2D HELPERS ────────────────────────────────────────────────────
+// ── LIVE2D ────────────────────────────────────────────────────────────────────
 async function initIntroLive2D(names) {
   if (!window.PIXI?.live2d) return;
   try { PIXI.live2d.Live2DModel.registerTicker(PIXI.Ticker); } catch(e){}
@@ -272,56 +381,100 @@ async function initIntroLive2D(names) {
     const canvas = document.getElementById('intro-canvas-' + name);
     if (!canvas) continue;
     const slot = document.getElementById('intro-slot-' + name);
+    if (!slot) continue;
     try {
-      const app = new PIXI.Application({
-        view: canvas, autoStart: true, backgroundAlpha: 0, resizeTo: slot
-      });
-      introPixiApps[name] = app;
-      const model = await PIXI.live2d.Live2DModel.from(INTRO_MODELS[name]);
+      // Reuse PIXI app nếu đã có, tránh tạo WebGL context mới
+      if (!introPixiApps[name]) {
+        const app = new PIXI.Application({
+          view: canvas, autoStart: true, backgroundAlpha: 0, resizeTo: slot
+        });
+        introPixiApps[name] = app;
+      } else {
+        // Resize cho khớp slot mới
+        introPixiApps[name].renderer.resize(slot.clientWidth, slot.clientHeight);
+        introPixiApps[name].stage.removeChildren();
+      }
+
+      const charInfo = name === 'main' ? introSelectedMain : introSelectedSub;
+      const url = INTRO_BASE + charInfo[1].split('/').map(encodeURIComponent).join('/').replace(/%2F/g,'/');
+      const model = await PIXI.live2d.Live2DModel.from(url);
       introModels[name] = model;
-      app.stage.addChild(model);
+      introPixiApps[name].stage.addChild(model);
       introFitModel(name);
       try { model.motion('idle'); } catch(e){}
     } catch(e) { console.error('intro load', name, e); }
   }
 }
-
 function introFitModel(name) {
   const m = introModels[name], app = introPixiApps[name];
   if (!m || !app) return;
   const W = app.renderer.width, H = app.renderer.height;
-  const sc = Math.min(W / m.internalModel.originalWidth, H / m.internalModel.originalHeight) * 0.92;
+  const sc = Math.min(W/m.internalModel.originalWidth, H/m.internalModel.originalHeight) * 0.92;
   m.scale.set(sc);
   m.x = W/2 - m.width/2;
   m.y = H/2 - m.height/2 + 10;
 }
+// Lấy tất cả motion groups từ model đã load
+function introGetMotions(name) {
+  const m = introModels[name];
+  if (!m) return [];
+  try {
+    const defs = m.internalModel.motionManager.definitions;
+    return Object.keys(defs || {});
+  } catch(e) { return []; }
+}
 
+// Play random motion (trừ idle)
+function introRandomMotion(name) {
+  const groups = introGetMotions(name).filter(g =>
+    !g.toLowerCase().includes('idle')
+  );
+  if (!groups.length) return;
+  const g = groups[Math.floor(Math.random() * groups.length)];
+  try { introModels[name]?.motion(g); } catch(e) {}
+}
+
+// Vòng lặp tự động đổi motion mỗi 5-8s khi đang nói
+let introMotionTimers = {};
+function introStartMotionLoop(name) {
+  introStopMotionLoop(name);
+  const loop = () => {
+    introRandomMotion(name);
+    const next = 5000 + Math.random() * 3000;
+    introMotionTimers[name] = setTimeout(loop, next);
+  };
+  loop();
+}
+function introStopMotionLoop(name) {
+  if (introMotionTimers[name]) {
+    clearTimeout(introMotionTimers[name]);
+    introMotionTimers[name] = null;
+  }
+}
 function introDestroyAll() {
-  for (const name of ['haru','shizuku']) {
+  for (const name of ['main','sub']) {
+    introStopMotionLoop(name);
     if (introLipRAFs[name]) { cancelAnimationFrame(introLipRAFs[name]); introLipRAFs[name] = null; }
-    try { introModels[name]?.destroy();   } catch(e){}
-    try { introPixiApps[name]?.destroy(true); } catch(e){}
-    introModels[name] = null;
-    introPixiApps[name] = null;
+    // Chỉ xóa model, GIỮ NGUYÊN PIXI app và WebGL context
+    if (introModels[name]) {
+      try {
+        if (introPixiApps[name]?.stage) introPixiApps[name].stage.removeChildren();
+        introModels[name].destroy();
+      } catch(e){}
+      introModels[name] = null;
+    }
   }
 }
 
-// ── LIP SYNC ─────────────────────────────────────────────────────────────────
-function introMakeSyllableProvider(rate = 0.5) {
-  let t = 0;
-  return () => {
-    t += 1/60;
-    const base = 0.5 + 0.5 * Math.sin(t * rate * 3.8 * Math.PI * 2);
-    return Math.max(0, Math.min(1, base + (Math.random() - .5) * 0.3));
-  };
-}
-
-function introStartLipSync(name, volProvider) {
+// ── LIPSYNC ───────────────────────────────────────────────────────────────────
+function introStartLipSync(name, color) {
   const barsEl = document.getElementById('intro-bars-' + name);
-  if (barsEl) barsEl.style.opacity = '1';
+  if (barsEl) barsEl.classList.add('active');
   const barEls = barsEl ? barsEl.querySelectorAll('.ibar') : [];
+  let t = 0;
   const loop = () => {
-    const vol = volProvider();
+    t += 1/60;
+    const vol = Math.max(0, Math.min(1, 0.5 + 0.5*Math.sin(t*3.8*Math.PI*2) + (Math.random()-.5)*.3));
     const m = introModels[name];
     if (m) {
       try {
@@ -330,19 +483,22 @@ function introStartLipSync(name, volProvider) {
         else if (core.setParamFloat)    core.setParamFloat('PARAM_MOUTH_OPEN_Y', vol);
       } catch(e){}
     }
-    barEls.forEach((b, i) => {
-      const off = Math.abs(3 - i) / 3;
-      b.style.height = Math.max(2, vol * (1 - off * .5) * 24 + Math.random() * 3) + 'px';
+    barEls.forEach((b,i) => {
+      const off = Math.abs(3-i)/3;
+      b.style.height = Math.max(2, vol*(1-off*.5)*22 + Math.random()*3) + 'px';
     });
     introLipRAFs[name] = requestAnimationFrame(loop);
   };
   introLipRAFs[name] = requestAnimationFrame(loop);
+  // motion
+  introStartMotionLoop(name);
 }
 
 function introStopLipSync(name) {
   if (introLipRAFs[name]) { cancelAnimationFrame(introLipRAFs[name]); introLipRAFs[name] = null; }
+  introStopMotionLoop(name);
   const barsEl = document.getElementById('intro-bars-' + name);
-  if (barsEl) { barsEl.style.opacity = '0'; barsEl.querySelectorAll('.ibar').forEach(b => b.style.height = '2px'); }
+  if (barsEl) { barsEl.classList.remove('active'); barsEl.querySelectorAll('.ibar').forEach(b => b.style.height='2px'); }
   const m = introModels[name];
   if (m) {
     try {
@@ -353,357 +509,731 @@ function introStopLipSync(name) {
   }
 }
 
-// ── SPEAK ─────────────────────────────────────────────────────────────────────
-function introSpeak(name, text, rate = 0.5) {
-  return new Promise(resolve => {
-    window.speechSynthesis.cancel();
-    introStopLipSync('haru');
-    introStopLipSync('shizuku');
-
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang  = 'en-US';
-    u.rate  = rate;
-    u.voice = introVoices[name] || null;
-    u.pitch = name === 'shizuku' ? 1.15 : 1.0;
-
-    const vp = introMakeSyllableProvider(rate);
-
-    // Glow slot đang nói
-    const setGlow = (n, on) => {
-      const slot = document.getElementById('intro-slot-' + n);
-      if (!slot) return;
-      slot.style.filter = on ? 'drop-shadow(0 0 16px #a78bfa66)' : 'none';
-    };
-
-    u.onstart = () => {
-      introStartLipSync(name, vp);
-      setGlow(name, true);
-      setGlow(name === 'haru' ? 'shizuku' : 'haru', false);
-      // Thử trigger motion giơ tay
-      try { introModels[name]?.motion('tap_body'); } catch(e){}
-    };
-
-    const done = () => { introStopLipSync(name); setGlow(name, false); resolve(); };
-    const safety = setTimeout(done, Math.max(text.length * 130, 3500));
-    u.onend   = () => { clearTimeout(safety); done(); };
-    u.onerror = () => { clearTimeout(safety); done(); };
-
-    window.speechSynthesis.speak(u);
-  });
+// ── SPEAK với lipsync ─────────────────────────────────────────────────────────
+async function introSpeakEN(name, text, speed = 0.9) {
+  introStopLipSync('main'); introStopLipSync('sub');
+  const glow = (n, on) => {
+    const s = document.getElementById('intro-slot-'+n);
+    if (s) s.style.filter = on ? 'drop-shadow(0 0 14px #a78bfa66)' : 'none';
+  };
+  try {
+    const handle = await IntroAudio.speak(text, 'en-US', speed);
+    introStartLipSync(name);
+    glow(name, true);
+    glow(name==='main'?'sub':'main', false);
+    await handle.promise;
+  } catch(e) {
+    // fallback Web Speech
+    await new Promise(r => {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US'; u.rate = speed;
+      introStartLipSync(name);
+      glow(name, true);
+      const safety = setTimeout(() => { introStopLipSync(name); glow(name,false); r(); }, Math.max(text.length*130,3000));
+      u.onend = u.onerror = () => { clearTimeout(safety); introStopLipSync(name); glow(name,false); r(); };
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    });
+    return;
+  }
+  introStopLipSync(name);
+  glow(name, false);
 }
 
-function introDelay(ms) { return new Promise(r => setTimeout(r, ms)); }
+async function introSpeakVI(name, text, speed = 0.9) {
+  introStopLipSync('main'); introStopLipSync('sub');
+  const glow = (n, on) => {
+    const s = document.getElementById('intro-slot-'+n);
+    if (s) s.style.filter = on ? 'drop-shadow(0 0 14px #a78bfa66)' : 'none';
+  };
+  try {
+    const handle = await IntroAudio.speak(text, 'vi-VN', speed);
+    introStartLipSync(name);
+    glow(name, true);
+    await handle.promise;
+  } catch(e) { /* bỏ qua nếu TTS tiếng Việt lỗi */ }
+  introStopLipSync(name);
+  glow(name, false);
+}
 
-// ── SHARED CSS ────────────────────────────────────────────────────────────────
-const CLASSROOM_BG = `
-  background: linear-gradient(
-    180deg,
-    #d6e4f0 0%,        /* tường xanh nhạt */
-    #c8dbe8 55%,
-    #b5a98a 55%,       /* sàn gỗ */
-    #a8976e 100%
-  );
-`;
+const introDelay = ms => new Promise(r => setTimeout(r, ms));
 
-const BARS_HTML = (name, color) => `
-  <div id="intro-bars-${name}" style="
-    position:absolute; bottom:62px; left:50%; transform:translateX(-50%);
-    display:flex; gap:3px; align-items:flex-end; height:20px;
-    opacity:0; transition:opacity .3s; z-index:10; pointer-events:none;">
-    ${[0,1,2,3,4,5,6].map(() =>
-      `<div class="ibar" style="width:4px;min-height:2px;background:${color};border-radius:2px;transition:height .08s;"></div>`
-    ).join('')}
-  </div>`;
-
-const NAME_TAG = (name, label, color) => `
-  <div style="position:absolute; bottom:22px; left:50%; transform:translateX(-50%);
-    padding:3px 14px; border-radius:20px; border:1px solid ${color};
-    color:${color}; background:${color}22; font-size:11px; font-weight:700;
-    white-space:nowrap; z-index:10; letter-spacing:.05em;">${label}</div>`;
-
-// ── WHITEBOARD CARD ───────────────────────────────────────────────────────────
-// Bảng trắng dùng chung: nhận HTML nội dung, trả về HTML string
-function whiteboardHTML(contentHTML, widthStyle = '100%') {
+// ── HTML HELPERS ──────────────────────────────────────────────────────────────
+function introCharHTML(name, label, color, flipped = false) {
+  const bars = [0,1,2,3,4,5,6].map(() =>
+    `<div class="ibar" style="background:${color};"></div>`
+  ).join('');
   return `
-    <div style="
-      width:${widthStyle};
-      background:#fff;
-      border:3px solid #bbb;
-      border-radius:8px;
-      box-shadow: 2px 4px 16px rgba(0,0,0,0.18), inset 0 1px 0 #fff;
-      padding:18px 20px;
-      display:flex; flex-direction:column; align-items:center; gap:10px;
-      position:relative;
-    ">
-      <!-- viền mô phỏng khung bảng -->
-      <div style="position:absolute;inset:5px;border:1px solid #e0e0e0;border-radius:4px;pointer-events:none;"></div>
-      ${contentHTML}
+    <div id="intro-slot-${name}" class="intro-char-slot${flipped?' flipped':''}">
+      <canvas id="intro-canvas-${name}"></canvas>
+      <div id="intro-bars-${name}" class="intro-lipsync-bars">${bars}</div>
+      <div class="intro-name-tag" style="border:1px solid ${color};color:${color};background:${color}22;">
+        ${label}
+      </div>
     </div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PART 1 — Shizuku giới thiệu từng từ
+// BƯỚC 1 — Giới thiệu từ
 // ═══════════════════════════════════════════════════════════════════════════
 async function runIntroWordPart() {
   const words = vocabData.slice(0, 10);
+  const scriptLines = INTRO_SCRIPTS[Math.floor(Math.random()*INTRO_SCRIPTS.length)](introSelectedMain[0], words.length);
+  const wordLine    = INTRO_WORD_LINES[Math.floor(Math.random()*INTRO_WORD_LINES.length)];
+  const closingLine = INTRO_CLOSING[Math.floor(Math.random()*INTRO_CLOSING.length)];
 
-  const renderLayout = () => {
+  const render = () => {
     document.getElementById('mainCard').innerHTML = `
-      <div style="
-        ${CLASSROOM_BG}
-        border-radius:16px; overflow:hidden;
-        display:flex; align-items:flex-end;
-        gap:0; min-height:380px; position:relative;
-        padding:0 24px 0 0;
-      ">
-        <!-- Shizuku -->
-        <div id="intro-slot-shizuku" style="
-          position:relative; width:240px; height:360px; flex-shrink:0;
-        ">
-          <canvas id="intro-canvas-shizuku"
-            style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
-          ${BARS_HTML('shizuku','#2ecc71')}
-          ${NAME_TAG('shizuku','Shizuku','#27ae60')}
-        </div>
-
-        <!-- Bảng trắng bên phải -->
-        <div style="flex:1; display:flex; align-items:center; justify-content:center; padding:20px 0;">
-          ${whiteboardHTML(`
-            <div id="wb-content" style="
-              width:100%; min-height:200px;
-              display:flex; flex-direction:column;
-              align-items:center; justify-content:center;
-              gap:12px; color:#333;
-            ">
-              <div style="color:#aaa; font-size:14px;">Đang tải nhân vật...</div>
-            </div>
-          `)}
+      <div class="intro-scene intro-classroom-bg">
+        ${introCharHTML('main', introSelectedMain[0], '#27ae60')}
+        <div class="intro-whiteboard">
+          <div id="wb-content" style="width:100%;display:flex;flex-direction:column;
+            align-items:center;justify-content:center;gap:10px;min-height:180px;">
+            <div style="color:#aaa;font-size:13px;">Đang tải nhân vật...</div>
+          </div>
         </div>
       </div>
-
-      <!-- Nút bên dưới card (ngoài background lớp học) -->
-      <div id="intro-word-btns" style="
-        display:none; gap:10px; justify-content:center; margin-top:14px;
-      ">
-        <button class="poke-btn gray"   id="intro-replay-word">↺ Replay</button>
-        <button class="poke-btn yellow" id="intro-next-to-dlg">💬 Sang hội thoại ▶</button>
+      <div class="intro-action-row" id="intro-word-btns" style="display:none;">
+        <button class="poke-btn gray" id="btn-replay-word">↺ Replay</button>
+        <button class="poke-btn yellow" id="btn-next-phonics">🔤 Phát âm ▶</button>
       </div>
     `;
   };
 
-  renderLayout();
-  await initIntroLive2D(['shizuku']);
+  render();
+  await initIntroLive2D(['main']);
 
-  const playWords = async () => {
-    document.getElementById('intro-word-btns').style.display = 'none';
+  const play = async () => {
+    const btns = document.getElementById('intro-word-btns');
+    if (btns) btns.style.display = 'none';
     const wb = document.getElementById('wb-content');
 
-    // Reset bảng
-    wb.innerHTML = `<div style="color:#999;font-size:15px;font-style:italic;">
-      Today's vocabulary...</div>`;
-
-    await introSpeak('shizuku',
-      `Hello my friend! Today we will learn ${words.length} new words. Let's begin!`, 0.5);
-
-    const ordinals = ['first','second','third','fourth','fifth',
-                      'sixth','seventh','eighth','ninth','tenth'];
+    // Câu mở đầu
+    for (const line of scriptLines) {
+      await introSpeakEN('main', line, 0.85);
+      await introDelay(150);
+    }
 
     for (let i = 0; i < words.length; i++) {
       const w = words[i];
-      const imgSrc = getImageFromMap(
-        (w.imageKeyword || w.word).toLowerCase().trim()
-      ) || '';
+      const imgSrc = getImageFromMap((w.imageKeyword||w.word).toLowerCase().trim()) || '';
 
-      // Shizuku nói tên từ
-      await introSpeak('shizuku', `The ${ordinals[i]} word is... ${w.word}.`, 0.5);
+      // Nói tên từ
+      await introSpeakEN('main', wordLine(ORDINALS[i], w.word), 0.85);
 
-      // Pop-in: ảnh + từ + nghĩa lên bảng
+      // Hiện bảng ngay khi đang nói (pop-in)
+      const wordParts = w.word.trim().split(' ').map(p =>
+        `<span class="word-tap" data-word="${p}"
+          style="font-size:clamp(20px,5vw,32px);font-weight:800;color:#1a1a2e;letter-spacing:.03em;">
+          ${p.toUpperCase()}
+        </span>`
+      ).join(' ');
+
       wb.innerHTML = `
-        <div style="
-          animation: introPop .35s cubic-bezier(.34,1.56,.64,1) both;
-          display:flex; flex-direction:column; align-items:center; gap:10px; width:100%;
-        ">
-          ${imgSrc ? `<img src="${imgSrc}" style="
-            height:110px; max-width:90%; object-fit:contain;
-            border-radius:8px; border:1px solid #eee;"/>` : ''}
-          <div style="
-            font-size:30px; font-weight:800; color:#1a1a2e;
-            letter-spacing:.04em; font-family:'Segoe UI',sans-serif;">
-            ${w.word.toUpperCase()}
-          </div>
-          <div style="
-            font-size:16px; color:#555; background:#f5f5f5;
-            padding:6px 14px; border-radius:6px; text-align:center;">
+        <div class="intro-pop" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;">
+          ${imgSrc ? `<img src="${imgSrc}" style="height:clamp(70px,15vw,110px);max-width:90%;
+            object-fit:contain;border-radius:8px;border:1px solid #eee;"/>` : ''}
+          <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">${wordParts}</div>
+          <div style="font-size:clamp(13px,3vw,16px);color:#555;background:#f5f5f5;
+            padding:5px 12px;border-radius:6px;text-align:center;" id="wb-meaning">
             ${w.meaning || ''}
           </div>
+          ${w.noteAH ? `<div style="font-size:clamp(11px,2.5vw,13px);color:#e67e22;background:#fff3e0;
+            padding:4px 10px;border-radius:6px;width:100%;text-align:center;">💡 ${w.noteAH}</div>` : ''}
+          ${w.noteAI ? `<div style="font-size:clamp(11px,2.5vw,13px);color:#2980b9;background:#e8f4fd;
+            padding:4px 10px;border-radius:6px;width:100%;text-align:center;">✨ ${w.noteAI}</div>` : ''}
         </div>
       `;
 
-      // Thêm keyframe nếu chưa có
-      if (!document.getElementById('intro-pop-style')) {
-        const st = document.createElement('style');
-        st.id = 'intro-pop-style';
-        st.textContent = `@keyframes introPop {
-          from { opacity:0; transform:scale(0.5); }
-          to   { opacity:1; transform:scale(1);   }
-        }`;
-        document.head.appendChild(st);
+      // Gắn sự kiện ấn từng từ → đọc chậm
+      wb.querySelectorAll('.word-tap').forEach(span => {
+        span.onclick = () => introSpeakEN('main', span.dataset.word, 0.4);
+      });
+
+      // Nói nghĩa bằng TTS tiếng Việt
+      await introDelay(300);
+      if (w.meaning) {
+        await introSpeakVI('main', `nghĩa là ${w.meaning}`, 0.9);
       }
 
-      // Dừng 3.5s để học sinh nhìn
-      await introDelay(3500);
+      // Dừng 3s để học sinh nhìn
+      await introDelay(3000);
     }
 
-    await introSpeak('shizuku',
-      `Great! Now let's see how to use these words in a real conversation!`, 0.5);
-
-    document.getElementById('intro-word-btns').style.display = 'flex';
+    await introSpeakEN('main', closingLine, 0.85);
+    if (btns) btns.style.display = 'flex';
   };
 
-  await playWords();
-  document.getElementById('intro-replay-word').onclick = playWords;
+  await play();
+  document.getElementById('btn-replay-word').onclick = play;
+
+  // Ghi điểm vocab1 (full vì đã học hết)
+  const sc = words.length, tot = words.length;
+  scoreState.vocab1 = { score: sc, total: tot };
+  const raw = localStorage.getItem('result_vocabulary');
+  const prev = raw ? JSON.parse(raw) : {};
+  localStorage.setItem('result_vocabulary', JSON.stringify({
+    ...prev, scoreV1: sc, totalV1: tot,
+    score: sc + (prev.scoreV2||0), total: tot + (prev.totalV2||0)
+  }));
 
   return new Promise(resolve => {
-    document.getElementById('intro-next-to-dlg').onclick = resolve;
+    document.getElementById('btn-next-phonics').onclick = resolve;
   });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PART 2 — Haru & Shizuku hội thoại
+// BƯỚC 2 — Phonics
 // ═══════════════════════════════════════════════════════════════════════════
-async function runIntroDialoguePart() {
-  const words = vocabData.slice(0, 10).filter(w => w.question && w.answerRaw);
+async function runIntroPhonics() {
+  const words = vocabData.slice(0, 10);
+  let idx = 0;
 
-  const renderLayout = () => {
+  const renderWord = (w) => {
+    const imgSrc = getImageFromMap((w.imageKeyword||w.word).toLowerCase().trim()) || '';
     document.getElementById('mainCard').innerHTML = `
-      <div style="
-        ${CLASSROOM_BG}
-        border-radius:16px; overflow:hidden;
-        display:flex; align-items:flex-end;
-        min-height:400px; position:relative;
-        padding-bottom:0;
-      ">
-        <!-- Haru bên trái -->
-        <div id="intro-slot-haru" style="
-          position:relative; width:200px; height:340px; flex-shrink:0;
-        ">
-          <canvas id="intro-canvas-haru"
-            style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
-          ${BARS_HTML('haru','#9b59b6')}
-          ${NAME_TAG('haru','Haru','#8e44ad')}
-        </div>
-
-        <!-- Bảng giữa -->
-        <div style="
-          flex:1; display:flex; align-items:center;
-          justify-content:center; padding:16px 8px;
-        ">
-          ${whiteboardHTML(`
-            <div id="dlg-wb" style="
-              width:100%; min-height:180px;
-              display:flex; flex-direction:column;
-              align-items:center; gap:10px; color:#333;
-            ">
-              <div style="color:#aaa;font-size:14px;">Đang tải...</div>
-            </div>
-          `)}
-        </div>
-
-        <!-- Shizuku bên phải (flip) -->
-        <div id="intro-slot-shizuku" style="
-          position:relative; width:200px; height:340px; flex-shrink:0;
-          transform:scaleX(-1);
-        ">
-          <canvas id="intro-canvas-shizuku"
-            style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
-          <!-- bars & nametag cũng flip ngược lại -->
-          <div id="intro-bars-shizuku" style="
-            position:absolute; bottom:62px; left:50%;
-            transform:translateX(-50%) scaleX(-1);
-            display:flex; gap:3px; align-items:flex-end; height:20px;
-            opacity:0; transition:opacity .3s; z-index:10; pointer-events:none;">
-            ${[0,1,2,3,4,5,6].map(()=>
-              `<div class="ibar" style="width:4px;min-height:2px;background:#2ecc71;border-radius:2px;transition:height .08s;"></div>`
-            ).join('')}
+      <div class="intro-scene intro-classroom-bg">
+        ${introCharHTML('main', introSelectedMain[0], '#27ae60')}
+        <div class="intro-whiteboard">
+          <div style="font-size:11px;color:#999;letter-spacing:.06em;text-transform:uppercase;align-self:flex-start;">
+            Phát âm ${idx+1}/${words.length}
           </div>
-          <div style="
-            position:absolute; bottom:22px; left:50%;
-            transform:translateX(-50%) scaleX(-1);
-            padding:3px 14px; border-radius:20px;
-            border:1px solid #27ae60; color:#27ae60;
-            background:#27ae6022; font-size:11px; font-weight:700;
-            white-space:nowrap; z-index:10; letter-spacing:.05em;">Shizuku</div>
+          ${imgSrc ? `<img src="${imgSrc}" style="height:clamp(60px,12vw,90px);object-fit:contain;
+            border-radius:8px;border:1px solid #eee;"/>` : ''}
+          <div style="font-size:clamp(20px,5vw,28px);font-weight:800;color:#1a1a2e;">${w.word.toUpperCase()}</div>
+          <div style="font-size:clamp(12px,2.5vw,14px);color:#555;background:#f5f5f5;
+            padding:4px 10px;border-radius:6px;">${w.meaning||''}</div>
+
+          <div id="ph-loading" style="color:#f39c12;font-size:12px;">⏳ Đang tải âm vị...</div>
+          <div id="v1PhonicsContainer" style="display:flex;flex-wrap:wrap;gap:6px;
+            justify-content:center;min-height:50px;"></div>
+
+          <div style="width:100%;background:#eee;border-radius:4px;overflow:hidden;height:4px;margin:4px 0;">
+            <div id="ph-bar" style="width:0%;height:100%;
+              background:linear-gradient(90deg,#e74c3c,#f39c12);transition:width .3s;"></div>
+          </div>
+
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">
+            <button id="ph-auto" disabled style="padding:8px 12px;background:#e74c3c;color:#fff;
+              border:none;border-radius:10px;font-weight:700;font-size:clamp(11px,2.5vw,13px);
+              cursor:pointer;opacity:.5;">▶ Đọc từng âm</button>
+            <button id="ph-full" style="padding:8px 12px;background:#f1c40f;color:#1a1a2e;
+              border:none;border-radius:10px;font-weight:700;font-size:clamp(11px,2.5vw,13px);
+              cursor:pointer;">🔊 Cả từ</button>
+          </div>
         </div>
       </div>
 
-      <!-- Nút dưới card -->
-      <div id="intro-dlg-btns" style="
-        display:none; gap:10px; justify-content:center; margin-top:14px;
-      ">
-        <button class="poke-btn gray"   id="intro-replay-dlg">↺ Replay</button>
-        <button class="poke-btn yellow" id="intro-next-stage">⏩ Bắt đầu học!</button>
+      <div class="intro-action-row">
+        <button class="poke-btn gray" id="ph-prev" ${idx===0?'disabled':''}>◀ Trước</button>
+        <button class="poke-btn gray" id="ph-replay">↺ Replay</button>
+        <button class="poke-btn yellow" id="ph-next">
+          ${idx>=words.length-1?'🗣️ Luyện nói ▶':'Từ tiếp ▶'}
+        </button>
       </div>
     `;
   };
 
-  renderLayout();
-  await initIntroLive2D(['haru', 'shizuku']);
+  const runOne = async (w) => {
+    renderWord(w);
+    await introDelay(100); // đợi DOM render
 
-  const playDialogue = async () => {
-    document.getElementById('intro-dlg-btns').style.display = 'none';
-    const wb = document.getElementById('dlg-wb');
+    // Nhân vật nói tên từ
+    await introSpeakEN('main', `Let's look at the pronunciation of "${w.word}"`, 0.85);
 
-    await introSpeak('shizuku', "Let's practice these words together!", 0.5);
+    // Đợi dictMap
+    await new Promise(r => {
+      let ms = 0;
+      const t = setInterval(() => {
+        if ((window.dictMap?.size > 0) || ms >= 8000) { clearInterval(t); r(); }
+        ms += 200;
+      }, 200);
+    });
 
-    for (const w of words) {
-      const imgSrc = getImageFromMap(
-        (w.imageKeyword || w.word).toLowerCase().trim()
-      ) || '';
+    const pCont   = document.getElementById('v1PhonicsContainer');
+    const loadEl  = document.getElementById('ph-loading');
+    const autoBtn = document.getElementById('ph-auto');
+    const barEl   = document.getElementById('ph-bar');
 
-      // Cập nhật bảng: ảnh + từ
-      wb.innerHTML = `
-        <div style="
-          animation: introPop .3s cubic-bezier(.34,1.56,.64,1) both;
-          display:flex; flex-direction:column; align-items:center; gap:8px; width:100%;
-        ">
-          ${imgSrc ? `<img src="${imgSrc}" style="
-            height:80px; max-width:90%; object-fit:contain;
-            border-radius:6px; border:1px solid #eee;"/>` : ''}
-          <div style="font-size:18px;font-weight:800;color:#1a1a2e;letter-spacing:.03em;">
-            ${w.word.toUpperCase()}
+    if (loadEl) loadEl.style.display = 'none';
+
+    if (pCont && window.handleSplit) {
+      try { await window.handleSplit(w.word.trim().toLowerCase(), pCont, null); }
+      catch(e) {
+        if (pCont) pCont.innerHTML =
+          `<p style="color:#e74c3c;font-size:13px;">⚠️ Không tìm thấy âm vị cho "${w.word}"</p>`;
+      }
+    }
+
+    const hasContent = pCont?.querySelector('[data-index]');
+    if (hasContent && autoBtn) { autoBtn.disabled = false; autoBtn.style.opacity = '1'; }
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const getAllUnits = () => Array.from(pCont?.querySelectorAll('[data-index]') || []);
+    const getIpa = u => u.querySelector('small')?.innerText.replace(/\//g,'').trim() || '';
+
+    const hlUnit = (u, on) => {
+      if (on) {
+        u.classList.add('active');
+      } else {
+        u.classList.remove('active');
+        u.classList.add('done');
+      }
+    };
+
+    let isReading = false;
+
+    const lockNav = (lock) => {
+      ['ph-prev','ph-next','ph-replay'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.disabled = lock;
+        el.style.opacity = lock ? '.3' : '1';
+      });
+    };
+
+    const doAutoRead = async () => {
+      const units = getAllUnits();
+      if (!units.length) return;
+      lockNav(true);
+      isReading = true;
+      autoBtn.innerHTML = '⏹ Dừng';
+      units.forEach(u => { u.classList.remove('active','done'); });
+      if (barEl) barEl.style.width = '0%';
+
+      // Preload IPA
+      const allIpa = [];
+      units.forEach(u => u.querySelectorAll('.sound-unit:not(.silent)').forEach(su => {
+        const ipa = getIpa(su); if (ipa) allIpa.push(ipa);
+      }));
+      if (allIpa.length) {
+        autoBtn.innerHTML = '⏳ Tải âm...';
+        await Promise.all(allIpa.map(ipa => IntroAudio.playIpa ? IntroAudio.preloadIpa?.(ipa) : null));
+        if (!isReading) { autoBtn.innerHTML = '▶ Đọc từng âm'; lockNav(false); return; }
+        autoBtn.innerHTML = '⏹ Dừng';
+      }
+
+      for (let i = 0; i < units.length; i++) {
+        if (!isReading) break;
+        units[i].scrollIntoView({ behavior:'smooth', block:'nearest' });
+        units[i].classList.add('ph-unit-active');
+        const sus = Array.from(units[i].querySelectorAll('.sound-unit:not(.silent)'));
+        for (const su of sus) {
+          if (!isReading) break;
+          const ipa = getIpa(su);
+          // Highlight unit con
+          su.style.cssText += `
+            border: 2px solid #e74c3c !important;
+            background: rgba(231,76,60,0.3) !important;
+            box-shadow: 0 0 12px rgba(231,76,60,0.8) !important;
+            transform: scale(1.2);
+            transition: all 0.15s;
+          `;
+          if (ipa) await IntroAudio.playIpa(ipa);
+          else await sleep(300);
+          su.style.cssText = su.style.cssText
+            .replace(/border:[^;]+;/,'')
+            .replace(/background:[^;]+;/,'')
+            .replace(/box-shadow:[^;]+;/,'')
+            .replace(/transform:[^;]+;/,'');
+          await sleep(80);
+        }
+        units[i].classList.remove('ph-unit-active');
+        if (!isReading) break;
+        hlUnit(units[i], false);
+        if (barEl) barEl.style.width = `${((i+1)/units.length)*100}%`;
+        await sleep(400);
+      }
+
+      if (isReading) {
+        if (barEl) barEl.style.width = '100%';
+        // Nhân vật đọc cả từ
+        await introSpeakEN('main', w.word, 0.7);
+      }
+
+      isReading = false;
+      autoBtn.innerHTML = '▶ Đọc từng âm';
+      lockNav(false);
+    };
+
+    const stopRead = () => {
+      isReading = false;
+      getAllUnits().forEach(u => u.classList.remove('active','done'));
+      if (barEl) barEl.style.width = '0%';
+      autoBtn.innerHTML = '▶ Đọc từng âm';
+      lockNav(false);
+    };
+
+    autoBtn.onclick = () => isReading ? stopRead() : doAutoRead();
+
+    document.getElementById('ph-full').onclick = () => introSpeakEN('main', w.word, 0.7);
+
+    // Click thủ công từng ô
+    getAllUnits().forEach((wrapper, i, arr) => {
+      wrapper.addEventListener('click', async e => {
+        e.stopPropagation();
+        IntroAudio.unlock?.();
+        arr.forEach(u => u.classList.remove('active'));
+        const sus = Array.from(wrapper.querySelectorAll('.sound-unit:not(.silent)'));
+        for (const su of sus) {
+          su.classList.add('active');
+          await IntroAudio.playIpa(getIpa(su));
+          su.classList.remove('active');
+        }
+        if (barEl) barEl.style.width = `${((i+1)/arr.length)*100}%`;
+      });
+    });
+
+    // Auto trigger
+    if (hasContent) setTimeout(doAutoRead, 500);
+
+    return new Promise(resolve => {
+      document.getElementById('ph-replay').onclick = () => { stopRead(); resolve('replay'); };
+      document.getElementById('ph-prev').onclick   = () => { stopRead(); resolve('prev');   };
+      document.getElementById('ph-next').onclick   = () => { stopRead(); resolve('next');   };
+    });
+  };
+
+  // Init model 1 lần duy nhất
+  await initIntroLive2D(['main']);
+
+  return new Promise(async resolveAll => {
+    while (true) {
+      const action = await runOne(words[idx]);
+      if (action === 'prev' && idx > 0) idx--;
+      else if (action === 'next') {
+        if (idx >= words.length - 1) { resolveAll(); return; }
+        idx++;
+      }
+      // 'replay' → giữ nguyên idx
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BƯỚC 3 — Image D1 (4 ảnh chọn đáp án)
+// ═══════════════════════════════════════════════════════════════════════════
+async function runIntroImageD1() {
+  const data = [...vocabData.slice(0,10)].sort(() => Math.random()-.5);
+  let idx = 0, score = 0;
+
+  return new Promise(resolve => {
+    const show = async () => {
+      if (idx >= data.length) {
+        // Ghi điểm image D1
+        scoreState.image_d1 = { score, total: data.length };
+        const raw  = localStorage.getItem('result_image');
+        const prev = raw ? JSON.parse(raw) : {};
+        localStorage.setItem('result_image', JSON.stringify({
+          ...prev,
+          score1: score, total1: data.length,
+          score2: prev.score2||0, total2: prev.total2||0,
+          score3: prev.score3||0, total3: prev.total3||0,
+          score: score+(prev.score2||0)+(prev.score3||0),
+          total: data.length+(prev.total2||0)+(prev.total3||0),
+        }));
+        updateMiniScore(score, data.length);
+        showTransition('🧠','Xong phần Nhận diện!','Tiếp tục luyện nói...').then(resolve);
+        return;
+      }
+
+      const cur   = data[idx];
+      const wrong = data.filter(d => d.word !== cur.word);
+      const opts  = [cur, ...wrong.slice(0,3)].sort(() => Math.random()-.5);
+
+      document.getElementById('mainCard').innerHTML = `
+        <div class="intro-scene intro-classroom-bg">
+          ${introCharHTML('main', introSelectedMain[0], '#27ae60')}
+          <div class="intro-whiteboard">
+            <div style="font-size:11px;color:#999;letter-spacing:.06em;text-transform:uppercase;align-self:flex-start;">
+              Nhận diện ${idx+1}/${data.length} — Điểm: ${score}
+            </div>
+            <div style="font-size:clamp(13px,3vw,15px);color:#555;font-weight:600;text-align:center;">
+              🔊 Chọn hình ảnh đúng với từ vừa nghe
+            </div>
+            <button id="d1-play" style="padding:7px 16px;background:#3498db;color:#fff;
+              border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">
+              🔊 Nghe lại
+            </button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;" id="d1-grid"></div>
+            <div id="d1-result" style="font-size:14px;font-weight:700;min-height:20px;text-align:center;"></div>
           </div>
-          <div id="dlg-script-line" style="
-            font-size:14px; color:#444; text-align:center;
-            background:#f9f9f9; padding:6px 12px;
-            border-radius:6px; min-height:36px; width:100%;
-          ">...</div>
         </div>
       `;
 
-      // Shizuku hỏi
-      document.getElementById('dlg-script-line').innerHTML =
-        `<span style="color:#27ae60;font-weight:600;">Shizuku:</span> ${w.question}`;
-      await introSpeak('shizuku', w.question, 0.5);
-      await introDelay(2500);
+      // Nhân vật đọc từ
+      // Nhân vật giới thiệu
+      await introSpeakEN('main', `Now, let's choose the picture that matches the word... ${cur.word}`, 0.85);
 
-      // Haru trả lời
-      document.getElementById('dlg-script-line').innerHTML =
-        `<span style="color:#8e44ad;font-weight:600;">Haru:</span> ${w.answerRaw}`;
-      await introSpeak('haru', w.answerRaw, 0.5);
-      await introDelay(2500);
-    }
+      document.getElementById('d1-play').onclick = () => introSpeakEN('main', cur.word, 0.8);
 
-    await introSpeak('shizuku',
-      "Wonderful! Now it's your turn. Good luck!", 0.5);
+      const grid = document.getElementById('d1-grid');
+      opts.forEach(item => {
+        const imgUrl = getImageFromMap(item.word) || '';
+        const card = document.createElement('div');
+        card.style.cssText = `background:rgba(255,255,255,.08);border:2px solid transparent;
+          border-radius:10px;padding:6px;cursor:pointer;text-align:center;transition:all .2s;`;
+        card.dataset.d1 = item.word;
+        card.innerHTML = imgUrl
+          ? `<img src="${imgUrl}" style="width:100%;height:clamp(60px,15vw,90px);object-fit:cover;border-radius:6px;"/>`
+          : `<div style="width:100%;height:clamp(60px,15vw,90px);background:rgba(255,255,255,.1);border-radius:6px;"></div>`;
+        card.innerHTML += `<div style="font-size:clamp(10px,2vw,12px);color:#ccc;margin-top:4px;">${item.meaning}</div>`;
+        card.onclick = async () => {
+          const res = document.getElementById('d1-result');
+          if (!res) return;
+          grid.querySelectorAll('[data-d1]').forEach(c => c.style.pointerEvents = 'none');
 
-    document.getElementById('intro-dlg-btns').style.display = 'flex';
+          const isCorrect = item.word === cur.word;
+
+          // Highlight card được chọn
+          card.style.border = `3px solid ${isCorrect ? '#2ecc71' : '#e74c3c'}`;
+
+          // Highlight đáp án đúng nếu chọn sai
+          if (!isCorrect) {
+            grid.querySelectorAll('[data-d1]').forEach(c => {
+              if (c.dataset.d1 === cur.word) {
+                c.style.border = '3px solid #2ecc71';
+                c.style.background = 'rgba(46,204,113,0.2)';
+              }
+            });
+          }
+
+          if (isCorrect) {
+            score++;
+            res.textContent = '✅ Chính xác!'; res.style.color = '#2ecc71';
+            await introSpeakEN('main', 'Great job!', 0.9);
+          } else {
+            res.textContent = `❌ Sai. Đáp án: ${cur.word}`; res.style.color = '#e74c3c';
+            await introSpeakEN('main', `The correct answer is ${cur.word}`, 0.9);
+          }
+
+          updateMiniScore(score, idx+1);
+          idx++;
+          // Đợi 800ms để nhìn highlight rồi mới chuyển
+          await introDelay(800);
+          show();
+        };
+        grid.appendChild(card);
+      });
+
+      updateMiniScore(score, idx+1);
+    };
+
+    // Load nhân vật rồi mới show
+    const showWithModel = async () => {
+      introDestroyAll();
+      await initIntroLive2D(['main']);
+      show();
+    };
+    showWithModel();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BƯỚC 4 — Luyện nói theo
+// ═══════════════════════════════════════════════════════════════════════════
+async function runIntroRepeat() {
+  const words = vocabData.slice(0, 10);
+  let idx = 0, score = 0;
+
+  const renderWord = (w) => {
+    const imgSrc = getImageFromMap((w.imageKeyword||w.word).toLowerCase().trim()) || '';
+    document.getElementById('mainCard').innerHTML = `
+      <div class="intro-scene intro-classroom-bg">
+        ${introCharHTML('main', introSelectedMain[0], '#27ae60')}
+        <div class="intro-whiteboard">
+          <div style="font-size:11px;color:#999;letter-spacing:.06em;text-transform:uppercase;align-self:flex-start;">
+            Luyện nói ${idx+1}/${words.length}
+          </div>
+          ${imgSrc ? `<img src="${imgSrc}" style="height:clamp(60px,12vw,90px);object-fit:contain;
+            border-radius:8px;border:1px solid #eee;"/>` : ''}
+          <div style="font-size:clamp(22px,5vw,30px);font-weight:800;color:#1a1a2e;">${w.word.toUpperCase()}</div>
+          <div style="font-size:clamp(12px,2.5vw,14px);color:#555;background:#f5f5f5;
+            padding:4px 12px;border-radius:6px;">${w.meaning||''}</div>
+
+          <div id="repeat-status" style="font-size:clamp(12px,2.5vw,14px);color:#27ae60;
+            font-weight:600;text-align:center;min-height:20px;">
+            🎧 Đang phát âm...
+          </div>
+          <div id="repeat-result" style="display:none;font-size:clamp(12px,2.5vw,13px);
+            color:#555;background:#f9f9f9;padding:8px 12px;border-radius:8px;
+            width:100%;text-align:center;"></div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;">
+            <button id="rp-listen" class="poke-btn blue" style="font-size:clamp(12px,2.5vw,14px);
+              padding:8px 14px;">🔊 Nghe lại</button>
+            <div id="rp-mic" class="mic-ring">🎤</div>
+          </div>
+          <div id="rp-retry-wrap" style="display:none;text-align:center;">
+            <button id="rp-retry" class="poke-btn gray" style="font-size:13px;padding:7px 14px;">
+              🔄 Thử lại
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="intro-action-row">
+        <button class="poke-btn yellow" id="rp-next">
+          ${idx>=words.length-1?'💬 Sang hội thoại ▶':'Từ tiếp ▶'}
+        </button>
+      </div>
+    `;
   };
 
-  await playDialogue();
-  document.getElementById('intro-replay-dlg').onclick = playDialogue;
+  const speakWord = async (w) => {
+    await introSpeakEN('main', `Repeat after me... ${w.word}`, 0.8);
+  };
 
+  const runOne = async (w) => {
+    renderWord(w);
+    await speakWord(w);
+
+    const statusEl  = document.getElementById('repeat-status');
+    const resultEl  = document.getElementById('repeat-result');
+    const micEl     = document.getElementById('rp-mic');
+    const retryWrap = document.getElementById('rp-retry-wrap');
+
+    if (statusEl) statusEl.textContent = '👆 Bấm 🎤 để nói theo!';
+
+    document.getElementById('rp-listen').onclick = async () => {
+      if (statusEl) statusEl.textContent = '🎧 Đang phát âm...';
+      await speakWord(w);
+      if (statusEl) statusEl.textContent = '👆 Bấm 🎤 để nói theo!';
+    };
+
+    const doRecord = () => {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) { if (statusEl) statusEl.textContent = '⚠️ Thiết bị không hỗ trợ mic'; return; }
+      const rec = new SR();
+      rec.lang = 'en-US'; rec.interimResults = false; rec.maxAlternatives = 1;
+      if (statusEl) statusEl.textContent = '🎙️ Đang nghe...';
+      micEl?.classList.add('listening');
+      rec.start();
+      rec.onresult = e => {
+        const heard = e.results[0][0].transcript.toLowerCase().trim();
+        const tgt   = w.word.toLowerCase().trim();
+        const ok    = heard.includes(tgt) || tgt.includes(heard);
+        if (ok) score++;
+        if (resultEl) {
+          resultEl.style.display = 'block';
+          resultEl.innerHTML = ok
+            ? `✅ Bạn nói: "<b>${heard}</b>" — Tốt lắm!`
+            : `🗣️ Bạn nói: "<b>${heard}</b>"`;
+          resultEl.style.color = ok ? '#27ae60' : '#e74c3c';
+        }
+        if (statusEl) statusEl.textContent = ok ? '🎉 Tốt lắm!' : '💪 Thử lại nào!';
+        micEl?.classList.remove('listening');
+        if (retryWrap) retryWrap.style.display = 'block';
+        introSpeakEN('main', ok ? 'Well done!' : 'Try again!', 0.9);
+      };
+      rec.onerror = () => {
+        if (statusEl) statusEl.textContent = '⚠️ Không nghe được!';
+        micEl?.classList.remove('listening');
+      };
+    };
+
+    if (micEl) micEl.onclick = doRecord;
+    document.getElementById('rp-retry')?.addEventListener('click', doRecord);
+
+    return new Promise(resolve => {
+      document.getElementById('rp-next').onclick = () => {
+        window.speechSynthesis.cancel();
+        introStopLipSync('main');
+        resolve();
+      };
+    });
+  };
+
+  await initIntroLive2D(['main']);
+  for (idx = 0; idx < words.length; idx++) {
+    await runOne(words[idx]);
+  }
+
+  // Ghi điểm vocab2
+  const tot = words.length * 2;
+  scoreState.vocab2 = { score, total: tot };
+  const raw  = localStorage.getItem('result_vocabulary');
+  const prev = raw ? JSON.parse(raw) : {};
+  localStorage.setItem('result_vocabulary', JSON.stringify({
+    ...prev, scoreV2: score, totalV2: tot,
+    score: (prev.scoreV1||0) + score,
+    total: (prev.totalV1||0) + tot,
+  }));
+  updateMiniScore(score, tot);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BƯỚC 5 — Hội thoại
+// ═══════════════════════════════════════════════════════════════════════════
+async function runIntroDialoguePart() {
+  const words = vocabData.slice(0,10).filter(w => w.question && w.answerRaw);
+
+  const render = () => {
+    document.getElementById('mainCard').innerHTML = `
+      <div class="intro-scene intro-classroom-bg">
+        ${introCharHTML('sub', introSelectedSub[0], '#8e44ad')}
+        <div class="intro-whiteboard">
+          <div id="dlg-wb" style="width:100%;display:flex;flex-direction:column;
+            align-items:center;gap:10px;min-height:160px;justify-content:center;color:#333;">
+            <div style="color:#aaa;font-size:13px;">Đang tải...</div>
+          </div>
+        </div>
+        ${introCharHTML('main', introSelectedMain[0], '#27ae60', true)}
+      </div>
+      <div class="intro-action-row" id="dlg-btns" style="display:none;">
+        <button class="poke-btn gray"   id="dlg-replay">↺ Replay</button>
+        <button class="poke-btn yellow" id="dlg-next">⏩ Bắt đầu học!</button>
+      </div>
+    `;
+  };
+
+  render();
+  await initIntroLive2D(['sub','main']);
+
+  const play = async () => {
+    const btns = document.getElementById('dlg-btns');
+    if (btns) btns.style.display = 'none';
+    const wb = document.getElementById('dlg-wb');
+
+    await introSpeakEN('main', "Let's practice these words together!", 0.85);
+
+    for (const w of words) {
+      const imgSrc = getImageFromMap((w.imageKeyword||w.word).toLowerCase().trim()) || '';
+      wb.innerHTML = `
+        <div class="intro-pop" style="width:100%;display:flex;flex-direction:column;
+          align-items:center;gap:8px;">
+          ${imgSrc ? `<img src="${imgSrc}" style="height:clamp(55px,12vw,80px);
+            object-fit:contain;border-radius:6px;border:1px solid #eee;"/>` : ''}
+          <div style="font-size:clamp(15px,4vw,20px);font-weight:800;color:#1a1a2e;">
+            ${w.word.toUpperCase()}
+          </div>
+          <div id="dlg-line" style="font-size:clamp(12px,2.5vw,14px);color:#444;
+            text-align:center;background:#f9f9f9;padding:6px 10px;
+            border-radius:6px;min-height:34px;width:100%;">...</div>
+        </div>
+      `;
+
+      // Main hỏi
+      const lineEl = document.getElementById('dlg-line');
+      if (lineEl) lineEl.innerHTML =
+        `<span style="color:#27ae60;font-weight:600;">${introSelectedMain[0]}:</span> ${w.question}`;
+      await introSpeakEN('main', w.question, 0.85);
+      await introDelay(2000);
+
+      // Sub trả lời
+      if (lineEl) lineEl.innerHTML =
+        `<span style="color:#8e44ad;font-weight:600;">${introSelectedSub[0]}:</span> ${w.answerRaw}`;
+      await introSpeakEN('sub', w.answerRaw, 0.85);
+      await introDelay(2000);
+    }
+
+    await introSpeakEN('main', "Wonderful! Now it's your turn. Good luck!", 0.85);
+    if (btns) btns.style.display = 'flex';
+  };
+
+  await play();
+  document.getElementById('dlg-replay').onclick = play;
   return new Promise(resolve => {
-    document.getElementById('intro-next-stage').onclick = resolve;
+    document.getElementById('dlg-next').onclick = resolve;
   });
 }
 
@@ -711,20 +1241,9 @@ async function runIntroDialoguePart() {
 // MAIN runIntro
 // ═══════════════════════════════════════════════════════════════════════════
 async function runIntro() {
-  // Voices cần load sau khi speechSynthesis sẵn sàng
-  await new Promise(resolve => {
-    const v = speechSynthesis.getVoices();
-    if (v.length) { initIntroVoices(); return resolve(); }
-    speechSynthesis.onvoiceschanged = () => { initIntroVoices(); resolve(); };
-  });
-
-  await runIntroWordPart();
-  introDestroyAll();
-
-  await runIntroDialoguePart();
-  introDestroyAll();
-
-  await showTransition('🌸', 'Xong phần Giới thiệu!', 'Bắt đầu luyện tập từ vựng thôi!');
+  localStorage.setItem("jump_to_stage_idx", "1");
+  window.location.href = "intro.html";
+  await new Promise(() => {});
 }
 // STAGE 1 — VOCABULARY 1 (Bản chuẩn cho giao diện All-in-One)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1160,8 +1679,7 @@ async function runPokeword() {
 
   // Fetch pokeword words
   try {
-    const res  = await fetch(window.SHEET_URL);
-    const rows = await res.json();
+    const rows = await getSheetRows();
     const clean = w => w.replace(/[^a-zA-Z]/g,"").toUpperCase();
     const mapped = rows.map(r => ({
       word:    clean((r[2]||"").toString()),
@@ -1286,8 +1804,7 @@ async function runListening1() {
 
   try {
     const maxCode = await getMaxLessonCode();
-    const res     = await fetch(window.SHEET_URL);
-    const rows    = await res.json();
+    const rows    = await getSheetRows();
     const wbSet   = new Set(wordBank.map(w=>w.toLowerCase().trim()));
 
     const normalize = s => (s||"").replace(/\([^)]*\)/g,"").trim();
@@ -1407,8 +1924,7 @@ async function runSpeaking() {
     const baiList = rowsBai.map(r => { const c=(r[2]||"").toString().trim(); return c?parseInt(c,10):null; }).filter(v=>v!==null&&!isNaN(v));
     const maxLesson = baiList.length ? Math.max(...baiList) : 0;
 
-    const res  = await fetch(window.SHEET_URL);
-    const rows = await res.json();
+    const rows = await getSheetRows();
     const wbSet = new Set(wordBank.map(w=>w.toLowerCase().trim()));
 
     for (const r of rows) {
@@ -1502,29 +2018,22 @@ let ovData = { word: [], arrange: [], chunks: [] };
 
 async function loadOverviewData() {
   try {
-    const res  = await fetch(window.SHEET_URL);
-    const data = await res.json();
-    const rows = data.data || data;
+    const rows = await getSheetRows();
     const wbSet = new Set(wordBank.map(w=>(w||"").trim()));
     const seenA = new Set();
-
     ovData.word = []; ovData.arrange = []; ovData.chunks = [];
-
     rows.forEach(r => {
       const col    = Object.values(r);
       const word   = (col[2]||"").toString().trim();
       if (!word || !wbSet.has(word)) return;
-
       const vi     = (col[24]||"").toString().trim();
       if (word && vi) ovData.word.push({ en: word, vi });
-
       const qRaw   = (col[9]||"").toString().trim();
       const aRaw   = (col[11]||"").toString().trim();
       if (qRaw && aRaw) {
         const norm = normSentence(aRaw);
         if (!seenA.has(norm)) { seenA.add(norm); ovData.arrange.push({ q: qRaw, a: norm }); }
       }
-
       const enRaw  = (col[3]||"").toString().trim();
       const viRaw  = (col[4]||"").toString().trim();
       if (enRaw && viRaw) {
@@ -1757,8 +2266,7 @@ async function runCommunication() {
   let questionPool = [], score = 0;
 
   try {
-    const res  = await fetch(window.SHEET_URL);
-    const rows = await res.json();
+    const rows = await getSheetRows();
     const rawQs = [];
     rows.forEach(row => {
       if (!row || !row[1] || !row[9] || !row[10]) return;
@@ -1922,9 +2430,7 @@ async function runCommunication() {
 // ═══════════════════════════════════════════════════════════════════════════
 const STAGE_RUNNERS = {
   intro: runIntro,
-  vocab1:       runVocab1,
-  vocab2:       runVocab2,
-  image_d1:     runImageD1,
+  
   image_d2:     runImageD2,
   image_d3:     runImageD3,
   pokeword:     runPokeword,
@@ -1998,8 +2504,12 @@ async function runAllStages() {
   try {
     vocabData = await fetchAllVocabData();
     if (vocabData.length) {
-      const keywords = [...new Set(vocabData.flatMap(it => [it.imageKeyword, it.word].filter(Boolean).map(k=>k.toLowerCase().trim())))];
-      await prefetchImagesBatch(keywords);
+      const imgCacheKey = "img_prefetch_" + wordBank.length;
+      if (!sessionStorage.getItem(imgCacheKey)) {
+        const keywords = [...new Set(vocabData.flatMap(it => [it.imageKeyword, it.word].filter(Boolean).map(k=>k.toLowerCase().trim())))];
+        await prefetchImagesBatch(keywords);
+        sessionStorage.setItem(imgCacheKey, "1");
+      }
     }
     await loadOverviewData();
   } catch(e) {
