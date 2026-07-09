@@ -80,7 +80,7 @@
       color:var(--poke-yellow); z-index:50;
     }
 
-    /* TRANSITION */
+    /* TRANSITION & CUSTOM MODAL */
     #transitionScreen {
       display:none; position:fixed; inset:0;
       background:rgba(0,0,0,.85); z-index:200;
@@ -114,10 +114,6 @@
     @media(max-width:600px) {
       .intro-char-slot { width:100%; height:180px; }
     }
-    .intro-char-slot canvas {
-      position:absolute; inset:0; width:100%; height:100%;
-    }
-    .intro-char-slot.flipped { transform:scaleX(-1); }
 
     .intro-lipsync-bars {
       position:absolute; bottom:54px; left:50%;
@@ -134,11 +130,8 @@
       padding:3px 12px; border-radius:20px; font-size:11px; font-weight:700;
       white-space:nowrap; z-index:10; letter-spacing:.05em;
     }
-    .intro-char-slot.flipped .intro-name-tag {
-      transform:translateX(-50%) scaleX(-1);
-    }
 
-    /* Slot wrapper (giữ chỗ trong layout, không bị setCard() ghi đè) */
+    /* Slot wrapper */
     #slotWrapperLeft, #slotWrapperRight {
       flex-shrink:0;
     }
@@ -247,7 +240,7 @@
 <script type="module">
 import { getImageFromMap, prefetchImagesBatch } from "./imageCache.js";
 
-// ── HELPERS ──────────────────────────────────────────────────────────────────
+// ── STREAMING_CHUNK: Initializing state variables and helper functions... ──
 const introDelay = ms => new Promise(r => setTimeout(r, ms));
 
 function setCard(html) { document.getElementById('mainCard').innerHTML = html; }
@@ -271,6 +264,45 @@ function showTransition(emoji, title, desc) {
     };
   });
 }
+
+// ── STEPS & JUMP LOGIC (NO CONFIRM POPUP) ───────────────────────────────────
+const INTRO_STEPS = [
+  { id: 0, label: "🌸 Giới thiệu từ" },
+  { id: 1, label: "🔤 Phát âm" },
+  { id: 2, label: "🧠 Nhận diện" },
+  { id: 3, label: "🗣️ Luyện nói" },
+  { id: 4, label: "💬 Hội thoại" }
+];
+
+let currentStep = 0;
+
+function updateIntroProgress(currentStepIdx) {
+  const progressBar = document.getElementById("progressBar");
+  const pct = (currentStepIdx + 1) * 20;
+  if (progressBar) progressBar.style.width = pct + "%";
+
+  const wrap = document.getElementById("progressSteps");
+  if (wrap) {
+    let html = `<span class="step-dot done">✅ Tải xong</span>`;
+    INTRO_STEPS.forEach((step, i) => {
+      let cls = "";
+      if (i < currentStepIdx) cls = "done";
+      else if (i === currentStepIdx) cls = "active";
+      
+      html += `<span class="step-dot ${cls}" style="cursor:pointer;" onclick="jumpToIntroStep(${i})" title="Nhảy tới: ${step.label}">
+        ${step.label}
+      </span>`;
+    });
+    wrap.innerHTML = html;
+  }
+}
+
+window.jumpToIntroStep = function(idx) {
+  if (idx === currentStep) return;
+  // Ghi nhận đích nhảy mong muốn và khởi động lại trang tránh tràn bộ nhớ Live2D
+  localStorage.setItem("intro_jump_step_idx", idx);
+  location.reload();
+};
 
 // ── LOAD VOCAB DATA ───────────────────────────────────────────────────────────
 function loadVocabData() {
@@ -317,11 +349,12 @@ async function ttsSpeak(text, lang='en-US', speed=0.9) {
   return playBuffer(buf);
 }
 
+// ── STREAMING_CHUNK: Configuring IPA Audio via CDN... ──
 async function preloadIpa(ipa) {
   const k = 'ipa|'+ipa;
   if (audioCache.has(k)) return audioCache.get(k);
   try {
-    const url = `https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/${ipa}.mp3`;
+    const url = `https://cdn.jsdelivr.net/gh/ninjavanxuantruong/mp3vietnam2@main/${ipa}.mp3`;
     const res = await fetch(url);
     if (!res.ok) return null;
     const ab  = await res.arrayBuffer();
@@ -346,7 +379,8 @@ async function playIpa(ipa) {
 }
 
 // ── LIVE2D ────────────────────────────────────────────────────────────────────
-const INTRO_BASE = "https://raw.githubusercontent.com/ninjavanxuantruong/Open-LLM-VTuber-main/main/";
+// CHUYỂN ĐỔI: Sử dụng CDN jsDelivr thay thế Raw GitHub để kéo Model Live2D ko bị Rate Limit
+const INTRO_BASE = "https://cdn.jsdelivr.net/gh/ninjavanxuantruong/Open-LLM-VTuber-main@main/";
 const INTRO_CHAR_LIST = [
   ["Chitose",         "live2d-models/Chitose/runtime/chitose.model3.json"],
   ["Haruto",          "live2d-models/haruto/runtime/haruto.model3.json"],
@@ -372,97 +406,134 @@ const INTRO_CHAR_LIST = [
 let introSelectedMain = INTRO_CHAR_LIST[12];
 let introSelectedSub  = INTRO_CHAR_LIST[0];
 
-// PIXI apps — tạo 1 lần duy nhất, không bao giờ destroy trong suốt trang này
-const pixiApps   = {};
+// ── SINGLE WEBGL CONTEXT SETUP (GIẢI PHÁP SỬA LỖI XUNG ĐỘT WEBGL) ──
+let pixiApp = null;
 const liveModels = {};
 const lipRAFs    = {};
 const motionTimers = {};
+let activePlacements = { left: null, right: null };
 
-// ── CÁC PHẦN TỬ SLOT NHÂN VẬT — TẠO 1 LẦN, KHÔNG BAO GIỜ BỊ innerHTML GHI ĐÈ ──
-// (Đây chính là chỗ sửa lỗi mất nhân vật: canvas nằm trong các node này và
-//  chỉ được DI CHUYỂN (appendChild) giữa các vị trí, không bao giờ bị tạo lại
-//  hay destroy, giống cách intro2.html giữ #host tách biệt khỏi #board)
-let mainSlotEl = null;
-let subSlotEl  = null;
+async function ensurePixiApp() {
+  if (pixiApp) return;
+  const canvas = document.getElementById('classroom-canvas');
+  const sceneEl = document.getElementById('introScene');
+  if (!canvas || !sceneEl) return;
+  
+  // Tạo duy nhất một PIXI Application đại diện cho cả scene
+  pixiApp = new PIXI.Application({
+    view: canvas,
+    autoStart: true,
+    backgroundAlpha: 0,
+    resizeTo: sceneEl
+  });
 
-function buildSlotElement(name, label, color) {
-  const bars = [0,1,2,3,4,5,6].map(()=>
-    `<div class="ibar" style="background:${color};"></div>`).join('');
-  const div = document.createElement('div');
-  div.id = 'slot-' + name;
-  div.className = 'intro-char-slot';
-  div.innerHTML = `
-    <canvas id="canvas-${name}"></canvas>
-    <div id="bars-${name}" class="intro-lipsync-bars">${bars}</div>
-    <div class="intro-name-tag"
-      style="border:1px solid ${color};color:${color};background:${color}22;">
-      ${label}
-    </div>`;
-  return div;
+  // Tự động sắp xếp lại nhân vật chuẩn xác khi màn hình co giãn/xoay
+  pixiApp.renderer.on('resize', () => {
+    repositionActiveModels();
+  });
 }
 
-// Dựng khung cảnh (scene) 1 lần duy nhất. Từ đây trở đi, các bước KHÔNG được
-// gọi setCard() nữa — chỉ được ghi vào #wb-inner và #actionRow.
+function fitModel(name, slotWrapperId, flipped = false) {
+  const m = liveModels[name];
+  const wrapper = document.getElementById(slotWrapperId);
+  const canvas = document.getElementById('classroom-canvas');
+  if (!m || !wrapper || !canvas) return;
+
+  // Tính toán toạ độ thực tế của slot wrapper tương quan với canvas WebGL
+  const wrapRect = wrapper.getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+
+  const x = (wrapRect.left - canvasRect.left) + wrapRect.width / 2;
+  const y = (wrapRect.top - canvasRect.top) + wrapRect.height / 2;
+
+  m.anchor.set(0.5, 0.5);
+
+  const H = wrapRect.height;
+  const originalHeight = m.internalModel.originalHeight || 400;
+  const sc = (H / originalHeight) * 0.92;
+
+  m.scale.set(flipped ? -sc : sc, sc);
+  m.x = x;
+  m.y = y + H * 0.05; // Căn chỉnh dịch xuống một chút cho tự nhiên
+  m.visible = true;
+}
+
+function repositionActiveModels() {
+  if (activePlacements.left) {
+    fitModel(activePlacements.left, 'slotWrapperLeft', false);
+  }
+  if (activePlacements.right) {
+    fitModel(activePlacements.right, 'slotWrapperRight', true);
+  }
+}
+
+// Khởi dựng Scene lớp học với canvas nền WebGL duy nhất
 function initScene() {
   setCard(`
-    <div class="intro-scene intro-classroom-bg" id="introScene">
-      <div id="slotWrapperLeft" style="display:none;"></div>
-      <div class="intro-whiteboard" id="whiteboard">
+    <div class="intro-scene intro-classroom-bg" id="introScene" style="position: relative;">
+      <!-- Canvas chung WebGL tối thượng tránh tranh chấp bộ nhớ -->
+      <canvas id="classroom-canvas" style="position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none;"></canvas>
+      
+      <div id="slotWrapperLeft" class="intro-char-slot" style="display:none; position: relative; z-index: 2;"></div>
+      <div class="intro-whiteboard" id="whiteboard" style="position: relative; z-index: 2;">
         <div id="wb-inner" style="width:100%;display:flex;flex-direction:column;
           align-items:center;justify-content:center;gap:10px;min-height:180px;">
           <div style="color:#aaa;font-size:13px;">Đang tải nhân vật...</div>
         </div>
       </div>
-      <div id="slotWrapperRight" style="display:none;"></div>
+      <div id="slotWrapperRight" class="intro-char-slot" style="display:none; position: relative; z-index: 2;"></div>
     </div>
     <div class="intro-action-row" id="actionRow" style="display:none;"></div>
   `);
-  mainSlotEl = buildSlotElement('main', introSelectedMain[0], '#27ae60');
-  subSlotEl  = buildSlotElement('sub',  introSelectedSub[0],  '#8e44ad');
 }
 
-// Đặt nhân vật vào slot trái/phải. Vì đây là appendChild (di chuyển node có sẵn)
-// chứ không phải innerHTML, canvas/WebGL context của Live2D được giữ nguyên.
 function placeSlots({ left = null, right = null } = {}) {
+  activePlacements = { left, right };
   const leftWrap  = document.getElementById('slotWrapperLeft');
   const rightWrap = document.getElementById('slotWrapperRight');
   if (!leftWrap || !rightWrap) return;
 
-  const put = (target, wrap, flipped) => {
-    if (!target) return;
-    target.classList.toggle('flipped', !!flipped);
-    wrap.appendChild(target);
-  };
-
-  if (left === 'main')      put(mainSlotEl, leftWrap, false);
-  else if (left === 'sub')  put(subSlotEl,  leftWrap, false);
+  leftWrap.innerHTML = '';
+  rightWrap.innerHTML = '';
   leftWrap.style.display = left ? 'block' : 'none';
-
-  if (right === 'main')      put(mainSlotEl, rightWrap, true);
-  else if (right === 'sub')  put(subSlotEl,  rightWrap, true);
   rightWrap.style.display = right ? 'block' : 'none';
-}
 
-async function ensurePixiApp(name) {
-  if (pixiApps[name]) return; // đã có, không tạo lại
-  const canvas = document.getElementById('canvas-' + name);
-  const slot   = document.getElementById('slot-' + name);
-  if (!canvas || !slot) return;
-  const app = new PIXI.Application({
-    view: canvas, autoStart:true, backgroundAlpha:0, resizeTo:slot
-  });
-  pixiApps[name] = app;
+  // Ẩn tất cả model trước khi phân phối lại
+  if (liveModels['main']) liveModels['main'].visible = false;
+  if (liveModels['sub']) liveModels['sub'].visible = false;
+
+  // Lắp các thành phần UI (bars, name tag) lên trên slot tương ứng
+  if (left) {
+    const bars = [0,1,2,3,4,5,6].map(()=>`<div class="ibar" style="background:${left==='main'?'#27ae60':'#8e44ad'};"></div>`).join('');
+    leftWrap.innerHTML = `
+      <div id="bars-${left}" class="intro-lipsync-bars" style="opacity:0; bottom: 54px;">${bars}</div>
+      <div class="intro-name-tag" style="border:1px solid ${left==='main'?'#27ae60':'#8e44ad'};color:${left==='main'?'#27ae60':'#8e44ad'};background:${left==='main'?'#27ae60':'#8e44ad'}22; bottom: 18px; left: 50%; transform: translateX(-50%); position: absolute; z-index: 10;">
+        ${left==='main'?introSelectedMain[0]:introSelectedSub[0]}
+      </div>
+    `;
+    fitModel(left, 'slotWrapperLeft', false);
+  }
+
+  if (right) {
+    const bars = [0,1,2,3,4,5,6].map(()=>`<div class="ibar" style="background:${right==='main'?'#27ae60':'#8e44ad'};"></div>`).join('');
+    rightWrap.innerHTML = `
+      <div id="bars-${right}" class="intro-lipsync-bars" style="opacity:0; bottom: 54px;">${bars}</div>
+      <div class="intro-name-tag" style="border:1px solid ${right==='main'?'#27ae60':'#8e44ad'};color:${right==='main'?'#27ae60':'#8e44ad'};background:${right==='main'?'#27ae60':'#8e44ad'}22; bottom: 18px; left: 50%; transform: translateX(-50%) scaleX(-1); position: absolute; z-index: 10;">
+        ${right==='main'?introSelectedMain[0]:introSelectedSub[0]}
+      </div>
+    `;
+    fitModel(right, 'slotWrapperRight', true);
+  }
 }
 
 async function loadModel(name) {
   const charInfo = name === 'main' ? introSelectedMain : introSelectedSub;
   const url = INTRO_BASE + charInfo[1].split('/').map(encodeURIComponent).join('/').replace(/%2F/g,'/');
-  const app = pixiApps[name];
-  if (!app) return;
+  await ensurePixiApp();
+  if (!pixiApp) return;
 
-  // Xóa model cũ nếu có
   if (liveModels[name]) {
-    try { app.stage.removeChildren(); liveModels[name].destroy(); } catch(e){}
+    try { pixiApp.stage.removeChild(liveModels[name]); liveModels[name].destroy(); } catch(e){}
     liveModels[name] = null;
   }
 
@@ -470,20 +541,13 @@ async function loadModel(name) {
     PIXI.live2d.Live2DModel.registerTicker(PIXI.Ticker);
     const model = await PIXI.live2d.Live2DModel.from(url);
     liveModels[name] = model;
-    app.stage.addChild(model);
-    fitModel(name);
+    pixiApp.stage.addChild(model);
+    
+    // Tự động định vị trí model đúng nơi slot wrapper đang đứng
+    repositionActiveModels();
+    
     try { model.motion('idle'); } catch(e){}
   } catch(e) { console.error('load model', name, e); }
-}
-
-function fitModel(name) {
-  const m = liveModels[name], app = pixiApps[name];
-  if (!m || !app) return;
-  const W = app.renderer.width, H = app.renderer.height;
-  const sc = Math.min(W/m.internalModel.originalWidth, H/m.internalModel.originalHeight) * 0.92;
-  m.scale.set(sc);
-  m.x = W/2 - m.width/2;
-  m.y = H/2 - m.height/2 + 10;
 }
 
 // ── MOTION LOOP ───────────────────────────────────────────────────────────────
@@ -631,8 +695,8 @@ async function runWordPart(vocabData) {
   `;
   document.getElementById('actionRow').style.display = 'none';
 
-  await ensurePixiApp('main');
-  if (liveModels['main']) fitModel('main'); else await loadModel('main');
+  await ensurePixiApp();
+  if (liveModels['main']) fitModel('main', 'slotWrapperLeft', false); else await loadModel('main');
 
   const play = async () => {
     document.getElementById('actionRow').style.display = 'none';
@@ -736,19 +800,18 @@ async function runPhonics(vocabData) {
 
   const runOne = async (w) => {
     renderWord(w);
-    await ensurePixiApp('main');
-    if (liveModels['main']) fitModel('main');
+    await ensurePixiApp();
+    if (liveModels['main']) fitModel('main', 'slotWrapperLeft', false);
     else await loadModel('main');
 
     await speakEN('main', `Let's look at the pronunciation of "${w.word}"`, 0.85);
 
-    // Đợi dictMap
     await new Promise(r=>{
       let ms=0;
       const t=setInterval(()=>{ if(window.dictMap?.size>0||ms>=8000){clearInterval(t);r();} ms+=200; },200);
     });
 
-    const pCont  = document.getElementById('v1PhonicsContainer');
+    const pCont = document.getElementById('v1PhonicsContainer');
     const loadEl = document.getElementById('ph-loading');
     const autoBtn= document.getElementById('ph-auto');
     const barEl  = document.getElementById('ph-bar');
@@ -806,9 +869,9 @@ async function runPhonics(vocabData) {
             box-shadow:0 0 12px rgba(231,76,60,.8)!important;transform:scale(1.2);transition:all .15s;`;
           if(ipa)await playIpa(ipa); else await sleep(300);
           su.style.border='2px solid transparent';
-          su.style.background='transparent';
-          su.style.boxShadow='none';
-          su.style.transform='none';
+          m.style.background='transparent';
+          m.style.boxShadow='none';
+          m.style.transform='none';
           await sleep(80);
         }
         units[i].classList.remove('ph-unit-active');
@@ -910,8 +973,8 @@ async function runImageD1(vocabData) {
         <div id="d1-result" style="font-size:14px;font-weight:700;min-height:20px;text-align:center;"></div>
       `;
 
-      await ensurePixiApp('main');
-      if(liveModels['main'])fitModel('main');
+      await ensurePixiApp();
+      if(liveModels['main']) fitModel('main', 'slotWrapperLeft', false);
       else await loadModel('main');
 
       await speakEN('main',`Now, let's choose the picture that matches the word... ${cur.word}`,0.85);
@@ -988,8 +1051,8 @@ async function runRepeat(vocabData) {
     `;
     document.getElementById('actionRow').style.display = 'flex';
 
-    await ensurePixiApp('main');
-    if(liveModels['main'])fitModel('main'); else await loadModel('main');
+    await ensurePixiApp();
+    if(liveModels['main']) fitModel('main', 'slotWrapperLeft', false); else await loadModel('main');
 
     const doSpeak=async()=>{ await speakEN('main',`Repeat after me... ${w.word}`,0.8); };
     await doSpeak();
@@ -1058,6 +1121,7 @@ async function runRepeat(vocabData) {
 async function runDialogue(vocabData) {
   const words=vocabData.slice(0,10).filter(w=>w.question&&w.answerRaw);
 
+  // Đặt nhân vật SUB ở trái, MAIN ở phải (Hội thoại) trên cùng một WebGL Canvas
   placeSlots({ left: 'sub', right: 'main' });
 
   document.getElementById('wb-inner').innerHTML = `
@@ -1068,10 +1132,9 @@ async function runDialogue(vocabData) {
   `;
   document.getElementById('actionRow').style.display = 'none';
 
-  await ensurePixiApp('sub');
-  await ensurePixiApp('main');
-  if (liveModels['sub'])  fitModel('sub');  else await loadModel('sub');
-  if (liveModels['main']) fitModel('main'); else await loadModel('main');
+  await ensurePixiApp();
+  if (liveModels['sub'])  fitModel('sub', 'slotWrapperLeft', false);  else await loadModel('sub');
+  if (liveModels['main']) fitModel('main', 'slotWrapperRight', true); else await loadModel('main');
 
   const play=async()=>{
     document.getElementById('actionRow').style.display='none';
@@ -1123,86 +1186,120 @@ async function main() {
     return;
   }
 
-  // Chọn nhân vật (dùng setCard bình thường vì lúc này chưa có canvas nào cả)
-  await new Promise(resolve=>{
-    let sel=12;
-    const render=()=>{
-      setCard(`
-        <div style="display:flex;flex-direction:column;gap:12px;">
-          <div style="color:#fbbf24;font-size:clamp(13px,3vw,15px);font-weight:700;text-align:center;">
-            🌸 Chọn nhân vật giảng dạy hôm nay
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));
-            gap:7px;max-height:55vh;overflow-y:auto;padding:4px;">
-            ${INTRO_CHAR_LIST.map((c,i)=>`
-              <div onclick="window._pick(${i})" style="
-                padding:9px 6px;border-radius:10px;cursor:pointer;text-align:center;
-                border:2px solid ${i===sel?'#2ecc71':'rgba(255,255,255,.1)'};
-                background:${i===sel?'rgba(46,204,113,.15)':'rgba(255,255,255,.04)'};
-                color:${i===sel?'#2ecc71':'#ccc'};
-                font-size:clamp(11px,2.5vw,13px);font-weight:${i===sel?700:400};
-                transition:all .15s;">
-                ${i===sel?'✔ ':''}${c[0]}
-              </div>`).join('')}
-          </div>
-          <div style="display:flex;justify-content:center;">
-            <button class="poke-btn yellow" id="intro-start-btn" style="font-size:clamp(13px,3vw,16px);">
-              ▶ Bắt đầu với ${INTRO_CHAR_LIST[sel][0]}
-            </button>
-          </div>
-        </div>
-      `);
-      window._pick=i=>{sel=i;render();};
-      document.getElementById('intro-start-btn').onclick=()=>{
-        introSelectedMain=INTRO_CHAR_LIST[sel];
-        const others=INTRO_CHAR_LIST.filter((_,i)=>i!==sel);
-        introSelectedSub=others[Math.floor(Math.random()*others.length)];
-        delete window._pick; resolve();
-      };
-    };
-    render();
-  });
+  // Tải trước (PREFETCH) ảnh
+  try {
+    const keywords = [...new Set(vocabData.flatMap(it => [it.imageKeyword, it.word].filter(Boolean).map(k=>k.toLowerCase().trim())))];
+    if (keywords.length > 0) {
+      console.log("🌸 Đang tải trước hình ảnh cho Giới thiệu:", keywords);
+      await prefetchImagesBatch(keywords);
+    }
+  } catch(e) {
+    console.error("Lỗi khi prefetch ảnh tại intro.html:", e);
+  }
 
-  // Dựng khung cảnh persistent (chỉ gọi setCard() 1 LẦN DUY NHẤT ở đây,
-  // từ giờ về sau mọi bước chỉ ghi vào #wb-inner / #actionRow / di chuyển slot)
+  // SỬA LỖI 1: Tải nhân vật đã chọn từ localStorage thay vì bắt chọn lại sau khi nhảy phần
+  const savedInstructorIdx = localStorage.getItem("selected_instructor_idx");
+  if (savedInstructorIdx !== null) {
+    const sel = parseInt(savedInstructorIdx);
+    introSelectedMain = INTRO_CHAR_LIST[sel];
+    const others = INTRO_CHAR_LIST.filter((_,i)=>i!==sel);
+    introSelectedSub = others[Math.floor(Math.random()*others.length)];
+  } else {
+    // Nếu chưa chọn thì mới bắt đầu hiển thị bảng chọn nhân vật giảng dạy
+    await new Promise(resolve=>{
+      let sel=12;
+      const render=()=>{
+        setCard(`
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="color:#fbbf24;font-size:clamp(13px,3vw,15px);font-weight:700;text-align:center;">
+              🌸 Chọn nhân vật giảng dạy hôm nay
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));
+              gap:7px;max-height:55vh;overflow-y:auto;padding:4px;">
+              ${INTRO_CHAR_LIST.map((c,i)=>`
+                <div onclick="window._pick(${i})" style="
+                  padding:9px 6px;border-radius:10px;cursor:pointer;text-align:center;
+                  border:2px solid ${i===sel?'#2ecc71':'rgba(255,255,255,.1)'};
+                  background:${i===sel?'rgba(46,204,113,.15)':'rgba(255,255,255,.04)'};
+                  color:${i===sel?'#2ecc71':'#ccc'};
+                  font-size:clamp(11px,2.5vw,13px);font-weight:${i===sel?700:400};
+                  transition:all .15s;">
+                  ${i===sel?'✔ ':''}${c[0]}
+                </div>`).join('')}
+            </div>
+            <div style="display:flex;justify-content:center;">
+              <button class="poke-btn yellow" id="intro-start-btn" style="font-size:clamp(13px,3vw,16px);">
+                ▶ Bắt đầu với ${INTRO_CHAR_LIST[sel][0]}
+              </button>
+            </div>
+          </div>
+        `);
+        window._pick=i=>{sel=i;render();};
+        document.getElementById('intro-start-btn').onclick=()=>{
+          introSelectedMain=INTRO_CHAR_LIST[sel];
+          localStorage.setItem("selected_instructor_idx", sel); // Ghi nhớ lựa chọn
+          const others=INTRO_CHAR_LIST.filter((_,i)=>i!==sel);
+          introSelectedSub=others[Math.floor(Math.random()*others.length)];
+          delete window._pick; resolve();
+        };
+      };
+      render();
+    });
+  }
+
+  // Dựng khung cảnh persistent
   initScene();
 
-  // Bước 1
-  document.getElementById('step-current').textContent='🌸 Giới thiệu từ';
-  document.getElementById('progressBar').style.width='10%';
-  await runWordPart(vocabData);
-  markStepDone('step-current');
+  // Đọc cờ nhảy bài từ localStorage (nếu có)
+  currentStep = parseInt(localStorage.getItem("intro_jump_step_idx") || "0");
+  localStorage.removeItem("intro_jump_step_idx"); // Xoá cờ ngay lập tức để tránh lặp vô hạn
 
-  // Bước 2
-  document.getElementById('step-phonics').classList.add('active');
-  document.getElementById('progressBar').style.width='30%';
-  await runPhonics(vocabData);
-  markStepDone('step-phonics');
+  // Bắt đầu chạy tuần tự từ Step được yêu cầu trở đi
+  if (currentStep <= 0) {
+    currentStep = 0;
+    updateIntroProgress(0);
+    await runWordPart(vocabData);
+    markStepDone('step-current');
+  }
 
-  // Bước 3
-  document.getElementById('step-image').classList.add('active');
-  document.getElementById('progressBar').style.width='50%';
-  await showTransition('🌸','Xong phần Phát âm!','Tiếp tục nhận diện hình ảnh...');
-  await runImageD1(vocabData);
-  markStepDone('step-image');
+  if (currentStep <= 1) {
+    currentStep = 1;
+    updateIntroProgress(1);
+    await runPhonics(vocabData);
+    markStepDone('step-phonics');
+  }
 
-  // Bước 4
-  document.getElementById('step-repeat').classList.add('active');
-  document.getElementById('progressBar').style.width='70%';
-  await showTransition('🧠','Xong phần Nhận diện!','Bây giờ luyện nói nào!');
-  await runRepeat(vocabData);
-  markStepDone('step-repeat');
+  if (currentStep <= 2) {
+    currentStep = 2;
+    updateIntroProgress(2);
+    await showTransition('🌸','Xong phần Phát âm!','Tiếp tục nhận diện hình ảnh...');
+    await runImageD1(vocabData);
+    markStepDone('step-image');
+  }
 
-  // Bước 5
-  document.getElementById('step-dialogue').classList.add('active');
-  document.getElementById('progressBar').style.width='90%';
-  await showTransition('🗣️','Xong phần Luyện nói!','Cùng xem hội thoại thực tế!');
-  await runDialogue(vocabData);
-  markStepDone('step-dialogue');
+  if (currentStep <= 3) {
+    currentStep = 3;
+    updateIntroProgress(3);
+    await showTransition('🧠','Xong phần Nhận diện!','Bây giờ luyện nói nào!');
+    await runRepeat(vocabData);
+    markStepDone('step-repeat');
+  }
 
-  document.getElementById('progressBar').style.width='100%';
+  if (currentStep <= 4) {
+    currentStep = 4;
+    updateIntroProgress(4);
+    await showTransition('🗣️','Xong phần Luyện nói!','Cùng xem hội thoại thực tế!');
+    await runDialogue(vocabData);
+    markStepDone('step-dialogue');
+  }
 
-  // Xong → về all.html
+  const progressBar = document.getElementById("progressBar");
+  if (progressBar) progressBar.style.width = '100%';
+
+  // Reset nhân vật được lưu trong localStorage khi kết thúc bài giới thiệu hoàn toàn
+  localStorage.removeItem("selected_instructor_idx");
+
+  // Hoàn tất khóa học giới thiệu và quay về màn chính
   await showTransition('🌸','Xong phần Giới thiệu!','Bắt đầu luyện tập từ vựng thôi!');
   window.location.href='all.html';
 }
