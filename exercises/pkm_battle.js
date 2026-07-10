@@ -436,20 +436,21 @@ window.BattleGame = {
         //pContainer.className = 'player-side';
         //eContainer.className = 'enemy-side';
 
+        const teamSize = this.playerTeam.length; // player và enemy luôn cùng số lượng slot
         this.playerTeam.forEach((p, i) => { 
-            pContainer.innerHTML += this.createUnitHTML(p, i, 'player'); 
+            pContainer.innerHTML += this.createUnitHTML(p, i, 'player', teamSize); 
         });
         this.enemyTeam.forEach((p, i)  => { 
-            eContainer.innerHTML += this.createUnitHTML(p, i, 'enemy');  
+            eContainer.innerHTML += this.createUnitHTML(p, i, 'enemy', teamSize);  
         });
         this.playerTeam.forEach((p,i)=>{ if(p.currentHp>0) window.PkmUnitFX?.attachBaseRings('player', i); });
         this.enemyTeam.forEach((p,i)=>{ if(p.currentHp>0) window.PkmUnitFX?.attachBaseRings('enemy', i); });
 
         this.updateActiveStatus();
     },
-    createUnitHTML(pkm, index, side) {
+    createUnitHTML(pkm, index, side, teamSize) {
         // Chỉ gọi style, không xử lý ảnh ở đây nữa
-        return PkmStyles.renderUnit(pkm, index, side);
+        return PkmStyles.renderUnit(pkm, index, side, teamSize);
     },
 
     updateUI() {
