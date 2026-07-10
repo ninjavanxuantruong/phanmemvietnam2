@@ -10,16 +10,30 @@ window.BattleGame = {
     activeUnitIndex: 0, // Chỉ số con đang đến lượt (0-4)
     isPlayerSide: true, // Đang là lượt phe mình hay phe địch
     isProcessing: false,
+    telegraph: null, // Kế hoạch (attacker/target/AOE) đã "dự báo" trước 1 lượt, đang hiện FX chờ tới lượt thực thi
+    pendingHealBursts: [], // Hàng đợi hiệu ứng buff (hồi máu) chờ phát SAU khi animation đòn đánh đã tắt hẳn
     // Thống kê câu hỏi
     correctCount: 0,
     wrongCount: 0,
     totalCount: 0,
-    
 
-    async init() {
+
+        async init() {
         console.log("⚔️ [DEBUG] BattleGame.init() started");
 
         const inv = JSON.parse(localStorage.getItem('pkm_inventory')) || [];
+
+        // 🔧 TỰ ĐỘNG DỌN DỮ LIỆU CŨ: đội hình tối đa giờ chỉ còn 3
+        let migrated = false;
+        inv.forEach(p => {
+            if (p.inTeam && p.position > 3) {
+                p.inTeam = false;
+                p.position = null;
+                migrated = true;
+            }
+        });
+        if (migrated) localStorage.setItem('pkm_inventory', JSON.stringify(inv));
+
         const team = inv.filter(p => p.inTeam).sort((a, b) => a.position - b.position);
 
         if (team.length === 0) {
@@ -75,8 +89,11 @@ window.BattleGame = {
 
                 if (quizOverlay) quizOverlay.style.display = "flex"; 
 
-                // Bắt đầu tính toán lượt đánh nhau và gọi câu hỏi trắc nghiệm của Pokémon
-                this.nextTurn(); 
+                // Dự báo (telegraph) trước cặp đấu đầu tiên, đợi 1 nhịp cho người chơi thấy rồi mới hỏi quiz
+                this.activeUnitIndex = 0;
+                this.telegraph = this.buildTelegraph(this.activeUnitIndex);
+                this.showTelegraphFX(this.telegraph);
+                setTimeout(() => this.askAndResolve(), 1000);
             };
 
             // 3. Kích hoạt gọi thằng VocabularyModule tự mò localStorage/sessionStorage bốc dữ liệu và chạy
@@ -121,7 +138,7 @@ window.BattleGame = {
                     bonusHP += b;
                 } else if (type === 'cloak' || type === 'belt') {
                     bonusSAtk += b;
-                
+
                 }
             });
 
@@ -167,191 +184,242 @@ window.BattleGame = {
             sAtk: sAtk,
             def: def,
             type: pkm.type || 'normal',
-            gen: pkm.gen || 1
+            gen: pkm.gen || 1,
+            hitsTaken: 0
         };
     },
 
-    nextTurn() {
-        if (this.isProcessing || this.checkGameOver()) return;
+    // ═══════════════════════════════════════════════════════════
+    // PIPELINE LƯỢT ĐẤU MỚI — "dự báo trước 1 lượt" (telegraph)
+    // ═══════════════════════════════════════════════════════════
+    // Ý tưởng: ngay khi 1 cặp vừa đánh xong, ta CHỐT TRƯỚC (roll AOE/
+    // mục tiêu) cho cặp KẾ TIẾP và bật FX (Ring1/Ring2/Ring3) lên
+    // NGAY LÚC ĐÓ — trong khi cặp đó còn đứng yên chưa tới lượt.
+    // Chỉ khi tới lượt của cặp đó, ta mới hỏi quiz rồi thực thi ĐÚNG
+    // như đã báo trước (không roll lại). Nhờ vậy FX luôn xuất hiện
+    // trước, cách xa thời điểm ra đòn thật.
 
-        const playerAttacker = this.playerTeam[this.activeUnitIndex];
-        const enemyAttacker  = this.enemyTeam[this.activeUnitIndex];
+    // Chốt trước kế hoạch tấn công cho 1 cặp (chưa thực thi damage)
+    buildTelegraph(unitIndex) {
+        const playerAttacker = this.playerTeam[unitIndex];
+        const enemyAttacker  = this.enemyTeam[unitIndex];
+        const pAlive = playerAttacker && playerAttacker.currentHp > 0;
+        const eAlive = enemyAttacker  && enemyAttacker.currentHp  > 0;
 
-        // Nếu cả 2 con ở vị trí này đều đã chết, qua vị trí tiếp theo luôn
-        const playerAlive = playerAttacker && playerAttacker.currentHp > 0;
-        const enemyAlive  = enemyAttacker  && enemyAttacker.currentHp  > 0;
+        const plan = { unitIndex, enemyPlan: null, playerPlan: null };
+        if (eAlive) plan.enemyPlan  = this.rollActionPlan(enemyAttacker, this.playerTeam, 'enemy', unitIndex);
+        if (pAlive) plan.playerPlan = this.rollActionPlan(playerAttacker, this.enemyTeam, 'player', unitIndex);
+        return plan;
+    },
 
-        if (!playerAlive && !enemyAlive) {
-            this.activeUnitIndex = (this.activeUnitIndex + 1) % this.playerTeam.length;
-            return this.nextTurn();
+    // Roll ngẫu nhiên AOE hay đánh thường + chọn mục tiêu — KHÔNG tính damage, KHÔNG cần biết đúng/sai quiz
+    rollActionPlan(attacker, opponentTeam, side, unitIndex) {
+        const targetSide = side === 'player' ? 'enemy' : 'player';
+        const isAOE = Math.random() < 0.35; // tỉ lệ ra AOE, chỉnh tuỳ ý
+
+        if (!isAOE) {
+            const targetIdx = opponentTeam.findIndex(p => p.currentHp > 0);
+            if (targetIdx === -1) return null;
+            return { attacker, side, targetSide, unitIndex, isAOE: false, targetIdx, targets: [targetIdx] };
         }
 
-        // Nếu chỉ phe mình còn sống ở vị trí này → chỉ mình đánh (không hỏi quiz AI)
-        if (playerAlive && !enemyAlive) {
-            this.log(`Lượt của ${playerAttacker.name} (Phe mình)`);
+        const targets = opponentTeam.map((p, i) => p.currentHp > 0 ? i : -1).filter(i => i !== -1);
+        if (targets.length === 0) return null;
+        return { attacker, side, targetSide, unitIndex, isAOE: true, targets };
+    },
+
+    // Bật FX Ring1 (sắp tấn công) / Ring2 (sắp AOE) / Ring3 (sắp bị tấn công) cho cả kế hoạch của 1 cặp
+    showTelegraphFX(plan) {
+        if (plan.enemyPlan)  this.showPlanFX(plan.enemyPlan);
+        if (plan.playerPlan) this.showPlanFX(plan.playerPlan);
+    },
+    showPlanFX(actionPlan) {
+        window.PkmUnitFX?.setAttacking(actionPlan.side, actionPlan.unitIndex, true);
+        if (actionPlan.isAOE) window.PkmUnitFX?.setAOECasting(actionPlan.side, actionPlan.unitIndex, true);
+        (actionPlan.targets || []).forEach(i => window.PkmUnitFX?.setTargeted(actionPlan.targetSide, i, true));
+    },
+    // Tắt hết FX telegraph của 1 cặp (gọi sau khi đã thực thi xong đòn đánh thật)
+    clearTelegraphFX(plan) {
+        [plan.enemyPlan, plan.playerPlan].forEach(actionPlan => {
+            if (!actionPlan) return;
+            window.PkmUnitFX?.setAttacking(actionPlan.side, actionPlan.unitIndex, false);
+            window.PkmUnitFX?.setAOECasting(actionPlan.side, actionPlan.unitIndex, false);
+            (actionPlan.targets || []).forEach(i => window.PkmUnitFX?.setTargeted(actionPlan.targetSide, i, false));
+        });
+    },
+
+    // Log + hỏi quiz (nếu phe ta có tham chiến ở cặp đang được telegraph), rồi thực thi
+    askAndResolve() {
+        const plan = this.telegraph;
+        if (!plan || this.checkGameOver()) return;
+
+        const enemyName  = plan.enemyPlan?.attacker?.name;
+        const playerName = plan.playerPlan?.attacker?.name;
+
+        if (plan.enemyPlan && plan.playerPlan) {
+            this.log(`${enemyName} tấn công trước, ${playerName} phản công sau!`);
+        } else if (plan.playerPlan) {
+            this.log(`Lượt của ${playerName} (Phe mình)`);
+        } else if (plan.enemyPlan) {
+            this.log(`Lượt của ${enemyName} (Đối thủ)`);
+        }
+
+        if (plan.playerPlan) {
             if (window.QuizManager) {
-                window.QuizManager.ask((isCorrect) => this.handleAction(isCorrect, 'player', null));
+                window.QuizManager.ask((isCorrect) => this.resolveRound(isCorrect));
+            } else {
+                this.resolveRound(true);
             }
-            return;
-        }
-
-        // Nếu chỉ phe địch còn sống ở vị trí này → chỉ địch đánh
-        if (!playerAlive && enemyAlive) {
-            this.log(`Lượt của ${enemyAttacker.name} (Đối thủ)`);
-            setTimeout(() => this.handleAction(true, 'enemy', null), 1000);
-            return;
-        }
-
-        // CẢ 2 BÊN CÒN SỐNG: hỏi quiz người chơi xong mới biết kết quả, rồi đánh CÙNG LÚC
-        this.log(`${playerAttacker.name} và ${enemyAttacker.name} đối đầu!`);
-        if (window.QuizManager) {
-            window.QuizManager.ask((isCorrect) => {
-                this.handleSimultaneousTurn(isCorrect);
-            });
+        } else {
+            // Chỉ địch còn sống ở cặp này → không cần hỏi quiz
+            setTimeout(() => this.resolveRound(true), 600);
         }
     },
 
-    // Xử lý 2 bên cùng đánh 1 lượt: tính damage độc lập, rồi gộp animation chạy song song
-    async handleSimultaneousTurn(playerCorrect) {
+    // Thực thi kế hoạch đã telegraph: ĐỊCH đánh trước, TA đánh sau (theo đúng kết quả quiz)
+    async resolveRound(playerCorrect) {
         this.isProcessing = true;
 
-        // Đếm thống kê (chỉ tính lượt player)
-        this.totalCount++;
-        if (playerCorrect) this.correctCount++; else this.wrongCount++;
-        const statEl = document.getElementById('quiz-stats');
-        if (statEl) statEl.innerHTML =
-            `✅ ${this.correctCount} &nbsp; ❌ ${this.wrongCount} &nbsp; 📊 ${this.totalCount} câu`;
+        const plan = this.telegraph;
+        this.telegraph = null;
 
-        const playerAttacker = this.playerTeam[this.activeUnitIndex];
-        const enemyAttacker  = this.enemyTeam[this.activeUnitIndex];
-
-        if (playerAttacker && playerAttacker.name && window.SkillManager) {
-            window.SkillManager.speakName(playerAttacker.name);
+        if (plan.playerPlan) {
+            this.totalCount++;
+            if (playerCorrect) this.correctCount++; else this.wrongCount++;
+            const statEl = document.getElementById('quiz-stats');
+            if (statEl) statEl.innerHTML =
+                `✅ ${this.correctCount} &nbsp; ❌ ${this.wrongCount} &nbsp; 📊 ${this.totalCount} câu`;
         }
 
-        // Chuẩn bị thông tin đòn đánh của TỪNG BÊN độc lập (không apply damage ngay)
-        // Chuẩn bị thông tin đòn đánh của TỪNG BÊN độc lập (không apply damage ngay)
-        const playerAction = this.prepareAction(playerAttacker, this.enemyTeam, 'player', playerCorrect);
-        const enemyAction   = this.prepareAction(enemyAttacker, this.playerTeam, 'enemy', true); // AI luôn đánh trúng
+        // ĐỊCH đánh trước — luôn trúng
+        if (plan.enemyPlan) await this.executePlannedAction(plan.enemyPlan, true);
 
-        // Áp damage của CẢ 2 đòn trước khi chạy animation (để HP cập nhật đồng thời)
-        if (playerAction) playerAction.applyDamage();
-        if (enemyAction)  enemyAction.applyDamage();
-
-        // Nếu CẢ 2 đều ra skill (isSkill: true) cùng lúc → chỉ random giữ lại 1 nền,
-        // bên còn lại vẫn đánh skill bình thường nhưng KHÔNG mở nền riêng (tránh đè nền)
-        const playerIsSkill = playerAction && playerAction.playInfo.isSkill;
-        const enemyIsSkill  = enemyAction && enemyAction.playInfo.isSkill;
-
-        if (playerIsSkill && enemyIsSkill) {
-            const skipSide = Math.random() < 0.5 ? 'player' : 'enemy';
-            const skippedAction = skipSide === 'player' ? playerAction : enemyAction;
-            skippedAction.playInfo.skipScene = true;
+        // Nghỉ 1 nhịp cho animation đòn địch "lắng" hẳn trước khi đòn ta bắn ra, đỡ đơ
+        if (plan.enemyPlan && plan.playerPlan) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
-        // Chạy animation CÙNG LÚC
-        const playPromises = [];
-        if (playerAction) playPromises.push(window.SkillManager.play(playerAction.playInfo));
-        if (enemyAction)  playPromises.push(window.SkillManager.play(enemyAction.playInfo));
+        // TA đánh sau — theo kết quả quiz
+        if (plan.playerPlan) await this.executePlannedAction(plan.playerPlan, playerCorrect);
 
-        await Promise.all(playPromises);
-
+        this.clearTelegraphFX(plan);
         this.updateUI();
+
+        // Phát hiệu ứng buff (nếu có) SAU KHI mọi animation đòn đánh của lượt này đã xong hẳn
+        await this.flushHealBursts();
+
+        if (this.checkGameOver()) {
+            this.isProcessing = false;
+            return;
+        }
+
+        // Tìm cặp kế tiếp còn ít nhất 1 bên sống
+        let nextIndex = (plan.unitIndex + 1) % this.playerTeam.length;
+        let guard = 0;
+        while (guard < this.playerTeam.length) {
+            const p = this.playerTeam[nextIndex], e = this.enemyTeam[nextIndex];
+            if ((p && p.currentHp > 0) || (e && e.currentHp > 0)) break;
+            nextIndex = (nextIndex + 1) % this.playerTeam.length;
+            guard++;
+        }
+        this.activeUnitIndex = nextIndex;
+
+        // DỰ BÁO TRƯỚC cho cặp kế tiếp NGAY BÂY GIỜ — trong khi cặp vừa xong vẫn còn hiện trên sân,
+        // FX của cặp kế tiếp đã bật sẵn để người chơi thấy trước 1 lượt.
+        this.telegraph = this.buildTelegraph(this.activeUnitIndex);
+        this.showTelegraphFX(this.telegraph);
+
         this.isProcessing = false;
-        setTimeout(() => this.moveToNextUnit(), 1200);
+        setTimeout(() => this.askAndResolve(), 1000);
     },
 
-    // Chuẩn bị 1 đòn đánh: trả về playInfo + hàm applyDamage (chưa thực thi damage ngay)
-    prepareAction(attacker, opponentTeam, side, isCorrect) {
-        if (!attacker || attacker.currentHp <= 0) return null;
+    // Thực thi 1 đòn đánh đã được telegraph từ trước: tính damage thật, phát animation, trừ máu
+    async executePlannedAction(actionPlan, isCorrect) {
+        if (!actionPlan) return;
+        const { attacker, side, targetSide, isAOE, targetIdx, targets, unitIndex } = actionPlan;
+        if (!attacker || attacker.currentHp <= 0) return; // đã chết trong lúc chờ telegraph
 
-        const targetIdx = opponentTeam.findIndex(p => p.currentHp > 0);
-        if (targetIdx === -1) return null;
-
-        attacker.personalTurn = (attacker.personalTurn || 0) + 1;
-        const targetSide = side === 'player' ? 'enemy' : 'player';
-        const activeIdx = this.activeUnitIndex;
+        const opponentTeam = targetSide === 'enemy' ? this.enemyTeam : this.playerTeam;
 
         if (!isCorrect) {
             this.log(`${attacker.name} đánh hụt!`);
-            return {
-                applyDamage() {},
-                playInfo: {
-                    attackerIndex: activeIdx,
-                    attackerSide: side,
-                    targetSide,
-                    missed: true,
-                    targets: []
-                }
-            };
+            const playInfo = { attackerIndex: unitIndex, attackerSide: side, targetSide, missed: true, targets: [] };
+            if (window.SkillManager) await window.SkillManager.playNormalAttack(playInfo);
+            return;
         }
 
-        if (attacker.personalTurn % 2 !== 0) {
-            // Đánh thường
+        if (attacker.name && window.SkillManager) window.SkillManager.speakName(attacker.name);
+
+        if (!isAOE) {
             const target = opponentTeam[targetIdx];
-            const damage = Math.max(15, Math.floor((attacker.atk * 2.5) / (1 + (target.def / 100))));
-            this.log(`${attacker.name} tung đòn đánh vật lý cực mạnh!`);
-            return {
-                applyDamage() {
-                    target.currentHp = Math.max(0, target.currentHp - damage);
-                },
-                playInfo: {
-                    type: 'normal',
-                    gen: 1,
-                    attackerIndex: activeIdx,
-                    attackerSide: side,
-                    attackerId: attacker.id,
-                    attackerName: attacker.name,
-                    targetSide,
-                    damage,
-                    isAOE: false,
-                    targets: [targetIdx],
-                    isSkill: false
-                }
-            };
+            if (!target || target.currentHp <= 0) return; // mục tiêu đã chết trước đó (VD dính AOE của lượt vừa rồi)
+            const damage = Math.max(15, Math.floor((attacker.atk * 1.8) / (1 + target.def / 100)));
+            this.dealDamage(target, damage, targetSide, targetIdx);
+
+            const playInfo = { type: attacker.type || 'normal', gen: attacker.gen || 1, attackerIndex: unitIndex, attackerSide: side,
+                                attackerId: attacker.id, attackerName: attacker.name, targetSide, damage, isAOE: false, targets: [targetIdx], isSkill: true };
+            await window.SkillManager.playNormalAttack(playInfo);
         } else {
-            // Skill AOE
-            const aliveTargets = opponentTeam.map((p, i) => p.currentHp > 0 ? i : -1).filter(i => i !== -1);
+            const aliveTargets = targets.filter(i => opponentTeam[i] && opponentTeam[i].currentHp > 0);
+            if (aliveTargets.length === 0) return;
 
-            const playInfo = {
-                type: attacker.type || 'normal',
-                gen: attacker.gen || 1,
-                attackerIndex: activeIdx,
-                attackerSide: side,
-                attackerId: attacker.id,
-                attackerName: attacker.name,
-                targetSide,
-                targets: aliveTargets,
-                damage: 0,
-                isAOE: true,
-                isSkill: true
-            };
+            const playInfo = { type: attacker.type || 'normal', gen: attacker.gen || 1, attackerIndex: unitIndex, attackerSide: side,
+                                attackerId: attacker.id, attackerName: attacker.name, targetSide, targets: aliveTargets, damage: 0, isAOE: true, isSkill: true };
+            aliveTargets.forEach(idx => {
+                const target = opponentTeam[idx];
+                const damage = Math.max(20, Math.floor((attacker.sAtk * 1.2) / (1 + target.def / 100)));
+                this.dealDamage(target, damage, targetSide, idx);
+                playInfo.damage = damage;
+            });
+            await window.SkillManager.play(playInfo);
+        }
 
-            return {
-                applyDamage() {
-                    aliveTargets.forEach(idx => {
-                        const target = opponentTeam[idx];
-                        const damage = Math.max(20, Math.floor((attacker.sAtk * 1.2) / (1 + (target.def / 100))));
-                        target.currentHp = Math.max(0, target.currentHp - damage);
-                        playInfo.damage = damage;
-                    });
-                },
-                playInfo
-            };
+        this.updateUI();
+    },
+
+    // Trừ máu + đếm số lần bị dính đòn → cứ đủ 3 đòn thì hồi máu (buff thật),
+    // và bật sẵn hiệu ứng "sắp được buff" (2 sao) ngay từ đòn thứ 2 để dự báo trước.
+    dealDamage(target, damage, targetSide, targetIndex) {
+        target.currentHp = Math.max(0, target.currentHp - damage);
+        target.hitsTaken = (target.hitsTaken || 0) + 1;
+
+        if (target.currentHp <= 0) return; // chết rồi thì thôi, khỏi buff
+
+        const mod = target.hitsTaken % 3;
+        if (mod === 2) {
+            // Đã lãnh đủ 2 đòn — báo trước sắp được buff ở đòn kế tiếp
+            window.PkmUnitFX?.setBuffing(targetSide, targetIndex, true);
+        } else if (mod === 0) {
+            // Đủ 3 đòn — kích hoạt buff thật: hồi 20% máu tối đa NGAY (số liệu phải đúng ngay lập tức)
+            const healAmount = Math.floor(target.maxHp * 0.2);
+            target.currentHp = Math.min(target.maxHp, target.currentHp + healAmount);
+            window.PkmUnitFX?.setBuffing(targetSide, targetIndex, false);
+            this.log(`${target.name} hồi ${healAmount} HP nhờ trụ vững qua 3 đòn tấn công!`);
+
+            // Hiệu ứng NỔ (showHealBurst) không bắn ngay ở đây — dồn vào hàng đợi,
+            // chờ đến khi animation đòn đánh/skill effect của lượt này tắt hẳn mới phát,
+            // để nó là hiệu ứng đơn lẻ, không chồng lên AOE/skill normal gây đơ.
+            this.pendingHealBursts.push({ side: targetSide, index: targetIndex });
         }
     },
 
-    // Hàm bổ trợ để chuyển lượt (chỉ chuyển sang vị trí tiếp theo, không cần đổi isPlayerSide nữa)
-    moveToNextUnit() {
-        this.activeUnitIndex = (this.activeUnitIndex + 1) % this.playerTeam.length;
-        this.nextTurn();
+    // Phát các hiệu ứng buff đã dồn trong hàng đợi — chỉ gọi SAU KHI mọi animation
+    // đòn đánh của lượt đã hoàn toàn kết thúc, cách nhau 1 nhịp để không đơ.
+    async flushHealBursts() {
+        if (this.pendingHealBursts.length === 0) return;
+        const bursts = this.pendingHealBursts;
+        this.pendingHealBursts = [];
+
+        // Đợi Pokémon "im" trở lại sau đòn đánh rồi mới phát hiệu ứng buff
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        for (let i = 0; i < bursts.length; i++) {
+            window.PkmUnitFX?.showHealBurst(bursts[i].side, bursts[i].index);
+            if (i < bursts.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 150)); // giãn cách nếu nhiều con cùng buff 1 lúc
+            }
+        }
     },
-
-    // Tìm đến đoạn async handleAction(isCorrect, side) và thay đổi phần nội dung bên trong:
-
-    
-
-
 
     renderBattlefield() {
         const arena = document.getElementById('battle-arena');
@@ -374,6 +442,8 @@ window.BattleGame = {
         this.enemyTeam.forEach((p, i)  => { 
             eContainer.innerHTML += this.createUnitHTML(p, i, 'enemy');  
         });
+        this.playerTeam.forEach((p,i)=>{ if(p.currentHp>0) window.PkmUnitFX?.attachBaseRings('player', i); });
+        this.enemyTeam.forEach((p,i)=>{ if(p.currentHp>0) window.PkmUnitFX?.attachBaseRings('enemy', i); });
 
         this.updateActiveStatus();
     },
@@ -416,13 +486,14 @@ window.BattleGame = {
         if (!el) return;
         if (currentHp <= 0) {
             el.dataset.dead = '1';
-            // Nếu đang không bị teleport (không nằm trong animation), ẩn ngay
-            // Nếu đang teleport (đang chạy animation), việc ẩn sẽ được xử lý khi toggleSkillScene restore nó về
             if (!el._teleportData) {
                 el.style.opacity    = '0';
                 el.style.visibility = 'hidden';
                 el.style.pointerEvents = 'none';
             }
+            const side = unitId.startsWith('player') ? 'player' : 'enemy';
+            const idx = parseInt(unitId.split('-').pop());
+            window.PkmUnitFX?.removeUnit(side, idx);
         }
     },
 
@@ -628,7 +699,7 @@ window.BattleGame = {
                                border-radius: 25px; cursor: pointer; font-weight: bold; transition: 0.3s;"
                         onmouseover="this.style.background='#ff4757'; this.style.borderColor='#fff'"
                         onmouseout="this.style.background='#444'; this.style.borderColor='#666'">
-                    QUAY LẠI BẢN ĐỒ
+                    QUAY LẠI BẢN ĐỒconst pkmImgRef = unit.querySelector('img');
                 </button>
             `;
         }
