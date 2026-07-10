@@ -219,6 +219,60 @@
         return pts;
     }
     const ORB_PATH_KINDS = ['straight', 'zigzag', 'arc_left', 'arc_right', 'spiral', 'wave'];
+    const ORB_SHAPE_KINDS = ['orb', 'arrow', 'spike'];
+
+    // Sinh clip-path hình cầu gai (nhím) — số cạnh nhọn tuỳ chỉnh qua "spikes"
+    function buildSpikeBallClipPath(spikes = 10, outer = 50, inner = 26) {
+        const points = [];
+        const total = spikes * 2;
+        for (let i = 0; i < total; i++) {
+            const angle = (Math.PI * 2 * i) / total - Math.PI / 2;
+            const r = i % 2 === 0 ? outer : inner;
+            const x = 50 + r * Math.cos(angle);
+            const y = 50 + r * Math.sin(angle);
+            points.push(`${x.toFixed(1)}% ${y.toFixed(1)}%`);
+        }
+        return `polygon(${points.join(',')})`;
+    }
+
+    // Dựng hình ảnh bên trong theo shapeKind — container bên ngoài lo phần
+    // translate/scale/rotate, hàm này chỉ trả về 1 div con full kích thước cfg
+    function buildOrbShapeVisual(shapeKind, size, cfg) {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = `position:absolute; left:0; top:0; width:${size}px; height:${size}px;`;
+
+        if (shapeKind === 'arrow') {
+            wrap.innerHTML = `
+                <div style="
+                    position:absolute; left:50%; top:50%;
+                    width:${size}px; height:${size * 0.32}px;
+                    transform: translate(-50%,-50%);
+                    background: linear-gradient(90deg, transparent 0%, ${cfg.mid} 25%, ${cfg.core} 60%, ${cfg.edge} 100%);
+                    clip-path: polygon(0% 40%, 55% 40%, 55% 15%, 100% 50%, 55% 85%, 55% 60%, 0% 60%);
+                    box-shadow: 0 0 ${size * 0.25}px ${cfg.glow};
+                "></div>
+            `;
+        } else if (shapeKind === 'spike') {
+            wrap.innerHTML = `
+                <div style="
+                    position:absolute; inset:0;
+                    background: radial-gradient(circle, ${cfg.core} 0%, ${cfg.mid} 50%, ${cfg.edge} 100%);
+                    clip-path: ${buildSpikeBallClipPath(10, 50, 26)};
+                    box-shadow: 0 0 ${size * 0.3}px ${cfg.glow};
+                "></div>
+            `;
+        } else {
+            // orb (mặc định, giữ nguyên như trước)
+            wrap.innerHTML = `
+                <div style="
+                    position:absolute; inset:0; border-radius:50%;
+                    background: radial-gradient(circle, ${cfg.core} 0%, ${cfg.mid} 45%, ${cfg.edge} 100%);
+                    box-shadow: 0 0 ${size * 0.3}px ${cfg.glow}, 0 0 ${size * 0.55}px ${cfg.glow};
+                "></div>
+            `;
+        }
+        return wrap;
+    }
 
     function playLightSfx() {
         window.SoundEngine.whoosh(0.16, 0.12);
@@ -1901,50 +1955,67 @@
             const rectS = startEl.getBoundingClientRect();
             const rectE = endEl.getBoundingClientRect();
             const flightMs = this.durationConfig.normal.bigOrbFlightDuration;
-            const size = 70 * scale;
+            const maxSize = 70 * scale; // kích cỡ TỐI ĐA — đạt được khi orb chạm đối thủ
 
             const startX = rectS.left + rectS.width / 2, startY = rectS.top + rectS.height / 2;
             const endX   = rectE.left + rectE.width / 2, endY   = rectE.top + rectE.height / 2;
 
-            // Orb dùng transform: translate3d thay vì left/top để animate mượt + fill giữ được trạng thái cuối
-            const orb = document.createElement('div');
-            orb.style.cssText = `
+            // Random hình dạng: quả cầu / mũi tên / cầu gai (nhím) — mỗi lần bắn 1 kiểu khác nhau
+            const shapeKind = ORB_SHAPE_KINDS[Math.floor(Math.random() * ORB_SHAPE_KINDS.length)];
+
+            const container = document.createElement('div');
+            container.style.cssText = `
                 position: fixed; left: 0; top: 0;
-                width: ${size}px; height: ${size}px;
-                margin-left: -${size / 2}px; margin-top: -${size / 2}px;
-                background: radial-gradient(circle, ${cfg.core} 0%, ${cfg.mid} 45%, ${cfg.edge} 100%);
-                box-shadow: 0 0 ${20 * scale}px ${cfg.glow}, 0 0 ${40 * scale}px ${cfg.glow};
-                border-radius: 50%; z-index: 10001; pointer-events: none;
-                transform: translate3d(${startX}px, ${startY}px, 0) scale(0.3);
+                width: ${maxSize}px; height: ${maxSize}px;
+                margin-left: -${maxSize / 2}px; margin-top: -${maxSize / 2}px;
+                z-index: 10001; pointer-events: none;
+                transform: translate3d(${startX}px, ${startY}px, 0) scale(0.15);
                 opacity: 0;
             `;
-            document.body.appendChild(orb);
+            container.appendChild(buildOrbShapeVisual(shapeKind, maxSize, cfg));
+            document.body.appendChild(container);
 
-            // GIAI ĐOẠN GỒNG — fill:'forwards' để giữ nguyên scale/opacity cuối khi bay
+            // GIAI ĐOẠN GỒNG — bé xíu, phình nhẹ rồi ổn định ở scale nhỏ (0.3) trước khi bay
             if (this.playChargeSfx) this.playChargeSfx(data.type);
-            await orb.animate([
-                { transform: `translate3d(${startX}px, ${startY}px, 0) scale(0.3)`, opacity: 0 },
-                { transform: `translate3d(${startX}px, ${startY}px, 0) scale(1.15)`, opacity: 1, offset: 0.6 },
-                { transform: `translate3d(${startX}px, ${startY}px, 0) scale(1)`, opacity: 1 }
+            await container.animate([
+                { transform: `translate3d(${startX}px,${startY}px,0) scale(0.15)`, opacity: 0 },
+                { transform: `translate3d(${startX}px,${startY}px,0) scale(0.35)`, opacity: 1, offset: 0.6 },
+                { transform: `translate3d(${startX}px,${startY}px,0) scale(0.3)`, opacity: 1 }
             ], { duration: 500, easing: 'ease-out', fill: 'forwards' }).finished;
 
-            // GIAI ĐOẠN BAY — random 1 kiểu đường đi, nhiều điểm, fill:'forwards' để không bị snap về gốc
-            const kind = ORB_PATH_KINDS[Math.floor(Math.random() * ORB_PATH_KINDS.length)];
-            const pathPts = generateOrbPathPoints(startX, startY, endX, endY, kind);
+            // GIAI ĐOẠN BAY — random đường đi + SCALE TĂNG DẦN từ 0.3 lên ~1.05 (hơi nảy nhẹ khi tới đích)
+            const pathKind = ORB_PATH_KINDS[Math.floor(Math.random() * ORB_PATH_KINDS.length)];
+            const pathPts = generateOrbPathPoints(startX, startY, endX, endY, pathKind);
+            const n = pathPts.length;
+            const spinDir = Math.random() < 0.5 ? 1 : -1;
+            const totalSpin = shapeKind === 'arrow' ? 0 : 360; // mũi tên không tự xoay lung tung, nó xoay theo hướng bay
+
             const keyframes = pathPts.map((p, i) => {
-                // Xoay nhẹ theo hành trình cho sinh động (trừ đường thẳng)
-                const spin = kind === 'straight' ? 0 : (i / (pathPts.length - 1)) * 360 * (Math.random() < 0.5 ? 1 : -1);
-                return { transform: `translate3d(${p.x}px, ${p.y}px, 0) scale(1) rotate(${spin}deg)` };
+                const t = i / (n - 1);
+                // Tăng size dần, 85% quãng đường đầu tăng đều, 15% cuối hơi "nảy" quá đà 1 chút cho có lực
+                const growEase = t < 0.85 ? (t / 0.85) : 1 + (t - 0.85) * (0.4 / 0.15);
+                const s = 0.3 + growEase * 0.75; // 0.3 → ~1.05
+
+                let rot;
+                if (shapeKind === 'arrow') {
+                    // Mũi tên luôn xoay đầu theo đúng hướng đang bay tới (điểm kế tiếp trên path)
+                    const next = pathPts[Math.min(i + 1, n - 1)];
+                    rot = Math.atan2(next.y - p.y, next.x - p.x) * 180 / Math.PI;
+                } else {
+                    rot = t * totalSpin * spinDir;
+                }
+
+                return { transform: `translate3d(${p.x}px, ${p.y}px, 0) scale(${s}) rotate(${rot}deg)` };
             });
 
             if (this.playTravelSfx) this.playTravelSfx(data.type); else if (this.playRandomSfx) this.playRandomSfx();
-            await orb.animate(keyframes, {
+            await container.animate(keyframes, {
                 duration: flightMs,
                 easing: 'linear',
                 fill: 'forwards'
             }).finished;
 
-            orb.remove();
+            container.remove();
             this.createBigOrbImpact(endX, endY, scale, cfg);
         },
 
