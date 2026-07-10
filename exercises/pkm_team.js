@@ -7,6 +7,23 @@
 let inventory = JSON.parse(localStorage.getItem('pkm_inventory')) || [];
 let selectedUid = null; // UID của Pokemon đang được chọn
 
+// 🔧 TỰ ĐỘNG DỌN DỮ LIỆU CŨ: đội hình tối đa giờ chỉ còn 3,
+// Pokemon nào đang ở vị trí 4 hoặc 5 (từ thời còn 5 con) sẽ bị đẩy ra khỏi đội tự động
+(function migrateOldFormation() {
+    let changed = false;
+    inventory.forEach(p => {
+        if (p.inTeam && p.position > 3) {
+            p.inTeam = false;
+            p.position = null;
+            changed = true;
+        }
+    });
+    if (changed) {
+        localStorage.setItem('pkm_inventory', JSON.stringify(inventory));
+        console.log("🔧 Đã tự động dọn đội hình cũ (vị trí 4,5) do đội hình mới chỉ còn 3 chỗ.");
+    }
+})();
+
 // Thêm hàm tính CP chuẩn hóa đồng bộ hệ thống để hiển thị chiến lực
 function calculateCP(pkm) {
     if (!pkm || !pkm.baseStats) return 0;
@@ -218,9 +235,9 @@ function checkTeamBuffBonus(team) {
 
     // Bỏ điều kiện check tổng 5 con, giờ cứ thỏa mãn số lượng hệ là kích hoạt ngay
     if (maxSame >= 3) {
-        return { active: true, type: 'same_type', text: '🔥 <b>BUFF ĐỒNG NHẤT:</b> +5% Chỉ số toàn đội (Có 3+ con cùng hệ)' };
-    } else if (uniqueTypes >= 4) {
-        return { active: true, type: 'diverse_type', text: '🌈 <b>BUFF ĐA DẠNG:</b> +5% Chỉ số toàn đội (Có 4+ hệ khác nhau)' };
+        return { active: true, type: 'same_type', text: '🔥 <b>BUFF ĐỒNG NHẤT:</b> +5% Chỉ số toàn đội (3 con cùng hệ)' };
+    } else if (uniqueTypes >= 3) {
+        return { active: true, type: 'diverse_type', text: '🌈 <b>BUFF ĐA DẠNG:</b> +5% Chỉ số toàn đội (3 hệ khác nhau)' };
     }
 
     return { active: false, type: 'none', text: '❄️ Đội hình hiện tại không có Buff nào được kích hoạt.' };
