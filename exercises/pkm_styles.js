@@ -1,21 +1,46 @@
 window.PkmStyles = {
-    // 6 vị trí cố định — 3 quân/bên xếp vòng cung gần ngang, đối mặt nhau
-    positions: {
-        // ========== QUÂN TA (dưới - gần) ==========
-        // Vòng cung nhẹ: 2 bên hơi lùi lên trên, ở giữa nhô ra gần nhất
-        ta_1: { left: 18, top: 76, scale: 1.0,  flip: 1 },
-        ta_2: { left: 50, top: 84, scale: 1.08, flip: -1 },
-        ta_3: { left: 82, top: 76, scale: 1.0,  flip: -1 },
+    // 3 bộ vị trí tuỳ theo SỐ LƯỢNG Pokémon còn lại trong đội
+    positionSets: {
+        // ========== 1 CON — đứng CHÍNH GIỮA, cả 2 phe ==========
+        solo: {
+            ta_1:   { left: 50, top: 80, scale: 1.2, flip: 1 },
+            dich_1: { left: 50, top: 16, scale: 1.2, flip: -1 },
+        },
 
-        // ========== QUÂN ĐỊCH (trên - xa) ==========
-        // Đối xứng với quân ta, vòng cung ngược lại, xa hơn nên scale nhỏ hơn chút
-        dich_1: { left: 18, top: 22, scale: 0.95, flip: -1 },
-        dich_2: { left: 50, top: 14, scale: 1.0,  flip: -1 },
-        dich_3: { left: 82, top: 22, scale: 0.95, flip: 1 },
+        // ========== 2 CON — CHIA ĐỀU 2 BÊN, đối xứng qua tâm ==========
+        duo: {
+            ta_1:   { left: 32, top: 78, scale: 1.05, flip: 1 },
+            ta_2:   { left: 68, top: 78, scale: 1.05, flip: -1 },
+
+            dich_1: { left: 32, top: 18, scale: 1.0,  flip: -1 },
+            dich_2: { left: 68, top: 18, scale: 1.0,  flip: 1 },
+        },
+
+        // ========== 3 CON — bố cục gốc, giữ nguyên như cũ ==========
+        full: {
+            // ========== QUÂN TA (dưới - gần) ==========
+            ta_1: { left: 18, top: 76, scale: 1.0,  flip: 1 },
+            ta_2: { left: 50, top: 84, scale: 1.08, flip: -0.7 },
+            ta_3: { left: 82, top: 76, scale: 1.0,  flip: -1 },
+
+            // ========== QUÂN ĐỊCH (trên - xa) ==========
+            dich_1: { left: 18, top: 22, scale: 0.95, flip: -1 },
+            dich_2: { left: 50, top: 14, scale: 1.0,  flip: -0.7 },
+            dich_3: { left: 82, top: 22, scale: 0.95, flip: 1 },
+        },
     },
 
     // Kích thước hiển thị CỐ ĐỊNH cho mọi Pokemon (không phụ thuộc size ảnh gốc)
     UNIT_SIZE: 80, // px
+
+    // Chọn đúng bộ vị trí (solo/duo/full) dựa theo số lượng Pokémon trong đội
+    getPosition(side, index, teamSize) {
+        const setKey = teamSize === 1 ? 'solo' : teamSize === 2 ? 'duo' : 'full';
+        const key = side === 'player' ? `ta_${index + 1}` : `dich_${index + 1}`;
+        const set = this.positionSets[setKey];
+        // Phòng hờ: nếu thiếu key (VD teamSize lệch), fallback về bộ 'full'
+        return set[key] || this.positionSets.full[key] || this.positionSets.full[side === 'player' ? 'ta_1' : 'dich_1'];
+    },
 
     // Lấy đường dẫn ảnh GIF
     getImageUrl(pkm, side) {
@@ -24,13 +49,12 @@ window.PkmStyles = {
         return `https://play.pokemonshowdown.com/sprites/${folder}/${cleanName}.gif`;
     },
 
-    // Render từng Pokemon
-    renderUnit(pkm, index, side) {
+    // Render từng Pokemon — nhận thêm teamSize để biết dùng bộ vị trí nào
+    renderUnit(pkm, index, side, teamSize) {
         const hpPct = Math.max(0, (pkm.currentHp / pkm.maxHp) * 100);
         const hpColor = hpPct > 50 ? '#2ecc71' : hpPct > 25 ? '#f1c40f' : '#e74c3c';
 
-        const key = side === 'player' ? `ta_${index + 1}` : `dich_${index + 1}`;
-        const pos = this.positions[key] || this.positions[side === 'player' ? 'ta_1' : 'dich_1'];
+        const pos = this.getPosition(side, index, teamSize || 3);
         const imgUrl = this.getImageUrl(pkm, side);
         const fallbackUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pkm.id}.png`;
         const zIndex = side === 'player' ? 2 : 1;
