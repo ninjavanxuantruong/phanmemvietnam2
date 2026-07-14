@@ -33,6 +33,7 @@ function initInventory() {
                 stars: 1,
                 gen: 1, 
                 type: "electric",
+                height: 3, // decimet (PokeAPI thật của Pichu) — dùng cho bodyScale
                 baseStats: { hp: 20, atk: 40, def: 15, sAtk: 35 },
                 inTeam: false,
             },
@@ -273,6 +274,7 @@ function executeRelease() {
                 stars: 1,
                 gen: 1, 
                 type: "electric",
+                height: 3, // decimet (PokeAPI thật của Pichu) — dùng cho bodyScale
                 baseStats: { hp: 20, atk: 40, def: 15, sAtk: 35 }, 
                 inTeam: false,
             },
