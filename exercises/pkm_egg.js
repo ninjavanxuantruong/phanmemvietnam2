@@ -36,6 +36,7 @@ async function getPkmSpeciesData(id) {
             name: pkmData.name,
             type: pkmData.types[0].type.name,
             evolution_url: speciesData.evolution_chain.url,
+            height: pkmData.height, // đơn vị decimet (PokeAPI) — dùng để tính bodyScale hiển thị trong trận
             baseStats: {
                 hp: pkmData.stats[0].base_stat,
                 atk: pkmData.stats[1].base_stat,
@@ -159,6 +160,7 @@ async function hatchEgg() {
             type: rolledPkm.type,
             baseStats: rolledPkm.baseStats,
             evolution_url: rolledPkm.evolution_url,
+            height: rolledPkm.height, // decimet — dùng cho bodyScale khi vào trận
             gen: 1,
             stars: rolledPkm.stars,
             nextEvo: nextEvoName 
