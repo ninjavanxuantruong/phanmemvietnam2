@@ -251,31 +251,80 @@ window.SkillManager = {
     // spawnDefault nên chưa cần khai báo — thêm dần khi viết chiêu mới.
     skillMeta: {
         fire: {
-            spawnFire2: 'Blazing Dai',
-            spawnFire3: 'Blast Burn', // Skill 3 hiện tại của bạn
-            spawnFire4: 'Supernova',  // ★ Skill toàn màn hình
+            spawnFire1: 'Fire Rune',              // Trận pháp lửa thư pháp
+            spawnFire3: 'Infernal Spirit Rush',    // Bản thể Thần Lửa khổng lồ
+            spawnFire4: 'Solar Flare',             // ★ Skill toàn màn hình
         },
         electric: {
-            spawnElectric: 'Thunderbolt',
-            spawnElectric3: 'Thunderstorm',
-            spawnElectric4: 'Static Burst', // ★ Skill toàn màn hình
+            spawnElectric:  'Thunderbolt',
+            spawnElectric1: 'Thunderstorm',
+            spawnElectric3: 'Thunder Spirit Rush', // Bản thể Thần Sấm khổng lồ
+            spawnElectric4: 'Static Burst',         // ★ Skill toàn màn hình
         },
-        water:    { spawnWater4:    'Tsunami Surge'     }, // ★
-        grass:    { spawnGrass4:    'Bloom Cascade'      }, // ★
-        ice:      { spawnIce4:      'Absolute Zero'      }, // ★
-        poison:   { spawnPoison4:   'Miasma Surge'       }, // ★
-        ground:   { spawnGround4:   'Tectonic Rift'      }, // ★
-        flying:   { spawnFlying4:   'Tempest Wing'       }, // ★
-        psychic:  { spawnPsychic4:  'Mind Swarm'         }, // ★
-        fighting: { spawnFighting4: "Titan's Fury"       }, // ★
-        ghost:    { spawnGhost4:    'Spectral Wail'      }, // ★
-        bug:      { spawnBug4:      'Swarm Eclipse'      }, // ★
-        rock:     { spawnRock4:     'Meteor Fall'        }, // ★
-        dark:     { spawnDark4:     'Void Collapse'      }, // ★
-        steel:    { spawnSteel4:    'Iron Cataclysm'     }, // ★
-        dragon:   { spawnDragon4:   'Draconic Ascension' }, // ★
-        fairy:    { spawnFairy4:    'Starlight Requiem'  }, // ★
-        normal:   { spawnNormal4:   'Cosmic Judgment'    }, // ★
+        water: {
+            spawnWater3: 'Tidal Spirit Rush',       // Bản thể Thần Nước khổng lồ
+            spawnWater4: 'Tsunami Surge',           // ★
+        },
+        grass: {
+            spawnGrass3: 'Verdant Spirit Rush',     // Bản thể Thần Cỏ khổng lồ
+            spawnGrass4: 'Bloom Cascade',           // ★
+        },
+        ice: {
+            spawnIce3: 'Glacial Spirit Rush',       // Bản thể Thần Băng khổng lồ
+            spawnIce4: 'Absolute Zero',             // ★
+        },
+        poison: {
+            spawnPoison3: 'Toxic Spirit Rush',      // Bản thể Thần Độc khổng lồ
+            spawnPoison4: 'Miasma Surge',           // ★
+        },
+        ground: {
+            spawnGround3: 'Terra Spirit Rush',      // Bản thể Thần Đất khổng lồ
+            spawnGround4: 'Tectonic Rift',          // ★
+        },
+        flying: {
+            spawnFlying3: 'Tempest Spirit Rush',    // Bản thể Thần Gió khổng lồ
+            spawnFlying4: 'Tempest Wing',           // ★
+        },
+        psychic: {
+            spawnPsychic3: 'Mind Spirit Rush',      // Bản thể Thần Tâm Linh khổng lồ
+            spawnPsychic4: 'Mind Swarm',            // ★
+        },
+        fighting: {
+            spawnFighting3: 'Warrior Spirit Rush',  // Bản thể Thần Đấu Sĩ khổng lồ
+            spawnFighting4: "Titan's Fury",         // ★
+        },
+        ghost: {
+            spawnGhost3: 'Phantom Spirit Rush',     // Bản thể Thần Ma khổng lồ
+            spawnGhost4: 'Spectral Wail',           // ★
+        },
+        bug: {
+            spawnBug3: 'Swarm Spirit Rush',         // Bản thể Thần Côn Trùng khổng lồ
+            spawnBug4: 'Swarm Eclipse',             // ★
+        },
+        rock: {
+            spawnRock3: 'Boulder Spirit Rush',      // Bản thể Thần Đá khổng lồ
+            spawnRock4: 'Meteor Fall',              // ★
+        },
+        dark: {
+            spawnDark3: 'Abyssal Spirit Rush',      // Bản thể Thần Bóng Tối khổng lồ
+            spawnDark4: 'Void Collapse',            // ★
+        },
+        steel: {
+            spawnSteel3: 'Titan Spirit Rush',        // Bản thể Thần Thép khổng lồ
+            spawnSteel4: 'Iron Cataclysm',          // ★
+        },
+        dragon: {
+            spawnDragon3: 'Draconic Spirit Rush',   // Bản thể Thần Rồng khổng lồ
+            spawnDragon4: 'Draconic Ascension',     // ★
+        },
+        fairy: {
+            spawnFairy3: 'Celestial Spirit Rush',   // Bản thể Thần Tiên khổng lồ
+            spawnFairy4: 'Starlight Requiem',        // ★
+        },
+        normal: {
+            spawnNormal3: 'Radiant Spirit Rush',
+            spawnNormal4: 'Cosmic Judgment',   // ★ Skill toàn màn hình — 16 ngôi sao hoàng kim bao vây
+        },
     },
 
     getSkillLabel(type, methodName) {
@@ -290,7 +339,7 @@ window.SkillManager = {
             // Dò ĐỘNG, không giới hạn cứng ở suffix 3 — quét tới khi hết biến thể
             // (baseMethodName, baseMethodName2, baseMethodName3, baseMethodName4, ...)
             const candidates = [baseMethodName];
-            for (let n = 2; n <= 8; n++) candidates.push(`${baseMethodName}${n}`);
+            for (let n = 1; n <= 8; n++) candidates.push(`${baseMethodName}${n}`);
             const filtered = candidates.filter(name => typeof this[name] === 'function');
 
             for (let i = filtered.length - 1; i > 0; i--) {
@@ -739,6 +788,7 @@ window.SkillManager = {
         // CHỈ 1 điểm ảo duy nhất, dù bên địch còn 1 hay 3 quân
         const singlePoint = document.createElement('div');
         singlePoint.style.cssText = `position:fixed; left:${px}px; top:${py}px; width:1px; height:1px; pointer-events:none; opacity:0;`;
+        singlePoint.dataset.targetSide = targetSide; // ✅ để spawn3 (giant spirit) biết đẩy lùi đúng phe
         document.body.appendChild(singlePoint);
 
         await action.call(this, attacker, singlePoint, count, scale); // gọi action() ĐÚNG 1 LẦN
@@ -773,10 +823,12 @@ window.SkillManager = {
         this.playImpactSfx(type);
         this.createDamageText(target, damage, true);
 
-        const sustainClass = `sustain-${type}`;
+    const sustainClass = `sustain-${type}`;
         target.classList.add('shake', sustainClass);
+        this.attachSustainFlames(target, type);
         await new Promise(r => setTimeout(r, this.durationConfig.aoe.targetSustain));
         target.classList.remove('shake', sustainClass);
+        this.removeSustainFlames(target);
     },
 
     // ══════════════════════════════════════════════
@@ -883,7 +935,7 @@ window.SkillManager = {
     // SKILL 3 HỆ ĐIỆN — spawnElectric3 (Bão Điện Thiên Lôi)
     // Dạng kỹ năng: Triệu hồi bão mây tĩnh điện và giáng sấm sét liên tục
     // ══════════════════════════════════════════════
-    async spawnElectric3(startEl, endEl, count, scale) {
+    async spawnElectric1(startEl, endEl, count, scale) {
         const cfg = this.durationConfig.aoe;
         const rectE = endEl.getBoundingClientRect();
         const centerX = rectE.left + rectE.width / 2;
@@ -1042,7 +1094,7 @@ window.SkillManager = {
     // Dạng kỹ năng: Triệu hồi vòng tròn trận pháp thư pháp rực lửa phong ấn dưới chân/quanh đối thủ
     // Logic bám sát chuẩn xác tư duy vẽ nét coordinates sinh hạt theo timeline giống spawnFire2
     // ══════════════════════════════════════════════
-    async spawnFire3(startEl, endEl, count, scale, data) {
+    async spawnFire1(startEl, endEl, count, scale, data) {
         const rectE = endEl.getBoundingClientRect();
 
         // Trận pháp hình thành NGAY TẠI VỊ TRÍ ĐỐI THỦ (endEl)
@@ -1227,167 +1279,7 @@ window.SkillManager = {
             }, totalMs + 50);
         });
     },
-    // ══════════════════════════════════════════════
-    // SKILL 4 HỆ LỬA — spawnFire4 (Supernova - Siêu Tân Tinh Hủy Diệt)
-    // Kỹ năng tối thượng bao phủ TOÀN BỘ SÀN ĐẤU (#battle-arena) thay vì theo Pokemon
-    // Tối ưu hóa cực hạn cho Mobile: Dùng Core Divs lớn, GPU Layer, không tạo hạt lặp
-    // ══════════════════════════════════════════════
-    async spawnFire5(startEl, endEl, count, scale, data) {
-        // Lấy tọa độ và kích thước của toàn bộ đấu trường arena
-        const arenaEl = document.getElementById('battle-arena');
-        const arenaRect = arenaEl 
-            ? arenaEl.getBoundingClientRect() 
-            : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
-
-        const arenaCx = arenaRect.left + arenaRect.width / 2;
-        const arenaCy = arenaRect.top + arenaRect.height / 2;
-
-        if (this.playRandomSfx) this.playRandomSfx();
-
-        // ── TIMELINE TUÂN THỦ DURATIONCONFIG ──
-        const chargeMs  = this.durationConfig.chargeAura;    // Giai đoạn tích nhiệt toàn sàn
-        const sustainMs = this.durationConfig.targetSustain; // Giai đoạn bão lửa + nổ tung
-
-        const vortexDuration    = sustainMs * 0.5; // Lốc lửa quét toàn sàn
-        const supernovaDuration = sustainMs * 0.5; // Kích nổ siêu tân tinh giải phóng
-
-        const vortexStart    = chargeMs;
-        const supernovaStart = vortexStart + vortexDuration;
-        const totalMs        = chargeMs + sustainMs;
-
-        const allEls = [];
-
-        // 1. THẢM DUNG NHAM TOÀN SÀN — Đổi màu nền đáy đấu trường rực đỏ gồng năng lượng
-        const magmaFloor = document.createElement('div');
-        magmaFloor.style.cssText = `
-            position: fixed; left: ${arenaRect.left}px; top: ${arenaRect.top}px;
-            width: ${arenaRect.width}px; height: ${arenaRect.height}px;
-            background: radial-gradient(circle at center, rgba(230,126,34,0.4) 0%, rgba(192,57,43,0.1) 70%, transparent 100%);
-            z-index: 9992; pointer-events: none; opacity: 0;
-            will-change: opacity;
-        `;
-        document.body.appendChild(magmaFloor);
-        allEls.push(magmaFloor);
-
-        magmaFloor.animate([
-            { opacity: 0 },
-            { opacity: 1, offset: 0.5 },
-            { opacity: 0.7 }
-        ], { duration: chargeMs, fill: 'forwards', easing: 'ease-in-out' });
-
-
-        // 2. LỐC LỬA KHỔNG LỒ QUÉT TOÀN ĐẦU TRƯỜNG (Bắt đầu ở vùng vortexStart)
-        const vortexSize = Math.max(arenaRect.width, arenaRect.height) * 1.2;
-        const fireVortex = document.createElement('div');
-        fireVortex.style.cssText = `
-            position: fixed; left: ${arenaCx}px; top: ${arenaCy}px;
-            width: ${vortexSize}px; height: ${vortexSize}px;
-            background: conic-gradient(from 0deg, transparent, #ff5500, #ffcf00, transparent 60%, #ff5500, transparent);
-            border-radius: 50%;
-            filter: blur(${10 * scale}px);
-            transform: translate(-50%, -50%) scale(0) rotate(0deg);
-            z-index: 9994; pointer-events: none; opacity: 0;
-            will-change: transform, opacity;
-        `;
-        document.body.appendChild(fireVortex);
-        allEls.push(fireVortex);
-
-        fireVortex.animate([
-            { transform: 'translate(-50%, -50%) scale(0.1) rotate(0deg)', opacity: 0 },
-            { transform: 'translate(-50%, -50%) scale(1) rotate(360deg)', opacity: 0.85, offset: 0.2 },
-            { transform: 'translate(-50%, -50%) scale(1.1) rotate(720deg)', opacity: 0.9, offset: 0.8 },
-            { transform: 'translate(-50%, -50%) scale(1.3) rotate(900deg)', opacity: 0 }
-        ], { duration: vortexDuration, delay: vortexStart, fill: 'forwards', easing: 'ease-out' });
-
-
-        // 3. ĐẠI BÙNG NỔ SUPERNOVA — Sóng xung kích bao phủ toàn bộ tầm nhìn arena
-        const shockwave = document.createElement('div');
-        shockwave.style.cssText = `
-            position: fixed; left: ${arenaCx}px; top: ${arenaCy}px;
-            width: ${arenaRect.width * 0.2}px; height: ${arenaRect.width * 0.2}px;
-            background: radial-gradient(circle, #fff 10%, #ffdf00 30%, #ff3b0a 70%, transparent 100%);
-            border-radius: 50%;
-            transform: translate(-50%, -50%) scale(0);
-            box-shadow: 0 0 ${40 * scale}px #ff8c00;
-            z-index: 9995; pointer-events: none; opacity: 0;
-            will-change: transform, opacity;
-        `;
-        document.body.appendChild(shockwave);
-        allEls.push(shockwave);
-
-        shockwave.animate([
-            { transform: 'translate(-50%, -50%) scale(0)', opacity: 0 },
-            { transform: 'translate(-50%, -50%) scale(3.5)', opacity: 1, offset: 0.2 },
-            { transform: 'translate(-50%, -50%) scale(6)', opacity: 0 }
-        ], { duration: supernovaDuration, delay: supernovaStart, fill: 'forwards', easing: 'ease-out' });
-
-
-        // 4. CHỚP SÁNG TOÀN KHUNG HÌNH ARENA (Flash lóa mắt khi vụ nổ đạt đỉnh)
-        const arenaFlash = document.createElement('div');
-        arenaFlash.style.cssText = `
-            position: fixed; left: ${arenaRect.left}px; top: ${arenaRect.top}px;
-            width: ${arenaRect.width}px; height: ${arenaRect.height}px;
-            background: #fff;
-            z-index: 9996; pointer-events: none; opacity: 0;
-            mix-blend-mode: overlay;
-            will-change: opacity;
-        `;
-        document.body.appendChild(arenaFlash);
-        allEls.push(arenaFlash);
-
-        arenaFlash.animate([
-            { opacity: 0 },
-            { opacity: 0.95, offset: 0.15 },
-            { opacity: 0 }
-        ], { duration: supernovaDuration * 0.6, delay: supernovaStart, fill: 'forwards', easing: 'ease-out' });
-
-
-        // 5. MẢNH VỠ DUNG NHAM BẮN RA BIÊN ARENA (Giới hạn số lượng cố định cực ít để chống lag)
-        const fragmentCount = Math.min(8, 6 + count);
-        for (let f = 0; f < fragmentCount; f++) {
-            const shard = document.createElement('div');
-            const shardSize = (16 + Math.random() * 16) * scale;
-            shard.style.cssText = `
-                position: fixed; left: ${arenaCx}px; top: ${arenaCy}px;
-                width: ${shardSize}px; height: ${shardSize}px;
-                background: #ffcf00;
-                box-shadow: 0 0 ${12 * scale}px #ff3b0a;
-                border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; /* Tạo hình khối đá nứt góc ngẫu nhiên */
-                transform: translate(-50%, -50%) scale(0);
-                z-index: 9997; pointer-events: none; opacity: 0;
-                will-change: transform, opacity;
-            `;
-            document.body.appendChild(shard);
-            allEls.push(shard);
-
-            // Bắn tung mảnh vỡ ra ngẫu nhiên hướng góc ngoài rìa biên sàn đấu
-            const angle = (f / fragmentCount) * Math.PI * 2 + Math.random() * 0.5;
-            const distance = (arenaRect.width * 0.4 + Math.random() * arenaRect.width * 0.2) * scale;
-            const destX = Math.cos(angle) * distance;
-            const destY = Math.sin(angle) * distance;
-
-            shard.animate([
-                { transform: 'translate(-50%, -50%) translate(0px, 0px) scale(0) rotate(0deg)', opacity: 0 },
-                { transform: `translate(-50%, -50%) translate(${destX * 0.5}px, ${destY * 0.5}px) scale(1.3) rotate(180deg)`, opacity: 1, offset: 0.3 },
-                { transform: `translate(-50%, -50%) translate(${destX}px, ${destY}px) scale(0.2) rotate(360deg)`, opacity: 0 }
-            ], { duration: supernovaDuration * 0.9, delay: supernovaStart, fill: 'forwards', easing: 'ease-out' });
-        }
-
-        // Rung chuyển cực đại toàn cục kéo dài suốt giai đoạn nổ Supernova
-        setTimeout(() => {
-            if (this.applyGlobalShake) {
-                this.applyGlobalShake(scale * 2.2); 
-            }
-        }, supernovaStart);
-
-        // Chờ đợi kỹ năng thực thi xong toàn bộ timeline và giải phóng phần tử DOM
-        await new Promise((resolve) => {
-            setTimeout(() => {
-                allEls.forEach((el) => el.remove());
-                resolve();
-            }, totalMs + 80);
-        });
-    },
+    
     // ══════════════════════════════════════════════
     //SKILL 1 TRIỆU HỒI TOÀN MÀN HÌNH
     // ══════════════════════════════════════════════════════════
@@ -2466,6 +2358,1138 @@ window.SkillManager = {
             count: 16,
         });
     },
+    async spawnDark4(startEl, endEl, count, scale) {
+        // Tự động inject hiệu ứng Vòng xoáy Hư không tự quay và co giãn xung kích (chỉ chạy 1 lần)
+        if (!document.getElementById('pkm-dark-vortex-keyframes')) {
+            const style = document.createElement('style');
+            style.id = 'pkm-dark-vortex-keyframes';
+            style.textContent = `
+                @keyframes dark-abyss-vortex {
+                    0% { transform: rotate(0deg) scale(0.85); opacity: 0.8; }
+                    50% { transform: rotate(180deg) scale(1.15); opacity: 1; }
+                    100% { transform: rotate(360deg) scale(0.85); opacity: 0.8; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        let uid = 0;
+        const buildDarkSpirit = (x, y, s, c) => {
+            // Kích thước vuông đối xứng hoàn hảo cho vòng xoáy hố đen tròn
+            const w = 55 * s, h = 55 * s;
+            const gid = `vortex-${Date.now()}-${uid++}`;
+
+            const outer = document.createElement('div');
+            outer.style.cssText = `
+                position: fixed; left:${x}px; top:${y}px;
+                width:${w}px; height:${h}px;
+                pointer-events: none; z-index: 9998; opacity: 0;
+            `;
+
+            const inner = document.createElement('div');
+            inner.style.cssText = `
+                position: absolute; inset: 0;
+                /* Hào quang Hư Không ác liệt (Đen kịt nuốt chửng -> Tím thẫm -> Neon Magenta phát sáng) */
+                filter: drop-shadow(0 0 ${4 * s}px ${c}) 
+                        drop-shadow(0 0 ${9 * s}px #bd00ff) 
+                        drop-shadow(0 0 ${1.5 * s}px #000);
+                /* Áp dụng hoạt ảnh chuyển động xoáy và xung kích tinh vân */
+                animation: dark-abyss-vortex 0.9s linear infinite;
+                /* Lệch pha thời gian giữa các hố đen để nhìn tự nhiên và hỗn loạn */
+                animation-delay: -${Math.random() * 900}ms;
+            `;
+
+            // SVG Vòng xoáy Hố đen Hư không siêu thực cao cấp
+            inner.innerHTML = `
+                <svg width="${w}" height="${h}" viewBox="0 0 60 60" style="overflow:visible;">
+                    <defs>
+                        <radialGradient id="vrtxGrad-${gid}" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="#000000" />
+                            <stop offset="25%" stop-color="#120024" />
+                            <stop offset="60%" stop-color="${c}" stop-opacity="0.95" />
+                            <stop offset="85%" stop-color="#bd00ff" stop-opacity="0.8" />
+                            <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+                        </radialGradient>
+                    </defs>
+
+                    <circle cx="30" cy="30" r="28" fill="url(#vrtxGrad-${gid})" opacity="0.6"/>
+
+                    <path d="M 30,5 C 45,5 55,15 55,30 C 55,42 42,48 35,42 C 28,36 34,26 30,26 C 26,26 22,34 16,30 C 10,26 15,14 22,9 C 26,6 28,5 30,5 Z" 
+                          fill="url(#vrtxGrad-${gid})" />
+
+                    <path d="M 30,55 C 15,55 5,45 5,30 C 5,18 18,12 25,18 C 32,24 26,34 30,34 C 34,34 38,26 44,30 C 50,34 45,46 38,51 C 34,54 32,55 30,55 Z" 
+                          fill="url(#vrtxGrad-${gid})" opacity="0.85" transform="rotate(90 30 30)"/>
+
+                    <circle cx="30" cy="30" r="11" fill="none" stroke="#bd00ff" stroke-width="2.5" stroke-dasharray="4 8" opacity="0.7"/>
+                    <circle cx="30" cy="30" r="9" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="12 6" opacity="0.5"/>
+
+                    <circle cx="30" cy="30" r="7.5" fill="#000000" stroke="#120024" stroke-width="1"/>
+
+                    <circle cx="14" cy="18" r="1.5" fill="#bd00ff" opacity="0.8"/>
+                    <circle cx="46" cy="42" r="1.2" fill="#ffffff" opacity="0.9"/>
+                    <circle cx="42" cy="15" r="2" fill="#000000" />
+                    <circle cx="18" cy="45" r="1.8" fill="#bd00ff" opacity="0.7"/>
+                </svg>
+            `;
+
+            outer.appendChild(inner);
+            return outer;
+        };
+
+        // Bùng nổ trận pháp triệu hồi binh đoàn Hố Đen Hư Không tàn phá màn hình qua bộ lõi AOE của bạn
+        await this.playScreenSummonBurst(endEl, scale, {
+            itemBuilder: buildDarkSpirit,
+            color: '#705848', // Sắc xám đen hắc ám đặc trưng của hệ Dark hệ thống Pokemon
+            phase2: 'random', 
+            count: 15,        // 15 hố đen cùng xuất hiện co giãn xoay tròn sẽ cực kỳ áp đảo
+        });
+    },
+    async spawnGround4(startEl, endEl, count, scale) {
+        // Tự động inject hiệu ứng nhấp nhô vác búa hành quân của dũng sĩ (chỉ chạy 1 lần)
+        if (!document.getElementById('pkm-ground-dwarf-keyframes')) {
+            const style = document.createElement('style');
+            style.id = 'pkm-ground-dwarf-keyframes';
+            style.textContent = `
+                @keyframes ground-dwarf-march {
+                    0%, 100% { transform: translateY(0) scale(1); }
+                    25% { transform: translateY(-4px) scaleY(1.03) rotate(-1deg); } /* Nhấc chân bước */
+                    50% { transform: translateY(1px) scaleX(1.02) scaleY(0.98); }  /* Giậm chân nện đất */
+                    75% { transform: translateY(-2px) scaleY(1.01) rotate(1deg); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        let uid = 0;
+        const buildGroundSpirit = (x, y, s, c) => {
+            // Khung hình chữ nhật đứng rộng rãi để chứa trọn vẹn dũng sĩ vác búa ngang vai
+            const w = 70 * s, h = 70 * s;
+            const gid = `dwarf-${Date.now()}-${uid++}`;
+
+            const outer = document.createElement('div');
+            outer.style.cssText = `
+                position: fixed; left:${x}px; top:${y}px;
+                width:${w}px; height:${h}px;
+                pointer-events: none; z-index: 9998; opacity: 0;
+            `;
+
+            const inner = document.createElement('div');
+            inner.style.cssText = `
+                position: absolute; inset: 0;
+                /* Hào quang Thần Đất cổ xưa (Nâu đất cổ đại -> Vàng kim quặng đá -> Lõi sáng) */
+                filter: drop-shadow(0 0 ${4 * s}px ${c}) 
+                        drop-shadow(0 0 ${9 * s}px #d35400) 
+                        drop-shadow(0 0 ${1.5 * s}px #fff);
+                /* Áp dụng hoạt ảnh hành quân vác búa cực nặng */
+                animation: ground-dwarf-march 0.65s ease-in-out infinite;
+                animation-delay: -${Math.random() * 650}ms;
+            `;
+
+            // SVG Thiết kế Người lùn chiến binh bám sát 100% theo ảnh mẫu
+            inner.innerHTML = `
+                <svg width="${w}" height="${h}" viewBox="0 0 100 100" style="overflow:visible;">
+                    <defs>
+                        <!-- Gradient màu búa thép vát cạnh -->
+                        <linearGradient id="wpGrad-${gid}" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#95a5a6"/>
+                            <stop offset="40%" stop-color="#34495e"/>
+                            <stop offset="100%" stop-color="#1a252f"/>
+                        </linearGradient>
+                        <!-- Gradient bộ râu cam đỏ rực lửa sử thi -->
+                        <linearGradient id="beardGrad-${gid}" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#f39c12"/>
+                            <stop offset="30%" stop-color="#e67e22"/>
+                            <stop offset="75%" stop-color="#d35400"/>
+                            <stop offset="100%" stop-color="#873600"/>
+                        </linearGradient>
+                        <!-- Gradient áo giáp vải xanh lục bảo tối trong ảnh -->
+                        <linearGradient id="tunicGrad-${gid}" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#145a32"/>
+                            <stop offset="50%" stop-color="#196f3d"/>
+                            <stop offset="100%" stop-color="#0e6251"/>
+                        </linearGradient>
+                    </defs>
+
+                    <!-- 1. CÁN BÚA THÉP (Đặt ngang vai phía sau đầu) -->
+                    <rect x="5" y="24" width="90" height="5" rx="2" fill="#bdc3c7" stroke="#7f8c8d" stroke-width="1"/>
+
+                    <!-- 2. ĐẦU BÚA TẠ KHỔNG LỒ (Dáng vuông vát cạnh bọc thép cực nặng bên trái y như ảnh) -->
+                    <path d="M 3,10 L 25,14 L 25,39 L 3,43 Z" fill="url(#wpGrad-${gid})" stroke="#111" stroke-width="1.5" />
+                    <!-- Viền gờ nổi bọc thép đầu búa -->
+                    <rect x="1" y="8" width="5" height="37" fill="#7f8c8d" rx="1" transform="rotate(-5 3 26)" />
+                    <!-- Hoa văn cổ tự / Rãnh khắc cơ khí màu vàng trên búa -->
+                    <path d="M 10,20 L 18,22 L 18,31 L 10,33 Z" fill="#f1c40f" opacity="0.65"/>
+
+                    <!-- 3. THÂN HÌNH & GIÁP VẢI XANH LỤC BẢO (Dáng thấp lùn nhưng vai rộng lực lưỡng) -->
+                    <path d="M 22,42 C 22,36 78,36 78,42 L 83,85 C 83,92 17,92 17,85 Z" fill="url(#tunicGrad-${gid})" />
+                    <!-- Đai lưng da to bản kèm khóa vàng ở bụng -->
+                    <rect x="30" y="68" width="40" height="8" fill="#5c4033" />
+                    <rect x="44" y="66" width="12" height="12" fill="none" stroke="#f1c40f" stroke-width="2" />
+
+                    <!-- 4. ĐẦU NGƯỜI LÙN CHÂN THỰC (Đầu hói/trọc oai phong, da sạm nắng, không đội mũ) -->
+                    <circle cx="50" cy="32" r="13" fill="#f5b041" />
+                    <!-- Đôi mắt ti hí cau có phát sáng tinh anh -->
+                    <ellipse cx="45" cy="29" rx="2.2" ry="1.2" fill="#ffffff" style="filter: drop-shadow(0 0 2px #fff);"/>
+                    <ellipse cx="55" cy="29" rx="2.2" ry="1.2" fill="#ffffff" style="filter: drop-shadow(0 0 2px #fff);"/>
+                    <!-- Chân mày rậm hung dữ màu cam -->
+                    <path d="M 40,25 Q 45,27 49,28 M 60,25 Q 55,27 51,28" stroke="#ba4a00" stroke-width="2.5" stroke-linecap="round"/>
+
+                    <!-- 5. BỘ RÂU QUAI NÓN CAM ĐỎ SIÊU DÀY & TẾT BÍM (Trọng tâm nghệ thuật của ảnh) -->
+                    <!-- Lớp râu quai nón bao phủ hai má -->
+                    <path d="M 37,32 C 32,55 40,88 50,88 C 60,88 68,55 63,32 Z" fill="url(#beardGrad-${gid})" />
+                    <!-- Bím tóc tết râu dài đổ dọc chính giữa ngực -->
+                    <path d="M 45,36 Q 50,68 46,84 L 54,84 Q 50,68 55,36 Z" fill="#ba4a00" />
+                    <!-- Vòng khuyên kim loại vàng buộc túm đuôi râu đúng như ảnh mẫu -->
+                    <rect x="45" y="72" width="10" height="4" fill="#f1c40f" rx="1" />
+
+                    <!-- 6. ĐÔI TAY ĐEO BAO TAY DA ĐỎ (Nắm chặt lấy cán búa tạ) -->
+                    <circle cx="32" cy="26" r="5" fill="#78281f" stroke="#511812" stroke-width="1"/>
+                    <circle cx="68" cy="26" r="5" fill="#78281f" stroke="#511812" stroke-width="1"/>
+                </svg>
+            `;
+
+            outer.appendChild(inner);
+            return outer;
+        };
+
+        // Triệu hồi bùng nổ trận pháp quân đoàn Người Lùn vác búa nện đất rung chuyển màn hình
+        await this.playScreenSummonBurst(endEl, scale, {
+            itemBuilder: buildGroundSpirit,
+            color: '#e0c068', // Màu vàng đất đặc trưng của hệ Ground
+            phase2: 'random', 
+            count: 14,        // 14 chiến binh khổng lồ cùng vác búa xung trận cực kỳ hoành tráng
+        });
+    },
+    async spawnPoison4(startEl, endEl, count, scale) {
+        // Tự động inject hiệu ứng co giật uốn lượn rùng rợn của độc vật (chạy 1 lần duy nhất)
+        if (!document.getElementById('pkm-poison-epic-keyframes')) {
+            const style = document.createElement('style');
+            style.id = 'pkm-poison-epic-keyframes';
+            style.textContent = `
+                @keyframes poison-beast-twitch {
+                    0%, 100% { transform: scale(1) translate(0, 0) rotate(0deg); opacity: 0.9; }
+                    20% { transform: scale(1.05, 0.95) translate(-2px, 1px) rotate(-3deg); opacity: 1; }
+                    40% { transform: scale(0.95, 1.05) translate(2px, -2px) rotate(3deg); }
+                    60% { transform: scale(1.02, 0.98) translate(-1px, -1px) rotate(-1deg); }
+                    80% { transform: scale(0.98, 1.02) translate(1px, 2px) rotate(2deg); opacity: 0.8; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        let uid = 0;
+        const buildPoisonSpirit = (x, y, s, c) => {
+            // Phân bổ đều đặn 5 con trong Ngũ Độc dựa trên ID tuần hoàn
+            const types = ['toad', 'centipede', 'frog', 'scorpion', 'snake'];
+            const kind = types[uid % types.length];
+            const gid = `psn-${Date.now()}-${uid++}`;
+
+            const w = 50 * s, h = 50 * s;
+            const outer = document.createElement('div');
+            outer.style.cssText = `
+                position: fixed; left:${x}px; top:${y}px;
+                width:${w}px; height:${h}px;
+                pointer-events: none; z-index: 9998; opacity: 0;
+            `;
+
+            const inner = document.createElement('div');
+            inner.style.cssText = `
+                position: absolute; inset: 0;
+                /* Hào quang Độc dược rực rỡ (Tím Hệ Độc -> Xanh Neon Độc lực -> Lõi Đen kịch độc) */
+                filter: drop-shadow(0 0 ${4 * s}px ${c}) 
+                        drop-shadow(0 0 ${8 * s}px #39ff14) 
+                        drop-shadow(0 0 ${1.5 * s}px #000);
+                /* Áp dụng hoạt ảnh giật nảy, ngo ngoe đầy rùng rợn */
+                animation: poison-beast-twitch 0.7s ease-in-out infinite;
+                animation-delay: -${Math.random() * 700}ms;
+            `;
+
+            // Định nghĩa SVG chi tiết cho từng loại trong Ngũ Độc
+            let svgContent = '';
+            if (kind === 'toad') {
+                // 1. CÓC ĐỘC (Toad): Mập mạp, nhiều mụn cóc phát sáng dạ quang, mắt đỏ rực
+                svgContent = `
+                    <svg width="${w}" height="${h}" viewBox="0 0 50 50" style="overflow:visible;">
+                        <defs>
+                            <linearGradient id="toadGrad-${gid}" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#2e1a47"/>
+                                <stop offset="70%" stop-color="${c}"/>
+                                <stop offset="100%" stop-color="#12021c"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- Chân sau gấp khúc -->
+                        <path d="M 6,32 Q 2,38 9,40 Q 12,35 9,32" fill="#12021c" />
+                        <path d="M 44,32 Q 48,38 41,40 Q 38,35 41,32" fill="#12021c" />
+                        <!-- Thân cóc mập mạp -->
+                        <ellipse cx="25" cy="28" rx="15" ry="13" fill="url(#toadGrad-${gid})" stroke="#12021c" stroke-width="1.2" />
+                        <!-- Đầu và miệng rộng bản -->
+                        <ellipse cx="25" cy="18" rx="10" ry="7.5" fill="url(#toadGrad-${gid})" />
+                        <path d="M 18,20 Q 25,24 32,20" stroke="#12021c" stroke-width="1" fill="none" />
+                        <!-- Mụn cóc chứa dịch độc phát sáng màu xanh dạ quang -->
+                        <circle cx="16" cy="23" r="1.5" fill="#39ff14" opacity="0.9"/>
+                        <circle cx="34" cy="23" r="1.5" fill="#39ff14" opacity="0.9"/>
+                        <circle cx="21" cy="29" r="1.8" fill="#39ff14" opacity="0.9"/>
+                        <circle cx="29" cy="29" r="1.8" fill="#39ff14" opacity="0.9"/>
+                        <circle cx="25" cy="34" r="1.2" fill="#39ff14" opacity="0.9"/>
+                        <!-- Đôi mắt Độc Cóc rực lửa hồng neon -->
+                        <circle cx="19" cy="14" r="2.2" fill="#ff007f" />
+                        <circle cx="31" cy="14" r="2.2" fill="#ff007f" />
+                    </svg>
+                `;
+            } else if (kind === 'centipede') {
+                // 2. RẾT ĐỘC (Centipede): Thân phân đốt uốn lượn S-line, chân tua tủa nhọn hoắt
+                svgContent = `
+                    <svg width="${w}" height="${h}" viewBox="0 0 50 50" style="overflow:visible;">
+                        <defs>
+                            <linearGradient id="centGrad-${gid}" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#12051c"/>
+                                <stop offset="50%" stop-color="${c}"/>
+                                <stop offset="100%" stop-color="#ff007f"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- Cặp râu dài ngo ngoe ở đầu -->
+                        <path d="M 22,6 Q 14,2 10,5" stroke="#ff007f" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+                        <path d="M 28,6 Q 36,2 40,5" stroke="#ff007f" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+                        <!-- Hàng chân tăm nhọn tỏa ra hai bên thân -->
+                        <path d="M 18,12 L 11,11 M 32,12 L 39,11" stroke="#39ff14" stroke-width="1.2" stroke-linecap="round"/>
+                        <path d="M 16,18 L 9,18 M 34,18 L 41,18" stroke="#39ff14" stroke-width="1.2" stroke-linecap="round"/>
+                        <path d="M 17,24 L 10,25 M 33,24 L 40,25" stroke="#39ff14" stroke-width="1.2" stroke-linecap="round"/>
+                        <path d="M 19,30 L 12,32 M 31,30 L 38,32" stroke="#39ff14" stroke-width="1.2" stroke-linecap="round"/>
+                        <path d="M 22,36 L 15,39 M 28,36 L 35,39" stroke="#39ff14" stroke-width="1.2" stroke-linecap="round"/>
+                        <path d="M 24,42 L 18,46 M 26,42 L 32,46" stroke="#39ff14" stroke-width="1.2" stroke-linecap="round"/>
+                        <!-- Thân rết uốn lượn u viễn kéo dài -->
+                        <path d="M 25,7 Q 16,21 25,31 T 25,47" fill="none" stroke="url(#centGrad-${gid})" stroke-width="5" stroke-linecap="round"/>
+                        <!-- Đầu rết cứng cáp với mắt sáng -->
+                        <circle cx="25" cy="7" r="3.5" fill="#12051c" stroke="#ff007f" stroke-width="1"/>
+                        <circle cx="23.5" cy="6" r="0.6" fill="#39ff14"/>
+                        <circle cx="26.5" cy="6" r="0.6" fill="#39ff14"/>
+                    </svg>
+                `;
+            } else if (kind === 'frog') {
+                // 3. ẾCH ĐỘC (Toxic Dart Frog): Kiểu dáng ếch phi tiêu, da xanh neon loang lổ đốm đen chí mạng
+                svgContent = `
+                    <svg width="${w}" height="${h}" viewBox="0 0 50 50" style="overflow:visible;">
+                        <defs>
+                            <linearGradient id="frogGrad-${gid}" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#39ff14"/>
+                                <stop offset="55%" stop-color="#00aa50"/>
+                                <stop offset="100%" stop-color="#12021c"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- Đôi chân ếch gấp nếp dài sẵn sàng bật nhảy -->
+                        <path d="M 15,34 C 8,34 8,42 15,42" stroke="#39ff14" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+                        <path d="M 35,34 C 42,34 42,42 35,42" stroke="#39ff14" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+                        <!-- Thân ếch thon gọn dài -->
+                        <ellipse cx="25" cy="25" rx="10" ry="14.5" fill="url(#frogGrad-${gid})" />
+                        <!-- Cánh tay bám đá -->
+                        <path d="M 16,21 Q 9,23 12,28" stroke="#39ff14" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+                        <path d="M 34,21 Q 41,23 38,28" stroke="#39ff14" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+                        <!-- Đốm đen kịch độc (Hắc sắc tố đặc trưng của loài ếch phi tiêu) -->
+                        <circle cx="21" cy="18" r="1.5" fill="#12021c"/>
+                        <circle cx="29" cy="18" r="1.5" fill="#12021c"/>
+                        <circle cx="25" cy="26" r="2" fill="#12021c"/>
+                        <circle cx="19" cy="31" r="1.5" fill="#12021c"/>
+                        <circle cx="31" cy="31" r="1.5" fill="#12021c"/>
+                        <!-- Cặp mắt ếch lồi to rực vàng rùng rợn -->
+                        <circle cx="17" cy="12" r="2.8" fill="#ffd700" />
+                        <circle cx="17" cy="12" r="1" fill="#000" />
+                        <circle cx="33" cy="12" r="2.8" fill="#ffd700" />
+                        <circle cx="33" cy="12" r="1" fill="#000" />
+                    </svg>
+                `;
+            } else if (kind === 'scorpion') {
+                // 4. BỌ CẠP (Scorpion): Đôi càng vạm vỡ rực hồng, đuôi cong vút găm kim độc phát quang
+                svgContent = `
+                    <svg width="${w}" height="${h}" viewBox="0 0 50 50" style="overflow:visible;">
+                        <defs>
+                            <linearGradient id="scGrad-${gid}" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#12021c"/>
+                                <stop offset="60%" stop-color="${c}"/>
+                                <stop offset="100%" stop-color="#000000"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- Chân bọ cạp tủa hai bên -->
+                        <path d="M 15,26 L 8,28 M 35,26 L 42,28" stroke="#4a125a" stroke-width="1.5" stroke-linecap="round" />
+                        <path d="M 15,30 L 7,33 M 35,30 L 43,33" stroke="#4a125a" stroke-width="1.5" stroke-linecap="round" />
+                        <path d="M 15,34 L 9,38 M 35,34 L 41,38" stroke="#4a125a" stroke-width="1.5" stroke-linecap="round" />
+                        <!-- Thân chính giáp bảo vệ phân đốt -->
+                        <ellipse cx="25" cy="29" rx="9" ry="12" fill="url(#scGrad-${gid})" stroke="#4a125a" stroke-width="1"/>
+                        <!-- Cánh tay và Càng kẹp to khỏe sẵn sàng nghiền nát con mồi -->
+                        <path d="M 18,22 Q 9,16 11,10" stroke="url(#scGrad-${gid})" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                        <path d="M 11,10 C 8,8 11,3 14,7 C 12,9 15,10 11,10" fill="#ff007f" />
+                        <path d="M 32,22 Q 41,16 39,10" stroke="url(#scGrad-${gid})" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                        <path d="M 39,10 C 42,8 39,3 36,7 C 38,9 35,10 39,10" fill="#ff007f" />
+                        <!-- Đuôi bọ cạp phân đốt lượn ngược lên trên -->
+                        <path d="M 25,39 C 25,49 43,45 37,31 C 34,23 29,21 31,16" fill="none" stroke="url(#scGrad-${gid})" stroke-width="3" stroke-linecap="round" />
+                        <!-- Kim độc châm phát dạ quang xanh lá kịch độc cực ngầu -->
+                        <path d="M 31,16 Q 34,12 30,9 Q 27,13 31,16 Z" fill="#39ff14" style="filter: drop-shadow(0 0 2.5px #39ff14);" />
+                    </svg>
+                `;
+            } else {
+                // 5. RẮN ĐỘC (Snake): Rắn hổ mang uốn lượn S-shape, nhe nanh phè lưỡi đỏ chót cực tàn bạo
+                svgContent = `
+                    <svg width="${w}" height="${h}" viewBox="0 0 50 50" style="overflow:visible;">
+                        <defs>
+                            <linearGradient id="snakeGrad-${gid}" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#12021c"/>
+                                <stop offset="50%" stop-color="${c}"/>
+                                <stop offset="85%" stop-color="#39ff14"/>
+                                <stop offset="100%" stop-color="#000000"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- Thân rắn uốn khúc uyển chuyển thon nhỏ dần -->
+                        <path d="M 16,39 C 6,29 18,21 25,24 C 32,27 44,19 34,11 C 29,7 23,9 20,13" 
+                              fill="none" stroke="url(#snakeGrad-${gid})" stroke-width="4.5" stroke-linecap="round" />
+                        <!-- Đầu rắn hổ mang bành bự che chở phát sáng -->
+                        <path d="M 20,13 L 16,11 L 18,16 Z" fill="#12021c" stroke="#39ff14" stroke-width="0.8" />
+                        <!-- Cặp mắt rắn xếch tàn độc màu vàng hổ phách -->
+                        <circle cx="17.8" cy="12.5" r="0.7" fill="#ffd700" />
+                        <circle cx="18.8" cy="14" r="0.7" fill="#ffd700" />
+                        <!-- Chiếc lưỡi phân nhánh phóng ra hung tợn màu đỏ neon -->
+                        <path d="M 16,11 Q 12,9 10,10 M 16,11 Q 13,7 12,7" stroke="#ff0055" stroke-width="1" fill="none" stroke-linecap="round"/>
+                    </svg>
+                `;
+            }
+
+            inner.innerHTML = svgContent;
+            outer.appendChild(inner);
+            return outer;
+        };
+
+        // Kích hoạt bùng nổ trận pháp Ngũ Độc vây hãm, tàn sát đối thủ toàn màn hình
+        await this.playScreenSummonBurst(endEl, scale, {
+            itemBuilder: buildPoisonSpirit,
+            color: '#a040a0', // Sắc tím Độc dược huyền thoại của hệ Poison
+            phase2: 'random', 
+            count: 15,        // 15 độc vật xuất thế (đảm bảo xuất hiện trọn vẹn 3 vòng tuần hoàn đầy đủ Ngũ Độc)
+        });
+    },
+    async spawnPsychic4(startEl, endEl, count, scale) {
+        // Tự động thêm hiệu ứng bẻ cán thìa nghệ thuật và sóng não đồng bộ
+        if (!document.getElementById('pkm-psychic-spoon-keyframes')) {
+            const style = document.createElement('style');
+            style.id = 'pkm-psychic-spoon-keyframes';
+            style.textContent = `
+                /* Trôi nổi tâm linh nhẹ nhàng */
+                @keyframes psychic-spoon-float {
+                    0%, 100% { transform: translateY(0) rotate(0deg); }
+                    50% { transform: translateY(-6px) rotate(1.5deg); }
+                }
+                /* Bẻ cong cán thìa cực mượt tại khớp nối */
+                @keyframes psychic-spoon-bend {
+                    0%, 30% { transform: rotate(0deg); }
+                    52% { transform: rotate(-68deg); } /* Lực bẻ gập mạnh mẽ */
+                    78% { transform: rotate(-68deg); } /* Giữ trạng thái giải phóng năng lượng */
+                    92%, 100% { transform: rotate(0deg); }
+                }
+                /* Sóng chấn động não Psywave lan tỏa đồng điệu với nhịp gập */
+                @keyframes psywave-expansion {
+                    0%, 32% { transform: scale(0.1); opacity: 0; }
+                    36% { opacity: 0.85; stroke-width: 2.5; }
+                    72% { transform: scale(3); opacity: 0; stroke-width: 0.5; }
+                    100% { opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        let uid = 0;
+        const buildPsychicSpirit = (x, y, s, c) => {
+            const w = 75 * s, h = 75 * s; // Tăng nhẹ kích thước hiển thị rõ chi tiết tinh xảo
+            const gid = `spoon-adv-${Date.now()}-${uid++}`;
+
+            const outer = document.createElement('div');
+            outer.style.cssText = `
+                position: fixed; left:${x}px; top:${y}px;
+                width:${w}px; height:${h}px;
+                pointer-events: none; z-index: 9998; opacity: 0;
+            `;
+
+            const inner = document.createElement('div');
+            inner.style.cssText = `
+                position: absolute; inset: 0;
+                /* Hào quang bóp méo thực tại: Hồng Neon phối Xanh Băng siêu thực */
+                filter: drop-shadow(0 0 ${3.5 * s}px ${c}) 
+                        drop-shadow(0 0 ${7 * s}px #00f0ff);
+                animation: psychic-spoon-float 1.8s ease-in-out infinite;
+                animation-delay: -${Math.random() * 1800}ms;
+            `;
+
+            // SVG Thiết kế Thực thể Thìa Cổ Đại cao cấp bám sát ảnh mẫu
+            inner.innerHTML = `
+                <svg width="${w}" height="${h}" viewBox="0 0 80 80" style="overflow:visible;">
+                    <defs>
+                        <linearGradient id="metal-${gid}" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#ffffff"/>
+                            <stop offset="25%" stop-color="#e5e8e8"/>
+                            <stop offset="48%" stop-color="#95a5a6"/>
+                            <stop offset="52%" stop-color="#7f8c8d"/>
+                            <stop offset="65%" stop-color="#bdc3c7"/>
+                            <stop offset="85%" stop-color="#ffffff"/>
+                            <stop offset="100%" stop-color="#2c3e50"/>
+                        </linearGradient>
+
+                        <radialGradient id="jewel-${gid}" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="#ffffff"/>
+                            <stop offset="45%" stop-color="#ff00ff"/>
+                            <stop offset="100%" stop-color="#4a004a"/>
+                        </radialGradient>
+                    </defs>
+
+                    <circle cx="40" cy="36" r="5" fill="none" stroke="#ff007f" 
+                            style="transform-origin: 40px 36px; animation: psywave-expansion 1.8s ease-out infinite; animation-delay: inherit;" />
+                    <circle cx="40" cy="36" r="5" fill="none" stroke="#00f0ff" 
+                            style="transform-origin: 40px 36px; animation: psywave-expansion 1.8s ease-out infinite; animation-delay: inherit; animation-delay: -0.2s;" />
+
+                    <g style="transform-origin: 40px 36px;">
+                        <path d="M 36,36 L 44,36 L 42,41 L 38,41 Z" fill="url(#metal-${gid})" stroke="#566573" stroke-width="0.5"/>
+                        <circle cx="40" cy="38" r="2" fill="#ff007f" />
+
+                        <path d="M 40,41 C 33,41 25,47 25,58 C 25,69 32,73 40,73 C 48,73 55,69 55,58 C 55,47 47,41 40,41 Z" 
+                              fill="url(#metal-${gid})" stroke="#566573" stroke-width="0.5" />
+
+                        <path d="M 40,44 C 35,44 29,49 29,58 C 29,66 34,70 40,70 C 46,70 51,66 51,58 C 51,49 45,44 40,44 Z" 
+                              fill="#000000" opacity="0.18" />
+
+                        <path d="M 33,52 C 31,56 31,61 34,64 C 32,62 31,58 32,54 Z" fill="#ffffff" opacity="0.55" />
+                    </g>
+
+                    <g style="transform-origin: 40px 36px; animation: psychic-spoon-bend 1.8s ease-in-out infinite; animation-delay: inherit;">
+                        <path d="M 37,36 L 43,36 L 42,20 C 44,16 45,12 43,7 C 40,4 40,4 37,7 C 35,12 36,16 38,20 Z" 
+                              fill="url(#metal-${gid})" stroke="#566573" stroke-width="0.5" />
+
+                        <path d="M 40,33 L 40,20" stroke="#00f0ff" stroke-width="1.2" stroke-linecap="round" opacity="0.85"/>
+
+                        <path d="M 40,3 L 44,7 L 40,11 L 36,7 Z" fill="url(#metal-${gid})" stroke="#566573" stroke-width="0.5" />
+
+                        <circle cx="40" cy="7" r="2.2" fill="url(#jewel-${gid})" style="filter: drop-shadow(0 0 2px #ff00ff);" />
+                    </g>
+                </svg>
+            `;
+
+            outer.appendChild(inner);
+            return outer;
+        };
+
+        // Kích nổ trận pháp quân đoàn Thìa Thần Bí bao vây toàn diện đối thủ
+        await this.playScreenSummonBurst(endEl, scale, {
+            itemBuilder: buildPsychicSpirit,
+            color: '#f85888',
+            phase2: 'random', 
+            count: 14,        
+        });
+    },
+    async spawnNormal4(startEl, endEl, count, scale) {
+        // Tự động thêm hiệu ứng hoạt ảnh xoay ngôi sao hoàng kim và vòng xung kích hệ Thường
+        if (!document.getElementById('pkm-normal-star-keyframes')) {
+            const style = document.createElement('style');
+            style.id = 'pkm-normal-star-keyframes';
+            style.textContent = `
+                /* Hoạt ảnh triệu hồi: Ngôi sao xoay tít và phóng to từ tâm */
+                @keyframes normal-star-spin {
+                    0% { transform: rotate(0deg) scale(0.1); opacity: 0; }
+                    15% { opacity: 1; transform: rotate(180deg) scale(1.1); }
+                    30% { transform: rotate(360deg) scale(1); }
+                    80% { transform: rotate(720deg) scale(1); opacity: 1; }
+                    100% { transform: rotate(900deg) scale(0); opacity: 0; }
+                }
+                /* Sóng xung kích năng lượng thuần khiết lan tỏa khi thực thể xuất hiện */
+                @keyframes normal-shockwave {
+                    0% { transform: scale(0.1); opacity: 0; }
+                    20% { opacity: 0.8; stroke-width: 2; }
+                    60% { transform: scale(2.2); opacity: 0; stroke-width: 0.5; }
+                    100% { opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        let uid = 0;
+        const buildNormalSpirit = (x, y, s, c) => {
+            const w = 65 * s, h = 65 * s; // Kích thước ngôi sao cân đối
+            const gid = `star-${Date.now()}-${uid++}`;
+
+            const outer = document.createElement('div');
+            outer.style.cssText = `
+                position: fixed; left:${x}px; top:${y}px;
+                width:${w}px; height:${h}px;
+                pointer-events: none; z-index: 9998; opacity: 0;
+            `;
+
+            const inner = document.createElement('div');
+            inner.style.cssText = `
+                position: absolute; inset: 0;
+                /* Hào quang năng lượng hệ Thường chói sáng: Vàng kim phối Trắng tinh khôi */
+                filter: drop-shadow(0 0 ${3 * s}px #f1c40f) 
+                        drop-shadow(0 0 ${6 * s}px #ffffff);
+                /* Kích hoạt hoạt ảnh xoay và bùng nổ của ngôi sao */
+                animation: normal-star-spin 1.5s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+                animation-delay: -${Math.random() * 1500}ms;
+            `;
+
+            // SVG Thiết kế Ngôi Sao Hoàng Kim nguyên khối 3D sắc nét
+            inner.innerHTML = `
+                <svg width="${w}" height="${h}" viewBox="0 0 60 60" style="overflow:visible;">
+                    <defs>
+                        <linearGradient id="goldGrad-${gid}" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#ffffff"/>
+                            <stop offset="20%" stop-color="#fff200"/>
+                            <stop offset="50%" stop-color="#f1c40f"/>
+                            <stop offset="80%" stop-color="#d35400"/>
+                            <stop offset="100%" stop-color="#9a7d0a"/>
+                        </linearGradient>
+
+                        <linearGradient id="goldDarkGrad-${gid}" x1="100%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#f39c12"/>
+                            <stop offset="70%" stop-color="#b7950b"/>
+                            <stop offset="100%" stop-color="#7e5109"/>
+                        </linearGradient>
+                    </defs>
+
+                    <circle cx="30" cy="30" r="6" fill="none" stroke="#ffffff" 
+                            style="transform-origin: 30px 30px; animation: normal-shockwave 1.5s ease-out infinite; animation-delay: inherit;" />
+                    <circle cx="30" cy="30" r="6" fill="none" stroke="#f1c40f" 
+                            style="transform-origin: 30px 30px; animation: normal-shockwave 1.5s ease-out infinite; animation-delay: inherit; animation-delay: -0.3s;" />
+
+                    <g style="transform-origin: 30px 30px;">
+                        <polygon points="30,4 38,20 56,20 42,31 47,48 30,38 13,48 18,31 4,20 22,20" 
+                                 fill="url(#goldGrad-${gid})" stroke="#f39c12" stroke-width="0.3" />
+
+                        <polygon points="30,4 30,38 38,20" fill="url(#goldDarkGrad-${gid})" opacity="0.35" />
+                        <polygon points="56,20 30,38 42,31" fill="url(#goldDarkGrad-${gid})" opacity="0.35" />
+                        <polygon points="47,48 30,38 30,38" fill="url(#goldDarkGrad-${gid})" opacity="0.35" />
+                        <polygon points="13,48 30,38 18,31" fill="url(#goldDarkGrad-${gid})" opacity="0.35" />
+                        <polygon points="4,20 30,38 22,20" fill="url(#goldDarkGrad-${gid})" opacity="0.35" />
+
+                        <circle cx="30" cy="30" r="3" fill="#ffffff" opacity="0.8" style="filter: blur(0.5px);" />
+                    </g>
+                </svg>
+            `;
+
+            outer.appendChild(inner);
+            return outer;
+        };
+
+        // Triệu hồi trận pháp kích nổ 16 ngôi sao tốc độ bao vây và oanh tạc đối thủ
+        await this.playScreenSummonBurst(endEl, scale, {
+            itemBuilder: buildNormalSpirit,
+            color: '#a8a878', // Màu sắc đặc trưng đại diện cho hệ Thường (Normal)
+            phase2: 'random', 
+            count: 16,        
+        });
+    },
+    // ══════════════════════════════════════════════════════════
+    // ENGINE DÙNG CHUNG CHO SKILL "TRIỆU HỒI BẢN THỂ KHỔNG LỒ" (spawn3)
+    // Timeline 3 pha — mỗi hệ chỉ cần gọi hàm này với { color, sfxType }:
+    //   Pha 1 (chargeAura)          : Pokemon tự nâng lên + vòng xoáy gió
+    //                                 dưới chân (màu hệ) + bản thể ma khổng
+    //                                 lồ (x7, opacity 0.5, dùng ĐÚNG ảnh
+    //                                 đang hiển thị — gif động hay ảnh tĩnh
+    //                                 fallback đều tự động đúng vì clone
+    //                                 thẳng currentSrc/src) hiện dần, Pokemon
+    //                                 thật đứng giữa bản thể (z-index cao hơn).
+    //   Pha 2 (60% targetSustain)   : Bản thể tách khỏi Pokemon, lao thẳng
+    //                                 tới điểm trung tâm phe địch (endEl —
+    //                                 đã được runAsScreenBarrage tính sẵn).
+    //                                 Pokemon thật chầm chậm hạ xuống lại.
+    //   Pha 3 (40% targetSustain)   : Va chạm — nổ tại điểm trúng, đẩy lùi
+    //                                 toàn bộ Pokemon địch còn sống ra xa
+    //                                 tâm nổ, hiện sao choáng ~1s, rồi tất cả
+    //                                 trượt về đúng vị trí cũ.
+    // Ngân sách thời gian TUÂN THỦ đúng quy ước cũ: tổng = chargeAura +
+    // targetSustain (không cộng dồn thêm ngoài đó).
+    // ══════════════════════════════════════════════════════════
+    async playGiantSpiritCharge(attacker, endEl, scale, opts) {
+        const { color = '#fff', ghostMultiplier = 35, sfxType = 'normal' } = opts || {};
+        const cfg = this.durationConfig.aoe;
+        const chargeMs = cfg.chargeAura;
+        const descendMs = Math.min(320, cfg.targetSustain * 0.22);
+        const flyMs   = cfg.targetSustain * 0.4;
+        const knockMs = cfg.targetSustain * 0.6 - descendMs;
+
+        const imgEl = attacker.querySelector('img');
+        const imgWrapper = attacker.querySelector('div');
+        if (!imgEl || !imgWrapper) return;
+
+        const flip = parseFloat(attacker.dataset.flip) || 1;
+        const flipSign = flip < 0 ? -1 : 1;
+        const baseScale = parseFloat(attacker.dataset.scale) || 1;
+
+        const imgRect = imgEl.getBoundingClientRect();
+        const footX = imgRect.left + imgRect.width / 2;
+        const footY = imgRect.bottom - 4 * scale;
+        const centerX = imgRect.left + imgRect.width / 2;
+        const centerY = imgRect.top + imgRect.height / 2;
+        const ghostW = imgRect.width * ghostMultiplier;
+        const ghostH = imgRect.height * ghostMultiplier;
+
+        const allEls = [];
+        this.injectVortexKeyframes();
+
+        // ── PHA 1: GỒNG CHIÊU — LỐC XOÁY PHỄU VÀNG HOÀNG KIM (Mọc từ chân Pokémon lên) ──
+        this.playChargeSfx(sfxType);
+
+        const liftPx = Math.max(22, imgRect.height * 0.32) * scale;
+        imgWrapper.style.transition = `transform ${chargeMs}ms cubic-bezier(0.22,1,0.36,1)`;
+        imgWrapper.style.transform = `translateY(-${liftPx}px) scale(${baseScale}) scaleX(${flip})`;
+
+        // Chiều cao vòi rồng phủ qua đầu Pokémon
+        const tornadoH = liftPx + imgRect.height * 1.1; 
+        const tornadoW = imgRect.width * 1.5;
+
+        // Container lốc — Neo gốc tại chân (footY) và mọc ngược lên trên nhờ translate(-50%, -100%)
+        const tornado = document.createElement('div');
+        tornado.style.cssText = `
+            position: fixed; left:${footX}px; top:${footY}px;
+            width:${tornadoW}px; height:${tornadoH}px;
+            transform: translate(-50%,-100%) scaleY(0.12);
+            transform-origin: 50% 100%;
+            z-index: 1; pointer-events:none; opacity:0;
+        `;
+        document.body.appendChild(tornado);
+        allEls.push(tornado);
+
+        // Tạo 20 tầng dải xoáy chồng khít lên nhau tạo độ đặc khối (Volumetric)
+        const bandCount = 20;
+        for (let i = 0; i < bandCount; i++) {
+            const t = i / (bandCount - 1); // 0 = đỉnh (rộng nhất), 1 = đáy (sát chân, hẹp nhất)
+
+            // Thiết lập hình phễu: trên to dưới nhỏ
+            const bandW = tornadoW * (0.28 + (1 - t) * 0.85); 
+            const topOffset = t * tornadoH;
+
+            // Tốc độ xoay chậm rãi, majestic (từ 2.5s đến 5s mỗi vòng)
+            const spinDur = 2.5 + (1 - t) * 2.5; 
+            const spinAnim = i % 2 === 0 ? 'pkm-vortex-band-spin-clockwise' : 'pkm-vortex-band-spin-counter';
+
+            // Tạo đường uốn cong nhẹ tự nhiên theo dáng chữ S
+            const waveOffset = Math.sin(t * Math.PI * 1.2) * 12 * scale;
+
+            // Khung chứa dải xoáy - sử dụng scaleY(0.3) để tạo góc nhìn nghiêng dẹt 3D hoàn hảo
+            const ring = document.createElement('div');
+            ring.style.cssText = `
+                position: absolute; 
+                left: calc(50% + ${waveOffset}px); 
+                top: ${topOffset}px;
+                width: ${bandW}px; 
+                height: ${bandW}px;
+                transform: translate(-50%, -50%) scaleY(0.3);
+                transform-origin: 50% 50%;
+            `;
+
+            // Lớp vân bão chuyển động xoay tròn bên trong dải xoáy
+            const ringInner = document.createElement('div');
+            ringInner.style.cssText = `
+                width: 100%; height: 100%;
+                border-radius: 50%;
+                /* Phối màu chuẩn Lốc Vàng: Trắng lõi -> Vàng hoàng kim -> Cam lửa -> Điểm tối */
+                background: conic-gradient(from 0deg,
+                    #ffffff 0deg, 
+                    #ffea00 45deg, 
+                    #ff9a00 120deg, 
+                    #cc3c00 180deg, 
+                    #ff9a00 240deg, 
+                    #ffea00 315deg, 
+                    #ffffff 360deg
+                );
+                box-shadow: 
+                    0 0 ${12 * scale}px #ffea00, 
+                    inset 0 0 ${8 * scale}px rgba(204,60,0,0.6);
+                filter: blur(${1 * scale}px);
+                animation: ${spinAnim} ${spinDur}s linear infinite;
+                opacity: ${0.9 - t * 0.2};
+            `;
+
+            ring.appendChild(ringInner);
+            tornado.appendChild(ring);
+        }
+
+        // Lõi sáng trắng rực rỡ chạy dọc tâm lốc xoáy
+        const core = document.createElement('div');
+        core.style.cssText = `
+            position: absolute; left: 50%; top: 0; bottom: 0;
+            width: ${tornadoW * 0.22}px;
+            transform: translateX(-50%);
+            background: linear-gradient(to top, rgba(255,255,255,0) 0%, #ffea00dd 40%, #ffffff 100%);
+            filter: blur(${6 * scale}px);
+            opacity: 0.8;
+            mix-blend-mode: screen;
+            z-index: 2;
+        `;
+        tornado.appendChild(core);
+
+        // Hạt bụi lửa xoắn ốc cuộn tròn đi lên từ chân lên đỉnh lốc
+        const debrisCount = 14;
+        for (let i = 0; i < debrisCount; i++) {
+            const dSize = (3 + Math.random() * 3.5) * scale;
+            const debris = document.createElement('div');
+
+            // Thiết lập tọa độ leo dốc xoắn ốc
+            const startY = tornadoH;         // Điểm xuất phát ở chân
+            const endY = -30;                // Điểm biến mất trên đỉnh lốc
+            const startR = tornadoW * 0.1 * scale;  // Bán kính hẹp ở đáy
+            const endR = tornadoW * 0.55 * scale;   // Bán kính xòe rộng ở đỉnh
+            const spinDur = 1.5 + Math.random() * 1.0;
+            const delay = -Math.random() * spinDur;
+
+            const colors = ['#ffffff', '#fff5b0', '#ffea00', '#ff5500'];
+            const randColor = colors[Math.floor(Math.random() * colors.length)];
+
+            debris.style.cssText = `
+                position: absolute; left: 50%; top: 0;
+                width: ${dSize}px; height: ${dSize}px; border-radius: 50%;
+                background: ${randColor}; box-shadow: 0 0 ${4 * scale}px ${randColor};
+                pointer-events: none;
+                --start-r: ${startR}px;
+                --end-r: ${endR}px;
+                --start-y: ${startY}px;
+                --end-y: ${endY}px;
+                animation: pkm-vortex-orbit-up ${spinDur}s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+                animation-delay: ${delay}s;
+            `;
+            tornado.appendChild(debris);
+            allEls.push(debris);
+        }
+
+        // Kích hoạt hoạt ảnh mọc vòi rồng đứng từ dưới đất lên
+        const growAnim = tornado.animate([
+            { transform: 'translate(-50%,-100%) scaleY(0.12)', opacity: 0 },
+            { transform: 'translate(-50%,-100%) scaleY(1.08)', opacity: 1, offset: 0.7 },
+            { transform: 'translate(-50%,-100%) scaleY(1)', opacity: 1 }
+        ], { duration: chargeMs, fill: 'forwards', easing: 'ease-out' });
+
+        // Bản thể ma khổng lồ — clone ĐÚNG ảnh đang hiển thị
+        const ghost = document.createElement('img');
+        ghost.src = imgEl.currentSrc || imgEl.src;
+        ghost.style.cssText = `
+            position: fixed; left:${centerX}px; top:${centerY}px;
+            width:${ghostW}px; height:${ghostH}px;
+            object-fit: contain;
+            transform: translate(-50%,-50%) scaleX(${flipSign}) scale(0.4);
+            opacity: 0;
+            filter: drop-shadow(0 0 ${14 * scale}px ${color}) brightness(1.3);
+            z-index: 9990; pointer-events:none;
+        `;
+        document.body.appendChild(ghost);
+        allEls.push(ghost);
+        ghost.animate([
+            { transform: `translate(-50%,-50%) scaleX(${flipSign}) scale(0.4)`, opacity: 0 },
+            { transform: `translate(-50%,-50%) scaleX(${flipSign}) scale(1.05)`, opacity: 0.55, offset: 0.75 },
+            { transform: `translate(-50%,-50%) scaleX(${flipSign}) scale(1)`, opacity: 0.5 }
+        ], { duration: chargeMs, fill: 'forwards', easing: 'ease-out' });
+
+        await new Promise(r => setTimeout(r, chargeMs));
+
+        // ── SAU KHI GỒNG XONG: lốc duy trì ổn định ──
+        growAnim.cancel();
+        tornado.style.opacity = '1';
+        tornado.style.transform = 'translate(-50%,-100%) scaleY(1)';
+
+        // ── PHA 2: TÁCH RA & LAO ĐI — Pokemon vẫn đang nâng ──
+        if (this.playTravelSfx) this.playTravelSfx(sfxType);
+
+        const rectEnd = endEl.getBoundingClientRect();
+        const targetX = rectEnd.left + (rectEnd.width || 0) / 2;
+        const targetY = rectEnd.top + (rectEnd.height || 0) / 2;
+
+        ghost.animate([
+            { left: `${centerX}px`, top: `${centerY}px`, transform: `translate(-50%,-50%) scaleX(${flipSign}) scale(1)`, opacity: 0.5, offset: 0 },
+            { left: `${targetX}px`, top: `${targetY}px`, transform: `translate(-50%,-50%) scaleX(${flipSign}) scale(0.6)`, opacity: 0.8, offset: 1 }
+        ], { duration: flyMs, fill: 'forwards', easing: 'ease-in' });
+
+        await new Promise(r => setTimeout(r, flyMs));
+
+        // ── PHA 3: VA CHẠM — nổ + đẩy lùi phe địch ──
+        ghost.animate([
+            { transform: `scaleX(${flipSign}) scale(0.6)`, opacity: 0.8 },
+            { transform: `scaleX(${flipSign}) scale(1.3)`, opacity: 0.9, offset: 0.3 },
+            { transform: `scaleX(${flipSign}) scale(0.2)`, opacity: 0 }
+        ], { duration: Math.max(150, knockMs * 0.35), fill: 'forwards', easing: 'ease-out' });
+
+        this.applyGlobalShake?.(scale * 1.4);
+        this.playImpactSfx?.(sfxType);
+        this.spawnImpactBurst(targetX, targetY, color, scale, allEls);
+
+        const targetSide = endEl.dataset.targetSide;
+        if (targetSide) this.knockbackTeam(targetSide, targetX, targetY, scale, knockMs, color);
+
+        await new Promise(r => setTimeout(r, knockMs));
+
+        // ── PHA 4: HẠ CÁNH — Pokemon hạ xuống & lốc tắt CÙNG LÚC ──
+        tornado.animate([
+            { transform: 'translate(-50%,-100%) scaleY(1)', opacity: 1 },
+            { transform: 'translate(-50%,-100%) scaleY(0.1)', opacity: 0 }
+        ], { duration: descendMs, fill: 'forwards', easing: 'ease-in' });
+
+        imgWrapper.style.transition = `transform ${descendMs}ms ease-in`;
+        imgWrapper.style.transform = `translateY(0px) scale(${baseScale}) scaleX(${flip})`;
+
+        await new Promise(r => setTimeout(r, descendMs));
+        allEls.forEach(el => el.remove());
+        imgWrapper.style.transition = '';
+    },
+
+    // Hệ thống CSS keyframe 2.5D xoay chậm vững chãi và cuộn lửa xoắn ốc đi lên
+    injectVortexKeyframes() {
+        if (document.getElementById('pkm-vortex-keyframes')) return;
+        const style = document.createElement('style');
+        style.id = 'pkm-vortex-keyframes';
+        style.textContent = `
+            /* Xoay chậm rãi theo chiều kim đồng hồ */
+            @keyframes pkm-vortex-band-spin-clockwise {
+                0%   { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            /* Xoay chậm rãi ngược chiều kim đồng hồ (để tạo độ cuộn chéo phức tạp) */
+            @keyframes pkm-vortex-band-spin-counter {
+                0%   { transform: rotate(360deg); }
+                100% { transform: rotate(0deg); }
+            }
+            /* Quỹ đạo hạt xoáy 3D cuộn tròn đi lên từ chân lên đỉnh lốc */
+            @keyframes pkm-vortex-orbit-up {
+                0% {
+                    transform: translate(-50%, -50%) translateY(var(--start-y)) rotate(0deg) translateX(var(--start-r)) scale(0.3);
+                    opacity: 0;
+                }
+                15% {
+                    opacity: 0.9;
+                }
+                85% {
+                    opacity: 0.9;
+                }
+                100% {
+                    transform: translate(-50%, -50%) translateY(var(--end-y)) rotate(720deg) translateX(var(--end-r)) scale(1.2);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    },
+
+    // Nổ nhỏ (ring + flash) tại đúng điểm bản thể ma va chạm
+    spawnImpactBurst(x, y, color, scale, collector) {
+        const size = 70 * scale;
+        const ring = document.createElement('div');
+        ring.style.cssText = `
+            position: fixed; left:${x}px; top:${y}px;
+            width:${size}px; height:${size}px; border-radius:50%;
+            background: radial-gradient(circle, #fff 10%, ${color} 45%, transparent 100%);
+            box-shadow: 0 0 ${30 * scale}px ${color};
+            transform: translate(-50%,-50%) scale(0);
+            z-index: 9994; pointer-events:none; opacity:0;
+        `;
+        document.body.appendChild(ring);
+        if (collector) collector.push(ring);
+        ring.animate([
+            { transform: 'translate(-50%,-50%) scale(0)', opacity: 0 },
+            { transform: 'translate(-50%,-50%) scale(2.2)', opacity: 0.9, offset: 0.35 },
+            { transform: 'translate(-50%,-50%) scale(3.2)', opacity: 0 }
+        ], { duration: 500, fill: 'forwards', easing: 'ease-out' });
+
+        const flash = document.createElement('div');
+        const fsize = size * 2.2;
+        flash.style.cssText = `
+            position: fixed; left:${x}px; top:${y}px;
+            width:${fsize}px; height:${fsize}px; border-radius:50%;
+            background: radial-gradient(circle, #fff 0%, transparent 70%);
+            transform: translate(-50%,-50%) scale(0);
+            z-index: 9993; pointer-events:none; opacity:0;
+        `;
+        document.body.appendChild(flash);
+        if (collector) collector.push(flash);
+        flash.animate([
+            { transform: 'translate(-50%,-50%) scale(0)', opacity: 0 },
+            { transform: 'translate(-50%,-50%) scale(1.4)', opacity: 0.8, offset: 0.25 },
+            { transform: 'translate(-50%,-50%) scale(1.8)', opacity: 0 }
+        ], { duration: 400, fill: 'forwards', easing: 'ease-out' });
+    },
+
+    // Đẩy lùi toàn bộ Pokemon còn sống của 1 phe ra xa điểm va chạm,
+    // hiện sao choáng trên đầu ~1s, rồi tất cả trượt về đúng vị trí cũ.
+    knockbackTeam(targetSide, impactX, impactY, scale, budgetMs, color) {
+        this.injectDazedKeyframes();
+
+        const outDur = 200, backDur = 320;
+        const holdDur = Math.max(400, budgetMs - outDur - backDur);
+        const total = outDur + holdDur + backDur;
+        const knockDist = 55 * scale;
+
+        document.querySelectorAll(`.pkm-unit[id^="${targetSide}-unit-"]`).forEach(el => {
+            if (el.dataset.dead === '1') return;
+
+            const rect = el.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            let dx = cx - impactX, dy = cy - impactY;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            dx = (dx / dist) * knockDist;
+            dy = (dy / dist) * knockDist;
+
+            el.animate([
+                { transform: 'translate(-50%,-50%)', offset: 0 },
+                { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(${dx > 0 ? 8 : -8}deg)`, offset: outDur / total },
+                { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) rotate(0deg)`, offset: (outDur + holdDur) / total },
+                { transform: 'translate(-50%,-50%)', offset: 1 }
+            ], { duration: total, easing: 'ease-out' });
+
+            // Sao choáng trên đầu
+            const dazed = document.createElement('div');
+            dazed.style.cssText = `
+                position: fixed; left:${cx + dx}px; top:${cy - rect.height * 0.55}px;
+                width:${34 * scale}px; height:${34 * scale}px;
+                transform: translate(-50%,-50%); z-index: 10005;
+                pointer-events:none; opacity:0;
+            `;
+            dazed.innerHTML = `
+                <div style="position:relative; width:100%; height:100%; animation: pkm-dazed-spin 0.6s linear infinite;">
+                    <span style="position:absolute; left:50%; top:0; transform:translate(-50%,-50%); font-size:${14 * scale}px;">✨</span>
+                    <span style="position:absolute; left:100%; top:50%; transform:translate(-50%,-50%); font-size:${12 * scale}px;">💫</span>
+                    <span style="position:absolute; left:0; top:50%; transform:translate(-50%,-50%); font-size:${12 * scale}px;">⭐</span>
+                </div>
+            `;
+            document.body.appendChild(dazed);
+            dazed.animate([
+                { opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }
+            ], { duration: holdDur, delay: outDur, fill: 'forwards' });
+            setTimeout(() => dazed.remove(), outDur + holdDur + 100);
+        });
+    },
+
+    injectDazedKeyframes() {
+        if (document.getElementById('pkm-dazed-keyframes')) return;
+        const style = document.createElement('style');
+        style.id = 'pkm-dazed-keyframes';
+        style.textContent = `
+            @keyframes pkm-dazed-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        `;
+        document.head.appendChild(style);
+    },
+    // HỆ ĐIỆN — spawnElectric3 (Thunder Spirit Rush) — Bản thể Thần Sấm khổng lồ
+    async spawnElectric3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#f1c40f',
+            sfxType: 'electric',
+        });
+    },
+    // HỆ CỎ — spawnGrass3 (Verdant Spirit Rush) — Bản thể Thần Cỏ khổng lồ
+    async spawnGrass3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#2ecc71',
+            sfxType: 'grass',
+        });
+    },
+    // HỆ LỬA — spawnFire3 (Infernal Spirit Rush) — Bản thể Thần Lửa khổng lồ
+    async spawnFire3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#e67e22',
+            sfxType: 'fire',
+        });
+    },
+    // HỆ NƯỚC — spawnWater3 (Tidal Spirit Rush) — Bản thể Thần Nước khổng lồ
+    async spawnWater3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#3498db',
+            sfxType: 'water',
+        });
+    },
+    // HỆ TÂM LINH — spawnPsychic3 (Mind Spirit Rush) — Bản thể Thần Tâm Linh khổng lồ
+    async spawnPsychic3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#9b59b6',
+            sfxType: 'psychic',
+        });
+    },
+    // HỆ ĐẤU — spawnFighting3 (Warrior Spirit Rush) — Bản thể Thần Đấu Sĩ khổng lồ
+    async spawnFighting3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#e74c3c',
+            sfxType: 'fighting',
+        });
+    },
+    // HỆ BĂNG — spawnIce3 (Glacial Spirit Rush) — Bản thể Thần Băng khổng lồ
+    async spawnIce3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#74b9ff',
+            sfxType: 'ice',
+        });
+    },
+    // HỆ ĐỘC — spawnPoison3 (Toxic Spirit Rush) — Bản thể Thần Độc khổng lồ
+    async spawnPoison3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#a040a0',
+            sfxType: 'poison',
+        });
+    },
+    // HỆ ĐẤT — spawnGround3 (Terra Spirit Rush) — Bản thể Thần Đất khổng lồ
+    async spawnGround3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#e2bf65',
+            sfxType: 'ground',
+        });
+    },
+    // HỆ BAY — spawnFlying3 (Tempest Spirit Rush) — Bản thể Thần Gió khổng lồ
+    async spawnFlying3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#a890f0',
+            sfxType: 'flying',
+        });
+    },
+    // HỆ CÔN TRÙNG — spawnBug3 (Swarm Spirit Rush) — Bản thể Thần Côn Trùng khổng lồ
+    async spawnBug3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#a8b820',
+            sfxType: 'bug',
+        });
+    },
+    // HỆ ĐÁ — spawnRock3 (Boulder Spirit Rush) — Bản thể Thần Đá khổng lồ
+    async spawnRock3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#b8a038',
+            sfxType: 'rock',
+        });
+    },
+    // HỆ MA — spawnGhost3 (Phantom Spirit Rush) — Bản thể Thần Ma khổng lồ
+    async spawnGhost3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#705898',
+            sfxType: 'ghost',
+        });
+    },
+    // HỆ BÓNG TỐI — spawnDark3 (Abyssal Spirit Rush) — Bản thể Thần Bóng Tối khổng lồ
+    async spawnDark3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#705848',
+            sfxType: 'dark',
+        });
+    },
+    // HỆ THƯỜNG — spawnNormal3 (Radiant Spirit Rush) — Bản thể Thần Thường khổng lồ
+    async spawnNormal3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#a8a878',
+            sfxType: 'normal',
+        });
+    },
+    // HỆ THÉP — spawnSteel3 (Titan Spirit Rush) — Bản thể Thần Thép khổng lồ
+    async spawnSteel3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#b8b8d0',
+            sfxType: 'steel',
+        });
+    },
+    // HỆ RỒNG — spawnDragon3 (Draconic Spirit Rush) — Bản thể Thần Rồng khổng lồ
+    async spawnDragon3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#7038f8',
+            sfxType: 'dragon',
+        });
+    },
+    // HỆ TIÊN — spawnFairy3 (Celestial Spirit Rush) — Bản thể Thần Tiên khổng lồ
+    async spawnFairy3(startEl, endEl, count, scale) {
+        await this.playGiantSpiritCharge(startEl, endEl, scale, {
+            color: '#ee99ac',
+            sfxType: 'fairy',
+        });
+    },
     
 
 
@@ -2525,8 +3549,154 @@ window.SkillManager = {
         setTimeout(() => div.remove(), this.durationConfig.aoe.statusText);
     },
 
+    // ── BẢNG MÀU LƯỠI LỬA THEO HỆ — dùng chung 1 kiểu chuyển động, chỉ đổi màu ──
+    flameLickColors: {
+        fire:     { core:'#fff8dc', mid:'#ff8c1a', edge:'#c0392b' },
+        water:    { core:'#eafaff', mid:'#4fc3f7', edge:'#1565c0' },
+        electric: { core:'#ffffff', mid:'#ffe066', edge:'#f39c12' },
+        grass:    { core:'#eaffea', mid:'#66bb6a', edge:'#1b5e20' },
+        ice:      { core:'#ffffff', mid:'#b3e5fc', edge:'#4a90c2' },
+        fighting: { core:'#fff3e0', mid:'#ff7043', edge:'#8e2b0f' },
+        poison:   { core:'#f3e5f5', mid:'#ab47bc', edge:'#4a148c' },
+        ground:   { core:'#fff3e0', mid:'#c19a5b', edge:'#6d4c22' },
+        flying:   { core:'#f5f5ff', mid:'#b39ddb', edge:'#5e35b1' },
+        psychic:  { core:'#ffe6f0', mid:'#f06292', edge:'#880e4f' },
+        bug:      { core:'#f1f8e9', mid:'#c0d94a', edge:'#556b0f' },
+        rock:     { core:'#efebe9', mid:'#b8a038', edge:'#5d4a1a' },
+        ghost:    { core:'#ece6ff', mid:'#8a6fd8', edge:'#33206b' },
+        dragon:   { core:'#ede7f6', mid:'#7038f8', edge:'#33206b' },
+        steel:    { core:'#ffffff', mid:'#b0bec5', edge:'#5c6b73' },
+        dark:     { core:'#5c5c5c', mid:'#2d2d2d', edge:'#000000' },
+        fairy:    { core:'#ffffff', mid:'#f48fb1', edge:'#ad1457' },
+        normal:   { core:'#ffffff', mid:'#d6d6c2', edge:'#8a8a72' },
+    },
+
+    // Gắn N "lưỡi lửa" độc lập lên Pokémon bị trúng đòn — mỗi lưỡi có
+    // kích thước / vị trí / nhịp cháy RIÊNG (không dùng chung 1 layer),
+    // tạo đúng cảm giác "chỗ to chỗ nhỏ, chỗ thưa chỗ dày, lệch nhịp"
+    // như ảnh tham khảo, thay vì 1 khối gradient đồng nhất.
+    attachSustainFlames(targetEl, type) {
+        if (!targetEl) return;
+        this.removeSustainFlames(targetEl); // dọn lượt cũ nếu còn sót, phòng hờ
+
+        const cfg = this.flameLickColors[type] || this.flameLickColors.normal;
+        const container = document.createElement('div');
+        container.className = 'pkm-flame-container';
+        container.style.cssText = `
+            position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 3; overflow: visible;
+        `;
+        targetEl.appendChild(container);
+        targetEl._flameContainer = container;
+
+        const lickCount = 7 + Math.floor(Math.random() * 3); // 7-9 lưỡi lửa mỗi lần
+
+        for (let i = 0; i < lickCount; i++) {
+            const lick = document.createElement('div');
+
+            // Vị trí rải NGẪU NHIÊN — từ ngang thân giữa tới trồi lên khỏi đầu
+            const leftPct   = 18 + Math.random() * 64;    // 18%-82% chiều ngang, không đối xứng đều
+            const bottomPx  = 18 + Math.random() * 118;    // 18px (ngang thân) -> 136px (khoảng không trên đầu)
+            const w         = 10 + Math.random() * 26;     // 10-36px — to nhỏ khác nhau rõ rệt
+            const h         = w * (1.3 + Math.random() * 0.6);
+            const baseOpacity = 0.5 + Math.random() * 0.45; // có lưỡi đậm, có lưỡi mờ — "chỗ có chỗ không"
+
+            lick.style.cssText = `
+                position: absolute; left:${leftPct}%; bottom:${bottomPx}px;
+                width:${w}px; height:${h}px;
+                transform: translate(-50%, 0);
+                transform-origin: center bottom;
+                border-radius: ${40 + Math.random() * 20}% ${60 - Math.random() * 20}% ${55 + Math.random() * 15}% ${45 - Math.random() * 15}% / 60% 45% 55% 40%;
+                filter: blur(${1 + Math.random() * 1.5}px);
+                mix-blend-mode: screen;
+                background: radial-gradient(circle at 50% 85%, ${cfg.core} 0%, ${cfg.mid} 45%, ${cfg.edge} 78%, transparent 92%);
+                opacity: ${baseOpacity};
+            `;
+            container.appendChild(lick);
+
+            // Mỗi lưỡi lửa có NHỊP/ĐỘ TRỄ/BIÊN ĐỘ RIÊNG — tạo lệch pha tự nhiên,
+            // không nhấp nháy đồng loạt như 1 khối.
+            const dur       = 500 + Math.random() * 500;
+            const delay     = Math.random() * 400;
+            const drift     = 2 + Math.random() * 4;
+            const peakScale = 1.15 + Math.random() * 0.25;
+            const skew      = 4 + Math.random() * 6;
+
+            lick.animate([
+                { transform: `translate(-50%,0) scale(1) skewX(0deg)`, opacity: baseOpacity },
+                { transform: `translate(calc(-50% + ${drift}px), -2px) scale(${peakScale}) skewX(-${skew}deg)`, opacity: Math.min(1, baseOpacity + 0.25) },
+                { transform: `translate(calc(-50% - ${drift}px), 1px) scale(${0.88})`, opacity: baseOpacity * 0.85 },
+                { transform: `translate(-50%,0) scale(1) skewX(0deg)`, opacity: baseOpacity }
+            ], { duration: dur, delay, iterations: Infinity, easing: 'ease-in-out' });
+        }
+    },
+
+    // Gỡ toàn bộ lưỡi lửa khi hết thời gian sustain
+    removeSustainFlames(targetEl) {
+        if (!targetEl) return;
+        if (targetEl._flameContainer) {
+            targetEl._flameContainer.remove();
+            targetEl._flameContainer = null;
+        }
+    },
+    // Pool các câu "khen thưởng" hiển thị phía trên số damage — random mỗi lần trúng đòn
+    damageComboPool: [
+        'Critical hit!', 'Super Effective!', 'Massive Damage!',
+        'Devastating!', 'Perfect Strike!', 'Brutal Hit!',
+        'Colossal Damage!', 'Overwhelming!',
+    ],
+
     createDamageText(targetEl, damage, dramatic = true) {
-        this.showStatusText(targetEl, `-${damage}`, '#ff4757', dramatic);
+        const rect = targetEl.getBoundingClientRect();
+        const displayDamage = (damage * 10).toLocaleString('en-US'); // hiển thị x10 cho hoành tráng (chỉ thị giác, không đổi số máu thật)
+        const comboText = this.damageComboPool[Math.floor(Math.random() * this.damageComboPool.length)];
+
+        const wrap = document.createElement('div');
+        wrap.style.cssText = `
+            position: fixed; left:${rect.left + rect.width / 2}px; top:${rect.top - 10}px;
+            transform: translate(-50%,-50%) scale(0.2);
+            z-index: 10005; pointer-events: none;
+            display: flex; flex-direction: column; align-items: center;
+            opacity: 0;
+        `;
+
+        // Dòng chữ combo — MÀU VÀNG, viền đen MỎNG, nghiêng nhẹ giống ảnh mẫu
+        const combo = document.createElement('div');
+        combo.innerText = comboText;
+        combo.style.cssText = `
+            font-size: 16px; font-weight: 900; font-style: italic;
+            color: #ffd400; -webkit-text-stroke: 1px #000;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+            transform: rotate(-6deg);
+            white-space: nowrap; margin-bottom: -2px;
+        `;
+        wrap.appendChild(combo);
+
+        // Dòng số damage to đùng — TRẮNG DÀY (font-weight tối đa), viền đen MỎNG
+        const numEl = document.createElement('div');
+        numEl.innerText = displayDamage;
+        numEl.style.cssText = `
+            font-size: 36px; font-weight: 900; font-family: 'Arial Black', Arial, sans-serif;
+            color: #fff; -webkit-text-stroke: 1.5px #000;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000,
+                         2px 2px 4px rgba(0,0,0,0.4);
+            white-space: nowrap; line-height: 1;
+        `;
+        wrap.appendChild(numEl);
+
+        document.body.appendChild(wrap);
+
+        // Hiệu ứng "NỔ TO LÊN": phóng to vượt mức rồi lắng lại, giữ 1 nhịp, rồi bay lên mờ dần
+        const holdMs = this.durationConfig.aoe.statusText + 400;
+        wrap.animate([
+            { transform: 'translate(-50%,-50%) scale(0.2)', opacity: 0,  offset: 0 },
+            { transform: 'translate(-50%,-50%) scale(1.35)', opacity: 1, offset: 0.35 },
+            { transform: 'translate(-50%,-50%) scale(1)',    opacity: 1, offset: 0.55 },
+            { transform: 'translate(-50%,-58%) scale(1)',    opacity: 1, offset: 0.8 },
+            { transform: 'translate(-50%,-70%) scale(0.9)',  opacity: 0, offset: 1 }
+        ], { duration: holdMs, easing: 'ease-out' });
+
+        setTimeout(() => wrap.remove(), holdMs + 50);
     },
 
     calcAngle(s, e) {
