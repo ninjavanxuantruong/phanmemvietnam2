@@ -573,6 +573,12 @@ window.PkmUnitFX = (() => {
     // [7] BUFF TICKER — Icon buff trồi lên định kỳ
     // ══════════════════════════════════════════════════════
     const CSS_BUFF = `
+        @keyframes pkmfx-healnum-float {
+            0%   { opacity: 0; transform: translate(-50%, 0)     scale(0.6); }
+            20%  { opacity: 1; transform: translate(-50%, -8px)  scale(1.1); }
+            80%  { opacity: 1; transform: translate(-50%, -20px) scale(1);   }
+            100% { opacity: 0; transform: translate(-50%, -34px) scale(0.9); }
+        }
         /* ── Gốc của bạn: Giữ nguyên hiệu ứng icon bay lên ── */
         @keyframes pkmfx-buffpop {
             0%   { opacity: 0; transform: translate(-50%, 0)     scale(0.5);  }
@@ -886,6 +892,297 @@ window.PkmUnitFX = (() => {
             }
         },
 
+        // PHA 1 (buff đội hình) — cột ánh sáng giáng từ trên trời xuống đúng
+        // con vừa kích hoạt buff, như "ban phép". Trả về Promise khi xong.
+        // PHA 1 — cột sáng nhiều lớp giáng từ trời: glow ngoài rộng mờ +
+        // lõi sáng chói + hạt tàn lửa bay lên dọc thân cột + quầng sáng
+        // bệt dưới chân (giống ảnh tham khảo kiểu Mega Evolution).
+        async playDescendBeam(side, index, color = '#ffd700') {
+            const unit = document.getElementById(`${side}-unit-${index}`);
+            if (!unit) return;
+            const rect = unit.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const groundY = rect.bottom;
+            const beamH = 380;
+            const skyY = groundY - beamH;
+            const allEls = [];
+
+            // Quầng sáng bệt dưới chân — xuất hiện TRƯỚC để "đón" cột sáng rơi xuống
+            const groundGlow = document.createElement('div');
+            groundGlow.style.cssText = `
+                position: fixed; left:${cx}px; top:${groundY}px;
+                width: 220px; height: 70px;
+                transform: translate(-50%,-50%) scale(0.3);
+                border-radius: 50%;
+                background: radial-gradient(ellipse, #fff 0%, ${color}cc 35%, ${color}55 60%, transparent 80%);
+                filter: blur(6px);
+                opacity: 0; z-index: 10001; pointer-events: none;
+            `;
+            document.body.appendChild(groundGlow);
+            allEls.push(groundGlow);
+            groundGlow.animate([
+                { transform: 'translate(-50%,-50%) scale(0.3)', opacity: 0 },
+                { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.9, offset: 0.5 },
+                { transform: 'translate(-50%,-50%) scale(1.15)', opacity: 0.7 }
+            ], { duration: 650, fill: 'forwards', easing: 'ease-out' });
+
+            // Lớp glow ngoài — RẤT RỘNG, mờ, tạo cảm giác cột ánh sáng dày
+            const outerGlow = document.createElement('div');
+            outerGlow.style.cssText = `
+                position: fixed; left:${cx}px; top:${skyY}px;
+                width: 150px; height: ${beamH}px;
+                transform: translate(-50%,0) scaleY(0);
+                transform-origin: top center;
+                background: linear-gradient(to bottom, transparent 0%, ${color}33 20%, ${color}66 55%, ${color}33 85%, transparent 100%);
+                filter: blur(14px);
+                opacity: 0; z-index: 10001; pointer-events: none;
+            `;
+            document.body.appendChild(outerGlow);
+            allEls.push(outerGlow);
+
+            // Lớp glow giữa — hẹp hơn, sáng hơn
+            const midGlow = document.createElement('div');
+            midGlow.style.cssText = `
+                position: fixed; left:${cx}px; top:${skyY}px;
+                width: 70px; height: ${beamH}px;
+                transform: translate(-50%,0) scaleY(0);
+                transform-origin: top center;
+                background: linear-gradient(to bottom, transparent 0%, #fff9 15%, ${color} 50%, #fff9 85%, transparent 100%);
+                filter: blur(4px);
+                opacity: 0; z-index: 10002; pointer-events: none;
+            `;
+            document.body.appendChild(midGlow);
+            allEls.push(midGlow);
+
+            // Lõi sáng — mảnh, trắng chói ở tâm
+            const coreBeam = document.createElement('div');
+            coreBeam.style.cssText = `
+                position: fixed; left:${cx}px; top:${skyY}px;
+                width: 20px; height: ${beamH}px;
+                transform: translate(-50%,0) scaleY(0);
+                transform-origin: top center;
+                background: linear-gradient(to bottom, transparent 0%, #fff 25%, #fff 75%, transparent 100%);
+                filter: blur(1px) drop-shadow(0 0 18px #fff) drop-shadow(0 0 30px ${color});
+                opacity: 0; z-index: 10003; pointer-events: none;
+            `;
+            document.body.appendChild(coreBeam);
+            allEls.push(coreBeam);
+
+            // Bùng sáng trên trời tại điểm xuất phát
+            const skyBurst = document.createElement('div');
+            skyBurst.style.cssText = `
+                position: fixed; left:${cx}px; top:${skyY}px;
+                width: 14px; height: 14px; border-radius: 50%;
+                background: radial-gradient(circle, #fff 0%, ${color} 70%, transparent 100%);
+                transform: translate(-50%,-50%) scale(0);
+                opacity: 0; z-index: 10003; pointer-events: none;
+            `;
+            document.body.appendChild(skyBurst);
+            allEls.push(skyBurst);
+            skyBurst.animate([
+                { transform: 'translate(-50%,-50%) scale(0)', opacity: 0 },
+                { transform: 'translate(-50%,-50%) scale(5)', opacity: 1, offset: 0.25 },
+                { transform: 'translate(-50%,-50%) scale(2.5)', opacity: 0 }
+            ], { duration: 380, easing: 'ease-out' });
+
+            const dropIn = (el, delay) => el.animate([
+                { transform: 'translate(-50%,0) scaleY(0)', opacity: 0 },
+                { transform: 'translate(-50%,0) scaleY(1)', opacity: 1, offset: 0.42 },
+                { transform: 'translate(-50%,0) scaleY(1)', opacity: 0.9, offset: 0.82 },
+                { transform: 'translate(-50%,0) scaleY(1.02)', opacity: 0 }
+            ], { duration: 650, delay, easing: 'ease-in' }).finished;
+
+            await Promise.all([
+                dropIn(outerGlow, 0),
+                dropIn(midGlow, 50),
+                dropIn(coreBeam, 90)
+            ]);
+
+            // Hạt tàn lửa bay dọc thân cột lên trời — rải suốt thời gian cột tồn tại
+            const emberCount = 9;
+            for (let i = 0; i < emberCount; i++) {
+                const ember = document.createElement('div');
+                const ex = cx + (Math.random() - 0.5) * 60;
+                const size = 3 + Math.random() * 4;
+                const emberDelay = Math.random() * 300;
+                ember.style.cssText = `
+                    position: fixed; left:${ex}px; top:${groundY}px;
+                    width:${size}px; height:${size}px; border-radius:50%;
+                    background:#fff; box-shadow:0 0 8px ${color}, 0 0 4px #fff;
+                    transform: translate(-50%,-50%) scale(0);
+                    opacity: 0; z-index: 10003; pointer-events: none;
+                `;
+                document.body.appendChild(ember);
+                allEls.push(ember);
+                ember.animate([
+                    { transform: 'translate(-50%,-50%) translateY(0) scale(0.3)', opacity: 0 },
+                    { transform: 'translate(-50%,-50%) translateY(-90px) scale(1)', opacity: 1, offset: 0.3 },
+                    { transform: `translate(-50%,-50%) translateY(-${beamH * 0.85}px) scale(0.4)`, opacity: 0 }
+                ], { duration: 700, delay: emberDelay, fill: 'forwards', easing: 'ease-out' });
+            }
+
+            // Bùng nổ dưới chân khi cột chạm đất
+            const flare = document.createElement('div');
+            flare.style.cssText = `
+                position: fixed; left:${cx}px; top:${groundY}px;
+                width: 16px; height: 16px; border-radius: 50%;
+                background: radial-gradient(circle, #fff 0%, ${color} 60%, transparent 100%);
+                transform: translate(-50%,-50%) scale(0);
+                opacity: 0; z-index: 10003; pointer-events: none;
+            `;
+            document.body.appendChild(flare);
+            allEls.push(flare);
+            flare.animate([
+                { transform: 'translate(-50%,-50%) scale(0)', opacity: 0 },
+                { transform: 'translate(-50%,-50%) scale(5)', opacity: 0.9, offset: 0.3 },
+                { transform: 'translate(-50%,-50%) scale(7.5)', opacity: 0 }
+            ], { duration: 420, easing: 'ease-out' });
+
+            for (let i = 0; i < 8; i++) {
+                const ang = (i / 8) * 360 + Math.random() * 15;
+                const ray = document.createElement('div');
+                ray.style.cssText = `
+                    position: fixed; left:${cx}px; top:${groundY}px;
+                    width: 4px; height: 55px;
+                    background: linear-gradient(to top, ${color}, transparent);
+                    transform: translate(-50%,-100%) rotate(${ang}deg);
+                    transform-origin: 50% 100%;
+                    opacity: 0; z-index: 10002; pointer-events: none;
+                `;
+                document.body.appendChild(ray);
+                allEls.push(ray);
+                ray.animate([
+                    { opacity: 0, transform: `translate(-50%,-100%) rotate(${ang}deg) scaleY(0.4)` },
+                    { opacity: 1, transform: `translate(-50%,-100%) rotate(${ang}deg) scaleY(1)`, offset: 0.3 },
+                    { opacity: 0, transform: `translate(-50%,-100%) rotate(${ang}deg) scaleY(1.4)` }
+                ], { duration: 400, easing: 'ease-out' });
+            }
+
+            await new Promise(r => setTimeout(r, 340));
+            allEls.forEach(el => el.remove());
+        },
+
+        // PHA 2 — vùng sáng lan RỘNG khắp cả sân phe mình: 1 lớp phủ toàn
+        // bộ khu vực đội (to gấp 2-3 lần bản cũ) + từng mảng sáng lớn dưới
+        // chân mỗi con, đốm lấp lánh xuất hiện thưa rồi dày dần.
+        async playGroundSpread(side, sourceIndex, targetIndices, color = '#2ecc71') {
+            const container = document.getElementById(`${side}-team-container`);
+            const containerRect = container ? container.getBoundingClientRect() : null;
+            const allEls = [];
+
+            if (containerRect) {
+                // Lớp phủ toàn bộ khu vực đội — to bằng cả sân phe mình, không
+                // chỉ 1 vùng nhỏ quanh nguồn nữa.
+                const pad = 60;
+                const fieldWash = document.createElement('div');
+                fieldWash.style.cssText = `
+                    position: fixed;
+                    left:${containerRect.left - pad}px; top:${containerRect.top - pad}px;
+                    width:${containerRect.width + pad * 2}px; height:${containerRect.height + pad * 2}px;
+                    background: radial-gradient(ellipse at 50% 65%, ${color}55 0%, ${color}30 40%, ${color}12 65%, transparent 85%);
+                    transform: scale(0.4);
+                    z-index: 9988; pointer-events:none; opacity:0;
+                `;
+                document.body.appendChild(fieldWash);
+                allEls.push(fieldWash);
+                fieldWash.animate([
+                    { transform: 'scale(0.4)', opacity: 0 },
+                    { transform: 'scale(1)', opacity: 1, offset: 0.5 },
+                    { transform: 'scale(1.03)', opacity: 0.75, offset: 0.85 },
+                    { transform: 'scale(1.05)', opacity: 0 }
+                ], { duration: 950, easing: 'ease-in-out' });
+            }
+
+            const ordered = targetIndices.slice().sort((a, b) => Math.abs(a - sourceIndex) - Math.abs(b - sourceIndex));
+
+            const perUnitTasks = ordered.map((idx, order) => {
+                const unit = document.getElementById(`${side}-unit-${idx}`);
+                if (!unit) return Promise.resolve();
+
+                const { damped } = getUnitMeta(unit);
+                // TO GẤP ~3 LẦN bản cũ để phủ rộng khắp khu vực từng con,
+                // không còn là 1 quầng nhỏ bó sát chân nữa.
+                const patchW = Math.round(BASE_RING_W * damped * 3.2);
+                const patchH = Math.round(BASE_RING_H * damped * 3.2);
+                const uRect = unit.getBoundingClientRect();
+                const cx = uRect.left + uRect.width / 2;
+                const cy = uRect.bottom - patchH * 0.22;
+                const rippleDelay = order * 100;
+
+                return new Promise((resolve) => {
+                    setTimeout(() => {
+                        const patch = document.createElement('div');
+                        patch.style.cssText = `
+                            position: fixed; left:${cx}px; top:${cy}px;
+                            width:${patchW}px; height:${patchH}px;
+                            transform: translate(-50%,-50%) scale(0.3);
+                            border-radius: 50%;
+                            background: radial-gradient(ellipse, ${color}dd 0%, ${color}88 40%, ${color}33 65%, transparent 82%);
+                            filter: blur(3px);
+                            opacity: 0; z-index: 9990; pointer-events:none;
+                        `;
+                        document.body.appendChild(patch);
+                        allEls.push(patch);
+                        patch.animate([
+                            { transform: 'translate(-50%,-50%) scale(0.3)', opacity: 0 },
+                            { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.95, offset: 0.6 },
+                            { transform: 'translate(-50%,-50%) scale(1.08)', opacity: 0.85 }
+                        ], { duration: 520, fill: 'forwards', easing: 'ease-out' });
+
+                        // Đốm lấp lánh — nhiều hơn, rải rộng khắp mảng sáng lớn,
+                        // xuất hiện thưa dần dày lên theo thời gian.
+                        const sparkleCount = 16;
+                        for (let i = 0; i < sparkleCount; i++) {
+                            const ox = (Math.random() - 0.5) * patchW * 0.85;
+                            const oy = (Math.random() - 0.5) * patchH * 0.85;
+                            const size = 3 + Math.random() * 5;
+                            const appearAt = (i / sparkleCount) * 480;
+                            const spark = document.createElement('div');
+                            spark.style.cssText = `
+                                position: fixed; left:${cx + ox}px; top:${cy + oy}px;
+                                width:${size}px; height:${size}px; border-radius:50%;
+                                background:#fff; box-shadow:0 0 7px ${color}, 0 0 3px #fff;
+                                transform: translate(-50%,-50%) scale(0);
+                                opacity:0; z-index:9991; pointer-events:none;
+                            `;
+                            document.body.appendChild(spark);
+                            allEls.push(spark);
+                            spark.animate([
+                                { transform: 'translate(-50%,-50%) scale(0)', opacity: 0 },
+                                { transform: 'translate(-50%,-50%) scale(1.5)', opacity: 1, offset: 0.4 },
+                                { transform: 'translate(-50%,-50%) scale(0.9)', opacity: 0.85 }
+                            ], { duration: 280, delay: appearAt, fill: 'forwards', easing: 'ease-out' });
+                        }
+
+                        setTimeout(resolve, 560);
+                    }, rippleDelay);
+                });
+            });
+
+            await Promise.all(perUnitTasks);
+            await new Promise(r => setTimeout(r, 180));
+            allEls.forEach(el => el.remove());
+        },
+
+        // Số "+X" hồi máu nổi lên đầu 1 con — dùng cho Pha 3
+        showHealNumber(side, index, amount) {
+            const unit = document.getElementById(`${side}-unit-${index}`);
+            if (!unit) return;
+            const div = document.createElement('div');
+            div.textContent = `+${amount}`;
+            div.style.cssText = `
+                position:absolute; left:50%; top:10%;
+                transform:translate(-50%,0);
+                color:#4cd964; font-weight:900; font-size:16px;
+                text-shadow:1px 1px 2px #000, 0 0 6px rgba(76,217,100,0.8);
+                z-index:7; pointer-events:none;
+                animation: pkmfx-healnum-float 1.1s ease-out forwards;
+            `;
+            unit.appendChild(div);
+            div.addEventListener('animationend', () => div.remove());
+        },
+
+       
         showSkillName(side, index, text) {
             const st = registry.get(`${side}-${index}`);
             if (!st || !st.skillNameEl) return;
