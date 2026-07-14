@@ -34,40 +34,51 @@ window.BattleGame = {
         });
         if (migrated) localStorage.setItem('pkm_inventory', JSON.stringify(inv));
 
-        const team = inv.filter(p => p.inTeam).sort((a, b) => a.position - b.position);
+            const team = inv.filter(p => p.inTeam).sort((a, b) => a.position - b.position);
 
-        if (team.length === 0) {
-            alert("Đội hình trống!");
-            window.location.href = 'pkm_team.html';
-            return;
-        }
-
-        this.playerTeam = team.map(p => this.calculateStats(p, false));
-        this.enemyTeam  = team.map(p => this.calculateStats(p, true));
-
-        // ✅ THÊM LOGIC NÀY: Lấy tên thật cho đối thủ dựa trên ID ngẫu nhiên đã tạo
-        // ✅ SỬA TRONG BattleGame.init()
-        for (let p of this.enemyTeam) {
-            try {
-                const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${p.id}`);
-                const data = await res.json();
-
-                // 1. Ghi đè tên
-                p.name = data.name.charAt(0).toUpperCase() + data.name.slice(1);
-
-                // 2. Ghi đè hệ (Type) - Lấy hệ đầu tiên của Pokemon đó
-                if (data.types && data.types.length > 0) {
-                    p.type = data.types[0].type.name; 
-                }
-
-                // 3. (Tùy chọn) Ghi đè Gen nếu sếp muốn hiệu ứng xịn theo đúng con đó
-                // Pokemon ID > 493 thường là Gen 5 trở đi, sếp có thể tạm logic hóa ở đây
-
-            } catch (e) {
-                p.name = "Unknown";
-                p.type = "normal";
+            if (team.length === 0) {
+                alert("Đội hình trống!");
+                window.location.href = 'pkm_team.html';
+                return;
             }
-        }
+
+            // 🆕 FETCH BÙ height cho Pokémon cũ (ấp trứng trước khi có field này),
+            // để bodyScale (pkm_styles.js) tính đúng cho mọi con, kể cả dữ liệu cũ.
+            const heightsChanged = await this.ensureHeights(team);
+            if (heightsChanged) localStorage.setItem('pkm_inventory', JSON.stringify(inv));
+
+            this.playerTeam = team.map(p => this.calculateStats(p, false));
+            this.enemyTeam  = team.map(p => this.calculateStats(p, true));
+
+            // ✅ THÊM LOGIC NÀY: Lấy tên thật cho đối thủ dựa trên ID ngẫu nhiên đã tạo
+            // ✅ SỬA TRONG BattleGame.init()
+            for (let p of this.enemyTeam) {
+                try {
+                    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${p.id}`);
+                    const data = await res.json();
+
+                    // 1. Ghi đè tên
+                    p.name = data.name.charAt(0).toUpperCase() + data.name.slice(1);
+
+                    // 2. Ghi đè hệ (Type) - Lấy hệ đầu tiên của Pokemon đó
+                    if (data.types && data.types.length > 0) {
+                        p.type = data.types[0].type.name; 
+                    }
+
+                    // 3. (Tùy chọn) Ghi đè Gen nếu sếp muốn hiệu ứng xịn theo đúng con đó
+                    // Pokemon ID > 493 thường là Gen 5 trở đi, sếp có thể tạm logic hóa ở đây
+
+                    // 4. Ghi đè CHIỀU CAO theo đúng ID ngẫu nhiên vừa random — vì địch
+                    // là 1 Pokémon HOÀN TOÀN KHÁC con gốc trong túi đồ, height gốc (nếu
+                    // có) không còn đúng nữa, phải lấy height của chính con vừa random.
+                    p.height = data.height;
+
+                } catch (e) {
+                    p.name = "Unknown";
+                    p.type = "normal";
+                    p.height = 10; // fallback ~1m nếu fetch lỗi
+                }
+            }
 
     if (window.QuizManager) window.QuizManager.prepareData();
 
@@ -106,6 +117,26 @@ window.BattleGame = {
                 window.startPokemonBattle();
             }
         })();
+    },
+    // Fetch bù trường "height" (đơn vị decimet, PokeAPI) cho các Pokémon
+    // CŨ chưa có field này (ấp trứng trước khi pkm_egg.js được cập nhật).
+    // Trả về true nếu có ít nhất 1 con vừa được fetch bù (để nơi gọi biết
+    // mà lưu lại localStorage).
+    async ensureHeights(team) {
+        const missing = team.filter(p => !p.height);
+        if (missing.length === 0) return false;
+
+        await Promise.all(missing.map(async (p) => {
+            try {
+                const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${p.id}`);
+                const data = await res.json();
+                p.height = data.height;
+            } catch (e) {
+                p.height = 10; // fallback ~1m nếu fetch lỗi, tránh vỡ hiển thị
+            }
+        }));
+
+        return true;
     },
 
     calculateStats(pkm, isEnemy) {
@@ -390,16 +421,18 @@ window.BattleGame = {
             // Đã lãnh đủ 2 đòn — báo trước sắp được buff ở đòn kế tiếp
             window.PkmUnitFX?.setBuffing(targetSide, targetIndex, true);
         } else if (mod === 0) {
-            // Đủ 3 đòn — kích hoạt buff thật: hồi 20% máu tối đa NGAY (số liệu phải đúng ngay lập tức)
-            const healAmount = Math.floor(target.maxHp * 0.2);
-            target.currentHp = Math.min(target.maxHp, target.currentHp + healAmount);
+            // Đủ 3 đòn — CHƯA cộng máu ở đây nữa. Giờ buff hồi máu là buff
+            // cho CẢ ĐỘI, số liệu từng con khác nhau tuỳ maxHp, và máu chỉ
+            // thực sự được cộng đúng lúc hiệu ứng Pha 3 xuất hiện trên từng
+            // con (xem playHealBuffSequence). Ở đây chỉ ghi nhận SỰ KIỆN.
             window.PkmUnitFX?.setBuffing(targetSide, targetIndex, false);
-            this.log(`${target.name} hồi ${healAmount} HP nhờ trụ vững qua 3 đòn tấn công!`);
+            this.log(`${target.name} kích hoạt hồi máu đồng đội!`);
 
-            // Hiệu ứng NỔ (showHealBurst) không bắn ngay ở đây — dồn vào hàng đợi,
-            // chờ đến khi animation đòn đánh/skill effect của lượt này tắt hẳn mới phát,
-            // để nó là hiệu ứng đơn lẻ, không chồng lên AOE/skill normal gây đơ.
-            this.pendingHealBursts.push({ side: targetSide, index: targetIndex });
+            this.pendingHealBursts.push({
+                side: targetSide,
+                sourceIndex: targetIndex,
+                sourceType: target.type || 'normal'
+            });
         }
     },
 
@@ -407,18 +440,68 @@ window.BattleGame = {
     // đòn đánh của lượt đã hoàn toàn kết thúc, cách nhau 1 nhịp để không đơ.
     async flushHealBursts() {
         if (this.pendingHealBursts.length === 0) return;
-        const bursts = this.pendingHealBursts;
+        const events = this.pendingHealBursts;
         this.pendingHealBursts = [];
 
         // Đợi Pokémon "im" trở lại sau đòn đánh rồi mới phát hiệu ứng buff
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        for (let i = 0; i < bursts.length; i++) {
-            window.PkmUnitFX?.showHealBurst(bursts[i].side, bursts[i].index);
-            if (i < bursts.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 150)); // giãn cách nếu nhiều con cùng buff 1 lúc
+        // Tách sự kiện theo PHE — trong 1 phe, nếu có nhiều con cùng proc buff
+        // ở turn này thì chạy TUẦN TỰ (con này xong hết mới tới con kia).
+        // Nhưng phe ta và phe địch thì chạy SONG SONG với nhau.
+        const bySide = { player: [], enemy: [] };
+        events.forEach(ev => bySide[ev.side]?.push(ev));
+
+        const runSideQueue = async (side, queue) => {
+            for (const ev of queue) {
+                await this.playHealBuffSequence(side, ev.sourceIndex, ev.sourceType);
+            }
+        };
+
+        await Promise.all([
+            runSideQueue('player', bySide.player),
+            runSideQueue('enemy', bySide.enemy)
+        ]);
+    },
+
+    // Chạy trọn 3 pha của 1 sự kiện buff hồi máu:
+    // Pha 1: cột sáng giáng xuống đúng con vừa đủ 3 đòn (con "chủ buff")
+    // Pha 2: mảng sáng lan từ con đó ra khắp các ô CÒN SỐNG cùng phe
+    // Pha 3: hồi máu đồng loạt cho cả đội còn sống — CỘNG MÁU THẬT đúng
+    //        lúc này, mỗi con hồi = min(20, 1% maxHp của chính nó)
+    async playHealBuffSequence(side, sourceIndex, sourceType) {
+        const team = side === 'player' ? this.playerTeam : this.enemyTeam;
+        const aliveIndices = team
+            .map((p, i) => (p && p.currentHp > 0) ? i : -1)
+            .filter(i => i !== -1);
+        if (aliveIndices.length === 0) return;
+
+        const color = (window.SkillManager?.systemConfig?.[sourceType] || {}).color || '#2ecc71';
+
+        // PHA 1
+        await window.PkmUnitFX?.playDescendBeam(side, sourceIndex, color);
+
+        // PHA 2
+        await window.PkmUnitFX?.playGroundSpread(side, sourceIndex, aliveIndices, color);
+
+        // PHA 3 — cộng máu thật + hiện hiệu ứng + số hồi, từng con nối tiếp nhẹ
+        for (let i = 0; i < aliveIndices.length; i++) {
+            const idx = aliveIndices[i];
+            const p = team[idx];
+            if (!p || p.currentHp <= 0) continue;
+
+            const healAmount = Math.min(20, Math.floor(p.maxHp * 0.01));
+            p.currentHp = Math.min(p.maxHp, p.currentHp + healAmount);
+
+            window.PkmUnitFX?.showHealBurst(side, idx);
+            window.PkmUnitFX?.showHealNumber(side, idx, healAmount);
+
+            if (i < aliveIndices.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 150));
             }
         }
+
+        this.updateUI();
     },
 
     renderBattlefield() {
