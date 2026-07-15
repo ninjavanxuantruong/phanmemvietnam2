@@ -48,8 +48,8 @@ window.PkmUnitFX = (() => {
     // ══════════════════════════════════════════════════════
     const registry = new Map();
 
-    const BASE_RING_W = 120;   // bề rộng gốc vòng chân đế (trước khi nhân theo scale)
-    const BASE_RING_H = 50;   // bề cao gốc (độ bẹt của elip)
+    const BASE_RING_W = 100;   // bề rộng gốc vòng chân đế (trước khi nhân theo scale)
+    const BASE_RING_H = 40;   // bề cao gốc (độ bẹt của elip)
     const TARGET_RING_EXTRA = 14; // vòng đỏ to hơn vòng trắng bao nhiêu px mỗi chiều
 
     const CSS_COMMON = `
@@ -744,7 +744,17 @@ window.PkmUnitFX = (() => {
             const { scale, damped } = getUnitMeta(unit);
             const ringW = Math.round(BASE_RING_W * damped);
             const ringH = Math.round(BASE_RING_H * damped);
-            const feetY = Math.round(72 * scale);
+            // ◄ FIX VỊ TRÍ: đáy sprite Pokémon LUÔN cố định ở đúng UNIT_SIZE
+            // (80px) tính từ đỉnh .pkm-unit, vì imgWrapper dùng
+            // transform-origin:center bottom — nghĩa là khi scale() to/nhỏ,
+            // điểm đáy KHÔNG di chuyển, chỉ phần thân phía trên nó co giãn.
+            // Trước đây feetY = 72 * scale khiến ring bị kéo LỆCH THEO scale:
+            // Pokémon càng to (scale lớn) → ring trôi xuống dưới xa chân;
+            // Pokémon càng nhỏ (scale bé) → ring trôi lên cao, nổi giữa thân.
+            // Nay dùng hằng số cố định, đồng nhất với UNIT_SIZE ở pkm_styles.js
+            // để ring luôn bám đúng chân bất kể kích cỡ loài.
+            const UNIT_SIZE = (window.PkmStyles && window.PkmStyles.UNIT_SIZE) || 80;
+            const feetY = UNIT_SIZE - 2; // trừ nhẹ 2px cho khít viền dưới ảnh
 
             const state = {
                 groundGroup: null, shadow: null,
@@ -1182,7 +1192,7 @@ window.PkmUnitFX = (() => {
             div.addEventListener('animationend', () => div.remove());
         },
 
-       
+
         showSkillName(side, index, text) {
             const st = registry.get(`${side}-${index}`);
             if (!st || !st.skillNameEl) return;
