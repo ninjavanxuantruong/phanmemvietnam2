@@ -99,9 +99,10 @@
         motionBack: 200,
         flight: 350,
         shake: 450,
-        physicalStyleChance: 0.20,   // giữ nguyên — đòn vật lý thuần
-        bigOrbChance: 0.30,          // MỚI — trong 80% còn lại, 30% dùng "skill chung"
-        bigOrbFlightDuration: 1800,  // MỚI — quả cầu to bay CHẬM (so với particle nhỏ ~500-800ms)
+        physicalStyleChance: 0.20,
+        bigOrbChance: 0.20,       // ← giảm còn 20%
+        streamChance: 0.30,       // ← MỚI: skill phun dải
+        bigOrbFlightDuration: 1800,
     }, SM.durationConfig.normal || {});
 
     // ── Tên chiêu hiển thị (PkmUnitFX.showSkillName) ──
@@ -335,31 +336,37 @@
             attacker.style.transform = 'translate(-50%,-50%)';
             await new Promise(r => setTimeout(r, cfg.shake));
             target.classList.remove('shake');
-        } else if (style === 1) {
-            attacker.style.transition = 'all 0.25s ease-in';
-            attacker.style.transform = `translate(calc(-50% + ${dx * 0.6}px), calc(-50% + ${dy * 0.6}px))`;
-            await new Promise(r => setTimeout(r, 250));
+            } else if (style === 1) {
+                // 1. Lao hẳn lên áp sát ngay trước mặt kẻ địch (Giống y hệt Style 0)
+                attacker.style.transition = 'all 0.2s ease-in';
+                attacker.style.transform = `translate(calc(-50% + ${dx - dist}px), calc(-50% + ${dy}px))`;
+                await new Promise(r => setTimeout(r, 200));
 
-            for (let i = 0; i < 3; i++) {
-                attacker.style.transition = 'all 0.08s ease-in';
-                attacker.style.transform = `translate(calc(-50% + ${dx * 0.6 + (dist > 0 ? 30 : -30)}px), calc(-50% + ${dy * 0.6}px))`;
-                await new Promise(r => setTimeout(r, 80));
-                attacker.style.transform = `translate(calc(-50% + ${dx * 0.6}px), calc(-50% + ${dy * 0.6}px))`;
-                await new Promise(r => setTimeout(r, 80));
+                // 2. Thực hiện 3 cú đấm/húc nhấp nhả liên hoàn ngay tại vị trí áp sát đó
+                for (let i = 0; i < 3; i++) {
+                    attacker.style.transition = 'all 0.08s ease-in';
+                    // Nhích sâu thêm 15px vào người đối thủ để tạo cảm giác va chạm/đấm trúng thực tế
+                    attacker.style.transform = `translate(calc(-50% + ${dx - dist + (dist > 0 ? 15 : -15)}px), calc(-50% + ${dy}px))`;
+                    await new Promise(r => setTimeout(r, 80));
 
-                if (i === 0) this.createDamageText(target, Math.floor(damage * 0.4));
-                if (i === 1) this.createDamageText(target, Math.floor(damage * 0.3));
-                if (i === 2) this.createDamageText(target, Math.floor(damage * 0.3));
+                    // Rút nhẹ về lại vị trí áp sát trước mặt
+                    attacker.style.transform = `translate(calc(-50% + ${dx - dist}px), calc(-50% + ${dy}px))`;
+                    await new Promise(r => setTimeout(r, 80));
 
-                target.classList.add('shake');
-                await new Promise(r => setTimeout(r, 100));
-                target.classList.remove('shake');
-                playLightSfx.call(this);
-            }
+                    if (i === 0) this.createDamageText(target, Math.floor(damage * 0.4));
+                    if (i === 1) this.createDamageText(target, Math.floor(damage * 0.3));
+                    if (i === 2) this.createDamageText(target, Math.floor(damage * 0.3));
 
-            attacker.style.transition = 'all 0.2s ease-out';
-            attacker.style.transform = 'translate(-50%,-50%)';
-            await new Promise(r => setTimeout(r, 200));
+                    target.classList.add('shake');
+                    await new Promise(r => setTimeout(r, 100));
+                    target.classList.remove('shake');
+                    playLightSfx.call(this);
+                }
+
+                // 3. Kết thúc chuỗi đấm, rút hẳn về vị trí ban đầu
+                attacker.style.transition = 'all 0.2s ease-out';
+                attacker.style.transform = 'translate(-50%,-50%)';
+                await new Promise(r => setTimeout(r, 200));
         } else {
             const r1 = dist * 1.5;
             attacker.style.transition = 'all 0.18s ease-in';
@@ -2051,6 +2058,338 @@
             }
         },
 
+        // —— SKILL CHUNG SỐ 3: PHUN DẢI (lửa/nước/gió/...) ——
+        async spawnBeamStream(startEl, endEl, count, scale, data) {
+            const cfg = bigOrbTypeConfig[data?.type] || bigOrbTypeConfig.normal;
+            const rectS = startEl.getBoundingClientRect();
+            const rectE = endEl.getBoundingClientRect();
+            const sx = rectS.left + rectS.width / 2, sy = rectS.top + rectS.height / 2;
+            const ex0 = rectE.left + rectE.width / 2, ey0 = rectE.top + rectE.height / 2;
+
+            const rawDx = ex0 - sx, rawDy = ey0 - sy;
+            const rawDist = Math.sqrt(rawDx * rawDx + rawDy * rawDy) || 1;
+            const dirX = rawDx / rawDist, dirY = rawDy / rawDist;
+            const perpX = -dirY, perpY = dirX;
+
+            const penetrate = Math.min(rectE.width, rectE.height) * 0.22;
+            const ex = ex0 + dirX * penetrate, ey = ey0 + dirY * penetrate;
+
+            const forwardOffset = Math.max(rectS.width, rectS.height) * 0.42;
+            const bx = sx + dirX * forwardOffset, by = sy + dirY * forwardOffset;
+
+            const chargeMs   = 1400;
+            const beamMs     = 1300;
+            const sustainMs  = 900;
+            const fadeStepMs = 380;
+
+            const chargeEls = [];
+            const beamEls   = [];
+            const impactEls = [];
+            let sparkleTimer = null;
+
+            // ═══════════ PHA 1: GỒNG ═══════════
+            const ringW = 140 * scale, ringH = 54 * scale;
+            const groundOuter = document.createElement('div');
+            groundOuter.style.cssText = `
+                position:fixed; left:${sx}px; top:${rectS.bottom - 6}px;
+                width:${ringW}px; height:${ringH}px;
+                transform:translate(-50%,-50%) scale(0.2);
+                border-radius:50%;
+                background:radial-gradient(ellipse, ${cfg.core}aa 0%, ${cfg.mid}88 30%, ${cfg.glow}44 60%, transparent 82%);
+                filter:blur(5px); opacity:0; z-index:9986; pointer-events:none;
+            `;
+            document.body.appendChild(groundOuter);
+            chargeEls.push(groundOuter);
+
+            const groundInner = document.createElement('div');
+            groundInner.style.cssText = `
+                position:fixed; left:${sx}px; top:${rectS.bottom - 6}px;
+                width:${ringW * 0.55}px; height:${ringH * 0.55}px;
+                transform:translate(-50%,-50%) scale(0.2);
+                border-radius:50%;
+                background:radial-gradient(ellipse, #fff 0%, ${cfg.core} 40%, ${cfg.glow}aa 75%, transparent 100%);
+                filter:blur(2px); opacity:0; z-index:9987; pointer-events:none;
+            `;
+            document.body.appendChild(groundInner);
+            chargeEls.push(groundInner);
+
+            groundOuter.animate([
+                { transform: 'translate(-50%,-50%) scale(0.2)', opacity: 0 },
+                { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.9, offset: 0.55 },
+                { transform: 'translate(-50%,-50%) scale(1.08)', opacity: 0.8 }
+            ], { duration: chargeMs, fill: 'forwards', easing: 'ease-out' });
+            groundInner.animate([
+                { transform: 'translate(-50%,-50%) scale(0.2)', opacity: 0 },
+                { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: 0.55 },
+                { transform: 'translate(-50%,-50%) scale(1.05)', opacity: 0.9 }
+            ], { duration: chargeMs, fill: 'forwards', easing: 'ease-out' });
+
+            const haloSize = Math.max(rectS.width, rectS.height) * 1.5;
+            const haloOuter = document.createElement('div');
+            haloOuter.style.cssText = `
+                position:fixed; left:${sx}px; top:${sy}px;
+                width:${haloSize}px; height:${haloSize}px;
+                transform:translate(-50%,-50%) scale(0.3);
+                border-radius:50%;
+                background:radial-gradient(circle, ${cfg.core}00 35%, ${cfg.mid}55 60%, ${cfg.glow}33 85%, transparent 100%);
+                filter:blur(8px); opacity:0; z-index:9984; pointer-events:none;
+            `;
+            document.body.appendChild(haloOuter);
+            chargeEls.push(haloOuter);
+
+            const haloInner = document.createElement('div');
+            haloInner.style.cssText = `
+                position:fixed; left:${sx}px; top:${sy}px;
+                width:${haloSize * 0.7}px; height:${haloSize * 0.7}px;
+                transform:translate(-50%,-50%) scale(0.3);
+                border-radius:50%;
+                background:radial-gradient(circle, ${cfg.core}66 0%, ${cfg.mid}44 55%, transparent 85%);
+                filter:blur(3px); opacity:0; z-index:9985; pointer-events:none;
+                mix-blend-mode:screen;
+            `;
+            document.body.appendChild(haloInner);
+            chargeEls.push(haloInner);
+
+            haloOuter.animate([
+                { transform: 'translate(-50%,-50%) scale(0.3)', opacity: 0 },
+                { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: 0.65 },
+                { transform: 'translate(-50%,-50%) scale(1.05)', opacity: 0.9 }
+            ], { duration: chargeMs, fill: 'forwards', easing: 'ease-out' });
+            haloInner.animate([
+                { transform: 'translate(-50%,-50%) scale(0.3)', opacity: 0 },
+                { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: 0.65 },
+                { transform: 'translate(-50%,-50%) scale(1.05)', opacity: 0.85 }
+            ], { duration: chargeMs, fill: 'forwards', easing: 'ease-out' });
+
+            const orbSize = 16 * scale;
+            const orb = document.createElement('div');
+            orb.style.cssText = `
+                position:fixed; left:${bx}px; top:${by}px;
+                width:${orbSize}px; height:${orbSize}px;
+                transform:translate(-50%,-50%) scale(0);
+                border-radius:50%;
+                background:radial-gradient(circle, #fff 0%, ${cfg.core} 35%, ${cfg.mid} 65%, ${cfg.edge} 100%);
+                box-shadow:0 0 ${12 * scale}px ${cfg.glow}, 0 0 ${22 * scale}px ${cfg.glow};
+                opacity:0; z-index:9992; pointer-events:none;
+            `;
+            document.body.appendChild(orb);
+            chargeEls.push(orb);
+
+            sparkleTimer = setInterval(() => {
+                const ang = Math.random() * Math.PI * 2;
+                const rad = orbSize * (1.3 + Math.random() * 0.9);
+                const px = bx + Math.cos(ang) * rad;
+                const py = by + Math.sin(ang) * rad * 0.6;
+                const spark = document.createElement('div');
+                const ssize = 2 + Math.random() * 3;
+                spark.style.cssText = `
+                    position:fixed; left:${px}px; top:${py}px;
+                    width:${ssize}px; height:${ssize}px; border-radius:50%;
+                    background:#fff; box-shadow:0 0 6px ${cfg.glow};
+                    transform:translate(-50%,-50%); opacity:0.9; z-index:9993; pointer-events:none;
+                `;
+                document.body.appendChild(spark);
+                spark.animate([
+                    { opacity: 0.9, transform: 'translate(-50%,-50%) translate(0,0) scale(1)' },
+                    { opacity: 0, transform: `translate(-50%,-50%) translate(${Math.cos(ang) * 14}px, ${Math.sin(ang) * 14}px) scale(0.3)` }
+                ], { duration: 450 }).onfinish = () => spark.remove();
+            }, 70);
+
+            if (this.playRandomSfx) this.playRandomSfx();
+            await orb.animate([
+                { transform: 'translate(-50%,-50%) scale(0)', opacity: 0 },
+                { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: 0.75 },
+                { transform: 'translate(-50%,-50%) scale(1.15)', opacity: 1 }
+            ], { duration: chargeMs, fill: 'forwards', easing: 'ease-out' }).finished;
+
+            // Nhịp thở liên tục cho toàn bộ pha 1 — không đứng yên trong lúc chờ bắn
+            const chargePulses = [
+                groundOuter.animate(
+                    [{ transform: 'translate(-50%,-50%) scale(1.08)' }, { transform: 'translate(-50%,-50%) scale(0.96)' }],
+                    { duration: 550, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }),
+                groundInner.animate(
+                    [{ transform: 'translate(-50%,-50%) scale(1.05)' }, { transform: 'translate(-50%,-50%) scale(0.92)' }],
+                    { duration: 480, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }),
+                haloOuter.animate(
+                    [{ transform: 'translate(-50%,-50%) scale(1.05)' }, { transform: 'translate(-50%,-50%) scale(0.94)' }],
+                    { duration: 620, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }),
+                haloInner.animate(
+                    [{ transform: 'translate(-50%,-50%) scale(1.05)' }, { transform: 'translate(-50%,-50%) scale(0.93)' }],
+                    { duration: 500, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }),
+                orb.animate(
+                    [{ transform: 'translate(-50%,-50%) scale(1.15)' }, { transform: 'translate(-50%,-50%) scale(1.02)' }],
+                    { duration: 400, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' })
+            ];
+
+            // ═══════════ PHA 2: BẮN DẢI — xuất phát từ vị trí quả cầu (bx,by) ═══════════
+            const dx = ex - bx, dy = ey - by;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            const beamWidth = 30 * scale;
+
+            const beamOuter = document.createElement('div');
+            beamOuter.style.cssText = `
+                position:fixed; left:${bx}px; top:${by}px;
+                width:0px; height:${beamWidth}px;
+                transform-origin:0 50%;
+                transform:rotate(${angle}deg);
+                background:linear-gradient(90deg, transparent 0%, ${cfg.glow}22 15%, ${cfg.glow}33 50%, ${cfg.glow}22 85%, transparent 100%);
+                border-radius:${beamWidth / 2}px;
+                filter:blur(4px); opacity:0; z-index:9998; pointer-events:none;
+            `;
+            document.body.appendChild(beamOuter);
+            beamEls.push(beamOuter);
+
+            if (this.playRandomSfx) this.playRandomSfx();
+
+            beamOuter.animate([
+                { width: '0px', opacity: 0 },
+                { width: `${distance}px`, opacity: 0.7, offset: 0.2 },
+                { width: `${distance}px`, opacity: 0.7 }
+            ], { duration: beamMs, fill: 'forwards', easing: 'ease-in' });
+
+            const flowInterval = 18;
+            const flowDuration = 480;
+            let flowActive = true;
+            let firstHitDone = false;
+            let persistentImpact = null;
+
+            const spawnHitSpark = () => {
+                const jitter = (Math.random() - 0.5) * 26 * scale;
+                const px = ex + perpX * jitter, py = ey + perpY * jitter;
+                const spark = document.createElement('div');
+                const ssize = (26 + Math.random() * 16) * scale;
+                spark.style.cssText = `
+                    position:fixed; left:${px}px; top:${py}px;
+                    width:${ssize}px; height:${ssize}px; border-radius:50%;
+                    background:radial-gradient(circle, #fff 0%, ${cfg.core} 35%, ${cfg.glow}aa 65%, transparent 85%);
+                    box-shadow:0 0 ${18 * scale}px ${cfg.glow}, 0 0 ${34 * scale}px ${cfg.glow};
+                    transform:translate(-50%,-50%) scale(0.3);
+                    opacity:0; z-index:10004; pointer-events:none;
+                    mix-blend-mode:screen;
+                `;
+                document.body.appendChild(spark);
+                spark.animate([
+                    { transform: 'translate(-50%,-50%) scale(0.3)', opacity: 0 },
+                    { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: 0.35 },
+                    { transform: 'translate(-50%,-50%) scale(1.4)', opacity: 0 }
+                ], { duration: 240, easing: 'ease-out' }).onfinish = () => spark.remove();
+            };
+
+            const spawnFlowParticle = () => {
+                if (!flowActive) return;
+                const jitter = (Math.random() - 0.5) * beamWidth * 0.7;
+                const psize = (4 + Math.random() * 5) * Math.min(1.3, scale);
+                const p = document.createElement('div');
+                p.style.cssText = `
+                    position:fixed; left:${bx}px; top:${by}px;
+                    width:${psize}px; height:${psize}px; border-radius:50%;
+                    background:radial-gradient(circle, #fff 0%, ${cfg.core} 45%, ${cfg.mid} 100%);
+                    box-shadow:0 0 ${6 * scale}px ${cfg.glow};
+                    transform:translate(-50%,-50%); opacity:0; z-index:10001; pointer-events:none;
+                `;
+                document.body.appendChild(p);
+                p.animate([
+                    { offset: 0,    transform: `translate(-50%,-50%) translate(${perpX * jitter}px, ${perpY * jitter}px)`, opacity: 0 },
+                    { offset: 0.15, opacity: 1 },
+                    { offset: 0.85, opacity: 1 },
+                    { offset: 1,    transform: `translate(-50%,-50%) translate(${dx + perpX * jitter}px, ${dy + perpY * jitter}px)`, opacity: 0 }
+                ], { duration: flowDuration, easing: 'linear' }).onfinish = () => {
+                    p.remove();
+                    if (!flowActive && firstHitDone) return;
+                    spawnHitSpark();
+                    if (!firstHitDone) {
+                        firstHitDone = true;
+                        persistentImpact = this.createImpactAura(endEl, ex, ey, scale, cfg);
+                        impactEls.push(persistentImpact.el);
+                    } else if (persistentImpact) {
+                        persistentImpact.bump();
+                    }
+                };
+            };
+
+            const flowTimer = setInterval(spawnFlowParticle, flowInterval);
+
+            await new Promise(r => setTimeout(r, beamMs));
+
+            // ═══════════ PHA 3: DUY TRÌ — dòng hạt + vùng sáng vẫn tiếp tục chạy ═══════════
+            await new Promise(r => setTimeout(r, sustainMs));
+
+            // ═══════════ DỌN DẸP TUẦN TỰ: pha 1 → pha 2 → pha 3, mượt dần ═══════════
+            clearInterval(sparkleTimer);
+            chargePulses.forEach(p => p.cancel());
+            flowActive = false;
+            clearInterval(flowTimer);
+            if (persistentImpact) persistentImpact.stopPulse();
+
+            await Promise.all(chargeEls.map(el => el.animate(
+                [{ transform: getComputedStyle(el).transform, opacity: getComputedStyle(el).opacity },
+                 { transform: 'translate(-50%,-50%) scale(0.4)', opacity: 0 }],
+                { duration: fadeStepMs, fill: 'forwards', easing: 'ease-in' }
+            ).finished));
+            chargeEls.forEach(el => el.remove());
+
+            await Promise.all(beamEls.map(el => el.animate(
+                [{ width: `${distance}px`, opacity: getComputedStyle(el).opacity },
+                 { width: '0px', opacity: 0 }],
+                { duration: fadeStepMs, fill: 'forwards', easing: 'ease-in' }
+            ).finished));
+            beamEls.forEach(el => el.remove());
+
+            await Promise.all(impactEls.map(el => el.animate(
+                [{ transform: getComputedStyle(el).transform, opacity: getComputedStyle(el).opacity },
+                 { transform: getComputedStyle(el).transform.replace(/scale\([^)]+\)/, 'scale(0.3)'), opacity: 0 }],
+                { duration: fadeStepMs, fill: 'forwards', easing: 'ease-in' }
+            ).finished));
+            impactEls.forEach(el => el.remove());
+        },
+
+        // PHA 3 — vùng sáng bao quanh thân đối thủ, LỚN DẦN + SÁNG DẦN theo từng
+        // hạt trúng, có nhịp thở liên tục, thay thế hoàn toàn ring/cone tĩnh cũ.
+        createImpactAura(targetEl, x, y, scale, cfg) {
+            const rect = targetEl.getBoundingClientRect();
+            const baseSize = Math.max(rect.width, rect.height) * 1.5;
+
+            const aura = document.createElement('div');
+            aura.style.cssText = `
+                position:fixed; left:${x}px; top:${y}px;
+                width:${baseSize}px; height:${baseSize}px;
+                transform:translate(-50%,-50%) scale(0.3);
+                border-radius:50%;
+                background:radial-gradient(circle, #fff 0%, ${cfg.core} 25%, ${cfg.mid}cc 50%, ${cfg.glow}66 75%, transparent 100%);
+                filter:blur(6px) brightness(1.8);
+                opacity:0; z-index:10003; pointer-events:none;
+                mix-blend-mode:screen;
+            `;
+            document.body.appendChild(aura);
+
+            aura.animate([
+                { transform: 'translate(-50%,-50%) scale(0.3)', opacity: 0 },
+                { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: 0.5 },
+                { transform: 'translate(-50%,-50%) scale(1.05)', opacity: 0.95 }
+            ], { duration: 260, fill: 'forwards', easing: 'ease-out' });
+
+            const breathing = aura.animate(
+                [{ filter: 'blur(6px) brightness(1.8)' }, { filter: 'blur(10px) brightness(2.6)' }],
+                { duration: 420, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }
+            );
+
+            let growth = 0;
+            return {
+                el: aura,
+                bump() {
+                    growth = Math.min(growth + 1, 6);
+                    const scaleTo = 1 + growth * 0.14;
+                    aura.animate([
+                        { transform: `translate(-50%,-50%) scale(${scaleTo})`, filter: 'blur(6px) brightness(1.8)' },
+                        { transform: `translate(-50%,-50%) scale(${scaleTo * 1.18})`, filter: 'blur(12px) brightness(3)' },
+                        { transform: `translate(-50%,-50%) scale(${scaleTo})`, filter: 'blur(6px) brightness(1.8)' }
+                    ], { duration: 220, easing: 'ease-out' });
+                },
+                stopPulse() { breathing.cancel(); }
+            };
+        },
+
     };
 
     SM.normalSkills = Object.assign(Object.create(SM), coreSkills);
@@ -2118,6 +2457,24 @@
         await new Promise(r => setTimeout(r, cfg.shake));
         target.classList.remove('shake');
     }
+    async function executeStreamSkill(attacker, target, info) {
+        const type = info.type || 'normal';
+        const scale = parseFloat(attacker.dataset.scale) || 1;
+        const cfg = this.durationConfig.normal;
+        const meta = bigOrbTypeConfig[type] || bigOrbTypeConfig.normal;
+
+        window.PkmUnitFX?.showSkillName(info.attackerSide, info.attackerIndex, meta.label);
+
+        await playAttackerMotion_Projectile.call(this, attacker, scale);
+
+        await SM.normalSkills.spawnBeamStream.call(SM.normalSkills, attacker, target, 1, scale, info);
+
+        this.applyGlobalShake(scale * 0.6);
+        this.createDamageText(target, info.damage);
+        target.classList.add('shake');
+        await new Promise(r => setTimeout(r, cfg.shake));
+        target.classList.remove('shake');
+    }
 
     async function playNormalAttack(info) {
         const attackerSide = info.attackerSide;
@@ -2143,6 +2500,8 @@
             await executePhysicalAttack.call(this, attacker, target, info.damage);
         } else if (roll < cfg.physicalStyleChance + cfg.bigOrbChance) {
             await executeBigOrbSkill.call(this, attacker, target, info);
+        } else if (roll < cfg.physicalStyleChance + cfg.bigOrbChance + cfg.streamChance) {
+            await executeStreamSkill.call(this, attacker, target, info);   // ← MỚI
         } else {
             await executeThemedNormal.call(this, attacker, target, info);
         }
@@ -2150,14 +2509,15 @@
 
     Object.assign(SM, {
         skillMetaNormal,
-        bigOrbTypeConfig,        // MỚI
+        bigOrbTypeConfig,
         playLightSfx,
         playAttackerMotion_Projectile,
         playAttackerMotion_Summon,
         executePhysicalAttack,
         executeMissedNormal,
         executeThemedNormal,
-        executeBigOrbSkill,      // MỚI
+        executeBigOrbSkill,
+        executeStreamSkill,   // ← MỚI
         playNormalAttack,
     });
 
