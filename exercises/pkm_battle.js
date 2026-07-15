@@ -20,6 +20,7 @@ window.BattleGame = {
 
         async init() {
         console.log("⚔️ [DEBUG] BattleGame.init() started");
+            if (window.ArenaReady) await window.ArenaReady;
 
         const inv = JSON.parse(localStorage.getItem('pkm_inventory')) || [];
 
