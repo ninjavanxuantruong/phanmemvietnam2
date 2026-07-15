@@ -54,11 +54,22 @@ window.PkmStyles = {
     // hệ số scale AN TOÀN cho layout — KHÔNG scale tuyến tính 100% vì chênh
     // lệch giữa các loài quá cực đoan (VD Wailord ~14.5m vs Joltik ~0.1m,
     // gấp 145 lần — nếu scale thẳng sẽ vỡ bố cục ngay).
+    //
+    // GIỚI HẠN 2X TỔNG THỂ: finalScale hiển thị = bodyScale × pos.scale
+    // (pos.scale là hệ số phối cảnh vị trí, dao động 0.95–1.2 tuỳ bộ
+    // solo/duo/full → tự nó đã lệch nhau ~1.26 lần). Nếu bodyScale vẫn
+    // giữ biên [0.75, 1.5] (lệch 2 lần) thì khi nhân dồn với pos.scale,
+    // con to nhất ở bộ solo (1.2 × 1.5 = 1.8) so với con nhỏ nhất ở bộ
+    // full (0.95 × 0.75 = 0.7125) sẽ lệch tới ~2.53 lần — VƯỢT quá 2x.
+    // Do đó ở đây siết biên bodyScale lại còn [0.85, 1.3] (tự nó lệch
+    // ~1.53 lần), để khi nhân dồn với pos.scale (lệch ~1.26 lần) thì
+    // finalScale tổng thể tối đa chỉ còn lệch ~1.93 lần — luôn ĐẢM BẢO
+    // dưới ngưỡng 2x giữa con to nhất và con nhỏ nhất trong mọi trường hợp.
     getBodyScale(heightDecimeter) {
         const heightM = (heightDecimeter || 10) / 10; // fallback 1m nếu thiếu dữ liệu
         const baseline = 1.0; // mét, coi là kích cỡ "trung bình"
         const raw = Math.sqrt(heightM / baseline);
-        return Math.min(1.5, Math.max(0.75, raw));
+        return Math.min(1.3, Math.max(0.85, raw));
     },
 
     // Render từng Pokemon — nhận thêm teamSize để biết dùng bộ vị trí nào
