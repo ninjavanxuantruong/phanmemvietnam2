@@ -42,10 +42,10 @@ function speak(text) {
 
 // ===== UI refs =====
 const topicSelect = document.getElementById("topicSelect");
-const countSelect = document.getElementById("countSelect");
 const startBtn = document.getElementById("startBtn");
 const refreshBtn = document.getElementById("refreshBtn");
 const hintBtn = document.getElementById("hintBtn");
+const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 const replayBtn = document.getElementById("replayBtn");
 const statusLine = document.getElementById("statusLine");
@@ -66,7 +66,7 @@ async function initQanda() {
   try {
     const rows = await fetchRows();
     buildTopicDropdown(rows);
-    status("Sẵn sàng. Chọn chủ đề / số câu rồi bấm Bắt đầu.");
+    status("Sẵn sàng. Chọn chủ đề rồi bấm Bắt đầu.");
   } catch (e) {
     console.error("❌ Init error:", e);
     status("Không thể tải dữ liệu.");
@@ -76,6 +76,7 @@ async function initQanda() {
 function bindControls() {
   startBtn.onclick = startQanda;
   hintBtn.onclick = showAnswer;
+  prevBtn.onclick = prevQuestion;
   nextBtn.onclick = nextQuestion;
   replayBtn.onclick = () => {
     if (currentIndex < qaPool.length) speak(qaPool[currentIndex].question);
@@ -93,16 +94,16 @@ function bindControls() {
 async function startQanda() {
   startBtn.disabled = true;
   hintBtn.disabled = true;
+  prevBtn.disabled = true;
   nextBtn.disabled = true;
   answerBox.style.display = "none";
 
   try {
     status("Đang chuẩn bị câu hỏi...");
-    const count = parseInt(countSelect.value, 10);
 
     const maxLessonCode = await getMaxLessonCode();
     const rows = await fetchRows();
-    qaPool = buildQAPool(rows, count, maxLessonCode);
+    qaPool = buildQAPool(rows, maxLessonCode);
 
     if (qaPool.length === 0) {
       status("📭 Không tìm thấy câu hỏi phù hợp.");
@@ -110,13 +111,10 @@ async function startQanda() {
       return;
     }
 
-    status(`Đang tải ảnh (${qaPool.length} câu)...`);
-    await imageCache.prefetchImagesBatch(qaPool.map(q => q.vocab));
-
     currentIndex = 0;
     hintBtn.disabled = false;
     nextBtn.disabled = false;
-    status(`Sẵn sàng — ${qaPool.length} câu hỏi.`);
+    status(`Sẵn sàng — ${qaPool.length} câu hỏi (1 vòng).`);
     renderQuestion();
   } catch (e) {
     console.error("❌ Start error:", e);
@@ -128,13 +126,14 @@ async function startQanda() {
 
 async function renderQuestion() {
   if (currentIndex >= qaPool.length) {
-    questionText.textContent = "🎉 Đã hết câu hỏi! Bấm Bắt đầu để làm vòng mới.";
+    questionText.textContent = "🎉 Đã hết vòng câu hỏi! Bấm Bắt đầu để làm vòng mới.";
     qaImage.src = "";
     answerBox.style.display = "none";
     currentStepEl.textContent = qaPool.length;
     totalStepEl.textContent = qaPool.length;
     hintBtn.disabled = true;
     nextBtn.disabled = true;
+    prevBtn.disabled = false;
     return;
   }
 
@@ -146,6 +145,9 @@ async function renderQuestion() {
   currentStepEl.textContent = currentIndex + 1;
   totalStepEl.textContent = qaPool.length;
   speak(current.question);
+
+  prevBtn.disabled = currentIndex === 0;
+  nextBtn.disabled = false;
 
   // Ảnh loading tạm
   qaImage.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f0f0f0"/%3E%3Ccircle cx="50" cy="40" r="15" fill="%23cccccc"/%3E%3Crect x="40" y="60" width="20" height="30" fill="%23cccccc"/%3E%3C/svg%3E';
@@ -160,6 +162,16 @@ async function renderQuestion() {
   } catch (e) {
     console.error("❌ Lỗi load ảnh:", e);
   }
+
+  // Chỉ preload trước ẢNH CỦA CÂU KẾ TIẾP (âm thầm, không chặn UI, không gọi hàng loạt)
+  preloadNextImage();
+}
+
+// Âm thầm tải trước ảnh của câu hỏi kế tiếp trong lúc người dùng đang xem câu hiện tại
+function preloadNextImage() {
+  const next = qaPool[currentIndex + 1];
+  if (!next) return;
+  imageCache.getImage(next.vocab).catch(() => {});
 }
 
 function showAnswer() {
@@ -168,6 +180,12 @@ function showAnswer() {
   answerText.textContent = answer;
   answerBox.style.display = "block";
   speak(answer);
+}
+
+function prevQuestion() {
+  if (currentIndex <= 0) return;
+  currentIndex--;
+  renderQuestion();
 }
 
 function nextQuestion() {
@@ -183,10 +201,10 @@ function buildTopicDropdown(rows) {
     topics.map(t => `<option value="${escapeHTML(t)}">${escapeHTML(t)}</option>`).join("");
 }
 
-function buildQAPool(rows, count, maxLessonCode) {
+function buildQAPool(rows, maxLessonCode) {
   const selectedTopic = topicSelect.value || "ALL";
 
-  // NHÓM THEO BÀI (Unit) - mỗi bài lấy 1 câu, giống physical.js
+  // NHÓM THEO BÀI (Unit) - mỗi bài lấy đúng 1 câu cho 1 vòng, giống physical.js
   const groupedByUnit = {};
 
   rows.forEach(r => {
@@ -221,38 +239,14 @@ function buildQAPool(rows, count, maxLessonCode) {
   const unitIds = Object.keys(groupedByUnit);
   if (unitIds.length === 0) return [];
 
-  // Xáo thứ tự bài
-  shuffleInPlace(unitIds);
-
-  const picked = [];
-
-  // Pass 1: mỗi bài 1 câu ngẫu nhiên
-  for (const unitId of unitIds) {
+  // Mỗi bài chọn ngẫu nhiên đúng 1 câu, rồi xáo thứ tự các bài cho 1 vòng chơi
+  const picked = unitIds.map(unitId => {
     const arr = groupedByUnit[unitId];
-    const chosen = arr[Math.floor(Math.random() * arr.length)];
-    picked.push(chosen);
-    if (picked.length >= count) break;
-  }
-
-  // Pass 2: nếu chưa đủ số câu yêu cầu, quay vòng lấy thêm câu khác trong cùng bài (nếu có)
-  let loops = 0;
-  while (picked.length < count && loops < 20) {
-    let added = false;
-    for (const unitId of unitIds) {
-      const arr = groupedByUnit[unitId];
-      if (arr.length > 1) {
-        const chosen = arr[Math.floor(Math.random() * arr.length)];
-        picked.push(chosen);
-        added = true;
-        if (picked.length >= count) break;
-      }
-    }
-    if (!added) break;
-    loops++;
-  }
+    return arr[Math.floor(Math.random() * arr.length)];
+  });
 
   shuffleInPlace(picked);
-  return picked.slice(0, count);
+  return picked;
 }
 
 // ===== GViz / Exec fetch (tương thích cả 2 định dạng) + cache localStorage =====
