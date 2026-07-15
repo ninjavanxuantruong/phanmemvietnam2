@@ -3000,7 +3000,7 @@ window.SkillManager = {
     // targetSustain (không cộng dồn thêm ngoài đó).
     // ══════════════════════════════════════════════════════════
     async playGiantSpiritCharge(attacker, endEl, scale, opts) {
-        const { color = '#fff', ghostMultiplier = 35, sfxType = 'normal' } = opts || {};
+        const { color = '#fff', ghostMultiplier = 14, sfxType = 'normal' } = opts || {};
         const cfg = this.durationConfig.aoe;
         const chargeMs = cfg.chargeAura;
         const descendMs = Math.min(320, cfg.targetSustain * 0.22);
@@ -3016,162 +3016,120 @@ window.SkillManager = {
         const baseScale = parseFloat(attacker.dataset.scale) || 1;
 
         const imgRect = imgEl.getBoundingClientRect();
-        const footX = imgRect.left + imgRect.width / 2;
-        const footY = imgRect.bottom - 4 * scale;
         const centerX = imgRect.left + imgRect.width / 2;
         const centerY = imgRect.top + imgRect.height / 2;
         const ghostW = imgRect.width * ghostMultiplier;
         const ghostH = imgRect.height * ghostMultiplier;
 
         const allEls = [];
-        this.injectVortexKeyframes();
 
-        // ── PHA 1: GỒNG CHIÊU — LỐC XOÁY PHỄU VÀNG HOÀNG KIM (Mọc từ chân Pokémon lên) ──
+        // ── PHA 1: GỒNG CHIÊU — Pokémon nâng lên nhẹ + cụm ánh sáng (ghost + hào quang) hiện dần ──
         this.playChargeSfx(sfxType);
 
         const liftPx = Math.max(22, imgRect.height * 0.32) * scale;
         imgWrapper.style.transition = `transform ${chargeMs}ms cubic-bezier(0.22,1,0.36,1)`;
         imgWrapper.style.transform = `translateY(-${liftPx}px) scale(${baseScale}) scaleX(${flip})`;
 
-        // Chiều cao vòi rồng phủ qua đầu Pokémon
-        const tornadoH = liftPx + imgRect.height * 1.1; 
-        const tornadoW = imgRect.width * 1.5;
-
-        // Container lốc — Neo gốc tại chân (footY) và mọc ngược lên trên nhờ translate(-50%, -100%)
-        const tornado = document.createElement('div');
-        tornado.style.cssText = `
-            position: fixed; left:${footX}px; top:${footY}px;
-            width:${tornadoW}px; height:${tornadoH}px;
-            transform: translate(-50%,-100%) scaleY(0.12);
-            transform-origin: 50% 100%;
-            z-index: 1; pointer-events:none; opacity:0;
+        // ✅ Container neo tại đúng vị trí Pokémon — MỌI lớp hào quang + ghost đều
+        // là con của group này, nên khi group di chuyển (Pha 2), tất cả bay theo cùng nhau.
+        const ghostGroup = document.createElement('div');
+        ghostGroup.style.cssText = `
+            position: fixed; left:${centerX}px; top:${centerY}px;
+            width:0; height:0;
+            transform: translate(0px,0px);
+            z-index: 9987; pointer-events:none;
+            will-change: transform;
         `;
-        document.body.appendChild(tornado);
-        allEls.push(tornado);
+        document.body.appendChild(ghostGroup);
+        allEls.push(ghostGroup);
 
-        // Tạo 20 tầng dải xoáy chồng khít lên nhau tạo độ đặc khối (Volumetric)
-        const bandCount = 20;
-        for (let i = 0; i < bandCount; i++) {
-            const t = i / (bandCount - 1); // 0 = đỉnh (rộng nhất), 1 = đáy (sát chân, hẹp nhất)
-
-            // Thiết lập hình phễu: trên to dưới nhỏ
-            const bandW = tornadoW * (0.28 + (1 - t) * 0.85); 
-            const topOffset = t * tornadoH;
-
-            // Tốc độ xoay chậm rãi, majestic (từ 2.5s đến 5s mỗi vòng)
-            const spinDur = 2.5 + (1 - t) * 2.5; 
-            const spinAnim = i % 2 === 0 ? 'pkm-vortex-band-spin-clockwise' : 'pkm-vortex-band-spin-counter';
-
-            // Tạo đường uốn cong nhẹ tự nhiên theo dáng chữ S
-            const waveOffset = Math.sin(t * Math.PI * 1.2) * 12 * scale;
-
-            // Khung chứa dải xoáy - sử dụng scaleY(0.3) để tạo góc nhìn nghiêng dẹt 3D hoàn hảo
-            const ring = document.createElement('div');
-            ring.style.cssText = `
-                position: absolute; 
-                left: calc(50% + ${waveOffset}px); 
-                top: ${topOffset}px;
-                width: ${bandW}px; 
-                height: ${bandW}px;
-                transform: translate(-50%, -50%) scaleY(0.3);
-                transform-origin: 50% 50%;
-            `;
-
-            // Lớp vân bão chuyển động xoay tròn bên trong dải xoáy
-            const ringInner = document.createElement('div');
-            ringInner.style.cssText = `
-                width: 100%; height: 100%;
-                border-radius: 50%;
-                /* Phối màu chuẩn Lốc Vàng: Trắng lõi -> Vàng hoàng kim -> Cam lửa -> Điểm tối */
-                background: conic-gradient(from 0deg,
-                    #ffffff 0deg, 
-                    #ffea00 45deg, 
-                    #ff9a00 120deg, 
-                    #cc3c00 180deg, 
-                    #ff9a00 240deg, 
-                    #ffea00 315deg, 
-                    #ffffff 360deg
-                );
-                box-shadow: 
-                    0 0 ${12 * scale}px #ffea00, 
-                    inset 0 0 ${8 * scale}px rgba(204,60,0,0.6);
-                filter: blur(${1 * scale}px);
-                animation: ${spinAnim} ${spinDur}s linear infinite;
-                opacity: ${0.9 - t * 0.2};
-            `;
-
-            ring.appendChild(ringInner);
-            tornado.appendChild(ring);
-        }
-
-        // Lõi sáng trắng rực rỡ chạy dọc tâm lốc xoáy
-        const core = document.createElement('div');
-        core.style.cssText = `
-            position: absolute; left: 50%; top: 0; bottom: 0;
-            width: ${tornadoW * 0.22}px;
-            transform: translateX(-50%);
-            background: linear-gradient(to top, rgba(255,255,255,0) 0%, #ffea00dd 40%, #ffffff 100%);
-            filter: blur(${6 * scale}px);
-            opacity: 0.8;
-            mix-blend-mode: screen;
-            z-index: 2;
+        // 1. Tia sáng toả sau lưng (sunburst) — xoay chậm, liên tục suốt vòng đời
+        const sunburstSize = ghostW * 1.15;
+        const sunburst = document.createElement('div');
+        sunburst.style.cssText = `
+            position: absolute; left:0; top:0;
+            width:${sunburstSize}px; height:${sunburstSize}px;
+            background: conic-gradient(from 0deg,
+                transparent 0deg, ${color}55 8deg, transparent 16deg,
+                transparent 40deg, ${color}55 48deg, transparent 56deg,
+                transparent 80deg, ${color}55 88deg, transparent 96deg,
+                transparent 120deg, ${color}55 128deg, transparent 136deg,
+                transparent 160deg, ${color}55 168deg, transparent 176deg,
+                transparent 200deg, ${color}55 208deg, transparent 216deg,
+                transparent 240deg, ${color}55 248deg, transparent 256deg,
+                transparent 280deg, ${color}55 288deg, transparent 296deg,
+                transparent 320deg, ${color}55 328deg, transparent 336deg, transparent 360deg);
+            border-radius: 50%;
+            transform: translate(-50%,-50%) scale(0.3) rotate(0deg);
+            opacity: 0; pointer-events:none;
+            will-change: transform, opacity;
         `;
-        tornado.appendChild(core);
+        ghostGroup.appendChild(sunburst);
+        sunburst.animate([
+            { transform: 'translate(-50%,-50%) scale(0.3) rotate(0deg)', opacity: 0 },
+            { transform: 'translate(-50%,-50%) scale(1) rotate(60deg)', opacity: 0.9, offset: 0.6 },
+            { transform: 'translate(-50%,-50%) scale(1) rotate(360deg)', opacity: 0.8 }
+        ], { duration: 4000, iterations: Infinity, easing: 'linear' });
 
-        // Hạt bụi lửa xoắn ốc cuộn tròn đi lên từ chân lên đỉnh lốc
-        const debrisCount = 14;
-        for (let i = 0; i < debrisCount; i++) {
-            const dSize = (3 + Math.random() * 3.5) * scale;
-            const debris = document.createElement('div');
-
-            // Thiết lập tọa độ leo dốc xoắn ốc
-            const startY = tornadoH;         // Điểm xuất phát ở chân
-            const endY = -30;                // Điểm biến mất trên đỉnh lốc
-            const startR = tornadoW * 0.1 * scale;  // Bán kính hẹp ở đáy
-            const endR = tornadoW * 0.55 * scale;   // Bán kính xòe rộng ở đỉnh
-            const spinDur = 1.5 + Math.random() * 1.0;
-            const delay = -Math.random() * spinDur;
-
-            const colors = ['#ffffff', '#fff5b0', '#ffea00', '#ff5500'];
-            const randColor = colors[Math.floor(Math.random() * colors.length)];
-
-            debris.style.cssText = `
-                position: absolute; left: 50%; top: 0;
-                width: ${dSize}px; height: ${dSize}px; border-radius: 50%;
-                background: ${randColor}; box-shadow: 0 0 ${4 * scale}px ${randColor};
-                pointer-events: none;
-                --start-r: ${startR}px;
-                --end-r: ${endR}px;
-                --start-y: ${startY}px;
-                --end-y: ${endY}px;
-                animation: pkm-vortex-orbit-up ${spinDur}s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
-                animation-delay: ${delay}s;
-            `;
-            tornado.appendChild(debris);
-            allEls.push(debris);
-        }
-
-        // Kích hoạt hoạt ảnh mọc vòi rồng đứng từ dưới đất lên
-        const growAnim = tornado.animate([
-            { transform: 'translate(-50%,-100%) scaleY(0.12)', opacity: 0 },
-            { transform: 'translate(-50%,-100%) scaleY(1.08)', opacity: 1, offset: 0.7 },
-            { transform: 'translate(-50%,-100%) scaleY(1)', opacity: 1 }
+        // 2. Vòng hào quang nhấp nháy
+        const haloOuter = document.createElement('div');
+        haloOuter.style.cssText = `
+            position: absolute; left:0; top:0;
+            width:${ghostW * 0.55}px; height:${ghostH * 0.55}px;
+            border-radius: 50%; background: ${color};
+            filter: blur(${18 * scale}px);
+            transform: translate(-50%,-50%) scale(0.3);
+            opacity: 0; pointer-events:none;
+            will-change: transform, opacity;
+        `;
+        ghostGroup.appendChild(haloOuter);
+        haloOuter.animate([
+            { transform: 'translate(-50%,-50%) scale(0.3)', opacity: 0 },
+            { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.45 }
         ], { duration: chargeMs, fill: 'forwards', easing: 'ease-out' });
+        haloOuter.animate([
+            { transform: 'translate(-50%,-50%) scale(0.9)' },
+            { transform: 'translate(-50%,-50%) scale(1.08)' },
+            { transform: 'translate(-50%,-50%) scale(0.9)' }
+        ], { duration: 1400, iterations: Infinity, easing: 'ease-in-out', delay: chargeMs });
 
-        // Bản thể ma khổng lồ — clone ĐÚNG ảnh đang hiển thị
+        // 3. Hạt sáng lấp lánh bay quanh
+        const sparkleCount = 7;
+        for (let i = 0; i < sparkleCount; i++) {
+            const angle = (i / sparkleCount) * 360;
+            const orbitR = ghostW * (0.42 + Math.random() * 0.12);
+            const sparkle = document.createElement('div');
+            const sSize = (3.5 + Math.random() * 2.5) * scale;
+            sparkle.style.cssText = `
+                position: absolute; left:0; top:0;
+                width:${sSize}px; height:${sSize}px; border-radius:50%;
+                background: #fff; box-shadow: 0 0 ${6 * scale}px ${color};
+                opacity: 0; pointer-events:none;
+                will-change: transform, opacity;
+            `;
+            ghostGroup.appendChild(sparkle);
+            const spinDur = 2200 + Math.random() * 1200;
+            sparkle.animate([
+                { transform: `translate(-50%,-50%) rotate(${angle}deg) translateX(${orbitR}px) rotate(-${angle}deg) scale(0.5)`, opacity: 0 },
+                { transform: `translate(-50%,-50%) rotate(${angle + 180}deg) translateX(${orbitR}px) rotate(-${angle + 180}deg) scale(1.1)`, opacity: 1, offset: 0.5 },
+                { transform: `translate(-50%,-50%) rotate(${angle + 360}deg) translateX(${orbitR}px) rotate(-${angle + 360}deg) scale(0.5)`, opacity: 0 }
+            ], { duration: spinDur, iterations: Infinity, easing: 'linear' });
+        }
+
+        // 4. Bản thể ma khổng lồ — clone ĐÚNG ảnh đang hiển thị (cũng là con của group)
         const ghost = document.createElement('img');
         ghost.src = imgEl.currentSrc || imgEl.src;
         ghost.style.cssText = `
-            position: fixed; left:${centerX}px; top:${centerY}px;
+            position: absolute; left:0; top:0;
             width:${ghostW}px; height:${ghostH}px;
             object-fit: contain;
             transform: translate(-50%,-50%) scaleX(${flipSign}) scale(0.4);
             opacity: 0;
-            filter: drop-shadow(0 0 ${14 * scale}px ${color}) brightness(1.3);
+            filter: brightness(1.35) saturate(1.15) contrast(1.05);
+            will-change: transform, opacity;
             z-index: 9990; pointer-events:none;
         `;
-        document.body.appendChild(ghost);
-        allEls.push(ghost);
+        ghostGroup.appendChild(ghost);
         ghost.animate([
             { transform: `translate(-50%,-50%) scaleX(${flipSign}) scale(0.4)`, opacity: 0 },
             { transform: `translate(-50%,-50%) scaleX(${flipSign}) scale(1.05)`, opacity: 0.55, offset: 0.75 },
@@ -3180,26 +3138,28 @@ window.SkillManager = {
 
         await new Promise(r => setTimeout(r, chargeMs));
 
-        // ── SAU KHI GỒNG XONG: lốc duy trì ổn định ──
-        growAnim.cancel();
-        tornado.style.opacity = '1';
-        tornado.style.transform = 'translate(-50%,-100%) scaleY(1)';
-
-        // ── PHA 2: TÁCH RA & LAO ĐI — Pokemon vẫn đang nâng ──
+        // ── PHA 2: TÁCH RA & LAO ĐI — chỉ cần animate GROUP, mọi lớp hào quang bay theo cùng ghost ──
         if (this.playTravelSfx) this.playTravelSfx(sfxType);
 
         const rectEnd = endEl.getBoundingClientRect();
         const targetX = rectEnd.left + (rectEnd.width || 0) / 2;
         const targetY = rectEnd.top + (rectEnd.height || 0) / 2;
+        const dx = targetX - centerX, dy = targetY - centerY;
 
+        ghostGroup.animate([
+            { transform: 'translate(0px,0px)', offset: 0 },
+            { transform: `translate(${dx}px,${dy}px)`, offset: 1 }
+        ], { duration: flyMs, fill: 'forwards', easing: 'ease-in' });
+
+        // Ghost tự co nhỏ lại đôi chút trong lúc bay (chuyển động riêng, độc lập với group)
         ghost.animate([
-            { left: `${centerX}px`, top: `${centerY}px`, transform: `translate(-50%,-50%) scaleX(${flipSign}) scale(1)`, opacity: 0.5, offset: 0 },
-            { left: `${targetX}px`, top: `${targetY}px`, transform: `translate(-50%,-50%) scaleX(${flipSign}) scale(0.6)`, opacity: 0.8, offset: 1 }
+            { transform: `translate(-50%,-50%) scaleX(${flipSign}) scale(1)`, opacity: 0.5, offset: 0 },
+            { transform: `translate(-50%,-50%) scaleX(${flipSign}) scale(0.6)`, opacity: 0.8, offset: 1 }
         ], { duration: flyMs, fill: 'forwards', easing: 'ease-in' });
 
         await new Promise(r => setTimeout(r, flyMs));
 
-        // ── PHA 3: VA CHẠM — nổ + đẩy lùi phe địch ──
+        // ── PHA 3: VA CHẠM — nổ + đẩy lùi phe địch (group đã đứng yên tại điểm target) ──
         ghost.animate([
             { transform: `scaleX(${flipSign}) scale(0.6)`, opacity: 0.8 },
             { transform: `scaleX(${flipSign}) scale(1.3)`, opacity: 0.9, offset: 0.3 },
@@ -3215,12 +3175,7 @@ window.SkillManager = {
 
         await new Promise(r => setTimeout(r, knockMs));
 
-        // ── PHA 4: HẠ CÁNH — Pokemon hạ xuống & lốc tắt CÙNG LÚC ──
-        tornado.animate([
-            { transform: 'translate(-50%,-100%) scaleY(1)', opacity: 1 },
-            { transform: 'translate(-50%,-100%) scaleY(0.1)', opacity: 0 }
-        ], { duration: descendMs, fill: 'forwards', easing: 'ease-in' });
-
+        // ── PHA 4: HẠ CÁNH — Pokemon hạ xuống lại vị trí cũ ──
         imgWrapper.style.transition = `transform ${descendMs}ms ease-in`;
         imgWrapper.style.transform = `translateY(0px) scale(${baseScale}) scaleX(${flip})`;
 
@@ -3228,6 +3183,8 @@ window.SkillManager = {
         allEls.forEach(el => el.remove());
         imgWrapper.style.transition = '';
     },
+
+    
 
     // Hệ thống CSS keyframe 2.5D xoay chậm vững chãi và cuộn lửa xoắn ốc đi lên
     injectVortexKeyframes() {
