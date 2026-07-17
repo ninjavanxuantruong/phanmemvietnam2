@@ -30,15 +30,192 @@ function normalizeId(idStr) {
     return (cls * 1000) + (lesson * 10) + part;
 }
 
+// ==========================================
+// ✅ FIREBASE (khởi tạo động, không cần sửa HTML)
+// ==========================================
+let _firebaseRefs = null;
+async function getFirebaseRefs() {
+    if (_firebaseRefs) return _firebaseRefs;
+
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js");
+    const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js");
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBQ1pPmSdBV8M8YdVbpKhw_DOetmzIMwXU",
+        authDomain: "lop-hoc-thay-tinh.firebaseapp.com",
+        projectId: "lop-hoc-thay-tinh",
+        storageBucket: "lop-hoc-thay-tinh.firebasestorage.app",
+        messagingSenderId: "391812475288",
+        appId: "1:391812475288:web:ca4c275ac776d69deb23ed"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    _firebaseRefs = { db, doc, getDoc };
+    return _firebaseRefs;
+}
+
+// ==========================================
+// ✅ BÀI ĐỀ XUẤT HÔM NAY (từ lịch "lich/{class}", fallback random)
+// ==========================================
+
+// Tìm 1 node trong sheet của MAP khớp với tiêu đề bài học lấy từ lịch
+function findMapIdByTitle(rows, colID, rawTitle) {
+    if (!rawTitle) return null;
+    const target = rawTitle.trim();
+
+    // Khớp chính xác cả chuỗi ID
+    for (const r of rows) {
+        const d = Array.isArray(r) ? r : Object.values(r);
+        const idVal = d[colID]?.toString().trim();
+        if (idVal === target) return idVal;
+    }
+
+    // Fallback: chỉ cần khớp phần mã số phía trước (vd "3-2-1"), bỏ qua phần tên
+    const targetCode = target.split(' ')[0];
+    for (const r of rows) {
+        const d = Array.isArray(r) ? r : Object.values(r);
+        const idVal = d[colID]?.toString().trim();
+        if (idVal && idVal.split(' ')[0] === targetCode) return idVal;
+    }
+    return null;
+}
+
+// Lấy danh sách từ vựng + tên bài từ 1 fullId trong sheet của map
+function buildVocabForMapId(rows, colID, colWord, fullId) {
+    const vList = rows
+        .filter(r => {
+            const d = Array.isArray(r) ? r : Object.values(r);
+            return d[colID]?.toString().trim() === fullId.trim();
+        })
+        .map(r => (Array.isArray(r) ? r : Object.values(r))[colWord]);
+
+    const namePart = fullId.includes(' ') ? fullId.substring(fullId.indexOf(' ') + 1) : "";
+    return { vList, lessonName: namePart.trim() || fullId.trim() };
+}
+
+// Trả về { fullId, lessonName, vList, isSuggested } hoặc null nếu không có gì để đề xuất
+async function getTodaySuggestedLesson(selectedClass, rows, colID, colWord) {
+    const todayISO = new Date().toISOString().split("T")[0];
+
+    // 1. Thử lấy đúng lịch học hôm nay (giống choice1.js)
+    try {
+        const { db, doc, getDoc } = await getFirebaseRefs();
+        const snap = await getDoc(doc(db, "lich", selectedClass));
+        if (snap.exists()) {
+            const data = snap.data();
+            const todayLesson = data[todayISO];
+            if (todayLesson && todayLesson.title) {
+                const matchedId = findMapIdByTitle(rows, colID, todayLesson.title);
+                if (matchedId) {
+                    const { vList, lessonName } = buildVocabForMapId(rows, colID, colWord, matchedId);
+                    return { fullId: matchedId, lessonName, vList, isSuggested: false };
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("⚠️ Không lấy được lịch học hôm nay, sẽ đề xuất ngẫu nhiên:", e);
+    }
+
+    // 2. Không có lịch (hoặc không khớp được với sheet của map) → random trong đúng lớp,
+    //    loại trừ bài có mã lớn nhất (giống cách làm ở choice1.js)
+    const idsOfClass = [...new Set(
+        rows.map(r => {
+            const d = Array.isArray(r) ? r : Object.values(r);
+            return d[colID]?.toString().trim();
+        }).filter(id => id && id.startsWith(selectedClass + "-"))
+    )].sort((a, b) => normalizeId(a) - normalizeId(b));
+
+    if (idsOfClass.length === 0) return null;
+
+    const maxId = idsOfClass[idsOfClass.length - 1];
+    const candidates = idsOfClass.filter(id => id !== maxId);
+    const pool = candidates.length > 0 ? candidates : idsOfClass;
+
+    const randomId = pool[Math.floor(Math.random() * pool.length)];
+    const { vList, lessonName } = buildVocabForMapId(rows, colID, colWord, randomId);
+    return { fullId: randomId, lessonName, vList, isSuggested: true };
+}
+
+// Hỏi bài đề xuất hôm nay — chỉ hỏi 1 lần / ngày / lớp
+function maybeShowDailySuggestion(selectedClass, rows, colID, colWord) {
+    const todayISO = new Date().toISOString().split("T")[0];
+    const flagKey = `pkm_suggestion_shown_${selectedClass}_${todayISO}`;
+    if (sessionStorage.getItem(flagKey)) return;
+
+    getTodaySuggestedLesson(selectedClass, rows, colID, colWord).then(suggestion => {
+        if (!suggestion) return;
+        sessionStorage.setItem(flagKey, "1");
+
+        const titlePrefix = suggestion.isSuggested ? "🎲 Đề xuất hôm nay: " : "📌 Bài học hôm nay: ";
+        const displayTitle = titlePrefix + suggestion.lessonName;
+
+        // Lưu mission giống hệt khi bấm vào 1 node thật trên bản đồ,
+        // để pkm_battle.js tính thưởng "bài mới" đúng như bình thường
+        localStorage.setItem('current_mission', JSON.stringify({
+            id: suggestion.fullId,
+            type: 'island',
+            class: selectedClass
+        }));
+        localStorage.setItem('selected_lesson_name', suggestion.lessonName);
+
+        window.handleNodeClick(displayTitle, suggestion.vList, 'pkm_battle.html');
+    }).catch(e => console.error("❌ Lỗi khi kiểm tra bài đề xuất hôm nay:", e));
+}
+
+// ==========================================
+// ✅ BOSS: gom từ vựng đại diện cho 5 bài học phía trước nó
+// ==========================================
+// range dạng "start-end" (vd "1-5"), lấy random 1 từ vựng/bài trong khoảng đó
+// ==========================================
+// ✅ BOSS: gom từ vựng đại diện cho 5 bài học phía trước nó
+// ==========================================
+// range dạng "start-end" (vd "1-5"), lấy random 1 từ vựng/bài trong khoảng đó
+function buildBossVocab(rows, colID, colWord, uniqueIds, selectedClass, range) {
+    const [startLesson, endLesson] = range.split('-').map(n => parseInt(n, 10));
+    const wordList = [];      // chỉ để hiển thị lên modal (mảng chữ)
+    const bossItems = [];     // để truyền cho quiz/vocab: [{lessonId, word}]
+    const lessonTitles = [];
+
+    for (let lessonNum = startLesson; lessonNum <= endLesson; lessonNum++) {
+        // Tìm tất cả các mã bài (part) thuộc lessonNum này trong lớp hiện tại
+        const idsOfLesson = uniqueIds.filter(id => {
+            const parts = id.split(' ')[0].split('-');
+            return parts[0] === selectedClass && parseInt(parts[1], 10) === lessonNum;
+        });
+        if (idsOfLesson.length === 0) continue;
+
+        // Gom toàn bộ từ vựng (kèm lessonId gốc) của tất cả các phần thuộc bài này
+        let wordsOfLesson = [];
+        idsOfLesson.forEach(fullId => {
+            rows.forEach(r => {
+                const d = Array.isArray(r) ? r : Object.values(r);
+                if (d[colID]?.toString().trim() === fullId.trim()) {
+                    const w = d[colWord];
+                    if (w) wordsOfLesson.push({ lessonId: fullId, word: w });
+                }
+            });
+        });
+        if (wordsOfLesson.length === 0) continue;
+
+        // Random 1 từ đại diện cho bài này (giữ nguyên lessonId gốc của từ đó)
+        const picked = wordsOfLesson[Math.floor(Math.random() * wordsOfLesson.length)];
+        wordList.push(picked.word);
+        bossItems.push(picked);
+
+        // Lấy tên bài để hiển thị (ưu tiên phần đầu tiên của bài)
+        const sampleId = idsOfLesson[0];
+        const namePart = sampleId.includes(' ') ? sampleId.substring(sampleId.indexOf(' ') + 1) : sampleId;
+        lessonTitles.push(namePart.trim() || sampleId);
+    }
+
+    return { wordList, bossItems, lessonTitles };
+}
+
 /**
  * Hàm khởi tạo và vẽ bản đồ
  */
-/**
- * ==========================================
- * POKEMON MAP LOGIC - OPTIMIZED PERFORMANCE
- * ==========================================
- */
-
 async function initMap() {
     const mapCanvas = document.getElementById('map-canvas');
     const scrollWrapper = document.getElementById('scroll-wrapper');
@@ -67,6 +244,9 @@ async function initMap() {
                 return d[colID]?.toString().trim();
             }).filter(id => id && id.startsWith(selectedClass + "-"))
         )].sort((a, b) => normalizeId(a) - normalizeId(b));
+
+        // ✅ Hỏi bài đề xuất hôm nay (không chặn việc vẽ map)
+        maybeShowDailySuggestion(selectedClass, rows, colID, colWord);
 
         let finalPath = [];
         uniqueIds.forEach((id, index) => {
@@ -121,6 +301,25 @@ async function initMap() {
                 renderNodeContent(el, node, fullId, namePart);
 
                 el.onmousedown = () => {
+                    // ✅ BOSS: gom từ vựng đại diện cho 5 bài học trước nó
+                    if (node.type === 'boss') {
+                        const { wordList, bossItems } = buildBossVocab(rows, colID, colWord, uniqueIds, selectedClass, node.range);
+                        const bossName = `👑 TRÙM CUỐI (Ôn tập bài ${node.range})`;
+
+                        if (typeof window.handleNodeClick === 'function') {
+                            localStorage.setItem('selected_lesson_name', bossName);
+                            localStorage.setItem('current_mission', JSON.stringify({
+                                ...node,
+                                isBoss: true,
+                                bossItems   // [{lessonId, word}] — để quiz/vocab dùng thẳng, khỏi tính theo 1 mã bài
+                            }));
+                            window.handleNodeClick(bossName, wordList, 'pkm_battle.html');
+                        } else {
+                            window.location.href = 'pkm_battle.html';
+                        }
+                        return;
+                    }
+
                     const lessonName = namePart.trim() || fullId.trim();
                     const vList = rows.filter(r => {
                         const d = Array.isArray(r) ? r : Object.values(r);
