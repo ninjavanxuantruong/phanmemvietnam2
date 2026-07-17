@@ -268,12 +268,25 @@ window.QuizManager = {
         const missionObj = JSON.parse(missionData);
         const currentLessonId = missionObj.id;
 
+        // ✅ Nhận diện bài Boss: dùng thẳng danh sách từ đã random sẵn (kèm lessonId gốc)
+        const isBoss = !!missionObj.isBoss && Array.isArray(missionObj.bossItems) && missionObj.bossItems.length > 0;
+        const bossKeySet = isBoss
+            ? new Set(missionObj.bossItems.map(it =>
+                `${(it.lessonId || "").toString().trim()}|||${(it.word || "").toString().trim()}`
+              ))
+            : null;
+
         // 1. Tính toán Max Lesson Code động
-        const currentUnitNum = this.normalizeUnitId(currentLessonId);
+        //    Với Boss: lấy mã bài lớn nhất trong chính các bossItems (luôn là số hợp lệ,
+        //    không còn NaN như khi cố parse "BOSS-3-5")
+        const currentUnitNum = isBoss
+            ? Math.max(...missionObj.bossItems.map(it => this.normalizeUnitId(it.lessonId)))
+            : this.normalizeUnitId(currentLessonId);
+
         let serverMax = await this.getMaxLessonCodeFromServer();
 
         // Đối chiếu: cái nào lớn hơn thì lấy làm max
-        let finalMax = Math.max(serverMax || 0, currentUnitNum);
+        let finalMax = Math.max(serverMax || 0, currentUnitNum || 0);
         let minLessonCode = 2011; // Sếp chốt min là 2011
 
         console.log(
@@ -287,6 +300,7 @@ window.QuizManager = {
         allRows.forEach((row) => {
             const r = Array.isArray(row) ? row : Object.values(row);
             const lessonId = (r[this.COLS.LESSON_NAME] || "").toString().trim();
+            const wordRaw = (r[this.COLS.WORD] || "").toString().trim();
             const unitNum = this.normalizeUnitId(lessonId);
 
             const item = {
@@ -304,11 +318,17 @@ window.QuizManager = {
             };
 
             if (item.word) {
-                // Lọc bài hiện tại
-                if (lessonId === currentLessonId) {
+                // ✅ Lọc "bài hiện tại": Boss thì khớp theo bộ (lessonId+word) đã random sẵn,
+                //    bài thường thì khớp nguyên chuỗi lessonId như cũ
+                const isCurrentItem = isBoss
+                    ? bossKeySet.has(`${lessonId}|||${wordRaw}`)
+                    : (lessonId === currentLessonId);
+
+                if (isCurrentItem) {
                     this.currentLessonData.push(item);
                 }
-                // Lọc kho pool nhiễu theo dải [2011 -> finalMax]
+                // Lọc kho pool nhiễu theo dải [2011 -> finalMax] — giữ nguyên logic cũ,
+                // giờ finalMax luôn là số hợp lệ nên pool không còn bị rỗng oan
                 if (unitNum >= minLessonCode && unitNum <= finalMax) {
                     this.poolData.push(item);
                 }
