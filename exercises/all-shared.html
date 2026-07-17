@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>🎮 PokéLearn</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <style>
+    html { -webkit-text-size-adjust: 100%; }
+
+    :root {
+      --poke-red:    #e53935;
+      --poke-yellow: #FFCB05;
+      --poke-blue:   #2A75BB;
+      --poke-dark:   #1a1a2e;
+      --poke-card:   #16213e;
+      --text-light:  #f0f0f0;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0; padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+      color: var(--text-light);
+      min-height: 100vh;
+    }
+
+    /* ===== HEADER ===== */
+    #appHeader {
+      background: linear-gradient(to right, var(--poke-red), #b71c1c);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    #appHeader h1 {
+      margin: 0;
+      font-size: 20px;
+      color: var(--poke-yellow);
+      text-shadow: 1px 1px 4px #000;
+    }
+    #stageLabel {
+      font-size: 13px;
+      color: #fff;
+      background: rgba(0,0,0,0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    /* ===== PROGRESS BAR ===== */
+    #progressWrap { background: rgba(0,0,0,0.3); padding: 10px 20px; }
+    #progressBar {
+      height: 8px; background: var(--poke-yellow); border-radius: 4px;
+      transition: width 0.5s ease; width: 0%;
+    }
+    #progressTrack { background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+    #progressSteps { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .step-dot {
+      font-size: 11px; padding: 2px 8px; border-radius: 10px;
+      background: rgba(255,255,255,0.1); color: #aaa; transition: all 0.3s; white-space: nowrap;
+    }
+    .step-dot.done   { background: #4caf50; color: #fff; }
+    .step-dot.active { background: var(--poke-yellow); color: #333; font-weight: bold; }
+
+    /* ===== MAIN CONTENT AREA ===== */
+    #stageContainer { padding: 20px; max-width: 960px; margin: 0 auto; }
+    .stage-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,203,5,0.2);
+      border-radius: 20px; padding: 24px; margin-bottom: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+
+    /* ===== TRANSITION SCREEN (dùng bởi showTransition trong all-shared.js) ===== */
+    #transitionScreen {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+      z-index: 200; align-items: center; justify-content: center;
+      flex-direction: column; text-align: center;
+    }
+    #transitionScreen.show { display: flex; }
+    #transitionScreen .big-emoji { font-size: 80px; animation: bounce 0.6s ease infinite alternate; }
+    @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-20px); } }
+    #transitionScreen h2 { color: var(--poke-yellow); font-size: 28px; margin: 16px 0 8px; }
+    #transitionScreen p  { color: #ccc; font-size: 16px; margin: 0 0 24px; }
+    #nextStageBtn {
+      padding: 14px 32px; font-size: 18px; font-weight: bold;
+      background: var(--poke-yellow); color: #333; border: none; border-radius: 14px;
+      cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: transform 0.2s;
+    }
+    #nextStageBtn:hover { transform: scale(1.05); }
+
+    /* ===== BUTTONS CHUNG (mọi module đều dùng) ===== */
+    .poke-btn {
+      padding: 12px 22px; font-size: 16px; border: none; border-radius: 12px;
+      cursor: pointer; font-weight: bold; transition: all 0.2s; touch-action: manipulation;
+    }
+    .poke-btn:hover { transform: translateY(-2px); opacity: 0.9; }
+    .poke-btn.red    { background: var(--poke-red);    color: #fff; }
+    .poke-btn.yellow { background: var(--poke-yellow); color: #333; }
+    .poke-btn.blue   { background: var(--poke-blue);   color: #fff; }
+    .poke-btn.green  { background: #4caf50; color: #fff; }
+    .poke-btn.gray   { background: #666; color: #fff; }
+    .poke-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ===== SCORE MINI (dùng bởi updateMiniScore trong all-shared.js) ===== */
+    #miniScore {
+      position: fixed; bottom: 16px; right: 16px;
+      background: rgba(0,0,0,0.75); border: 2px solid var(--poke-yellow);
+      border-radius: 14px; padding: 8px 14px; font-size: 14px;
+      color: var(--poke-yellow); z-index: 50;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 600px) {
+      #stageContainer { padding: 12px; }
+      .stage-card { padding: 14px; }
+    }
+  </style>
+
+  <!-- Live2D — chỉ dùng bởi mascot ở Module 1 (Giới thiệu) -->
+  <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.3.2/dist/pixi.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/RaSan147/pixi-live2d-display@v0.5.0-ls-8/dist/index.min.js"></script>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="appHeader">
+  <h1>🎮 PokéLearn</h1>
+  <span id="stageLabel">Đang tải...</span>
+</div>
+
+<!-- PROGRESS (5 module) -->
+<div id="progressWrap">
+  <div id="progressTrack"><div id="progressBar"></div></div>
+  <div id="progressSteps"></div>
+</div>
+
+<!-- MAIN AREA — mainCard là nơi TẤT CẢ module render nội dung vào -->
+<div id="stageContainer">
+  <div class="stage-card" id="mainCard">
+    <p style="text-align:center;color:#aaa;">Đang khởi động...</p>
+  </div>
+</div>
+
+<!-- MINI SCORE -->
+<div id="miniScore">🎯 Điểm: –</div>
+
+<!-- TRANSITION SCREEN -->
+<div id="transitionScreen">
+  <div class="big-emoji" id="transEmoji">🎉</div>
+  <h2 id="transTitle">Hoàn thành!</h2>
+  <p id="transDesc">Bạn sắp sang phần tiếp theo</p>
+  <button class="poke-btn yellow" id="nextStageBtn">⏩ Tiếp tục</button>
+</div>
+
+<!-- SCRIPTS GỐC -->
+<script src="link.js"></script>
+<script src="tacham.js"></script>
+
+<!-- ĐIỀU PHỐI CHÍNH (module) -->
+<script type="module" src="all-orchestrator.js"></script>
+</body>
+</html>
