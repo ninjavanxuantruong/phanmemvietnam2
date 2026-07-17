@@ -133,6 +133,14 @@
         fairy:    { core: '#ffffff', mid: '#f8bbd0', edge: '#ad1457', glow: '#f48fb1', label: 'Fairy Orb' },
         normal:   { core: '#ffffff', mid: '#e0e0e0', edge: '#9e9e9e', glow: '#bdbdbd', label: 'Energy Orb' },
     };
+    // Tên riêng cho chiêu QUẢ CẦU TO DẦN (khác với tên "... Orb" của chiêu chùm sáng)
+    const growOrbNameMap = {
+        fire: 'Fire Comet', water: 'Water Comet', grass: 'Leaf Comet', electric: 'Thunder Comet',
+        ice: 'Ice Comet', poison: 'Toxic Comet', ground: 'Earth Comet', flying: 'Gale Comet',
+        psychic: 'Psychic Comet', fighting: 'Force Comet', ghost: 'Shadow Comet', bug: 'Bug Comet',
+        rock: 'Boulder Comet', dark: 'Dark Comet', steel: 'Steel Comet', dragon: 'Dragon Comet',
+        fairy: 'Fairy Comet', normal: 'Energy Comet'
+    };
 
     // ── Ánh xạ hệ → TÊN HÀM (chuỗi) trong coreSkills bên dưới.
     //    Thêm hệ mới = thêm 1 dòng ở đây, không cần sửa chỗ khác. ──
@@ -219,8 +227,19 @@
         }
         return pts;
     }
+    // Nội suy toạ độ trên đường bay (pathPts) tại 1 mốc t bất kỳ (0 → 1),
+    // dùng cho việc lấy mẫu DÀY hơn số điểm gốc trong pathPts (để vẽ đuôi mượt).
+    function pointAtT(pathPts, t) {
+        const n = pathPts.length;
+        if (n === 1) return pathPts[0];
+        const scaled = t * (n - 1);
+        const i = Math.min(Math.floor(scaled), n - 2);
+        const localT = scaled - i;
+        const a = pathPts[i], b = pathPts[i + 1];
+        return { x: a.x + (b.x - a.x) * localT, y: a.y + (b.y - a.y) * localT };
+    }
     const ORB_PATH_KINDS = ['straight', 'zigzag', 'arc_left', 'arc_right', 'spiral', 'wave'];
-    const ORB_SHAPE_KINDS = ['orb', 'arrow', 'spike'];
+    const ORB_SHAPE_KINDS = ['orb']; // đã bỏ mũi tên (arrow) và cầu gai/răng cưa (spike), chỉ còn quả cầu tròn
 
     // Sinh clip-path hình cầu gai (nhím) — số cạnh nhọn tuỳ chỉnh qua "spikes"
     function buildSpikeBallClipPath(spikes = 10, outer = 50, inner = 26) {
@@ -394,27 +413,163 @@
     }
 
     async function executeMissedNormal(attacker, target) {
-        return new Promise(async (resolve) => {
-            if (attacker) {
-                attacker.style.transition = 'all 0.2s ease-in';
-                const moveY = attacker.id.startsWith('player') ? -20 : 20;
-                attacker.style.transform = `translate(-50%,-50%) translateY(${moveY}px)`;
-            }
-            if (target) {
-                target.style.transition = 'all 0.15s ease-out';
-                const dodgeX = target.id.startsWith('enemy') ? 25 : -25;
-                target.style.transform = `translateX(${dodgeX}px)`;
-            }
+        if (!attacker || !target) return;
+        const targetSide = target.id.startsWith('enemy') ? 'enemy' : 'player';
 
-            await new Promise(r => setTimeout(r, 180));
-            if (target) this.showStatusText(target, 'HỤT!', '#feca57');
+        // random 1 trong 2 kiểu đánh hụt mỗi lần gọi
+        const useTeleport = Math.random() < 0.5;
 
+        if (useTeleport) {
+            await missStyleTeleport.call(this, attacker, target, targetSide);
+        } else {
+            await missStyleRush.call(this, attacker, target, targetSide);
+        }
+    }
+
+    // ═══════ KIỂU 1: LAO LÊN ĐÁNH TRỰC TIẾP (không teleport) ═══════
+    async function missStyleRush(attacker, target, targetSide) {
+        const rectA = attacker.getBoundingClientRect();
+        const rectT = target.getBoundingClientRect();
+        const dx = rectT.left - rectA.left;
+        const dy = rectT.top - rectA.top;
+        const dist = targetSide === 'enemy' ? 50 : -50;
+
+        // 1. Lao hẳn lên áp sát ngay trước mặt kẻ địch
+        attacker.style.transition = 'all 0.25s ease-in';
+        attacker.style.transform = `translate(calc(-50% + ${dx - dist}px), calc(-50% + ${dy}px))`;
+        await new Promise(r => setTimeout(r, 280));
+
+        // 2. Combo 2-3 cú đấm/húc, mỗi cú cách nhau đủ lâu để nhìn rõ
+        const hits = 2 + Math.floor(Math.random() * 2); // 2 hoặc 3 cú
+        for (let i = 0; i < hits; i++) {
+            attacker.style.transition = 'all 0.15s ease-in';
+            attacker.style.transform = `translate(calc(-50% + ${dx - dist + (dist > 0 ? 18 : -18)}px), calc(-50% + ${dy}px))`;
+            await new Promise(r => setTimeout(r, 160));
+
+            attacker.style.transition = 'all 0.15s ease-out';
+            attacker.style.transform = `translate(calc(-50% + ${dx - dist}px), calc(-50% + ${dy}px))`;
+            await new Promise(r => setTimeout(r, 140));
+
+            this.showStatusText(target, 'MISSED', '#feca57');
+            target.classList.add('shake');
+            playLightSfx.call(this);
+            await new Promise(r => setTimeout(r, 220));
+            target.classList.remove('shake');
+
+            await new Promise(r => setTimeout(r, 150)); // nghỉ giữa các cú cho rõ nhịp
+        }
+
+        // 3. Rút hẳn về vị trí gốc
+        attacker.style.transition = 'all 0.3s ease-out';
+        attacker.style.transform = 'translate(-50%,-50%)';
+        await new Promise(r => setTimeout(r, 320));
+        attacker.style.transition = '';
+    }
+
+    // ═══════ KIỂU 2: TELEPORT CẢ 2 CON RA CHUNG 1 CHỖ HẸN RỒI ĐẤU ═══════
+    async function missStyleTeleport(attacker, target, targetSide) {
+        const arenaEl = document.getElementById('battle-arena');
+        const arenaRect = arenaEl
+            ? arenaEl.getBoundingClientRect()
+            : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+
+        const rounds = 2 + Math.floor(Math.random() * 2); // 2 hoặc 3 lần hẹn nhau
+
+        for (let round = 0; round < rounds; round++) {
+            // ── chọn 1 điểm hẹn CHUNG duy nhất cho cả 2 con ──
+            const meetX = arenaRect.left + arenaRect.width  * (0.3 + Math.random() * 0.4);
+            const meetY = arenaRect.top  + arenaRect.height * (0.3 + Math.random() * 0.4);
+            const gap = targetSide === 'enemy' ? 36 : -36; // khoảng cách đứng sát đối mặt nhau tại điểm hẹn
+
+            const rectA = attacker.getBoundingClientRect();
+            const rectT = target.getBoundingClientRect();
+            const aDx = (meetX - gap) - (rectA.left + rectA.width / 2);
+            const aDy = meetY - (rectA.top + rectA.height / 2);
+            const tDx = (meetX + gap) - (rectT.left + rectT.width / 2);
+            const tDy = meetY - (rectT.top + rectT.height / 2);
+
+            // ── biến mất CÙNG LÚC ──
+            attacker.style.transition = 'opacity 0.2s ease-out';
+            target.style.transition   = 'opacity 0.2s ease-out';
+            attacker.style.opacity = '0';
+            target.style.opacity   = '0';
+            await new Promise(r => setTimeout(r, 220));
+
+            // ── dịch chuyển tức thời tới điểm hẹn CHUNG khi đang vô hình ──
+            attacker.style.transition = 'none';
+            target.style.transition   = 'none';
+            attacker.style.transform  = `translate(calc(-50% + ${aDx}px), calc(-50% + ${aDy}px))`;
+            target.style.transform    = `translate(calc(-50% + ${tDx}px), calc(-50% + ${tDy}px))`;
+            void attacker.offsetWidth; // ép reflow để bỏ transition trước khi hiện lại
+
+            // ── hiện lại CÙNG LÚC tại chỗ hẹn, đứng sát đối mặt nhau ──
+            attacker.style.transition = 'opacity 0.2s ease-in';
+            target.style.transition   = 'opacity 0.2s ease-in';
+            attacker.style.opacity = '1';
+            target.style.opacity   = '1';
             await new Promise(r => setTimeout(r, 260));
-            if (attacker) attacker.style.transform = 'translate(-50%,-50%)';
-            if (target) target.style.transform = 'translate(-50%,-50%)';
 
-            setTimeout(resolve, 260);
-        });
+            // ── DỪNG lại 1 nhịp để người xem thấy rõ cả 2 đã "hẹn" ở đây ──
+            await new Promise(r => setTimeout(r, 300));
+
+            // ── combo 2-3 cú đấm hụt ngay tại điểm hẹn ──
+            const hits = 2 + Math.floor(Math.random() * 2);
+            for (let i = 0; i < hits; i++) {
+                const rA = attacker.getBoundingClientRect();
+                const rT = target.getBoundingClientRect();
+                const dx = rT.left - rA.left;
+                const dy = rT.top - rA.top;
+                const curX = (meetX - gap) - (rA.left + rA.width / 2) === aDx ? aDx : aDx; // giữ nguyên gốc điểm hẹn hiện tại
+
+                attacker.style.transition = 'all 0.15s ease-in';
+                attacker.style.transform = `translate(calc(-50% + ${aDx + (dist2(targetSide))}px), calc(-50% + ${aDy}px))`;
+                await new Promise(r => setTimeout(r, 160));
+
+                attacker.style.transition = 'all 0.15s ease-out';
+                attacker.style.transform = `translate(calc(-50% + ${aDx}px), calc(-50% + ${aDy}px))`;
+                await new Promise(r => setTimeout(r, 140));
+
+                this.showStatusText(target, 'MISSED', '#feca57');
+                target.classList.add('shake');
+                playLightSfx.call(this);
+                await new Promise(r => setTimeout(r, 220));
+                target.classList.remove('shake');
+
+                await new Promise(r => setTimeout(r, 150));
+            }
+
+            // nghỉ giữa các lần hẹn cho rõ nhịp trước khi teleport tiếp
+            await new Promise(r => setTimeout(r, 250));
+        }
+
+        // ── QUAN TRỌNG: trả cả 2 con về ĐÚNG vị trí gốc (left/top% trong pkm_styles.js).
+        //    transform chỉ là offset tạm thời nên reset translate(-50%,-50%) là đủ. ──
+        attacker.style.transition = 'opacity 0.15s, transform 0.35s ease-out';
+        target.style.transition   = 'opacity 0.15s, transform 0.35s ease-out';
+        attacker.style.opacity = '0';
+        target.style.opacity   = '0';
+        await new Promise(r => setTimeout(r, 160));
+
+        attacker.style.transition = 'none';
+        target.style.transition   = 'none';
+        attacker.style.transform = 'translate(-50%,-50%)';
+        target.style.transform   = 'translate(-50%,-50%)';
+        void attacker.offsetWidth;
+
+        attacker.style.transition = 'opacity 0.25s ease-in';
+        target.style.transition   = 'opacity 0.25s ease-in';
+        attacker.style.opacity = '1';
+        target.style.opacity   = '1';
+        await new Promise(r => setTimeout(r, 260));
+
+        attacker.style.transition = '';
+        target.style.transition = '';
+        attacker.style.opacity = '';
+        target.style.opacity = '';
+    }
+
+    function dist2(targetSide) {
+        return targetSide === 'enemy' ? 18 : -18;
     }
 
 
@@ -2015,6 +2170,29 @@
                 return { transform: `translate3d(${p.x}px, ${p.y}px, 0) scale(${s}) rotate(${rot}deg)` };
             });
 
+        // ── DẢI ĐUÔI SAO CHỔI: dọc theo đường bay, mỗi mốc thời gian gắn
+            //    1 vòng tròn rỗng — kích cỡ vòng tỉ lệ theo độ to của quả cầu
+            //    NGAY TẠI THỜI ĐIỂM ĐÓ, nên quả cầu càng bay xa/càng to thì
+            //    vòng đuôi sinh ra sau cũng to hơn vòng sinh trước. ──
+        // ── DẢI ĐUÔI SAO CHỔI: lấy mẫu DÀY dọc đường bay (không phụ thuộc
+            //    pathPts thưa hay dày), mỗi mẫu gắn 1 vòng tròn tại đúng vị trí
+            //    + đúng kích cỡ quả cầu ở thời điểm đó → càng bay xa vòng càng to,
+            //    và vòng tồn tại lâu hơn nên nhiều vòng chồng lên nhau tạo đuôi dài. ──
+            const TAIL_SAMPLES = 26; // tăng số này nếu muốn đuôi dày/mượt hơn nữa
+            for (let k = 1; k <= TAIL_SAMPLES; k++) {
+                const t = k / TAIL_SAMPLES;
+                if (t < 0.12) continue; // bỏ đoạn đầu lúc quả cầu còn quá bé, chưa có gì để "để lại"
+
+                const p = pointAtT(pathPts, t);
+                const growEase = t < 0.85 ? (t / 0.85) : 1 + (t - 0.85) * (0.4 / 0.15);
+                const orbSizeNow = maxSize * (0.3 + growEase * 0.75);
+                const delay = t * flightMs;
+
+                setTimeout(() => {
+                    this.spawnOrbTailRing(p.x, p.y, orbSizeNow, cfg, scale);
+                }, delay);
+            }
+
             if (this.playTravelSfx) this.playTravelSfx(data.type); else if (this.playRandomSfx) this.playRandomSfx();
             await container.animate(keyframes, {
                 duration: flightMs,
@@ -2025,6 +2203,35 @@
             container.remove();
             this.createBigOrbImpact(endX, endY, scale, cfg);
         },
+
+        // Vòng tròn "đuôi sao chổi" — nhiều vòng đường kính khác nhau bám theo
+        // quả cầu khi bay, dựng đúng kiểu vòng sóng âm rỗng của spawnNormal,
+        // đứng yên tại chỗ sinh ra rồi phình to + mờ dần (thời gian dài hơn
+        // trước để nhiều vòng chồng lấp nhau, tạo cảm giác đuôi liền mạch dài).
+        spawnOrbTailRing(x, y, orbSize, cfg, scale) {
+            const ring = document.createElement('div');
+            const size = orbSize * (0.55 + Math.random() * 0.3);
+            ring.style.cssText = `
+                position: fixed; left: ${x}px; top: ${y}px;
+                width: ${size}px; height: ${size}px;
+                border: ${Math.max(2, 3 * scale)}px solid ${cfg.mid};
+                border-radius: 50%;
+                transform: translate(-50%,-50%) scale(0.6);
+                box-shadow: 0 0 ${size * 0.3}px ${cfg.glow};
+                z-index: 10000; pointer-events: none;
+                opacity: 0.7;
+            `;
+            document.body.appendChild(ring);
+            ring.animate([
+                { transform: 'translate(-50%,-50%) scale(0.6)', opacity: 0.7 },
+                { transform: 'translate(-50%,-50%) scale(1.1)', opacity: 0.4, offset: 0.5 },
+                { transform: 'translate(-50%,-50%) scale(1.3)', opacity: 0 }
+            ], { duration: 850, easing: 'ease-out' }).onfinish = () => ring.remove();
+        },
+
+        
+
+        
 
         createBigOrbImpact(x, y, scale, cfg) {
             const ring = document.createElement('div');
@@ -2348,7 +2555,7 @@
         // hạt trúng, có nhịp thở liên tục, thay thế hoàn toàn ring/cone tĩnh cũ.
         createImpactAura(targetEl, x, y, scale, cfg) {
             const rect = targetEl.getBoundingClientRect();
-            const baseSize = Math.max(rect.width, rect.height) * 1.5;
+            const baseSize = Math.max(rect.width, rect.height) * 0.15; // nhỏ lại (trước: ×1.5)
 
             const aura = document.createElement('div');
             aura.style.cssText = `
@@ -2356,8 +2563,8 @@
                 width:${baseSize}px; height:${baseSize}px;
                 transform:translate(-50%,-50%) scale(0.3);
                 border-radius:50%;
-                background:radial-gradient(circle, #fff 0%, ${cfg.core} 25%, ${cfg.mid}cc 50%, ${cfg.glow}66 75%, transparent 100%);
-                filter:blur(6px) brightness(1.8);
+                background:radial-gradient(circle, #fff 0%, ${cfg.core} 22%, ${cfg.mid}bb 48%, ${cfg.glow}44 75%, transparent 100%);
+                filter:blur(5px) brightness(1.1);
                 opacity:0; z-index:10003; pointer-events:none;
                 mix-blend-mode:screen;
             `;
@@ -2365,13 +2572,16 @@
 
             aura.animate([
                 { transform: 'translate(-50%,-50%) scale(0.3)', opacity: 0 },
-                { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: 0.5 },
-                { transform: 'translate(-50%,-50%) scale(1.05)', opacity: 0.95 }
+                { transform: 'translate(-50%,-50%) scale(1)', opacity: 0.85, offset: 0.5 },
+                { transform: 'translate(-50%,-50%) scale(1.05)', opacity: 0.8 }
             ], { duration: 260, fill: 'forwards', easing: 'ease-out' });
 
+            // Nhịp thở NHANH hơn (260ms thay vì 420ms) + biên độ sáng-tối RỘNG hơn
+            // (đáy thấp hơn: brightness 0.85, đỉnh vẫn cao: brightness 2.2) →
+            // cường độ dao động cao hơn nhưng mức sáng trung bình thấp hơn.
             const breathing = aura.animate(
-                [{ filter: 'blur(6px) brightness(1.8)' }, { filter: 'blur(10px) brightness(2.6)' }],
-                { duration: 420, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }
+                [{ filter: 'blur(4px) brightness(0.85)' }, { filter: 'blur(8px) brightness(2.2)' }],
+                { duration: 260, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }
             );
 
             let growth = 0;
@@ -2379,12 +2589,18 @@
                 el: aura,
                 bump() {
                     growth = Math.min(growth + 1, 6);
-                    const scaleTo = 1 + growth * 0.14;
+                    const scaleTo = 1 + growth * 0.08;
+
+                    const joltMult = 3; // ← gấp mấy lần độ giật + độ sáng mỗi lần trúng, chỉnh số này
+                    const peakScale = scaleTo * (1 + 0.12 * joltMult);      // trước: scaleTo * 1.12
+                    const troughBrightness = 0.9;
+                    const peakBrightness = troughBrightness + (2.6 - 0.9) * joltMult; // trước: đỉnh cố định 2.6
+
                     aura.animate([
-                        { transform: `translate(-50%,-50%) scale(${scaleTo})`, filter: 'blur(6px) brightness(1.8)' },
-                        { transform: `translate(-50%,-50%) scale(${scaleTo * 1.18})`, filter: 'blur(12px) brightness(3)' },
-                        { transform: `translate(-50%,-50%) scale(${scaleTo})`, filter: 'blur(6px) brightness(1.8)' }
-                    ], { duration: 220, easing: 'ease-out' });
+                        { transform: `translate(-50%,-50%) scale(${scaleTo})`, filter: `blur(4px) brightness(${troughBrightness})` },
+                        { transform: `translate(-50%,-50%) scale(${peakScale})`, filter: `blur(9px) brightness(${peakBrightness})` },
+                        { transform: `translate(-50%,-50%) scale(${scaleTo})`, filter: `blur(4px) brightness(${troughBrightness})` }
+                    ], { duration: 160, easing: 'ease-out' });
                 },
                 stopPulse() { breathing.cancel(); }
             };
@@ -2444,7 +2660,7 @@
         const cfg = this.durationConfig.normal;
         const meta = bigOrbTypeConfig[type] || bigOrbTypeConfig.normal;
 
-        window.PkmUnitFX?.showSkillName(info.attackerSide, info.attackerIndex, meta.label);
+        window.PkmUnitFX?.showSkillName(info.attackerSide, info.attackerIndex, growOrbNameMap[type] || meta.label);
 
         // Luôn dùng motion "phóng ra" vì đây luôn là 1 quả cầu bắn thẳng, không triệu hồi dưới đất
         await playAttackerMotion_Projectile.call(this, attacker, scale);
@@ -2477,6 +2693,7 @@
     }
 
     async function playNormalAttack(info) {
+        console.log('[SKILL] playNormalAttack nhận info:', JSON.parse(JSON.stringify(info)));
         const attackerSide = info.attackerSide;
         const attackerIndex = info.attackerIndex;
         const targetSide = info.targetSide;
@@ -2486,6 +2703,11 @@
         const target = (targetIdx !== undefined)
             ? document.getElementById(`${targetSide}-unit-${targetIdx}`)
             : null;
+
+        console.log('[SKILL] resolve ID:', {
+            attackerLookupId: `${attackerSide}-unit-${attackerIndex}`, attackerFound: !!attacker,
+            targetIdx, targetLookupId: targetIdx !== undefined ? `${targetSide}-unit-${targetIdx}` : '(không tìm)', targetFound: !!target
+        });
 
         if (info.missed) {
             return executeMissedNormal.call(this, attacker, target);
