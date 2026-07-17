@@ -156,14 +156,29 @@ window.VocabularyModule = {
         if (!storedData || !missionData) return [];
 
         const allRows = JSON.parse(storedData);
-        const currentLessonId = JSON.parse(missionData).id;
+        const missionObj = JSON.parse(missionData);
+        const currentLessonId = missionObj.id;
+
+        // ✅ Nhận diện bài Boss: dùng thẳng bộ (lessonId+word) đã random sẵn
+        const isBoss = !!missionObj.isBoss && Array.isArray(missionObj.bossItems) && missionObj.bossItems.length > 0;
+        const bossKeySet = isBoss
+            ? new Set(missionObj.bossItems.map(it =>
+                `${(it.lessonId || "").toString().trim()}|||${(it.word || "").toString().trim()}`
+              ))
+            : null;
+
         const listVocabs = [];
 
         allRows.forEach((row) => {
             const r = Array.isArray(row) ? row : Object.values(row);
             const lessonId = (r[this.COLS.LESSON_NAME] || "").toString().trim();
+            const wordRaw = (r[this.COLS.WORD] || "").toString().trim();
 
-            if (lessonId === currentLessonId && r[this.COLS.WORD]) {
+            const isMatch = isBoss
+                ? bossKeySet.has(`${lessonId}|||${wordRaw}`)
+                : (lessonId === currentLessonId);
+
+            if (isMatch && r[this.COLS.WORD]) {
                 listVocabs.push({
                     word: (r[this.COLS.WORD] || "").toString().trim(),
                     meaning: (r[this.COLS.MEANING] || "").toString().trim(),
@@ -909,4 +924,5 @@ window.VocabularyModule = {
         }
     }
 };
+
 
