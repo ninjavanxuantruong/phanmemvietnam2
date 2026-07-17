@@ -1,4 +1,4 @@
-// ✅ choice1.js — phiên bản mới (mỗi ngày chỉ 1 bài)
+// ✅ choice1.js — phiên bản mới (mỗi ngày chỉ 1 bài + tự đề xuất random khi chưa có lịch)
 
 const todayISO = new Date().toISOString().split("T")[0];
 const className = localStorage.getItem("trainerClass")?.trim().toLowerCase();
@@ -12,27 +12,31 @@ if (!className) {
 }
 
 const docRef = window.doc(window.db, "lich", className);
-window.getDoc(docRef).then(snapshot => {
-  if (!snapshot.exists()) {
-    document.getElementById("lessonList").innerHTML = "<p>❌ Không có lịch học nào cho lớp này.</p>";
-    return;
+window.getDoc(docRef).then(async snapshot => {
+  const data = snapshot.exists() ? snapshot.data() : {};
+  let todayLesson = data[todayISO] || null;
+  let isSuggested = false;
+
+  // ✅ Nếu không có bài học nào hôm nay → tự đề xuất random 1 bài (nhỏ hơn bài lớn nhất)
+  if (!todayLesson) {
+    todayLesson = await suggestRandomLesson(className);
+    isSuggested = !!todayLesson;
   }
 
-  const data = snapshot.data();
-  const todayLesson = data[todayISO] || null;
-
-  // ✅ Hiển thị bài học hôm nay
+  // ✅ Hiển thị bài học hôm nay (thật hoặc đề xuất random)
   const container = document.getElementById("lessonList");
   container.innerHTML = "";
+
   if (!todayLesson) {
-    container.innerHTML = "<p>📭 Không có bài học nào hôm nay.</p>";
+    container.innerHTML = "<p>📭 Không có bài học nào hôm nay và không tìm được bài để đề xuất.</p>";
   } else {
     const item = todayLesson; // object duy nhất
-    const label =
-      item.type === "new" ? "Bài mới" :
-      item.type === "related" ? `Liên quan đến ${item.relatedTo}` :
-      item.type === "review" ? `Ôn tập của ${item.relatedTo}` :
-      item.type === "old" ? "Bài cũ" : item.type;
+    const label = isSuggested
+      ? "🎲 Đề xuất ngẫu nhiên (chưa có lịch hôm nay)"
+      : item.type === "new" ? "Bài mới" :
+        item.type === "related" ? `Liên quan đến ${item.relatedTo}` :
+        item.type === "review" ? `Ôn tập của ${item.relatedTo}` :
+        item.type === "old" ? "Bài cũ" : item.type;
 
     const div = document.createElement("div");
     div.innerHTML = `
@@ -47,62 +51,65 @@ window.getDoc(docRef).then(snapshot => {
     localStorage.setItem("todayLesson", JSON.stringify(item));
   }
 
-  // ✅ Hiển thị lịch từ hôm nay trở đi
+  // ✅ Hiển thị lịch từ hôm nay trở đi (chỉ khi document lịch có tồn tại)
   const tableBody = document.querySelector("#scheduleTable tbody");
   tableBody.innerHTML = "";
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayISO = yesterday.toISOString().split("T")[0];
 
-  const entries = Object.entries(data)
-    .filter(([date]) => date >= yesterdayISO)
-    .sort(([a], [b]) => new Date(a) - new Date(b));
+  if (snapshot.exists()) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayISO = yesterday.toISOString().split("T")[0];
 
-  for (let [dateStr, lesson] of entries) {
-    const [yyyy, mm, dd] = dateStr.split("-");
-    const formattedDate = `${dd}/${mm}/${yyyy}`;
+    const entries = Object.entries(data)
+      .filter(([date]) => date >= yesterdayISO)
+      .sort(([a], [b]) => new Date(a) - new Date(b));
 
-    const label =
-      lesson.type === "new" ? "Bài mới – Phù hợp" :
-      lesson.type === "review" ? "Ôn tập – Nên học lại" :
-      lesson.type === "related" ? "Liên quan – Nên học" :
-      lesson.type === "old" ? "Bài cũ – Nên học lại" :
-      lesson.type;
+    for (let [dateStr, lesson] of entries) {
+      const [yyyy, mm, dd] = dateStr.split("-");
+      const formattedDate = `${dd}/${mm}/${yyyy}`;
 
-    const related = lesson.relatedTo ? ` (liên quan ${lesson.relatedTo})` : "";
-    const combined = `${lesson.title} – ${label}${related}`;
+      const label =
+        lesson.type === "new" ? "Bài mới – Phù hợp" :
+        lesson.type === "review" ? "Ôn tập – Nên học lại" :
+        lesson.type === "related" ? "Liên quan – Nên học" :
+        lesson.type === "old" ? "Bài cũ – Nên học lại" :
+        lesson.type;
 
-    const code = normalizeUnit(lesson.code);
-    const title = lesson.title;
+      const related = lesson.relatedTo ? ` (liên quan ${lesson.relatedTo})` : "";
+      const combined = `${lesson.title} – ${label}${related}`;
 
-    const button = document.createElement("button");
-    button.textContent = "Học bài";
-    button.style.padding = "6px 12px";
-    button.style.borderRadius = "6px";
-    button.style.border = "none";
-    button.style.background = "#4caf50";
-    button.style.color = "white";
-    button.style.cursor = "pointer";
-    button.onclick = () => {
-      localStorage.setItem("selectedCodes", JSON.stringify([code]));
-      localStorage.setItem("selectedTitles", JSON.stringify([title]));
-      localStorage.setItem("selectedLesson", title);
-      fetchVocabularyFromSelectedCodes([code]);
-    };
+      const code = normalizeUnit(lesson.code);
+      const title = lesson.title;
 
-    const noteCell = document.createElement("td");
-    noteCell.appendChild(button);
+      const button = document.createElement("button");
+      button.textContent = "Học bài";
+      button.style.padding = "6px 12px";
+      button.style.borderRadius = "6px";
+      button.style.border = "none";
+      button.style.background = "#4caf50";
+      button.style.color = "white";
+      button.style.cursor = "pointer";
+      button.onclick = () => {
+        localStorage.setItem("selectedCodes", JSON.stringify([code]));
+        localStorage.setItem("selectedTitles", JSON.stringify([title]));
+        localStorage.setItem("selectedLesson", title);
+        fetchVocabularyFromSelectedCodes([code]);
+      };
 
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${formattedDate}</td>
-      <td>${combined}</td>
-    `;
-    row.appendChild(noteCell);
+      const noteCell = document.createElement("td");
+      noteCell.appendChild(button);
 
-    if (dateStr === todayISO) row.classList.add("today-row");
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${formattedDate}</td>
+        <td>${combined}</td>
+      `;
+      row.appendChild(noteCell);
 
-    tableBody.appendChild(row);
+      if (dateStr === todayISO) row.classList.add("today-row");
+
+      tableBody.appendChild(row);
+    }
   }
 
   document.getElementById("btnLearnSuggested").disabled = false;
@@ -159,6 +166,54 @@ async function fetchVocabularyFromSelectedCodes(unitCodes) {
   } catch (err) {
     console.error("❌ Lỗi khi lấy từ vựng:", err);
     alert("Không thể lấy từ vựng. Vui lòng thử lại sau.");
+  }
+}
+
+// ✅ Random 1 bài (nhỏ hơn mã bài lớn nhất của lớp) khi không có lịch hôm nay
+async function suggestRandomLesson(className) {
+  try {
+    const res = await fetch(VOCAB_URL);
+    const text = await res.text();
+    const json = JSON.parse(text.substring(47).slice(0, -2));
+    const rows = json.table.rows;
+
+    // Gom các mã bài (dạng số) thuộc đúng lớp — cột B chứa tiêu đề dạng "lớp-bài-phần ..."
+    const unitsMap = new Map(); // codeNum -> title gốc
+
+    rows.forEach(row => {
+      const unitRaw = row.c?.[1]?.v?.toString().trim();
+      if (!unitRaw) return;
+
+      const firstPart = unitRaw.split(/[-\s.]+/)[0];
+      if (firstPart !== className) return; // chỉ lấy đúng lớp hiện tại
+
+      const codeStr = extractCodeFromTitle(unitRaw);
+      if (!codeStr) return;
+      const codeNum = parseInt(codeStr, 10);
+      if (Number.isNaN(codeNum)) return;
+
+      if (!unitsMap.has(codeNum)) unitsMap.set(codeNum, unitRaw);
+    });
+
+    if (unitsMap.size === 0) return null;
+
+    const maxCode = Math.max(...unitsMap.keys());
+
+    // Chỉ lấy các bài NHỎ HƠN bài lớn nhất trong Sheet bài học
+    const candidates = [...unitsMap.entries()].filter(([code]) => code < maxCode);
+    if (candidates.length === 0) return null;
+
+    const [randCode, randTitle] = candidates[Math.floor(Math.random() * candidates.length)];
+
+    return {
+      code: normalizeUnit(String(randCode)),
+      title: randTitle,
+      type: "random",
+      relatedTo: ""
+    };
+  } catch (err) {
+    console.error("❌ Lỗi khi random bài đề xuất:", err);
+    return null;
   }
 }
 
