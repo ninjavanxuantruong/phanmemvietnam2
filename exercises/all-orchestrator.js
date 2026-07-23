@@ -1,10 +1,18 @@
 /**
  * ============================================================================
- * all-orchestrator.js — ĐIỀU PHỐI CHÍNH
+ * all-orchestrator.js — ĐIỀU PHỐI CHÍNH (có hỗ trợ NHẢY GIỮA MODULE)
  * ============================================================================
- * File này CHỈ điều phối (chọn cấp độ -> tải dữ liệu -> chạy tuần tự 5 module
- * -> hỏi học lại/đã thuộc). Không chứa logic riêng của module nào. Sửa nội
- * dung 1 module thì sửa file module đó, KHÔNG sửa ở đây.
+ * File này CHỈ điều phối (chọn cấp độ -> tải dữ liệu -> chạy 5 module -> hỏi
+ * học lại/đã thuộc). Không chứa logic riêng của module nào.
+ *
+ * TÍNH NĂNG NHẢY MODULE: click vào 1 ô ở thanh progress -> xác nhận -> lưu
+ * localStorage -> reload trang -> orchestrator đọc lại và bắt đầu CHẠY TỪ
+ * module đó. Bắt buộc reload (giống all.js cũ) vì không thể an toàn "hủy
+ * giữa dòng" 1 module đang chạy (audio/mic/Live2D đang mở).
+ *
+ * Chỉ khi CẢ 5 module đều đã hoàn thành (theo dõi cộng dồn qua localStorage,
+ * sống sót qua các lần reload do nhảy module) mới hiện màn hỏi "Học lại/Đã
+ * thuộc". Điểm từng module vẫn tự lưu ngay khi module đó xong, không đổi.
  * ============================================================================
  */
 
@@ -28,20 +36,51 @@ const MODULES = [
   { id: "writing",   label: "✍️ Viết",        emoji: "✍️", run: runWritingModule },
 ];
 
+const JUMP_KEY = "pkl_jump_to_module_idx";
+const COMPLETED_KEY = "pkl_completed_modules";
+const CURRENT_IDX_SESSION_KEY = "pkl_current_module_idx"; // sessionStorage, chỉ để chống click trùng module đang chạy
+
+// ============================================================================
+// TRẠNG THÁI "ĐÃ HOÀN THÀNH" — cộng dồn qua localStorage, sống sót qua reload
+// ============================================================================
+
+function getCompletedSet() {
+  try { return new Set(JSON.parse(localStorage.getItem(COMPLETED_KEY) || "[]")); }
+  catch (e) { return new Set(); }
+}
+function saveCompletedSet(set) {
+  localStorage.setItem(COMPLETED_KEY, JSON.stringify([...set]));
+}
+function resetCompletedSet() {
+  localStorage.setItem(COMPLETED_KEY, JSON.stringify([]));
+}
+
+// ============================================================================
+// UI: THANH PROGRESS + NHẢY MODULE
+// ============================================================================
+
 function setCard(html) {
   document.getElementById("mainCard").innerHTML = html;
 }
 
 function updateProgress(idx) {
-  const pct = Math.round((idx / MODULES.length) * 100);
+  sessionStorage.setItem(CURRENT_IDX_SESSION_KEY, String(idx));
+  const completed = getCompletedSet();
+
+  const pct = Math.round((completed.size / MODULES.length) * 100);
   const bar = document.getElementById("progressBar");
   if (bar) bar.style.width = pct + "%";
 
   const wrap = document.getElementById("progressSteps");
   if (wrap) {
     wrap.innerHTML = MODULES.map((m, i) => {
-      const cls = i < idx ? "done" : i === idx ? "active" : "";
-      return `<span class="step-dot ${cls}">${m.emoji} ${m.label.replace(/^\S+\s/, "")}</span>`;
+      const isDone = completed.has(m.id);
+      const isActive = i === idx;
+      const cls = isDone ? "done" : isActive ? "active" : "";
+      const shortLabel = m.label.replace(/^\S+\s/, "");
+      return `<span class="step-dot ${cls}" style="cursor:pointer;"
+                    onclick="window.pklJumpToModule(${i})"
+                    title="Nhấn để chuyển tới: ${m.label}">${m.emoji} ${shortLabel}</span>`;
     }).join("");
   }
 
@@ -49,16 +88,54 @@ function updateProgress(idx) {
   if (label) label.textContent = MODULES[idx]?.label || "✅ Hoàn thành!";
 }
 
-async function runFullSession(sessionVocab, poolData, level) {
-  resetInstructionMemory(); // mỗi lượt chạy trọn 5 module là 1 "buổi" mới -> nghe lại hướng dẫn
+window.pklJumpToModule = function (idx) {
+  const current = parseInt(sessionStorage.getItem(CURRENT_IDX_SESSION_KEY) || "0", 10);
+  if (idx === current) return; // đang ở module này rồi, không cần làm gì
+  const target = MODULES[idx];
+  if (confirm(`Bạn muốn chuyển sang phần: ${target.label}?`)) {
+    localStorage.setItem(JUMP_KEY, String(idx));
+    location.reload();
+  }
+};
 
-  for (let i = 0; i < MODULES.length; i++) {
+// ============================================================================
+// CHẠY 5 MODULE, BẮT ĐẦU TỪ startIdx, TỰ ĐỘNG LẤP CÁC MODULE CÒN THIẾU
+// ============================================================================
+
+async function runFromIndex(sessionVocab, poolData, level, startIdx) {
+  resetInstructionMemory();
+
+  // Thứ tự chạy: bắt đầu từ startIdx, hết vòng thì quay lại đầu (đảm bảo luôn
+  // chạm đủ cả 5 module đúng 1 lượt duy nhất mỗi module, trừ module đích).
+  const order = [];
+  for (let k = 0; k < MODULES.length; k++) order.push((startIdx + k) % MODULES.length);
+
+  for (let pos = 0; pos < order.length; pos++) {
+    const i = order[pos];
+    const isExplicitTarget = pos === 0; // module đầu tiên = module người dùng vừa chọn (hoặc mặc định)
+    const completed = getCompletedSet();
+
+    // Module đã hoàn thành rồi thì bỏ qua — TRỪ module đích (người dùng chủ động chọn thì luôn cho làm lại)
+    if (!isExplicitTarget && completed.has(MODULES[i].id)) continue;
+
     updateProgress(i);
     const rootEl = document.getElementById("mainCard");
     await MODULES[i].run({ sessionVocab, poolData, level, rootEl });
+
+    completed.add(MODULES[i].id);
+    saveCompletedSet(completed);
+
+    if (completed.size >= MODULES.length) {
+      updateProgress(MODULES.length);
+      return;
+    }
   }
   updateProgress(MODULES.length);
 }
+
+// ============================================================================
+// MAIN
+// ============================================================================
 
 async function main() {
   injectSharedStyles();
@@ -74,11 +151,29 @@ async function main() {
     return;
   }
 
-  // 1. Chọn cấp độ
-  setCard(`<div style="text-align:center;padding:20px;color:#aaa;">Đang tải...</div>`);
-  const level = await renderLevelSelect(document.getElementById("mainCard"));
+  // Kiểm tra xem trang này được load do NHẢY MODULE (click progress dot) hay không
+  const jumpIdxRaw = localStorage.getItem(JUMP_KEY);
+  const isJumping = jumpIdxRaw !== null;
+  let startIdx = 0;
+  if (isJumping) {
+    startIdx = parseInt(jumpIdxRaw, 10);
+    localStorage.removeItem(JUMP_KEY);
+  }
 
-  // 2. Tải dữ liệu buổi học (cache F5-safe qua all-shared.js)
+  // 1. Cấp độ: nếu đang nhảy module và đã có cấp độ chọn từ trước -> dùng lại,
+  //    KHÔNG hỏi lại (tránh làm gián đoạn trải nghiệm khi chỉ đang chuyển module)
+  let level;
+  const savedLevel = localStorage.getItem("selected_level");
+  if (isJumping && savedLevel) {
+    level = savedLevel;
+  } else {
+    setCard(`<div style="text-align:center;padding:20px;color:#aaa;">Đang tải...</div>`);
+    level = await renderLevelSelect(document.getElementById("mainCard"));
+    resetCompletedSet(); // bắt đầu 1 buổi học hoàn toàn mới -> xoá tiến trình hoàn thành cũ
+  }
+
+  // 2. Tải dữ liệu buổi học (cache F5-safe qua all-shared.js — nếu đang nhảy
+  //    module thì dữ liệu này đã có sẵn trong cache, không tải lại từ mạng)
   setCard(`
     <div style="text-align:center;padding:40px;">
       <div style="font-size:48px;animation:bounce 0.8s ease infinite alternate;">📚</div>
@@ -103,19 +198,27 @@ async function main() {
     return;
   }
 
-  await showTransition("🎮", "Let's start learning!",
-    `Today you'll learn ${sessionVocab.length} new words through 5 fun activities!`);
-
-  // 3. Vòng lặp buổi học — cho phép "Học lại" lặp vô hạn với CÙNG bộ từ
-  let keepGoing = true;
-  while (keepGoing) {
-    await runFullSession(sessionVocab, poolData, level);
-    const choice = await renderEndOfSessionPrompt(document.getElementById("mainCard"));
-    keepGoing = choice === "replay";
+  if (!isJumping) {
+    await showTransition("🎮", "Let's start learning!",
+      `Today you'll learn ${sessionVocab.length} new words through 5 fun activities!`);
   }
 
-  // 4. Kết thúc hẳn buổi học — dọn lựa chọn mascot để buổi sau chọn lại
+  // 3. Vòng lặp buổi học — mỗi lượt chạy đủ 5 module (có thể qua nhiều lần
+  //    nhảy/reload) mới hỏi "Học lại/Đã thuộc". "Học lại" thì lặp lại trong
+  //    cùng trang (không cần reload) và reset tiến trình hoàn thành.
+  let keepGoing = true;
+  while (keepGoing) {
+    await runFromIndex(sessionVocab, poolData, level, startIdx);
+    startIdx = 0; // các lượt lặp lại sau (do "Học lại", không phải do nhảy) luôn bắt đầu từ module 1
+
+    const choice = await renderEndOfSessionPrompt(document.getElementById("mainCard"));
+    keepGoing = choice === "replay";
+    if (keepGoing) resetCompletedSet();
+  }
+
+  // 4. Kết thúc hẳn buổi học — dọn lựa chọn mascot + cấp độ để buổi sau hỏi lại từ đầu
   localStorage.removeItem("selected_instructor_idx");
+  localStorage.removeItem("selected_level");
 
   setCard(`
     <div style="text-align:center;padding:30px;">
