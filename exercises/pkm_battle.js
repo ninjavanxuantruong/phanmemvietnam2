@@ -16,6 +16,9 @@ window.BattleGame = {
     correctCount: 0,
     wrongCount: 0,
     totalCount: 0,
+        // 🆕 THÊM 2 DÒNG NÀY
+        MIN_QUESTIONS: 16,
+        MAX_QUESTIONS: 24,
 
 
         async init() {
@@ -93,15 +96,65 @@ window.BattleGame = {
             if (quizOverlay) quizOverlay.style.display = "none";
 
             // 2. Định nghĩa hàm callback toàn cục để khi bên module Vocab học xong thì gọi ngược lại đây
-            window.startPokemonBattle = () => {
-                console.log("⚔️ Đã hoàn thành từ vựng! Mở bảng trắc nghiệm lên chiến đấu...");
+            // 🆕 Hàm chọn cấp độ riêng cho trận đấu — CHỈ 3 lựa chọn (không có Mầm non)
+            const renderBattleLevelSelect = (container) => {
+                return new Promise((resolve) => {
+                    const LEVELS = [
+                        { key: "de",         emoji: "🟢", label: "Dễ",         sub: "Hội thoại/đoạn văn ngắn" },
+                        { key: "trung_binh", emoji: "🟡", label: "Trung bình", sub: "Độ dài vừa phải" },
+                        { key: "kho",        emoji: "🔴", label: "Khó",        sub: "Hội thoại/đoạn văn dài" },
+                    ];
+                    container.innerHTML = `
+                        <div style="text-align:center;">
+                            <div style="font-size:16px;color:#FFCB05;font-weight:700;margin-bottom:18px;">🎮 Chọn cấp độ trận đấu!</div>
+                            <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+                                ${LEVELS.map(lv => `
+                                    <div class="battle-level-card" data-level="${lv.key}" style="
+                                        background:rgba(255,255,255,.06); border:2px solid rgba(255,203,5,.3);
+                                        border-radius:16px; padding:18px 22px; text-align:center; cursor:pointer;
+                                        min-width:120px; transition:all .2s;">
+                                        <div style="font-size:38px;">${lv.emoji}</div>
+                                        <div style="font-weight:800;color:#FFCB05;margin-top:6px;font-size:16px;">${lv.label}</div>
+                                        <div style="font-size:12px;color:#bbb;margin-top:4px;">${lv.sub}</div>
+                                    </div>`).join("")}
+                            </div>
+                        </div>`;
+                    container.querySelectorAll(".battle-level-card").forEach(card => {
+                        card.onclick = () => {
+                            const level = card.dataset.level;
+                            localStorage.setItem("selected_level", level);
+                            resolve(level);
+                        };
+                    });
+                });
+            };
 
-                const mainCard = document.getElementById("mainCard");
-                if (mainCard) mainCard.style.display = "none"; 
+            window.startPokemonBattle = async () => {
+                console.log("⚔️ Chọn cấp độ trước khi vào trận...");
 
-                if (quizOverlay) quizOverlay.style.display = "flex"; 
+                // Tự tạo mainCard nếu chưa có (phòng trường hợp VocabularyModule lỗi)
+                let mainCard = document.getElementById("mainCard");
+                if (!mainCard) {
+                    mainCard = document.createElement("div");
+                    mainCard.id = "mainCard";
+                    document.body.appendChild(mainCard);
+                }
+                mainCard.style.cssText = `
+                    position: fixed; top:0; left:0; width:100vw; height:100dvh;
+                    background: radial-gradient(circle, #1a1c28 0%, #0a0c16 100%);
+                    z-index: 99999; display:flex; align-items:center; justify-content:center;
+                    padding:20px; box-sizing:border-box;
+                `;
 
-                // Dự báo (telegraph) trước cặp đấu đầu tiên, đợi 1 nhịp cho người chơi thấy rồi mới hỏi quiz
+                await renderBattleLevelSelect(mainCard);
+                mainCard.style.display = "none";
+
+                // Nạp lại cấu hình cấp độ vừa chọn cho QuizManager (prepareData() đã chạy
+                // TRƯỚC KHI học sinh chọn nên cần gọi lại loadLevel() ở đây mới nhận đúng)
+                if (window.QuizManager) window.QuizManager.loadLevel();
+
+                if (quizOverlay) quizOverlay.style.display = "flex";
+
                 this.activeUnitIndex = 0;
                 this.telegraph = this.buildTelegraph(this.activeUnitIndex);
                 this.showTelegraphFX(this.telegraph);
@@ -238,16 +291,20 @@ window.BattleGame = {
         const pAlive = playerAttacker && playerAttacker.currentHp > 0;
         const eAlive = enemyAttacker  && enemyAttacker.currentHp  > 0;
 
+        // Roll DUY NHẤT 1 lần cho cả lượt — cả 2 bên (mình + địch) dùng
+        // CHUNG 1 kết quả, để luôn đồng bộ: cùng đánh thường hoặc cùng AOE.
+        const isAOE = Math.random() < 0.35; // tỉ lệ ra AOE, chỉnh tuỳ ý
+
         const plan = { unitIndex, enemyPlan: null, playerPlan: null };
-        if (eAlive) plan.enemyPlan  = this.rollActionPlan(enemyAttacker, this.playerTeam, 'enemy', unitIndex);
-        if (pAlive) plan.playerPlan = this.rollActionPlan(playerAttacker, this.enemyTeam, 'player', unitIndex);
+        if (eAlive) plan.enemyPlan  = this.rollActionPlan(enemyAttacker, this.playerTeam, 'enemy', unitIndex, isAOE);
+        if (pAlive) plan.playerPlan = this.rollActionPlan(playerAttacker, this.enemyTeam, 'player', unitIndex, isAOE);
         return plan;
     },
 
-    // Roll ngẫu nhiên AOE hay đánh thường + chọn mục tiêu — KHÔNG tính damage, KHÔNG cần biết đúng/sai quiz
-    rollActionPlan(attacker, opponentTeam, side, unitIndex) {
+    // Roll mục tiêu theo `isAOE` đã chốt sẵn từ buildTelegraph — KHÔNG tự
+    // roll random ở đây nữa (tránh lệch pha với bên còn lại)
+    rollActionPlan(attacker, opponentTeam, side, unitIndex, isAOE) {
         const targetSide = side === 'player' ? 'enemy' : 'player';
-        const isAOE = Math.random() < 0.35; // tỉ lệ ra AOE, chỉnh tuỳ ý
 
         if (!isAOE) {
             const targetIdx = opponentTeam.findIndex(p => p.currentHp > 0);
@@ -375,7 +432,15 @@ window.BattleGame = {
 
         if (!isCorrect) {
             this.log(`${attacker.name} đánh hụt!`);
-            const playInfo = { attackerIndex: unitIndex, attackerSide: side, targetSide, missed: true, targets: [] };
+            const missTargetIdx = isAOE ? (targets && targets[0]) : targetIdx;
+            const playInfo = {
+                attackerIndex: unitIndex,
+                attackerSide: side,
+                targetSide,
+                missed: true,
+                targets: (missTargetIdx !== undefined ? [missTargetIdx] : [])
+            };
+            console.log('[BATTLE] playInfo khi MISS:', JSON.parse(JSON.stringify(playInfo)), 'missTargetIdx=', missTargetIdx, 'targetIdx=', targetIdx, 'targets=', targets); // ← thêm dòng này
             if (window.SkillManager) await window.SkillManager.playNormalAttack(playInfo);
             return;
         }
@@ -411,8 +476,17 @@ window.BattleGame = {
 
     // Trừ máu + đếm số lần bị dính đòn → cứ đủ 3 đòn thì hồi máu (buff thật),
     // và bật sẵn hiệu ứng "sắp được buff" (2 sao) ngay từ đòn thứ 2 để dự báo trước.
-    dealDamage(target, damage, targetSide, targetIndex) {
-        target.currentHp = Math.max(0, target.currentHp - damage);
+        dealDamage(target, damage, targetSide, targetIndex) {
+        const team = targetSide === 'enemy' ? this.enemyTeam : this.playerTeam;
+        const otherAlive = team.some((p, i) => i !== targetIndex && p && p.currentHp > 0);
+        const wouldWipeTeam = (target.currentHp - damage) <= 0 && !otherAlive;
+
+        if (wouldWipeTeam && this.totalCount < this.MIN_QUESTIONS) {
+            // Chưa đủ số câu tối thiểu -> giữ sàn 1 máu, không cho đội bị xoá sổ sớm
+            target.currentHp = 1;
+        } else {
+            target.currentHp = Math.max(0, target.currentHp - damage);
+        }
         target.hitsTaken = (target.hitsTaken || 0) + 1;
 
         if (target.currentHp <= 0) return; // chết rồi thì thôi, khỏi buff
@@ -607,14 +681,19 @@ window.BattleGame = {
         const isEnemyOut = this.enemyTeam.every(p => p.currentHp <= 0);
         const isPlayerOut = this.playerTeam.every(p => p.currentHp <= 0);
 
-        if (isEnemyOut) { 
-            this.victory(); 
-            return true; 
+        if (this.totalCount < this.MIN_QUESTIONS) {
+            if (isEnemyOut || isPlayerOut) return false; // lớp bảo hiểm, thường không rơi vào vì dealDamage đã chặn
         }
-        if (isPlayerOut) { 
-            this.defeat(); 
-            return true; 
+
+        if (this.totalCount >= this.MAX_QUESTIONS && !isEnemyOut && !isPlayerOut) {
+            const playerHpSum = this.playerTeam.reduce((s, p) => s + Math.max(0, p.currentHp), 0);
+            const enemyHpSum  = this.enemyTeam.reduce((s, p) => s + Math.max(0, p.currentHp), 0);
+            if (playerHpSum >= enemyHpSum) { this.victory(); } else { this.defeat(); }
+            return true;
         }
+
+        if (isEnemyOut) { this.victory(); return true; }
+        if (isPlayerOut) { this.defeat(); return true; }
         return false;
     },
 
