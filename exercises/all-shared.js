@@ -17,9 +17,29 @@
  *  8. UI dùng chung: chọn cấp độ, transition screen, hỏi học lại cuối buổi
  * ============================================================================
  */
+// ============================================================================
+// 1.5. ẢNH — dùng window.imageCache từ imagecache2.js (Unsplash/Pexels/Pixabay/...)
+// ============================================================================
+// getImageFromMap giữ NGUYÊN chữ ký đồng bộ (trả về string ngay lập tức) vì mọi
+// module đang gọi kiểu `getImageFromMap(keyword) || ""` không await. imagecache2.js
+// có internal cache đồng bộ (imageMap) + hàm getImage() bất đồng bộ để fetch thật.
+// Nên: có sẵn trong cache -> trả về ngay; chưa có -> trả "" và fetch ngầm (không
+// chặn UI), lần gọi sau (thường sau khi prefetchImagesBatch chạy xong) sẽ có ảnh.
+export function getImageFromMap(keyword) {
+  if (!keyword) return "";
+  const k = keyword.toLowerCase().trim();
+  const ic = window.imageCache;
+  if (!ic) return "";
+  if (ic.imageMap[k]) return ic.imageMap[k];
+  ic.getImage(k); // fetch ngầm, không await
+  return "";
+}
 
-import { prefetchImagesBatch, getImageFromMap } from "./imageCache.js";
-export { getImageFromMap };
+export async function prefetchImagesBatch(keywords) {
+  const ic = window.imageCache;
+  if (!ic || !keywords?.length) return;
+  await ic.prefetchImagesBatch(keywords);
+}
 
 // ============================================================================
 // 1. HẰNG SỐ CHUNG
@@ -113,7 +133,49 @@ export async function getMaxLessonCode() {
 export function getMinLessonCode() {
   return isMamNonAllowed() ? 0 : MIN_LESSON_CODE_DEFAULT;
 }
-
+// BỔ SUNG
+export const EN_RATE_BY_LEVEL = {
+  [LEVELS.MAM_NON]: 0.4,
+  [LEVELS.DE]: 0.6,
+  [LEVELS.TRUNG_BINH]: 0.8,
+  [LEVELS.KHO]: 1.0,
+};
+export function getEnglishRateForLevel(level) {
+  return EN_RATE_BY_LEVEL[level] || 0.8;
+}
+const VI_TTS_BASE = "https://googlevoice-tinh.onrender.com";
+const _viAudioCache = new Map();
+let _viAudioCtx = null;
+function _getViAudioCtx() {
+  if (!_viAudioCtx) _viAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_viAudioCtx.state === "suspended") _viAudioCtx.resume();
+  return _viAudioCtx;
+}
+export function speakVI(text, speed = 0.9) {
+  return new Promise(async resolve => {
+    if (!text) return resolve();
+    try {
+      const key = `vi|${speed}|${text}`;
+      let buf = _viAudioCache.get(key);
+      if (!buf) {
+        const url = `${VI_TTS_BASE}/tts?q=${encodeURIComponent(text)}&speed=${speed}&lang=vi-VN&voice=`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("VI TTS fail");
+        const ab = await res.arrayBuffer();
+        buf = await _getViAudioCtx().decodeAudioData(ab);
+        _viAudioCache.set(key, buf);
+      }
+      const ctx = _getViAudioCtx();
+      const src = ctx.createBufferSource();
+      src.buffer = buf; src.connect(ctx.destination);
+      src.onended = resolve;
+      src.start();
+    } catch (e) {
+      console.error("speakVI lỗi:", e);
+      resolve();
+    }
+  });
+}
 // ============================================================================
 // 5. LẤY DỮ LIỆU THÔ TỪ SHEET — cache trong sessionStorage (như all.js cũ)
 // ============================================================================
@@ -226,13 +288,16 @@ export async function loadSessionData(level) {
 
   // Prefetch ảnh — chỉ 1 lần / theo số lượng wordBank, giữ đúng cơ chế all.js cũ
   const imgFlagKey = IMG_PREFETCH_FLAG_PREFIX + wordBank.length;
-  if (!sessionStorage.getItem(imgFlagKey)) {
-    const keywords = [...new Set(
-      [...sessionVocab, ...poolData.slice(0, 60)]
-        .flatMap(it => [it.imageKeyword, it.word].filter(Boolean).map(k => k.toLowerCase().trim()))
-    )];
+  const keywords = [...new Set(
+    sessionVocab.flatMap(it => [it.imageKeyword, it.word].filter(Boolean).map(k => k.toLowerCase().trim()))
+  )];
+  // Kiểm tra THỰC TẾ xem local đã có ảnh chưa (không chỉ dựa vào cờ sessionStorage) —
+  // tránh trường hợp người dùng xoá dữ liệu trình duyệt làm mất ảnh cache nhưng cờ cũ
+  // vẫn còn, khiến hệ thống nghĩ "đã có ảnh" và bỏ qua tải lại -> ảnh hiện lỗi.
+  const missingImages = keywords.filter(k => !getImageFromMap(k));
+  if (!sessionStorage.getItem(imgFlagKey) || missingImages.length > 0) {
     try {
-      await prefetchImagesBatch(keywords);
+      await prefetchImagesBatch(missingImages.length > 0 ? missingImages : keywords);
     } catch (e) { console.warn("Prefetch ảnh lỗi:", e); }
     sessionStorage.setItem(imgFlagKey, "1");
   }
@@ -314,6 +379,10 @@ export function resetInstructionMemory() {
 export function buildDistractors(target, pool, opts = {}) {
   const field = opts.field || "word";
   const count = opts.count || 3;
+  // preferSameLesson: true -> ưu tiên lấy TOÀN BỘ nhiễu cùng bài trước (dùng cho
+  // câu hỏi có ảnh — ảnh cùng bài đã được prefetch/cache sẵn ở local, tránh phải
+  // gọi API tải ảnh mới cho từ ở bài khác).
+  const preferSameLesson = opts.preferSameLesson || false;
   const correctVal = (target[field] || "").toString().trim().toLowerCase();
 
   const validVal = it => it[field] && it[field].toString().trim().toLowerCase() !== correctVal;
@@ -336,12 +405,14 @@ export function buildDistractors(target, pool, opts = {}) {
     return false;
   };
 
-  // Ưu tiên: 1 từ cùng bài trước
-  if (sameLesson.length) tryAdd(sameLesson.slice(0, 1));
-  // Rồi lấp đầy phần còn lại bằng khác bài
-  if (picked.length < count) tryAdd(otherLesson);
-  // Vẫn thiếu (pool quá ít) -> vét thêm từ sameLesson còn lại, rồi extra
-  if (picked.length < count) tryAdd(sameLesson.slice(1));
+  if (preferSameLesson) {
+    tryAdd(sameLesson);
+    if (picked.length < count) tryAdd(otherLesson);
+  } else {
+    if (sameLesson.length) tryAdd(sameLesson.slice(0, 1));
+    if (picked.length < count) tryAdd(otherLesson);
+    if (picked.length < count) tryAdd(sameLesson.slice(1));
+  }
   if (picked.length < count && Array.isArray(opts.extra)) tryAdd(shuffle(opts.extra));
 
   return picked.slice(0, count);
@@ -392,10 +463,12 @@ export function askMCQ(cfg) {
   const {
     container, instructionKey, instructionText,
     questionHTML, options, correctValue, speakPromptText, rate = 1,
+    optionLang = "en", promptLang = "en",
   } = cfg;
 
   const tracker = makeAttemptTracker();
   const hasImages = options.some(o => o.imageUrl);
+  const speakByLang = (text, lang, r) => (lang === "vi" ? speakVI(text, r) : speakEN(text, r));
 
   return new Promise(resolve => {
     const render = async () => {
@@ -426,7 +499,7 @@ export function askMCQ(cfg) {
           container.dataset.locked = "1";
           optWrap.querySelectorAll(".pkl-mcq-btn").forEach(b => b.classList.add("pkl-locked"));
 
-          await speakEN(opt.label, rate);
+          await speakByLang(opt.speakText || opt.label, optionLang, rate);
 
           const isCorrect = opt.value === correctValue;
           if (isCorrect) {
@@ -456,7 +529,7 @@ export function askMCQ(cfg) {
 
       container.dataset.locked = "0";
       await speakInstructionOnce(instructionKey, instructionText);
-      if (speakPromptText) await speakEN(speakPromptText, rate);
+      if (speakPromptText) await speakByLang(speakPromptText, promptLang, rate);
     };
     render();
   });
