@@ -1,23 +1,20 @@
 /**
  * ============================================================================
- * module-1-intro.js — MODULE 1: GIỚI THIỆU TỪ VỰNG (bản thiết kế v3)
+ * module-1-intro.js — MODULE 1: GIỚI THIỆU TỪ VỰNG (bản v4 — sửa 3 lỗi)
  * ============================================================================
- * Kiến trúc: dựng khung cảnh (nền + mascot) MỘT LẦN DUY NHẤT trước khi vào
- * vòng lặp từ vựng — canvas Live2D KHÔNG BAO GIỜ bị xoá/tải lại giữa các bước
- * hay giữa các từ, chỉ có phần nội dung bên trong bảng (#pklStepContent) thay
- * đổi. Chỉ khi sang Bước 4 (quiz nhận biết nghĩa) mới phá bỏ hẳn khung cảnh.
+ * SỬA SO VỚI BẢN TRƯỚC:
+ *  1. mascotSpeak/mascotSpeakVI: log lỗi rõ ràng + dự phòng giọng trình duyệt
+ *     khi googlevoice-tinh lỗi (trước đây tiếng Việt im lặng hoàn toàn không
+ *     dấu vết khi server TTS ngoài bị lỗi).
+ *  2. Nền giờ PHỦ TOÀN MÀN HÌNH (position:fixed, z-index:-1) thay vì chỉ nằm
+ *     trong khung .intro-scene. Header/thanh progress (có z-index cao sẵn từ
+ *     all.html) vẫn nổi lên trên để bấm chuyển module bình thường.
+ *  3. Dễ/Trung bình/Khó giờ ĐỒNG NHẤT: đều đọc AH (phần Anh qua trình duyệt,
+ *     phần Việt qua googlevoice-tinh) và AI (toàn bộ tiếng Việt) — không còn
+ *     phân tầng "Dễ chỉ đọc nghĩa, TB thêm AH, Khó thêm AI" như trước.
  *
- * Với MỖI từ vựng, đi tuần tự qua 3 bước, mỗi bước đều có nút "Next" (chủ
- * động qua bước) và "Redo" (làm lại bước đó nếu muốn nghe/luyện lại):
- *   Bước 1: Giới thiệu từ (ảnh + từ [luôn hiện, mọi cấp độ] + nghĩa + AH/AI
- *           nếu không phải Mầm non)
- *   Bước 2: Tách âm (trừ Mầm non) — đọc TỪNG ÂM VỊ có highlight, không hỏi gì
- *   Bước 3: Nói theo — TTS đọc mẫu trước (từ đơn ở Mầm non đọc 3 lần) -> tự
- *           mở nút Nói -> chạm ảnh để nghe lại mẫu (khoá nút Nói lúc đọc, tự
- *           mở lại sau) -> ghi âm tối đa 10s (có nút Finish dừng sớm) -> tối
- *           đa 2 lần thử, đạt 70% ở lần nào cũng được tính điểm như nhau.
- * Xong hết từ vựng mới sang Bước 4 (không mascot, không nền): quiz nhận biết
- * nghĩa, CỐ ĐỊNH 1 dạng/cấp độ.
+ * (speakEN trong all-shared.js cũng cần sửa riêng — xem hướng dẫn kèm theo,
+ * vì đó là nguyên nhân chính khiến nút "Nói" đôi khi không tự bật.)
  * ============================================================================
  */
 
@@ -68,11 +65,31 @@ async function fetchMascotAudio(text, lang = "en-US", speed = 0.9) {
   if (audioCache.has(key)) return audioCache.get(key);
   const url = `${TTS_BASE}/tts?q=${encodeURIComponent(text)}&speed=${speed}&lang=${encodeURIComponent(lang)}&voice=`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error("TTS fail");
+  if (!res.ok) throw new Error("TTS fail: HTTP " + res.status);
   const ab = await res.arrayBuffer();
   const buf = await getAudioCtx().decodeAudioData(ab);
   audioCache.set(key, buf);
   return buf;
+}
+
+/** Đọc bằng giọng trình duyệt, có timeout an toàn (không treo nếu onend không bắn). */
+function browserSpeakFallback(text, lang, rate) {
+  return new Promise(resolve => {
+    const voices = window.speechSynthesis.getVoices();
+    let voice = null;
+    if (lang.startsWith("vi")) {
+      voice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith("vi"));
+      if (!voice) { resolve(); return; } // máy không có giọng VN nào -> bỏ qua, không kẹt
+    }
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = lang; if (voice) u.voice = voice; u.rate = rate;
+    let done = false;
+    const finish = () => { if (done) return; done = true; clearTimeout(safety); resolve(); };
+    const safety = setTimeout(finish, Math.max((text.length * 130) / rate, 3000));
+    u.onend = finish; u.onerror = finish;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  });
 }
 
 let pixiApp = null;
@@ -111,7 +128,7 @@ async function loadMascotModel(charInfo, canvas, slotEl) {
   }
 }
 
-function destroyMascotScene() {
+function destroyMascotModel() {
   if (liveModel) { try { pixiApp?.stage.removeChild(liveModel); liveModel.destroy(); } catch (e) { /**/ } liveModel = null; }
   if (pixiApp) { try { pixiApp.destroy(true); } catch (e) { /**/ } pixiApp = null; }
 }
@@ -150,7 +167,7 @@ function stopLipSync(barsEl) {
   }
 }
 
-/** Mascot nói tiếng Anh + lipsync. */
+/** Mascot nói tiếng Anh + lipsync. Lỗi googlevoice-tinh -> log rõ + dự phòng giọng trình duyệt (có timeout an toàn). */
 async function mascotSpeak(text, speed = 0.85) {
   if (!text) return;
   const barsEl = document.getElementById("introBars");
@@ -163,12 +180,14 @@ async function mascotSpeak(text, speed = 0.85) {
     src.start();
     await new Promise(r => { src.onended = r; });
   } catch (e) {
-    await speakEN(text, speed); // fallback: browser TTS (không lipsync) nhưng vẫn khoá đúng cách
+    console.error("mascotSpeak: googlevoice-tinh lỗi, dùng giọng trình duyệt:", e);
+    startLipSync(barsEl);
+    await browserSpeakFallback(text, "en-US", speed);
   }
   stopLipSync(barsEl);
 }
 
-/** Mascot nói tiếng Việt qua googlevoice-tinh + lipsync. */
+/** Mascot nói tiếng Việt qua googlevoice-tinh + lipsync. Lỗi -> log rõ + dự phòng giọng VN trình duyệt nếu máy có. */
 async function mascotSpeakVI(text, speed = 0.9) {
   if (!text) return;
   const barsEl = document.getElementById("introBars");
@@ -181,13 +200,15 @@ async function mascotSpeakVI(text, speed = 0.9) {
     src.start();
     await new Promise(r => { src.onended = r; });
   } catch (e) {
-    // Không có giọng browser tiếng Việt đáng tin cậy để fallback -> bỏ qua nếu lỗi
+    console.error("mascotSpeakVI: googlevoice-tinh lỗi (tiếng Việt), thử giọng VN trình duyệt:", e);
+    startLipSync(barsEl);
+    await browserSpeakFallback(text, "vi-VN", speed);
   }
   stopLipSync(barsEl);
 }
 
 // ============================================================================
-// A2. ÂM VỊ (IPA) — đọc TỪNG ÂM khi tách âm, port lại từ all.js cũ
+// A2. ÂM VỊ (IPA) — đọc TỪNG ÂM khi tách âm
 // ============================================================================
 
 async function preloadIpa(ipa) {
@@ -212,12 +233,11 @@ async function playIpa(ipa) {
     const src = ac.createBufferSource();
     src.buffer = buf; src.connect(ac.destination);
     src.onended = resolve;
-    setTimeout(resolve, buf.duration * 1000 + 400); // an toàn nếu onended không bắn
+    setTimeout(resolve, buf.duration * 1000 + 400);
     src.start();
   });
 }
 
-/** Đọc lần lượt từng âm vị trong khung tách âm (do window.handleSplit dựng), có highlight. */
 async function autoReadPhonics(container) {
   const units = Array.from(container.querySelectorAll("[data-index]"));
   if (!units.length) return;
@@ -247,22 +267,41 @@ async function autoReadPhonics(container) {
 }
 
 // ============================================================================
-// B. NỀN ẢNH NGẪU NHIÊN (kiểu Babilala) — tự rơi về gradient nếu ảnh chưa có
+// B. NỀN ẢNH NGẪU NHIÊN — GIỜ PHỦ TOÀN MÀN HÌNH (fixed, z-index thấp nhất)
 // ============================================================================
 
 const INTRO_BG_COUNT = 10;
 const INTRO_BG_BASE = "https://cdn.jsdelivr.net/gh/ninjavanxuantruong/mp3vietnam2@main/";
+const DEFAULT_BG_CSS = "linear-gradient(180deg,#d6e4f0 0%,#c8dbe8 55%,#b5a98a 55%,#a8976e 100%)";
 
-function applyRandomBackground(sceneEl) {
+let fullscreenBgEl = null;
+
+/** Tạo (nếu chưa có) lớp nền cố định phủ TOÀN VIEWPORT, nằm sau mọi thứ khác trên trang. */
+function ensureFullscreenBg() {
+  if (fullscreenBgEl) return fullscreenBgEl;
+  fullscreenBgEl = document.createElement("div");
+  fullscreenBgEl.id = "pklFullscreenBg";
+  fullscreenBgEl.style.cssText = `
+    position:fixed; inset:0; z-index:-1;
+    background-image:${DEFAULT_BG_CSS}; background-size:cover; background-position:center;
+    transition:background-image .5s ease;
+  `;
+  document.body.appendChild(fullscreenBgEl);
+  return fullscreenBgEl;
+}
+
+function removeFullscreenBg() {
+  if (fullscreenBgEl) { fullscreenBgEl.remove(); fullscreenBgEl = null; }
+}
+
+function applyRandomBackground(bgEl) {
   const n = Math.floor(Math.random() * INTRO_BG_COUNT) + 1;
   const url = `${INTRO_BG_BASE}pm%20(${n}).jpg`;
   const img = new Image();
   img.onload = () => {
-    sceneEl.style.backgroundImage = `linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.12)), url('${url}')`;
-    sceneEl.style.backgroundSize = "cover";
-    sceneEl.style.backgroundPosition = "center";
+    bgEl.style.backgroundImage = `linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.15)), url('${url}')`;
   };
-  img.onerror = () => { /* chưa có ảnh nền -> giữ nguyên nền gradient CSS mặc định */ };
+  img.onerror = () => { /* chưa có ảnh nền -> giữ nguyên gradient mặc định đã đặt sẵn */ };
   img.src = url;
 }
 
@@ -275,11 +314,18 @@ function injectModule1Styles() {
   const style = document.createElement("style");
   style.id = "pkl-m1-style";
   style.textContent = `
+    /* Khi đang ở bước 1-3 (giới thiệu/tách âm/nói theo) -> bỏ khung card mặc định
+       để nền toàn màn hình lộ ra, mascot+bảng nổi trực tiếp trên nền. */
+    #mainCard.pkl-fullscreen-mode {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+    }
     .intro-scene {
       display:flex; flex-direction:row; align-items:flex-end; border-radius:16px;
       overflow:hidden; min-height:300px; position:relative;
-      background:linear-gradient(180deg,#d6e4f0 0%,#c8dbe8 55%,#b5a98a 55%,#a8976e 100%);
-      transition: background-image .4s ease;
+      background: transparent; /* nền thật sự đến từ lớp #pklFullscreenBg phía sau toàn trang */
     }
     @media (max-width:600px){ .intro-scene{ flex-direction:column; align-items:center; min-height:unset; } }
     .intro-char-slot { position:relative; width:190px; height:280px; flex-shrink:0; }
@@ -293,7 +339,7 @@ function injectModule1Styles() {
     .intro-lipsync-bars .ibar { width:4px; min-height:2px; border-radius:2px; transition:height .08s; }
     .intro-whiteboard {
       flex:1; background:rgba(255,255,255,.96); border:3px solid #bbb; border-radius:8px;
-      box-shadow:2px 4px 16px rgba(0,0,0,.18); padding:16px; display:flex; flex-direction:column;
+      box-shadow:2px 4px 16px rgba(0,0,0,.25); padding:16px; display:flex; flex-direction:column;
       align-items:center; gap:8px; min-height:260px; justify-content:center; margin:10px; color:#333;
     }
     @media (max-width:600px){ .intro-whiteboard{ width:calc(100% - 16px); min-height:220px; margin:8px; } }
@@ -395,10 +441,14 @@ function parseAH(noteAH) {
 }
 
 // ============================================================================
-// F. DỰNG KHUNG CẢNH 1 LẦN DUY NHẤT (nền + mascot) — không bao giờ tải lại
+// F. DỰNG KHUNG CẢNH 1 LẦN DUY NHẤT (nền toàn màn hình + mascot)
 // ============================================================================
 
 async function setupPersistentScene(rootEl, charInfo) {
+  const bgEl = ensureFullscreenBg();
+  applyRandomBackground(bgEl);
+  rootEl.classList.add("pkl-fullscreen-mode");
+
   rootEl.innerHTML = `
     <div class="intro-scene" id="pklScene">
       <div class="intro-char-slot" id="introSlot">
@@ -410,13 +460,18 @@ async function setupPersistentScene(rootEl, charInfo) {
       <div class="intro-whiteboard"><div id="pklStepContent" style="width:100%;"></div></div>
     </div>`;
 
-  applyRandomBackground(document.getElementById("pklScene"));
-
   const canvas = document.getElementById("introCanvas");
   const slotEl = document.getElementById("introSlot");
   await loadMascotModel(charInfo, canvas, slotEl);
 
   return document.getElementById("pklStepContent");
+}
+
+/** Gọi khi rời khỏi Bước 1-3 (sang Bước 4 hoặc kết thúc module) — dọn mascot + nền toàn màn hình. */
+function teardownScene(rootEl) {
+  destroyMascotModel();
+  removeFullscreenBg();
+  rootEl.classList.remove("pkl-fullscreen-mode");
 }
 
 // ============================================================================
@@ -436,8 +491,10 @@ function renderStepControls(wrapEl) {
 }
 
 // ============================================================================
-// H. BƯỚC 1 — GIỚI THIỆU TỪ (mọi cấp độ đều hiện chữ tiếng Anh)
+// H. BƯỚC 1 — GIỚI THIỆU TỪ
 // ============================================================================
+// Dễ/Trung bình/Khó giờ ĐỒNG NHẤT: đều đọc AH (Anh qua trình duyệt, Việt qua
+// googlevoice-tinh) và AI (toàn bộ tiếng Việt) — không còn phân theo cấp độ.
 
 async function stepIntroForWord(contentEl, w, level, rate, wordIndex) {
   const isMamNon = level === LEVELS.MAM_NON;
@@ -466,11 +523,12 @@ async function stepIntroForWord(contentEl, w, level, rate, wordIndex) {
     await mascotSpeak(w.word, rate);
     await mascotSpeakVI(w.meaning, 0.9);
 
-    if (ah && (level === LEVELS.TRUNG_BINH || level === LEVELS.KHO)) {
+    // Dễ/TB/Khó: đọc đồng nhất AH (Anh + Việt) và AI (Việt) — không phân tầng nữa
+    if (ah) {
       if (ah.en) await mascotSpeak(ah.en, rate);
       if (ah.vi) await mascotSpeakVI(ah.vi, 0.9);
     }
-    if (level === LEVELS.KHO && w.noteAI) {
+    if (!isMamNon && w.noteAI) {
       await mascotSpeakVI(w.noteAI, 0.9);
     }
 
@@ -481,7 +539,7 @@ async function stepIntroForWord(contentEl, w, level, rate, wordIndex) {
 }
 
 // ============================================================================
-// I. BƯỚC 2 — TÁCH ÂM (trừ Mầm non) — đọc từng âm, không hỏi gì
+// I. BƯỚC 2 — TÁCH ÂM (trừ Mầm non)
 // ============================================================================
 
 async function stepPhonicsForWord(contentEl, w, rate) {
@@ -499,6 +557,7 @@ async function stepPhonicsForWord(contentEl, w, rate) {
         await window.handleSplit(w.word.trim().toLowerCase(), box, null);
         await autoReadPhonics(box);
       } catch (e) {
+        console.error("Lỗi tách âm:", e);
         box.innerHTML = `<p style="color:#999;font-size:13px;">(không tách âm được cho "${w.word}")</p>`;
       }
     } else {
@@ -524,12 +583,6 @@ function buildRepeatModel(w, level) {
   return { modelText: s, matchText: s, veryLenient: false };
 }
 
-/**
- * 1 lượt Nói theo: TTS đọc mẫu trước (mở khoá nút Nói sau khi đọc xong) ->
- * chạm ảnh để nghe lại (khoá nút Nói lúc đọc, tự mở lại sau) -> ghi âm tối đa
- * 10s (có nút Finish) -> tối đa 2 lần thử, đạt 70% ở lần nào cũng tính điểm.
- * Trả Promise<boolean> = có đạt điểm hay không.
- */
 function runRepeatOnce(contentEl, cfg) {
   const { modelText, matchText, veryLenient, rate, imageUrl } = cfg;
 
@@ -565,7 +618,7 @@ function runRepeatOnce(contentEl, cfg) {
       lockMic(true);
       statusEl.textContent = "🔊 Listen...";
       if (veryLenient) {
-        await speakEN(`${matchText}. ${matchText}. ${matchText}.`, rate); // từ đơn Mầm non -> đọc 3 lần
+        await speakEN(`${matchText}. ${matchText}. ${matchText}.`, rate);
       } else {
         await speakEN(modelText, rate);
       }
@@ -620,6 +673,7 @@ function runRepeatOnce(contentEl, cfg) {
           resolve(false);
         }
       } catch (e) {
+        console.error("Lỗi ghi âm:", e);
         finished = true;
         micEl.classList.remove("listening");
         finishBtn.style.display = "none";
@@ -669,7 +723,7 @@ async function runWordCycle(contentEl, w, level, rate, tracker, wordIndex) {
 }
 
 // ============================================================================
-// L. BƯỚC 4 — QUIZ NHẬN BIẾT NGHĨA (không mascot, không nền — cố định 1 dạng/cấp)
+// L. BƯỚC 4 — QUIZ NHẬN BIẾT NGHĨA (không mascot, không nền)
 // ============================================================================
 
 async function stage4_MamNon(rootEl, w, sessionVocab, poolData, tracker, rate) {
@@ -763,7 +817,6 @@ export async function runIntroModule(ctx) {
 
   const charInfo = await pickMascotIfNeeded(rootEl);
 
-  // Dựng khung cảnh 1 LẦN DUY NHẤT — không tải lại giữa các bước/từ
   const contentEl = await setupPersistentScene(rootEl, charInfo);
 
   const rate = getEnglishRateForLevel(level);
@@ -777,7 +830,7 @@ export async function runIntroModule(ctx) {
   }
 
   await mascotSpeak(randomPick(INTRO_CLOSING), rate);
-  destroyMascotScene(); // Sang Bước 4 -> bỏ hẳn mascot + nền
+  teardownScene(rootEl); // Sang Bước 4 -> bỏ hẳn mascot + nền toàn màn hình
 
   await showTransition("🧠", "Quick check!", "Let's see if you remember the meanings!");
   await runStage4(rootEl, sessionVocab, poolData, level, tracker);
