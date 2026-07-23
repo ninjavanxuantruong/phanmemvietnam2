@@ -6,18 +6,29 @@
  * sửa file này, không ảnh hưởng module khác.
  *
  * Luồng theo cấp độ:
- *  - Mầm non: Nghe từ đơn -> chạm đúng hình (4 hình, cố định, không random)
+ *  - Mầm non: A) Nghe từ đơn -> chạm đúng hình (4 hình, cố định, không random)
+ *             B) Nghe cả câu thuyết trình (cột I / presentSent) -> vẫn chạm
+ *                đúng hình như dạng A (MỚI)
+ *             Cả 2 dạng đều có nút "Nghe lại" không giới hạn số lần.
  *  - Dễ:      A) Nghe Q&A điền 1 từ (có ảnh gợi ý) / B) Nghe -> chọn câu đúng
  *  - TB:      A) Nghe đoạn nhiều câu điền từng chỗ trống / B) Nghe đoạn dài chọn đáp án
  *  - Khó:     A) Hội thoại dài trả lời suy luận / B) Nghe đoạn nhiễu, giới hạn nghe lại
+ *
+ * LƯU Ý QUAN TRỌNG VỀ GIAO DIỆN: các dạng Dễ-A, TB-A, TB-B, Khó-A, Khó-B đều
+ * dùng chung 1 MÀN HÌNH DUY NHẤT (nội dung minh hoạ + nút "Nghe lại" + phần trả
+ * lời hiện CÙNG LÚC), thay vì tách 2 màn hình như bản cũ (màn 1 hiện ảnh/đoạn
+ * văn + nút nghe lại, sau đó bị ghi đè mất bởi màn 2 là ô nhập/trắc nghiệm).
+ * Việc này giải quyết đúng lỗi "không kịp bấm nút nghe lại".
  * ============================================================================
  */
 
 import {
-  LEVELS, speakEN, speakInstructionOnce, askMCQ, askTypedAnswer,
+  LEVELS, speakEN, speakInstructionOnce, askMCQ,
   buildDistractors, shuffle, randomPick, createScoreTracker,
   recordQuestionPassed, saveListeningResult, showTransition, updateMiniScore,
   getImageFromMap, injectSharedStyles, escapeRegExp,
+  makeAttemptTracker, shouldRevealAnswer, goToNextAttempt,
+  POSITIVE_FEEDBACK, ENCOURAGE_RETRY,
 } from "./all-shared.js";
 
 // ============================================================================
@@ -31,32 +42,234 @@ function blankOut(sentence, target) {
   return sentence.replace(re, "___");
 }
 
-// Nút "Nghe lại" có giới hạn số lần (dùng cho cấp Khó)
-function renderLimitedReplay(container, text, maxTimes = 2) {
-  let used = 0;
-  const btn = document.createElement("button");
-  btn.className = "poke-btn blue";
-  btn.style.marginTop = "10px";
-  const updateLabel = () => { btn.textContent = `🔊 Listen again (${maxTimes - used} left)`; };
-  updateLabel();
-  btn.onclick = async () => {
-    if (used >= maxTimes) return;
-    used++;
-    btn.disabled = used >= maxTimes;
-    updateLabel();
-    await speakEN(text, 0.9);
-  };
-  container.appendChild(btn);
-  return btn;
+// ============================================================================
+// HELPER MỚI: nút "Nghe lại" nhúng NGAY TRONG questionHTML của askMCQ (Mầm non)
+// askMCQ ghi đè toàn bộ innerHTML mỗi lần render/retry, nên không thể gắn thêm
+// nút SAU khi gọi — phải nhúng nút ngay trong questionHTML, dùng window.fnName
+// để gắn onclick (mỗi lần gọi tạo 1 tên hàm riêng, tránh đụng nhau giữa các câu).
+// ============================================================================
+let _pklMamNonReplayCounter = 0;
+function buildMamNonQuestionHTML(promptText, rate = 0.85) {
+  _pklMamNonReplayCounter++;
+  const fnName = `__pklMamNonReplay_${_pklMamNonReplayCounter}`;
+  window[fnName] = () => speakEN(promptText, rate);
+  return `
+    <div style="font-size:44px;">🎧</div>
+    <button class="poke-btn blue" style="margin-top:10px;" onclick="window.${fnName}()">🔊 Nghe lại</button>
+  `;
 }
 
 // ============================================================================
-// MẦM NON — nghe từ đơn, chạm đúng hình (cố định, không random)
+// HELPER MỚI: GỘP 1 MÀN HÌNH — nội dung minh hoạ (câu/đoạn văn/hội thoại) +
+// nút "Nghe lại" (có thể giới hạn số lần) + Ô NHẬP đáp án, hiện CÙNG LÚC ngay
+// từ đầu. Thay thế cho việc gọi renderLimitedReplay() rồi askTypedAnswer() nối
+// tiếp (2 màn hình, màn 1 bị askTypedAnswer ghi đè mất).
+// ============================================================================
+function askTypedAnswerWithReplay(cfg) {
+  const {
+    container, instructionKey, instructionText, contentHTML,
+    replayText, maxReplay = Infinity, correctValue, placeholder = "Type here...",
+  } = cfg;
+  const norm = s => (s || "").toString().trim().toLowerCase().replace(/\s+/g, " ");
+  const tracker = makeAttemptTracker();
+  let replayUsed = 0;
+  let autoPlayed = false;
+
+  return new Promise(resolve => {
+    const render = async () => {
+      const reveal = shouldRevealAnswer(tracker);
+      const hasLimit = maxReplay !== Infinity;
+      const replayLeft = maxReplay - replayUsed;
+      const replayLabel = !hasLimit
+        ? "🔊 Nghe lại"
+        : (replayLeft > 0 ? `🔊 Nghe lại (${replayLeft} lần)` : "🔊 Hết lượt nghe lại");
+
+      container.innerHTML = `
+        <div class="pkl-mcq-question">${contentHTML}</div>
+        <div style="text-align:center;margin:10px 0;">
+          <button class="poke-btn blue" id="pklListenReplayBtn" ${hasLimit && replayLeft <= 0 ? "disabled" : ""}>${replayLabel}</button>
+        </div>
+        <div style="text-align:center;margin:14px 0;">
+          <input type="text" id="pklTypedInput" class="pkl-typed-input" placeholder="${placeholder}"
+            value="${reveal ? correctValue : ""}" autocomplete="off"/>
+        </div>
+        <div style="text-align:center;">
+          <button class="poke-btn yellow" id="pklTypedSubmit">✅ Check</button>
+        </div>
+        <div class="pkl-mcq-feedback" id="pklTypedFeedback"></div>
+      `;
+
+      const input = container.querySelector("#pklTypedInput");
+      const submitBtn = container.querySelector("#pklTypedSubmit");
+      const feedback = container.querySelector("#pklTypedFeedback");
+      const replayBtn = container.querySelector("#pklListenReplayBtn");
+      input.focus();
+      if (reveal) input.select();
+      input.onkeydown = e => { if (e.key === "Enter") submitBtn.click(); };
+
+      replayBtn.onclick = async () => {
+        if (hasLimit && replayUsed >= maxReplay) return;
+        replayUsed++;
+        replayBtn.disabled = true;
+        replayBtn.textContent = "🔊 ...";
+        await speakEN(replayText, 0.9);
+        const left = maxReplay - replayUsed;
+        if (!hasLimit) { replayBtn.disabled = false; replayBtn.textContent = "🔊 Nghe lại"; }
+        else if (left > 0) { replayBtn.disabled = false; replayBtn.textContent = `🔊 Nghe lại (${left} lần)`; }
+        else { replayBtn.disabled = true; replayBtn.textContent = "🔊 Hết lượt nghe lại"; }
+      };
+
+      submitBtn.onclick = async () => {
+        if (container.dataset.locked === "1") return;
+        container.dataset.locked = "1";
+        submitBtn.disabled = true; input.disabled = true; replayBtn.disabled = true;
+
+        const userVal = input.value;
+        if (userVal.trim()) await speakEN(userVal, 1);
+
+        const isCorrect = norm(userVal) === norm(correctValue);
+        if (isCorrect) {
+          input.classList.add("pkl-reveal");
+          feedback.textContent = "🎉 " + randomPick(POSITIVE_FEEDBACK);
+          feedback.style.color = "#69f0ae";
+          const attemptsUsed = tracker.attempt;
+          await new Promise(r => setTimeout(r, 1200));
+          resolve(attemptsUsed);
+        } else {
+          feedback.innerHTML = "💡 " + randomPick(ENCOURAGE_RETRY) + ` (Answer: <b>${correctValue}</b>)`;
+          feedback.style.color = "#ffd54f";
+          const retryBtn = document.createElement("button");
+          retryBtn.className = "poke-btn yellow";
+          retryBtn.style.marginTop = "10px";
+          retryBtn.textContent = "🔄 Try again";
+          retryBtn.onclick = () => { goToNextAttempt(tracker); render(); };
+          feedback.after(retryBtn);
+        }
+      };
+
+      container.dataset.locked = "0";
+      await speakInstructionOnce(instructionKey, instructionText);
+      if (replayText && !autoPlayed) {
+        autoPlayed = true;
+        await speakEN(replayText, 0.9);
+      }
+    };
+    render();
+  });
+}
+
+// ============================================================================
+// HELPER MỚI: GỘP 1 MÀN HÌNH — giống hệt ý tưởng trên nhưng cho dạng TRẮC
+// NGHIỆM (dùng ở TB-B, Khó-A, Khó-B). Nội dung minh hoạ + nút "Nghe lại" +
+// các lựa chọn hiện CÙNG LÚC ngay từ đầu.
+// ============================================================================
+function askMCQWithReplay(cfg) {
+  const {
+    container, instructionKey, instructionText, contentHTML,
+    replayText, maxReplay = Infinity, options, correctValue, rate = 1,
+  } = cfg;
+
+  const tracker = makeAttemptTracker();
+  const hasImages = options.some(o => o.imageUrl);
+  let replayUsed = 0;
+  let autoPlayed = false;
+
+  return new Promise(resolve => {
+    const render = async () => {
+      const reveal = shouldRevealAnswer(tracker);
+      const hasLimit = maxReplay !== Infinity;
+      const replayLeft = maxReplay - replayUsed;
+      const replayLabel = !hasLimit
+        ? "🔊 Nghe lại"
+        : (replayLeft > 0 ? `🔊 Nghe lại (${replayLeft} lần)` : "🔊 Hết lượt nghe lại");
+
+      container.innerHTML = `
+        <div class="pkl-mcq-question">${contentHTML}</div>
+        <div style="text-align:center;margin:10px 0 14px;">
+          <button class="poke-btn blue" id="pklMcqReplayBtn" ${hasLimit && replayLeft <= 0 ? "disabled" : ""}>${replayLabel}</button>
+        </div>
+        <div class="pkl-mcq-options ${hasImages ? "pkl-img-mode" : ""}" id="pklMcqOptions"></div>
+        <div class="pkl-mcq-feedback" id="pklMcqFeedback"></div>
+      `;
+      const optWrap = container.querySelector("#pklMcqOptions");
+      const feedback = container.querySelector("#pklMcqFeedback");
+      const replayBtn = container.querySelector("#pklMcqReplayBtn");
+
+      replayBtn.onclick = async () => {
+        if (hasLimit && replayUsed >= maxReplay) return;
+        replayUsed++;
+        replayBtn.disabled = true;
+        replayBtn.textContent = "🔊 ...";
+        await speakEN(replayText, rate);
+        const left = maxReplay - replayUsed;
+        if (!hasLimit) { replayBtn.disabled = false; replayBtn.textContent = "🔊 Nghe lại"; }
+        else if (left > 0) { replayBtn.disabled = false; replayBtn.textContent = `🔊 Nghe lại (${left} lần)`; }
+        else { replayBtn.disabled = true; replayBtn.textContent = "🔊 Hết lượt nghe lại"; }
+      };
+
+      options.forEach(opt => {
+        const btn = document.createElement(opt.imageUrl ? "div" : "button");
+        btn.className = "pkl-mcq-btn" + (opt.imageUrl ? " pkl-mcq-img" : "");
+        btn.dataset.value = opt.value;
+        btn.innerHTML = opt.imageUrl
+          ? `<div class="img-wrap">
+               <img src="${opt.imageUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/>
+               <div class="img-fallback" style="display:none;">🖼️</div>
+             </div>
+             <div class="lbl">${opt.label}</div>`
+          : `<span>${opt.label}</span>`;
+        if (reveal && opt.value === correctValue) btn.classList.add("pkl-reveal");
+
+        btn.onclick = async () => {
+          if (container.dataset.locked === "1") return;
+          container.dataset.locked = "1";
+          optWrap.querySelectorAll(".pkl-mcq-btn").forEach(b => b.classList.add("pkl-locked"));
+          replayBtn.disabled = true;
+
+          const isCorrect = opt.value === correctValue;
+          if (isCorrect) {
+            btn.classList.add("pkl-correct-flash", "pkl-reveal");
+            feedback.textContent = "🎉 " + randomPick(POSITIVE_FEEDBACK);
+            feedback.style.color = "#69f0ae";
+            const attemptsUsed = tracker.attempt;
+            await new Promise(r => setTimeout(r, 1200));
+            resolve(attemptsUsed);
+          } else {
+            btn.classList.add("pkl-wrong-flash");
+            optWrap.querySelectorAll(".pkl-mcq-btn").forEach(b => {
+              if (b.dataset.value === correctValue) b.classList.add("pkl-reveal");
+            });
+            feedback.textContent = "💡 " + randomPick(ENCOURAGE_RETRY);
+            feedback.style.color = "#ffd54f";
+            const retryBtn = document.createElement("button");
+            retryBtn.className = "poke-btn yellow";
+            retryBtn.style.marginTop = "10px";
+            retryBtn.textContent = "🔄 Try again";
+            retryBtn.onclick = () => { goToNextAttempt(tracker); render(); };
+            feedback.after(retryBtn);
+          }
+        };
+        optWrap.appendChild(btn);
+      });
+
+      container.dataset.locked = "0";
+      await speakInstructionOnce(instructionKey, instructionText);
+      if (replayText && !autoPlayed) {
+        autoPlayed = true;
+        await speakEN(replayText, rate);
+      }
+    };
+    render();
+  });
+}
+
+// ============================================================================
+// MẦM NON — A: nghe TỪ ĐƠN, chạm đúng hình (cố định, không random)
 // ============================================================================
 
-async function listenMamNon(rootEl, sessionVocab, poolData, tracker) {
+async function listenMamNon_Word(rootEl, sessionVocab, poolData, tracker) {
   for (const w of sessionVocab) {
-    const distractorWords = buildDistractors(w, poolData, { field: "word", count: 3, extra: sessionVocab });
+    const distractorWords = buildDistractors(w, poolData, { field: "word", count: 3, extra: sessionVocab, preferSameLesson: true });
     const options = shuffle([w.word, ...distractorWords]).map(val => {
       const found = [w, ...poolData, ...sessionVocab].find(p => p.word === val) || w;
       return { label: "", value: val, imageUrl: getImageFromMap(found.imageKeyword || val) || "" };
@@ -65,7 +278,7 @@ async function listenMamNon(rootEl, sessionVocab, poolData, tracker) {
       container: rootEl,
       instructionKey: "listen-mamnon",
       instructionText: "Listen carefully and tap the correct picture!",
-      questionHTML: `<div style="font-size:44px;">🎧</div>`,
+      questionHTML: buildMamNonQuestionHTML(w.word, 0.85),
       options, correctValue: w.word,
       speakPromptText: w.word,
       rate: 0.85,
@@ -76,7 +289,36 @@ async function listenMamNon(rootEl, sessionVocab, poolData, tracker) {
 }
 
 // ============================================================================
-// DỄ — A: Nghe Q&A điền 1 từ (có ảnh gợi ý)
+// MẦM NON — B (MỚI): nghe CẢ CÂU THUYẾT TRÌNH (cột I / presentSent), vẫn chạm
+// đúng hình giống hệt cơ chế của dạng A, chỉ khác nội dung đọc lên là cả câu
+// thay vì chỉ 1 từ.
+// ============================================================================
+
+async function listenMamNon_Sentence(rootEl, sessionVocab, poolData, tracker) {
+  for (const w of sessionVocab) {
+    const sentence = w.presentSent || w.word;
+    const distractorWords = buildDistractors(w, poolData, { field: "word", count: 3, extra: sessionVocab, preferSameLesson: true });
+    const options = shuffle([w.word, ...distractorWords]).map(val => {
+      const found = [w, ...poolData, ...sessionVocab].find(p => p.word === val) || w;
+      return { label: "", value: val, imageUrl: getImageFromMap(found.imageKeyword || val) || "" };
+    });
+    const attempts = await askMCQ({
+      container: rootEl,
+      instructionKey: "listen-mamnon-sentence",
+      instructionText: "Listen to the sentence, then tap the correct picture!",
+      questionHTML: buildMamNonQuestionHTML(sentence, 0.8),
+      options, correctValue: w.word,
+      speakPromptText: sentence,
+      rate: 0.8,
+    });
+    recordQuestionPassed(tracker, attempts);
+    updateMiniScore(tracker.displayScore, tracker.total);
+  }
+}
+
+// ============================================================================
+// DỄ — A: Nghe Q&A điền 1 từ (có ảnh gợi ý) — GỘP 1 MÀN HÌNH, nghe lại KHÔNG
+// giới hạn số lần (giữ đúng ý cũ "Dễ: không giới hạn nghe lại")
 // ============================================================================
 
 async function listenDe_FillBlank(rootEl, sessionVocab, tracker) {
@@ -89,24 +331,20 @@ async function listenDe_FillBlank(rootEl, sessionVocab, tracker) {
     const displayA = blankOut(a, w.word);
     const imgSrc = getImageFromMap(w.imageKeyword || w.word) || "";
 
-    rootEl.innerHTML = `
+    const contentHTML = `
       <div class="dialogue-box" style="background:rgba(93,171,70,.15);border:2px solid #ffd54f;border-radius:14px;padding:16px;text-align:center;">
         ${imgSrc ? `<img src="${imgSrc}" style="height:70px;border-radius:8px;margin-bottom:8px;"/><br/>` : ""}
         <div style="font-size:18px;color:#fff;">🗣 ${displayQ}</div>
         <div style="font-size:18px;color:#ffd700;margin-top:6px;">🗣 ${displayA}</div>
       </div>`;
-    renderLimitedReplay(rootEl, `${q}. ${a}`, 99); // Dễ: không giới hạn nghe lại
 
-    await speakInstructionOnce("de-fill-blank", "Listen and type the missing word!");
-    await speakEN(q, 0.9);
-    await new Promise(r => setTimeout(r, 300));
-    await speakEN(a, 0.9);
-
-    const attempts = await askTypedAnswer({
+    const attempts = await askTypedAnswerWithReplay({
       container: rootEl,
-      instructionKey: "de-fill-blank-2", // đã đọc hướng dẫn ở trên rồi nên key khác rỗng nhưng không phát lại nhờ Set
+      instructionKey: "de-fill-blank",
       instructionText: "Listen and type the missing word!",
-      questionHTML: `<div style="font-size:15px;color:#ccc;">${displayQ}<br/>${displayA}</div>`,
+      contentHTML,
+      replayText: `${q}. ${a}`,
+      maxReplay: Infinity, // Dễ: không giới hạn nghe lại
       correctValue: w.word,
       placeholder: "Missing word...",
     });
@@ -116,7 +354,7 @@ async function listenDe_FillBlank(rootEl, sessionVocab, tracker) {
 }
 
 // ============================================================================
-// DỄ — B: Nghe -> chọn câu đúng (4 lựa chọn)
+// DỄ — B: Nghe -> chọn câu đúng (4 lựa chọn) — giữ nguyên, vốn đã là 1 màn hình
 // ============================================================================
 
 async function listenDe_ChooseSentence(rootEl, sessionVocab, poolData, tracker) {
@@ -142,12 +380,11 @@ async function listenDe_ChooseSentence(rootEl, sessionVocab, poolData, tracker) 
 }
 
 // ============================================================================
-// TRUNG BÌNH — A: Nghe đoạn nhiều câu, điền từng chỗ trống
+// TRUNG BÌNH — A: Nghe đoạn nhiều câu, điền từng chỗ trống — GỘP 1 MÀN HÌNH,
+// giới hạn nghe lại 3 lần
 // ============================================================================
 
 async function listenTB_FillParagraph(rootEl, sessionVocab, poolData, tracker) {
-  // Ghép 1 đoạn văn từ các câu ví dụ (session + vài câu nhiễu của pool) để tạo bối cảnh,
-  // sau đó lần lượt hỏi điền từng từ mục tiêu (giữ đúng cơ chế attempt/reveal từng câu).
   const usable = sessionVocab.filter(w => w.presentSent);
   const list = usable.length ? usable : sessionVocab;
 
@@ -161,20 +398,18 @@ async function listenTB_FillParagraph(rootEl, sessionVocab, poolData, tracker) {
       .map(s => (s === sentence ? blankOut(s, w.word) : s))
       .join(" ");
 
-    rootEl.innerHTML = `
+    const contentHTML = `
       <div style="background:rgba(255,253,231,.1);border:2px solid #fdd835;border-radius:12px;padding:16px;font-size:17px;text-align:center;">
         ${fullParagraph}
       </div>`;
-    renderLimitedReplay(rootEl, contextSentences.join(". "), 3);
 
-    await speakInstructionOnce("tb-fill-paragraph", "Listen to the paragraph and fill in the missing word!");
-    await speakEN(contextSentences.join(". "), 0.9);
-
-    const attempts = await askTypedAnswer({
+    const attempts = await askTypedAnswerWithReplay({
       container: rootEl,
-      instructionKey: "tb-fill-paragraph-2",
+      instructionKey: "tb-fill-paragraph",
       instructionText: "Listen to the paragraph and fill in the missing word!",
-      questionHTML: `<div style="font-size:15px;color:#ccc;">${fullParagraph}</div>`,
+      contentHTML,
+      replayText: contextSentences.join(". "),
+      maxReplay: 3,
       correctValue: w.word,
       placeholder: "Missing word...",
     });
@@ -184,7 +419,8 @@ async function listenTB_FillParagraph(rootEl, sessionVocab, poolData, tracker) {
 }
 
 // ============================================================================
-// TRUNG BÌNH — B: Nghe đoạn dài, chọn đáp án
+// TRUNG BÌNH — B: Nghe đoạn dài, chọn đáp án — GỘP 1 MÀN HÌNH, giới hạn nghe
+// lại 3 lần
 // ============================================================================
 
 async function listenTB_LongChoose(rootEl, sessionVocab, poolData, tracker) {
@@ -196,21 +432,21 @@ async function listenTB_LongChoose(rootEl, sessionVocab, poolData, tracker) {
     const paragraph = shuffle([w.presentSent || w.question, ...fillerSentences]).filter(Boolean).join(". ");
     const distractors = buildDistractors(w, poolData, { field: "answerRaw", count: 3, extra: sessionVocab });
 
-    rootEl.innerHTML = `
+    const contentHTML = `
       <div style="background:rgba(255,253,231,.1);border:2px solid #fdd835;border-radius:12px;padding:16px;font-size:16px;text-align:center;">
         ${paragraph}
       </div>
       <div style="text-align:center;margin-top:10px;font-size:16px;color:#ffd54f;">❓ ${w.question}</div>`;
-    renderLimitedReplay(rootEl, paragraph, 3);
 
-    const attempts = await askMCQ({
+    const attempts = await askMCQWithReplay({
       container: rootEl,
       instructionKey: "tb-long-choose",
       instructionText: "Listen to the paragraph, then answer the question!",
-      questionHTML: `<div style="font-size:16px;color:#ffd54f;">❓ ${w.question}</div>`,
+      contentHTML,
+      replayText: paragraph,
+      maxReplay: 3,
       options: shuffle([w.answerRaw, ...distractors]).map(v => ({ label: v, value: v })),
       correctValue: w.answerRaw,
-      speakPromptText: paragraph,
       rate: 0.9,
     });
     recordQuestionPassed(tracker, attempts);
@@ -219,7 +455,8 @@ async function listenTB_LongChoose(rootEl, sessionVocab, poolData, tracker) {
 }
 
 // ============================================================================
-// KHÓ — A: Hội thoại dài, trả lời suy luận
+// KHÓ — A: Hội thoại dài, trả lời suy luận — GỘP 1 MÀN HÌNH, giới hạn nghe
+// lại chỉ 1 lần
 // ============================================================================
 
 async function listenKho_Inference(rootEl, sessionVocab, poolData, tracker) {
@@ -230,21 +467,22 @@ async function listenKho_Inference(rootEl, sessionVocab, poolData, tracker) {
     const dialogue = `${w.question} ${w.answerRaw}`;
     const distractors = buildDistractors(w, poolData, { field: "word", count: 3, extra: sessionVocab });
 
-    rootEl.innerHTML = `
+    const contentHTML = `
       <div style="background:rgba(255,253,231,.08);border:2px solid #fdd835;border-radius:12px;padding:16px;font-size:16px;text-align:center;">
         <div>🗣 ${w.question}</div>
         <div style="color:#ffd700;margin-top:6px;">🗣 ${w.answerRaw}</div>
-      </div>`;
-    renderLimitedReplay(rootEl, dialogue, 1); // Khó: giới hạn nghe lại chặt hơn
+      </div>
+      <div style="text-align:center;margin-top:10px;font-size:15px;color:#ccc;">What word are they talking about?</div>`;
 
-    const attempts = await askMCQ({
+    const attempts = await askMCQWithReplay({
       container: rootEl,
       instructionKey: "kho-inference",
       instructionText: "Listen to the conversation, then guess which word they are talking about!",
-      questionHTML: `<div style="font-size:15px;color:#ccc;">What word are they talking about?</div>`,
+      contentHTML,
+      replayText: dialogue,
+      maxReplay: 1, // Khó: giới hạn nghe lại chặt hơn
       options: shuffle([w.word, ...distractors]).map(v => ({ label: v, value: v })),
       correctValue: w.word,
-      speakPromptText: dialogue,
       rate: 0.95,
     });
     recordQuestionPassed(tracker, attempts);
@@ -253,7 +491,8 @@ async function listenKho_Inference(rootEl, sessionVocab, poolData, tracker) {
 }
 
 // ============================================================================
-// KHÓ — B: Nghe đoạn nhiều nhiễu, giới hạn số lần nghe lại
+// KHÓ — B: Nghe đoạn nhiều nhiễu, giới hạn số lần nghe lại — GỘP 1 MÀN HÌNH,
+// giới hạn nghe lại chỉ 1 lần
 // ============================================================================
 
 async function listenKho_LimitedReplay(rootEl, sessionVocab, poolData, tracker) {
@@ -265,20 +504,21 @@ async function listenKho_LimitedReplay(rootEl, sessionVocab, poolData, tracker) 
     const paragraph = shuffle([w.presentSent || w.question, ...fillerSentences]).filter(Boolean).join(". ");
     const distractors = buildDistractors(w, poolData, { field: "answerRaw", count: 3, extra: sessionVocab });
 
-    rootEl.innerHTML = `
+    const contentHTML = `
       <div style="background:rgba(255,253,231,.08);border:2px solid #fdd835;border-radius:12px;padding:16px;font-size:15px;text-align:center;">
         🔊 (${fillerSentences.length + 1}-sentence paragraph — listen carefully, replay is limited!)
-      </div>`;
-    renderLimitedReplay(rootEl, paragraph, 1);
+      </div>
+      <div style="text-align:center;margin-top:10px;font-size:16px;color:#ffd54f;">❓ ${w.question}</div>`;
 
-    const attempts = await askMCQ({
+    const attempts = await askMCQWithReplay({
       container: rootEl,
       instructionKey: "kho-limited-replay",
       instructionText: "This is a long paragraph. You only get 1 replay, so listen carefully!",
-      questionHTML: `<div style="font-size:16px;color:#ffd54f;">❓ ${w.question}</div>`,
+      contentHTML,
+      replayText: paragraph,
+      maxReplay: 1,
       options: shuffle([w.answerRaw, ...distractors]).map(v => ({ label: v, value: v })),
       correctValue: w.answerRaw,
-      speakPromptText: paragraph,
       rate: 0.95,
     });
     recordQuestionPassed(tracker, attempts);
@@ -299,7 +539,11 @@ export async function runListeningModule(ctx) {
   const tracker = createScoreTracker();
 
   if (level === LEVELS.MAM_NON) {
-    await listenMamNon(rootEl, sessionVocab, poolData, tracker);
+    const candidates = [
+      () => listenMamNon_Word(rootEl, sessionVocab, poolData, tracker),
+      () => listenMamNon_Sentence(rootEl, sessionVocab, poolData, tracker),
+    ];
+    await randomPick(candidates)();
   } else if (level === LEVELS.DE) {
     const candidates = [
       () => listenDe_FillBlank(rootEl, sessionVocab, tracker),
