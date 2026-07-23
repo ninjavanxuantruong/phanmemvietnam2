@@ -131,7 +131,7 @@ async function readMamNon_MemoryMatch(rootEl, sessionVocab, tracker) {
 
 async function readDe_WordToImage(rootEl, sessionVocab, poolData, tracker) {
   for (const w of sessionVocab) {
-    const distractorWords = buildDistractors(w, poolData, { field: "word", count: 3, extra: sessionVocab });
+    const distractorWords = buildDistractors(w, poolData, { field: "word", count: 3, extra: sessionVocab, preferSameLesson: true });
     const options = shuffle([w.word, ...distractorWords]).map(val => {
       const found = [w, ...poolData, ...sessionVocab].find(p => p.word === val) || w;
       return { label: "", value: val, imageUrl: getImageFromMap(found.imageKeyword || val) || "" };
