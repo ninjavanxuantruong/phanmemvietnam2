@@ -234,7 +234,7 @@ async function speakDe_WordFromImage(rootEl, w, tracker) {
 }
 
 async function speakDe_FallbackPickImage(rootEl, w, poolData, sessionVocab, tracker) {
-  const distractorWords = buildDistractors(w, poolData, { field: "word", count: 3, extra: sessionVocab });
+  const distractorWords = buildDistractors(w, poolData, { field: "word", count: 3, extra: sessionVocab, preferSameLesson: true });
   const options = shuffle([w.word, ...distractorWords]).map(val => {
     const found = [w, ...poolData, ...sessionVocab].find(p => p.word === val) || w;
     return { label: val, value: val, imageUrl: getImageFromMap(found.imageKeyword || val) || "" };
