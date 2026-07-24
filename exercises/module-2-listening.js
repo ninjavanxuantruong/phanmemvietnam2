@@ -43,6 +43,66 @@ function blankOut(sentence, target) {
 }
 
 // ============================================================================
+// HELPER RIÊNG: ghép đoạn văn — đảm bảo mỗi câu kết thúc bằng đúng 1 dấu chấm
+// (không bị dính liền, không bị lặp dấu ".."), và câu nhiễu được ĐA DẠNG HOÁ
+// THEO BÀI thay vì random thuần trên poolData (giống fix đã áp dụng ở module 4).
+// ============================================================================
+
+/** Thêm dấu . cuối câu nếu câu chưa tự có dấu kết (., !, ?); không nhân đôi dấu. */
+function ensureDot(text) {
+  if (!text) return "";
+  const t = text.trim();
+  return /[.!?]$/.test(t) ? t : t + ".";
+}
+
+/**
+ * Chọn `count` câu nhiễu cho đoạn văn, đúng quy tắc:
+ * - Không lấy trùng câu của chính đáp án đúng.
+ * - Tối đa 1 câu được lấy CÙNG BÀI (lessonId) với đáp án đúng.
+ * - Các câu còn lại: MỖI CÂU PHẢI THUỘC 1 BÀI KHÁC NHAU (không trùng bài đáp
+ *   án đúng, không trùng bài lẫn nhau) — nếu không đủ bài khác nhau thì mới
+ *   vét thêm (chấp nhận trùng bài) để đủ số lượng.
+ */
+function pickDiverseFillerSentences(target, pool, count) {
+  const targetSentence = (target.presentSent || target.question || "").trim().toLowerCase();
+  const usable = pool.filter(p => p.presentSent && p.presentSent.trim()
+    && p.presentSent.trim().toLowerCase() !== targetSentence);
+
+  const sameLesson = shuffle(usable.filter(p => p.lessonId === target.lessonId));
+  const otherLesson = shuffle(usable.filter(p => p.lessonId !== target.lessonId));
+
+  const picked = [];
+  const usedLessonIds = new Set([target.lessonId]);
+  const usedSentences = new Set([targetSentence]);
+
+  const tryAdd = (item) => {
+    const s = item.presentSent.trim();
+    const key = s.toLowerCase();
+    if (usedSentences.has(key)) return false;
+    usedSentences.add(key);
+    picked.push(s);
+    return true;
+  };
+
+  if (sameLesson.length) tryAdd(sameLesson[0]);
+
+  for (const item of otherLesson) {
+    if (picked.length >= count) break;
+    if (usedLessonIds.has(item.lessonId)) continue;
+    if (tryAdd(item)) usedLessonIds.add(item.lessonId);
+  }
+
+  if (picked.length < count) {
+    for (const item of [...otherLesson, ...sameLesson.slice(1)]) {
+      if (picked.length >= count) break;
+      tryAdd(item);
+    }
+  }
+
+  return picked.slice(0, count);
+}
+
+// ============================================================================
 // HELPER MỚI: nút "Nghe lại" nhúng NGAY TRONG questionHTML của askMCQ (Mầm non)
 // askMCQ ghi đè toàn bộ innerHTML mỗi lần render/retry, nên không thể gắn thêm
 // nút SAU khi gọi — phải nhúng nút ngay trong questionHTML, dùng window.fnName
@@ -388,14 +448,15 @@ async function listenTB_FillParagraph(rootEl, sessionVocab, poolData, tracker) {
   const usable = sessionVocab.filter(w => w.presentSent);
   const list = usable.length ? usable : sessionVocab;
 
-  const fillerSentences = shuffle(poolData.filter(p => p.presentSent && !list.includes(p)))
-    .slice(0, 3).map(p => p.presentSent);
-
   for (const w of list) {
     const sentence = w.presentSent || `I like the ${w.word}.`;
+    // Loại các câu thuộc chính buổi học này (list) ra khỏi pool nhiễu, để không
+    // vô tình lộ đáp án của 1 câu hỏi KHÁC trong cùng buổi vào đây làm câu nhiễu.
+    const poolExcludingSession = poolData.filter(p => !list.includes(p));
+    const fillerSentences = pickDiverseFillerSentences(w, poolExcludingSession, 3);
     const contextSentences = shuffle([sentence, ...fillerSentences]);
     const fullParagraph = contextSentences
-      .map(s => (s === sentence ? blankOut(s, w.word) : s))
+      .map(s => ensureDot(s === sentence ? blankOut(s, w.word) : s))
       .join(" ");
 
     const contentHTML = `
@@ -408,7 +469,7 @@ async function listenTB_FillParagraph(rootEl, sessionVocab, poolData, tracker) {
       instructionKey: "tb-fill-paragraph",
       instructionText: "Listen to the paragraph and fill in the missing word!",
       contentHTML,
-      replayText: contextSentences.join(". "),
+      replayText: contextSentences.map(ensureDot).join(" "),
       maxReplay: 3,
       correctValue: w.word,
       placeholder: "Missing word...",
@@ -428,8 +489,8 @@ async function listenTB_LongChoose(rootEl, sessionVocab, poolData, tracker) {
   const list = usable.length ? usable : sessionVocab;
 
   for (const w of list) {
-    const fillerSentences = shuffle(poolData.filter(p => p.presentSent)).slice(0, 3).map(p => p.presentSent);
-    const paragraph = shuffle([w.presentSent || w.question, ...fillerSentences]).filter(Boolean).join(". ");
+    const fillerSentences = pickDiverseFillerSentences(w, poolData, 3);
+    const paragraph = shuffle([w.presentSent || w.question, ...fillerSentences]).map(ensureDot).filter(Boolean).join(" ");
     const distractors = buildDistractors(w, poolData, { field: "answerRaw", count: 3, extra: sessionVocab });
 
     const contentHTML = `
@@ -500,8 +561,8 @@ async function listenKho_LimitedReplay(rootEl, sessionVocab, poolData, tracker) 
   const list = usable.length ? usable : sessionVocab;
 
   for (const w of list) {
-    const fillerSentences = shuffle(poolData.filter(p => p.presentSent)).slice(0, 5).map(p => p.presentSent);
-    const paragraph = shuffle([w.presentSent || w.question, ...fillerSentences]).filter(Boolean).join(". ");
+    const fillerSentences = pickDiverseFillerSentences(w, poolData, 5);
+    const paragraph = shuffle([w.presentSent || w.question, ...fillerSentences]).map(ensureDot).filter(Boolean).join(" ");
     const distractors = buildDistractors(w, poolData, { field: "answerRaw", count: 3, extra: sessionVocab });
 
     const contentHTML = `
