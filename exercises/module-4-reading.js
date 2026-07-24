@@ -29,6 +29,73 @@ import {
 } from "./all-shared.js";
 
 // ============================================================================
+// HELPER RIÊNG: ghép đoạn văn — đảm bảo mỗi câu kết thúc bằng dấu chấm, và câu
+// nhiễu được ĐA DẠNG HOÁ THEO BÀI thay vì random thuần trên poolData.
+// ============================================================================
+
+/** Thêm dấu . cuối câu nếu câu chưa tự có dấu kết (., !, ?). */
+function ensureDot(text) {
+  if (!text) return "";
+  const t = text.trim();
+  return /[.!?]$/.test(t) ? t : t + ".";
+}
+
+/**
+ * Chọn `count` câu nhiễu cho đoạn văn, đúng quy tắc:
+ * - Không lấy trùng câu của chính đáp án đúng (so theo nội dung, đề phòng
+ *   trường hợp cùng 1 câu xuất hiện ở nhiều dòng dữ liệu).
+ * - Tối đa 1 câu được lấy CÙNG BÀI (lessonId) với đáp án đúng.
+ * - Các câu còn lại: MỖI CÂU PHẢI THUỘC 1 BÀI KHÁC NHAU (không trùng bài đáp
+ *   án đúng, không trùng bài lẫn nhau) — nếu không đủ bài khác nhau thì mới
+ *   vét thêm (chấp nhận trùng bài) để đủ số lượng.
+ * @param {object} target - item chứa đáp án đúng (cần lessonId + presentSent)
+ * @param {array}  pool   - poolData để rút câu nhiễu
+ * @param {number} count  - tổng số câu nhiễu cần (không tính câu đáp án đúng)
+ * @returns {string[]} danh sách câu nhiễu (chưa gắn dấu chấm)
+ */
+function pickDiverseFillerSentences(target, pool, count) {
+  const targetSentence = (target.presentSent || target.question || "").trim().toLowerCase();
+  const usable = pool.filter(p => p.presentSent && p.presentSent.trim()
+    && p.presentSent.trim().toLowerCase() !== targetSentence);
+
+  const sameLesson = shuffle(usable.filter(p => p.lessonId === target.lessonId));
+  const otherLesson = shuffle(usable.filter(p => p.lessonId !== target.lessonId));
+
+  const picked = [];
+  const usedLessonIds = new Set([target.lessonId]);
+  const usedSentences = new Set([targetSentence]);
+
+  const tryAdd = (item) => {
+    const s = item.presentSent.trim();
+    const key = s.toLowerCase();
+    if (usedSentences.has(key)) return false;
+    usedSentences.add(key);
+    picked.push(s);
+    return true;
+  };
+
+  // 1. Tối đa 1 câu cùng bài với đáp án đúng
+  if (sameLesson.length) tryAdd(sameLesson[0]);
+
+  // 2. Mỗi câu còn lại thuộc 1 bài KHÁC NHAU (chưa từng dùng)
+  for (const item of otherLesson) {
+    if (picked.length >= count) break;
+    if (usedLessonIds.has(item.lessonId)) continue;
+    if (tryAdd(item)) usedLessonIds.add(item.lessonId);
+  }
+
+  // 3. Không đủ bài khác nhau (dữ liệu ít) -> vét thêm, chấp nhận trùng bài
+  if (picked.length < count) {
+    for (const item of [...otherLesson, ...sameLesson.slice(1)]) {
+      if (picked.length >= count) break;
+      tryAdd(item);
+    }
+  }
+
+  return picked.slice(0, count);
+}
+
+// ============================================================================
 // STYLE RIÊNG CỦA MODULE 4
 // ============================================================================
 
@@ -191,8 +258,8 @@ async function readTB_ParagraphChoose(rootEl, sessionVocab, poolData, tracker) {
   const list = usable.length ? usable : sessionVocab;
 
   for (const w of list) {
-    const fillerSentences = shuffle(poolData.filter(p => p.presentSent)).slice(0, 2).map(p => p.presentSent);
-    const paragraph = shuffle([w.presentSent || w.question, ...fillerSentences]).filter(Boolean).join(" ");
+    const fillerSentences = pickDiverseFillerSentences(w, poolData, 2);
+    const paragraph = shuffle([ensureDot(w.presentSent || w.question), ...fillerSentences.map(ensureDot)]).join(" ");
     const distractors = buildDistractors(w, poolData, { field: "answerRaw", count: 3, extra: sessionVocab });
 
     await speakInstructionOnce("tb-paragraph-choose", "Read the paragraph carefully, then answer the question!");
@@ -320,9 +387,16 @@ async function readKho_LongParagraphTwoQuestions(rootEl, sessionVocab, poolData,
   // Ghép mỗi 2 từ liền nhau thành 1 đoạn văn dài + 2 câu hỏi liên tiếp
   for (let i = 0; i < usable.length - 1; i += 2) {
     const w1 = usable[i], w2 = usable[i + 1];
-    const fillerSentences = shuffle(poolData.filter(p => p.presentSent)).slice(0, 2).map(p => p.presentSent);
-    const paragraph = shuffle([w1.presentSent || w1.question, w2.presentSent || w2.question, ...fillerSentences])
-      .filter(Boolean).join(" ");
+    // Chia đôi số câu nhiễu cho w1/w2 để tránh trùng lặp bài giữa 2 lượt gọi,
+    // rồi loại các bài đã dùng của phía kia khỏi phía còn lại.
+    const fillersFor1 = pickDiverseFillerSentences(w1, poolData.filter(p => p.lessonId !== w2.lessonId), 1);
+    const fillersFor2 = pickDiverseFillerSentences(w2, poolData.filter(p => p.lessonId !== w1.lessonId), 1);
+    const paragraph = shuffle([
+      ensureDot(w1.presentSent || w1.question),
+      ensureDot(w2.presentSent || w2.question),
+      ...fillersFor1.map(ensureDot),
+      ...fillersFor2.map(ensureDot),
+    ]).join(" ");
 
     await speakInstructionOnce("kho-long-paragraph", "Read this longer paragraph, then answer both questions!");
 
