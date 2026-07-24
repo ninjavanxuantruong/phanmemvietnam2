@@ -26,37 +26,26 @@
       min-height: 100vh;
     }
 
-    /* ===== HEADER ===== */
-    #appHeader {
-      background: linear-gradient(to right, var(--poke-red), #b71c1c);
-      padding: 14px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    /* ===== PROGRESS BAR — giờ đóng vai trò thanh dính đầu trang thay cho header ===== */
+    #progressWrap {
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px);
+      padding: 10px 20px;
       position: sticky;
       top: 0;
       z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
-    #appHeader h1 {
-      margin: 0;
-      font-size: 20px;
-      color: var(--poke-yellow);
-      text-shadow: 1px 1px 4px #000;
-    }
-    #stageLabel {
-      font-size: 13px;
-      color: #fff;
-      background: rgba(0,0,0,0.3);
-      padding: 4px 10px;
-      border-radius: 20px;
-    }
-
-    /* ===== PROGRESS BAR ===== */
-    #progressWrap { background: rgba(0,0,0,0.3); padding: 10px 20px; }
     #progressBar {
       height: 8px; background: var(--poke-yellow); border-radius: 4px;
       transition: width 0.5s ease; width: 0%;
+    }
+    #stageLabel {
+      font-size: 13px;
+      color: var(--poke-yellow);
+      font-weight: 700;
+      margin-bottom: 6px;
+      text-align: center;
     }
     #progressTrack { background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
     #progressSteps { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
@@ -130,14 +119,9 @@
 </head>
 <body>
 
-<!-- HEADER -->
-<div id="appHeader">
-  <h1>🎮 PokéLearn</h1>
-  <span id="stageLabel">Đang tải...</span>
-</div>
-
-<!-- PROGRESS (5 module) -->
+<!-- PROGRESS (5 module) — thay cho header cũ, dính trên đầu khi cuộn -->
 <div id="progressWrap">
+  <div id="stageLabel">Đang tải...</div>
   <div id="progressTrack"><div id="progressBar"></div></div>
   <div id="progressSteps"></div>
 </div>
