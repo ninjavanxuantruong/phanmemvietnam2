@@ -51,7 +51,13 @@ const INTRO_CHAR_LIST = [
 const TTS_BASE = "https://googlevoice-tinh.onrender.com";
 let audioCtx = null;
 const audioCache = new Map();
-
+/** Chạy 1 Promise, nếu quá `ms` mili-giây chưa xong thì coi như thất bại (trả về fallbackValue) thay vì treo mãi. */
+function withTimeout(promise, ms, fallbackValue = null) {
+  return Promise.race([
+    promise,
+    new Promise(resolve => setTimeout(() => resolve(fallbackValue), ms)),
+  ]);
+}
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === "suspended") audioCtx.resume();
@@ -216,7 +222,14 @@ async function preloadIpa(ipa) {
   if (audioCache.has(key)) return audioCache.get(key);
   try {
     const url = `https://cdn.jsdelivr.net/gh/ninjavanxuantruong/mp3vietnam2@main/${ipa}.mp3`;
-    const res = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // tối đa 5s chờ mạng
+    let res;
+    try {
+      res = await fetch(url, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!res.ok) return null;
     const ab = await res.arrayBuffer();
     const buf = await getAudioCtx().decodeAudioData(ab.slice(0));
@@ -552,20 +565,32 @@ async function stepPhonicsForWord(contentEl, w, rate) {
       <div id="pklStepControlsWrap"></div>`;
 
     const box = document.getElementById("pklPhonicsBox");
-    if (window.handleSplit) {
-      try {
-        await window.handleSplit(w.word.trim().toLowerCase(), box, null);
-        await autoReadPhonics(box);
-      } catch (e) {
-        console.error("Lỗi tách âm:", e);
-        box.innerHTML = `<p style="color:#999;font-size:13px;">(không tách âm được cho "${w.word}")</p>`;
-      }
-    } else {
-      box.innerHTML = `<p style="color:#999;font-size:13px;">(chưa nạp được công cụ tách âm — kiểm tra tacham.js)</p>`;
-    }
-    await speakEN(w.word, rate);
-
     const controlsWrap = document.getElementById("pklStepControlsWrap");
+
+    // Chạy tiến trình đọc KHÔNG await ở đây — để không bị khoá cả luồng nếu
+    // 1 bước nào đó bên trong bị treo trên 1 số máy/trình duyệt.
+    (async () => {
+        if (window.handleSplit) {
+          try {
+            await withTimeout(
+              Promise.resolve(window.handleSplit(w.word.trim().toLowerCase(), box, null)),
+              5000
+            );
+            await withTimeout(autoReadPhonics(box), 8000);
+            await withTimeout(speakEN(w.word, rate), 5000);
+          } catch (e) {
+            console.error("Lỗi tách âm:", e);
+            box.innerHTML = `<p style="color:#999;font-size:13px;">(không tách âm được cho "${w.word}")</p>`;
+          }
+        } else {
+        box.innerHTML = `<p style="color:#999;font-size:13px;">(chưa nạp được công cụ tách âm — kiểm tra tacham.js)</p>`;
+      }
+    })();
+
+    // Sau 3s, HIỆN LUÔN nút Redo/Next có sẵn — không đợi đọc xong. Nếu máy bị
+    // treo ở bước đọc, người dùng vẫn bấm Next/Redo để thoát ra bình thường.
+    await new Promise(r => setTimeout(r, 3000));
+
     const choice = await renderStepControls(controlsWrap);
     if (choice === "next") break;
   }
