@@ -18,7 +18,7 @@ import {
   buildDistractors, shuffle, randomPick, createScoreTracker,
   recordSpeakingAttempt, recordQuestionPassed, saveSpeakingResult,
   showTransition, updateMiniScore, getImageFromMap, injectSharedStyles,
-  isMicrophoneAvailable, createMicFailTracker, noteMicResult, askIfMicWorking,
+  createMicFailTracker, noteMicResult, askIfMicWorking,
   startRecording, transcribeAudio,
   POSITIVE_FEEDBACK, randomPick as pick,
 } from "./all-shared.js";
@@ -68,7 +68,7 @@ function recordSpeech(cfg) {
     container.innerHTML = `
       <div class="pkl-speak-prompt">${promptHTML}</div>
       <div class="pkl-speak-status" id="pklSpStatus">🔊 Listen...</div>
-      <div style="text-align:center;"><div class="mic-ring" id="pklSpMic">🎤</div></div>
+      <div style="text-align:center;"><div class="mic-ring" id="pklSpMic" style="opacity:.4;pointer-events:none;">🎤</div></div>
       <div class="pkl-speak-result" id="pklSpResult"></div>
       <div style="text-align:center;margin-top:10px;">
         <button class="poke-btn green" id="pklSpFinishBtn" style="display:none;">✅ Finish</button>
@@ -86,13 +86,23 @@ function recordSpeech(cfg) {
 
     let firstDone = false, finalCorrect = false, finalTechFail = false;
     let autoTimer = null;
+    let recording = false; // chặn bấm mic nhiều lần khi đang ghi
+
+    const lockMic = (locked) => {
+      micEl.style.pointerEvents = locked ? "none" : "auto";
+      micEl.style.opacity = locked ? ".4" : "1";
+    };
 
     const doRecord = async () => {
+      if (recording) return;
+      recording = true;
+      lockMic(true);
       try {
         statusEl.textContent = "🎤 Recording... tap Finish when done!";
         micEl.classList.add("listening");
         finishBtn.style.display = "inline-block";
 
+        // getUserMedia() được gọi NGAY TRONG handler của cú tap -> có user gesture -> chạy được trên mobile
         const session = await startRecording(maxRecordMs);
         finishBtn.onclick = () => session.stop();
         const blob = await session.blob;
@@ -122,13 +132,15 @@ function recordSpeech(cfg) {
         clearTimeout(autoTimer);
         autoTimer = setTimeout(finish, 2200);
       } catch (e) {
+        console.error("recordSpeech: lỗi mic/ghi âm:", e);
         micEl.classList.remove("listening");
         finishBtn.style.display = "none";
-        statusEl.textContent = "⚠️ Microphone not available.";
+        statusEl.textContent = "⚠️ Microphone not available. Tap 🎤 to try again.";
         if (!firstDone) { firstDone = true; finalCorrect = false; finalTechFail = true; }
         actionsEl.style.display = "flex"; actionsEl.style.justifyContent = "center";
-        clearTimeout(autoTimer);
-        autoTimer = setTimeout(finish, 1800);
+        recording = false;
+        lockMic(false); // cho phép bấm lại thử mic lần nữa thay vì tự resolve luôn
+        return; // KHÔNG auto-finish nữa khi lỗi mic — để học sinh chủ động bấm lại hoặc bấm Continue
       }
     };
 
@@ -137,8 +149,10 @@ function recordSpeech(cfg) {
       resolve({ isCorrect: finalCorrect, technicalFail: finalTechFail });
     };
 
+    micEl.onclick = () => doRecord();
+
     container.addEventListener("click", (e) => {
-      if (e.target.id === "pklSpRetry") { clearTimeout(autoTimer); doRecord(); }
+      if (e.target.id === "pklSpRetry") { clearTimeout(autoTimer); recording = false; doRecord(); }
       if (e.target.id === "pklSpContinue") finish();
     });
 
@@ -146,8 +160,10 @@ function recordSpeech(cfg) {
     await speakInstructionOnce(instructionKey, instructionText);
     if (speakBeforeText) { statusEl.textContent = "🔊 Listen..."; await speakEN(speakBeforeText, 0.9); }
 
-    // BƯỚC 2: TỰ ĐỘNG bắt đầu ghi âm — không cần chạm mic nữa
-    doRecord();
+    // BƯỚC 2: mic sẵn sàng — HỌC SINH TỰ BẤM vào mic để bắt đầu ghi âm
+    // (không auto gọi getUserMedia nữa vì mobile Safari sẽ chặn khi không có gesture tươi)
+    statusEl.textContent = "🎤 Tap the mic to speak!";
+    lockMic(false);
   });
 }
 
@@ -205,7 +221,7 @@ async function speakMamNon_NoMic(rootEl, sessionVocab, tracker) {
 
 async function speakDe_RepeatSentence(rootEl, w, tracker) {
   const sentence = w.presentSent || w.question || w.word;
-  const { isCorrect } = await recordSpeech({
+  const { isCorrect, technicalFail } = await recordSpeech({
     container: rootEl,
     instructionKey: "de-repeat-sentence",
     instructionText: "Listen and repeat the sentence!",
@@ -216,11 +232,12 @@ async function speakDe_RepeatSentence(rootEl, w, tracker) {
   });
   recordSpeakingAttempt(tracker, isCorrect);
   updateMiniScore(tracker.displayScore, tracker.total);
+  return technicalFail;
 }
 
 async function speakDe_WordFromImage(rootEl, w, tracker) {
   const imgSrc = getImageFromMap(w.imageKeyword || w.word) || "";
-  const { isCorrect } = await recordSpeech({
+  const { isCorrect, technicalFail } = await recordSpeech({
     container: rootEl,
     instructionKey: "de-word-image",
     instructionText: "Look at the picture and say the word!",
@@ -231,6 +248,7 @@ async function speakDe_WordFromImage(rootEl, w, tracker) {
   });
   recordSpeakingAttempt(tracker, isCorrect);
   updateMiniScore(tracker.displayScore, tracker.total);
+  return technicalFail;
 }
 
 async function speakDe_FallbackPickImage(rootEl, w, poolData, sessionVocab, tracker) {
@@ -258,7 +276,7 @@ async function speakTB_HintedQuestion(rootEl, w, tracker) {
   const keywords = extractKeywords(w.keywordFix);
   const hintWord = keywords[0] || w.word;
   const questionText = w.question || `Tell me about "${w.word}".`;
-  const { isCorrect } = await recordSpeech({
+  const { isCorrect, technicalFail } = await recordSpeech({
     container: rootEl,
     instructionKey: "tb-hinted-question",
     instructionText: "Answer the question out loud!",
@@ -272,11 +290,12 @@ async function speakTB_HintedQuestion(rootEl, w, tracker) {
   });
   recordSpeakingAttempt(tracker, isCorrect);
   updateMiniScore(tracker.displayScore, tracker.total);
+  return technicalFail;
 }
 
 async function speakTB_ScriptQA(rootEl, w, tracker) {
   const script = `${w.question || ""} ${w.answerRaw || ""}`.trim();
-  const { isCorrect } = await recordSpeech({
+  const { isCorrect, technicalFail } = await recordSpeech({
     container: rootEl,
     instructionKey: "tb-script-qa",
     instructionText: "Listen to this short script, then read it out loud!",
@@ -291,6 +310,7 @@ async function speakTB_ScriptQA(rootEl, w, tracker) {
   });
   recordSpeakingAttempt(tracker, isCorrect);
   updateMiniScore(tracker.displayScore, tracker.total);
+  return technicalFail;
 }
 
 async function speakTB_FallbackMatchQA(rootEl, w, poolData, sessionVocab, tracker) {
@@ -315,7 +335,7 @@ async function speakTB_FallbackMatchQA(rootEl, w, poolData, sessionVocab, tracke
 async function speakKho_FreeCommunication(rootEl, w, tracker) {
   const keywords = extractKeywords(w.keywordFix);
   const questionText = w.question || `What do you know about "${w.word}"?`;
-  const { isCorrect } = await recordSpeech({
+  const { isCorrect, technicalFail } = await recordSpeech({
     container: rootEl,
     instructionKey: "kho-free-comm",
     instructionText: "Answer freely — there's no hint this time!",
@@ -327,13 +347,14 @@ async function speakKho_FreeCommunication(rootEl, w, tracker) {
   });
   recordSpeakingAttempt(tracker, isCorrect);
   updateMiniScore(tracker.displayScore, tracker.total);
+  return technicalFail;
 }
 
 async function speakKho_LongStrict(rootEl, w, tracker) {
   const longText = w.presentSent && w.presentSent.length > (w.question || "").length + (w.answerRaw || "").length
     ? w.presentSent
     : `${w.question || ""} ${w.answerRaw || ""}`.trim() || w.word;
-  const { isCorrect } = await recordSpeech({
+  const { isCorrect, technicalFail } = await recordSpeech({
     container: rootEl,
     instructionKey: "kho-long-strict",
     instructionText: "Listen carefully, then say it as accurately as you can!",
@@ -345,6 +366,7 @@ async function speakKho_LongStrict(rootEl, w, tracker) {
   });
   recordSpeakingAttempt(tracker, isCorrect);
   updateMiniScore(tracker.displayScore, tracker.total);
+  return technicalFail;
 }
 
 async function speakKho_FallbackChooseIdea(rootEl, w, poolData, sessionVocab, tracker) {
@@ -376,7 +398,14 @@ export async function runSpeakingModule(ctx) {
 
   const tracker = createScoreTracker();
   const micFailTracker = createMicFailTracker(2);
-  let micMode = await isMicrophoneAvailable();
+  // KHÔNG await isMicrophoneAvailable() ở đây nữa — gọi getUserMedia() tự động
+  // ngay sau nút "Tiếp tục" (không phải do học sinh chạm mic) sẽ "ăn mất" phần
+  // user-gesture còn lại, khiến TTS đọc ngay sau đó (speakInstructionOnce/
+  // speakEN trong recordSpeech) bị chặn/treo trên mobile -> mic không bao giờ
+  // mở khoá được. Giờ LẠC QUAN giả định có mic; mic có thật sự dùng được hay
+  // không sẽ do chính lần ghi âm đầu tiên (trong doRecord, đã có try/catch)
+  // quyết định, qua "technicalFail" trả về từ mỗi recordSpeech.
+  let micMode = true;
   const getMicMode = () => micMode;
   const setMicMode = (v) => { micMode = v; };
 
@@ -400,26 +429,26 @@ export async function runSpeakingModule(ctx) {
 
       let technicalFail = false;
       if (level === LEVELS.DE) {
-        if (variant === "A") { await speakDe_RepeatSentence(rootEl, w, tracker); }
-        else { await speakDe_WordFromImage(rootEl, w, tracker); }
+        technicalFail = variant === "A"
+          ? await speakDe_RepeatSentence(rootEl, w, tracker)
+          : await speakDe_WordFromImage(rootEl, w, tracker);
       } else if (level === LEVELS.TRUNG_BINH) {
-        if (variant === "A") { await speakTB_HintedQuestion(rootEl, w, tracker); }
-        else { await speakTB_ScriptQA(rootEl, w, tracker); }
+        technicalFail = variant === "A"
+          ? await speakTB_HintedQuestion(rootEl, w, tracker)
+          : await speakTB_ScriptQA(rootEl, w, tracker);
       } else {
-        if (variant === "A") { await speakKho_FreeCommunication(rootEl, w, tracker); }
-        else { await speakKho_LongStrict(rootEl, w, tracker); }
+        technicalFail = variant === "A"
+          ? await speakKho_FreeCommunication(rootEl, w, tracker)
+          : await speakKho_LongStrict(rootEl, w, tracker);
       }
 
-      // Các hàm speak*() ở trên không trả technicalFail ra ngoài (để giữ chữ ký gọn),
-      // nên ta dùng lại recordSpeech trực tiếp ở đây CHỈ để bắt lỗi kỹ thuật cho lần
-      // ghi âm vừa rồi là không khả thi retroactively — thay vào đó, module dùng
-      // isMicrophoneAvailable() lại định kỳ mỗi 3 từ để phát hiện mic rớt kết nối.
-      if (sessionVocab.indexOf(w) % 3 === 2) {
-        const stillOk = await isMicrophoneAvailable();
-        if (!stillOk) {
-          const stillWorks = await askIfMicWorking();
-          if (!stillWorks) setMicMode(false);
-        }
+      // Dùng đúng kết quả của LẦN GHI ÂM VỪA RỒI để phát hiện mic hỏng — không
+      // còn cần gọi lại isMicrophoneAvailable() giữa chừng (cũng tự ý xin mic,
+      // cũng có nguy cơ "ăn" gesture y hệt lỗi ở trên).
+      const shouldAsk = noteMicResult(micFailTracker, !technicalFail);
+      if (shouldAsk) {
+        const stillWorks = await askIfMicWorking();
+        if (!stillWorks) setMicMode(false); else micFailTracker.consecutiveFails = 0;
       }
     }
   }
