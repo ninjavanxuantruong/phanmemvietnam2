@@ -12,8 +12,9 @@ window.BattleGame = {
     isProcessing: false,
     telegraph: null, // Kế hoạch (attacker/target/AOE) đã "dự báo" trước 1 lượt, đang hiện FX chờ tới lượt thực thi
     pendingHealBursts: [], // Hàng đợi hiệu ứng buff (hồi máu) chờ phát SAU khi animation đòn đánh đã tắt hẳn
-    // Thống kê câu hỏi
-    correctCount: 0,
+        turnCounter: 0, // Đếm tổng số turn đã diễn ra — dùng để chia khối normal/AOE theo từng "round" (round = turnCounter / số Pokémon trong đội)
+        // Thống kê câu hỏi
+        correctCount: 0,
     wrongCount: 0,
     totalCount: 0,
         // 🆕 THÊM 2 DÒNG NÀY
@@ -291,9 +292,14 @@ window.BattleGame = {
         const pAlive = playerAttacker && playerAttacker.currentHp > 0;
         const eAlive = enemyAttacker  && enemyAttacker.currentHp  > 0;
 
-        // Roll DUY NHẤT 1 lần cho cả lượt — cả 2 bên (mình + địch) dùng
-        // CHUNG 1 kết quả, để luôn đồng bộ: cùng đánh thường hoặc cùng AOE.
-        const isAOE = Math.random() < 0.35; // tỉ lệ ra AOE, chỉnh tuỳ ý
+        // Chia khối theo ROUND thay vì roll ngẫu nhiên: mỗi "round" gồm đủ
+        // N turn (N = số Pokémon trong đội). Round chẵn (0, 2, 4...) → cả
+        // đội đánh thường; round lẻ (1, 3, 5...) → cả đội tung AOE. Cả 2
+        // phe (ta + địch) LUÔN dùng chung 1 kết quả để đồng bộ loại đòn.
+        const teamLen = this.playerTeam.length || 1;
+        const roundIndex = Math.floor(this.turnCounter / teamLen);
+        const isAOE = (roundIndex % 2 === 1);
+        this.turnCounter++;
 
         const plan = { unitIndex, enemyPlan: null, playerPlan: null };
         if (eAlive) plan.enemyPlan  = this.rollActionPlan(enemyAttacker, this.playerTeam, 'enemy', unitIndex, isAOE);
