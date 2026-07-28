@@ -152,7 +152,13 @@ window.BattleGame = {
 
                 // Nạp lại cấu hình cấp độ vừa chọn cho QuizManager (prepareData() đã chạy
                 // TRƯỚC KHI học sinh chọn nên cần gọi lại loadLevel() ở đây mới nhận đúng)
-                if (window.QuizManager) window.QuizManager.loadLevel();
+                if (window.QuizManager) {
+                    window.QuizManager.loadLevel();
+                    // 🆕 Xây lại bể dạng bài theo ĐÚNG cấp độ vừa chọn — bắt buộc vì
+                    // initSkillPools() ban đầu (trong prepareData) chạy TRƯỚC khi chọn
+                    // cấp độ nên còn lọc theo cấp mặc định "Dễ" (loại speaking4/writing4).
+                    window.QuizManager.initSkillPools();
+                }
 
                 if (quizOverlay) quizOverlay.style.display = "flex";
 
@@ -571,7 +577,7 @@ window.BattleGame = {
             const p = team[idx];
             if (!p || p.currentHp <= 0) continue;
 
-            const healAmount = Math.min(20, Math.floor(p.maxHp * 0.01));
+            const healAmount = Math.min(20, Math.floor(p.maxHp * 0.005));
             p.currentHp = Math.min(p.maxHp, p.currentHp + healAmount);
 
             window.PkmUnitFX?.showHealBurst(side, idx);
@@ -596,11 +602,22 @@ window.BattleGame = {
         pContainer.innerHTML = '';
         eContainer.innerHTML = '';
 
-        // ✅ QUAN TRỌNG: Gắn đúng class "player-side" và "enemy-side"
-        //pContainer.className = 'player-side';
-        //eContainer.className = 'enemy-side';
-
         const teamSize = this.playerTeam.length; // player và enemy luôn cùng số lượng slot
+
+        // Chốt cố định trainer cho phe địch NGAY LÚC NÀY, 1 lần duy nhất mỗi trận
+        if (window.PkmStyles?.assignEnemyTrainers) {
+            window.PkmStyles.assignEnemyTrainers(teamSize);
+        }
+
+        // Vẽ TRAINER TRƯỚC (lớp dưới) rồi mới vẽ POKEMON (lớp trên) —
+        // trainer là phần tử riêng, không nằm trong .pkm-unit, không bị
+        // ảnh hưởng bởi animation đánh/trúng chiêu/AOE của Pokémon.
+        this.enemyTeam.forEach((p, i) => {
+            if (window.PkmStyles?.renderTrainer) {
+                eContainer.innerHTML += window.PkmStyles.renderTrainer('enemy', i, teamSize);
+            }
+        });
+
         this.playerTeam.forEach((p, i) => { 
             pContainer.innerHTML += this.createUnitHTML(p, i, 'player', teamSize); 
         });
