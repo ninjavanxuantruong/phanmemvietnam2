@@ -83,12 +83,29 @@ const SKILL_SUBTYPES = {
     writing: ["writing1", "writing2", "writing3", "writing4", "writing5"],
 };
 
+// Cấp độ tối thiểu để 1 dạng bài được xuất hiện trong bể random. Dạng nào
+// không có trong bảng này thì coi như xuất hiện ở MỌI cấp độ.
+const SUBTYPE_MIN_LEVEL = {
+    speaking4: "kho", // trả lời tự do, không gợi ý — chỉ Khó
+    writing4: "kho",  // dịch cụm từ — chỉ Khó
+};
+const LEVEL_RANK = { de: 0, tb: 1, kho: 2 };
+function isSubtypeAllowedAtLevel(typeName, levelKey) {
+    const minLevel = SUBTYPE_MIN_LEVEL[typeName] || "de";
+    return (LEVEL_RANK[levelKey] ?? 0) >= (LEVEL_RANK[minLevel] ?? 0);
+}
+
 /* ============================================================================
  * 2. HÀM DÙNG CHUNG (LOGIC THUẦN — KHÔNG ĐỘNG DOM)
  * ============================================================================ */
 
 function shuffleArr(arr) {
-    return [...(arr || [])].sort(() => 0.5 - Math.random());
+    const a = [...(arr || [])];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
 }
 
 function normalizeText(text) {
@@ -271,7 +288,12 @@ const sharedUIMethods = {
         const skipBtn = document.createElement("button");
         skipBtn.className = "qz-skip-btn";
         skipBtn.innerText = "⏭ Skip";
-        skipBtn.onclick = () => this.handleSkip();
+        skipBtn.onclick = () => {
+            if (skipBtn.disabled) return;
+            skipBtn.disabled = true;
+            skipBtn.style.opacity = "0.5";
+            this.handleSkip();
+        };
         optionsBox.appendChild(skipBtn);
     },
 
@@ -305,21 +327,23 @@ const sharedUIMethods = {
                 <div class="qz-instruction">${instruction}</div>
                 <button id="qzPlayParagraph" class="qz-btn blue" style="width:70px;height:70px;border-radius:50%;font-size:26px;">🔊</button>
                 <div style="margin-top:12px;font-size:1.05rem;color:#ffeb3b;font-weight:bold;">Q: ${questionText}</div>`;
-            document.getElementById("qzPlayParagraph").onclick = async (e) => {
-                const btn = e.currentTarget;
-                if (btn.disabled) return;
-                btn.disabled = true; btn.style.opacity = "0.5";
-                await this.speak(playText, 0.9);
-                btn.disabled = false; btn.style.opacity = "1";
-            };
         }
         this.renderOptionsList(optionsBox, options);
         this.lockAnswerArea();
+
+        const playBtn = document.getElementById("qzPlayParagraph");
+        const playParagraph = async () => {
+            if (playBtn.disabled) return;
+            playBtn.disabled = true; playBtn.style.opacity = "0.5";
+            await this.speak(playText, 0.9);
+            playBtn.disabled = false; playBtn.style.opacity = "1";
+        };
+        playBtn.onclick = playParagraph;
+
         (async () => {
             await this.speak(instruction);
+            await playParagraph(); // đợi đọc XONG HẲN đoạn văn rồi mới mở khoá
             this.unlockAnswerArea();
-            const btn = document.getElementById("qzPlayParagraph");
-            if (btn) btn.click();
         })();
     },
 
@@ -335,24 +359,26 @@ const sharedUIMethods = {
                 <div class="qz-instruction">${instruction}</div>
                 <button id="qzPlayDialogue" class="qz-btn blue" style="width:70px;height:70px;border-radius:50%;font-size:26px;">🔊</button>
                 <div style="margin-top:12px;font-size:1.05rem;color:#ffeb3b;font-weight:bold;">Q: ${questionText}</div>`;
-            document.getElementById("qzPlayDialogue").onclick = async (e) => {
-                const btn = e.currentTarget;
-                if (btn.disabled) return;
-                btn.disabled = true; btn.style.opacity = "0.5";
-                for (const t of turns) {
-                    await this.speakAs(t.question, "A");
-                    await this.speakAs(t.finalAns, "B");
-                }
-                btn.disabled = false; btn.style.opacity = "1";
-            };
         }
         this.renderOptionsList(optionsBox, options);
         this.lockAnswerArea();
+
+        const playBtn = document.getElementById("qzPlayDialogue");
+        const playDialogue = async () => {
+            if (playBtn.disabled) return;
+            playBtn.disabled = true; playBtn.style.opacity = "0.5";
+            for (const t of turns) {
+                await this.speakAs(t.question, "A");
+                await this.speakAs(t.finalAns, "B");
+            }
+            playBtn.disabled = false; playBtn.style.opacity = "1";
+        };
+        playBtn.onclick = playDialogue;
+
         (async () => {
             await this.speak(instruction);
+            await playDialogue(); // đợi đọc XONG HẲN hội thoại rồi mới mở khoá
             this.unlockAnswerArea();
-            const btn = document.getElementById("qzPlayDialogue");
-            if (btn) btn.click();
         })();
     },
 
@@ -655,11 +681,13 @@ const coreMethods = {
     },
 
     // Mỗi kỹ năng giữ 1 hàng đợi riêng, không lặp dạng con cho tới khi hết hàng
-    // đợi mới nạp lại (giống rút bài không hoàn — hết bộ mới trộn lại).
+    // đợi mới nạp lại (giống rút bài không hoàn — hết bộ mới trộn lại). Chỉ
+    // đưa vào bể những dạng phù hợp cấp độ hiện tại (this.levelKey).
     initSkillPools() {
         this.skillPools = {};
         Object.keys(SKILL_SUBTYPES).forEach((skill) => {
-            this.skillPools[skill] = shuffleArr(SKILL_SUBTYPES[skill]);
+            const allowed = SKILL_SUBTYPES[skill].filter((t) => isSubtypeAllowedAtLevel(t, this.levelKey));
+            this.skillPools[skill] = shuffleArr(allowed.length ? allowed : SKILL_SUBTYPES[skill]);
         });
         this.skillCycleIndex = 0;
     },
@@ -668,7 +696,8 @@ const coreMethods = {
         const skill = SKILL_ORDER[this.skillCycleIndex % SKILL_ORDER.length];
         this.skillCycleIndex++;
         if (!this.skillPools[skill] || this.skillPools[skill].length === 0) {
-            this.skillPools[skill] = shuffleArr(SKILL_SUBTYPES[skill]);
+            const allowed = SKILL_SUBTYPES[skill].filter((t) => isSubtypeAllowedAtLevel(t, this.levelKey));
+            this.skillPools[skill] = shuffleArr(allowed.length ? allowed : SKILL_SUBTYPES[skill]);
         }
         return this.skillPools[skill].shift();
     },
@@ -827,7 +856,7 @@ const coreMethods = {
         if (this._feedbackShown) return;
         this._feedbackShown = true;
 
-        document.querySelectorAll(".option-btn, .cloze-btn, .match-node").forEach((el) => {
+        document.querySelectorAll(".option-btn, .cloze-btn, .match-node, .qz-skip-btn").forEach((el) => {
             const clone = el.cloneNode(true);
             el.parentNode?.replaceChild(clone, el);
         });
@@ -845,7 +874,7 @@ const coreMethods = {
             clone.style.opacity = "0.5";
         });
 
-        const allBtns = document.querySelectorAll(".option-btn");
+        const allBtns = document.querySelectorAll(".option-btn, .qz-skip-btn");
         const inputEl = document.getElementById("qzTypedInput");
         const wordBox = this.resetWordBox();
         const overlay = document.getElementById("quiz-overlay");
