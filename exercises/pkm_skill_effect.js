@@ -310,8 +310,6 @@ window.PkmUnitFX = (() => {
     const CSS_SHADOW = `
         .pkm-fx-shadow-wrap {
             position: absolute;
-            left: 50%;
-            bottom: 4px;
             pointer-events: none;
             z-index: 1; /* Nằm dưới chân Pokémon */
         }
@@ -787,7 +785,21 @@ window.PkmUnitFX = (() => {
             const shadowWrap = document.createElement('div');
             shadowWrap.className = 'pkm-fx-shadow-wrap';
 
-            // Tìm thẻ ảnh Pokémon hiện tại đang nằm trong unit của bạn
+            // Vị trí bóng: ghim đúng feetY (giống groundGroup) cho Pokémon
+            // ĐỨNG ĐẤT; hệ Bay (data-type="flying") giữ khoảng cách xa hơn
+            // để đúng cảm giác lơ lửng. Muốn thêm hệ khác cũng coi là "bay"
+            // (VD ghost, dragon) thì thêm vào mảng airborneTypes bên dưới.
+            const pkmType = unit.dataset.type || 'normal';
+            const airborneTypes = ['flying'];
+            const isAirborne = airborneTypes.includes(pkmType);
+            const shadowTopY = isAirborne ? feetY + 10 : feetY;
+            shadowWrap.style.cssText = `
+                position: absolute;
+                left: 50%; top: ${shadowTopY}px;
+                transform: translateX(-50%);
+            `;
+
+            // Tìm thẻ ảnh Pokemon hiện tại đang nằm trong unit của bạn
             const pkmImg = pkmImgRef;
 
             if (pkmImg) {
