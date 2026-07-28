@@ -15,6 +15,7 @@ const COUNTDOWN_SECONDS = 6;
 
 // ===== State =====
 let isRunning = false;
+let isPaused = false;
 let currentIndex = 0;
 let wordsList = [];      // [{ word, meaning, lessonName }]
 // Sửa dòng 16-17 thành:
@@ -29,6 +30,7 @@ let countdownTimer = null;
 const wordCountSelect = document.getElementById("wordCountSelect");
 const speedSelect = document.getElementById("speedSelect");
 const startBtn = document.getElementById("startBtn");
+const pauseBtn = document.getElementById("pauseBtn");
 const stopBtn = document.getElementById("stopBtn");
 const statusLine = document.getElementById("statusLine");
 
@@ -43,6 +45,7 @@ const countdownDigit = document.getElementById("countdownDigit");
 const toastEl = document.getElementById("flashToast");
 function bindControls() {
   startBtn.onclick = startFlashcard;
+  pauseBtn.onclick = togglePauseFlashcard;
   stopBtn.onclick = stopFlashcard;
   // Nếu muốn lưu lựa chọn topic:
   topicSelect.onchange = () => {
@@ -86,7 +89,10 @@ function buildTopicDropdown(rows) {
 async function startFlashcard() {
   if (isRunning) return;
   isRunning = true;
+  isPaused = false;
   startBtn.disabled = true;
+  pauseBtn.disabled = false;
+  pauseBtn.textContent = "Tạm dừng";
   stopBtn.disabled = false;
 
   try {
@@ -128,7 +134,10 @@ async function startFlashcard() {
 
 function stopFlashcard() {
   isRunning = false;
+  isPaused = false;
   startBtn.disabled = false;
+  pauseBtn.disabled = true;
+  pauseBtn.textContent = "Tạm dừng";
   stopBtn.disabled = true;
 
   // Hủy countdown
@@ -142,6 +151,40 @@ function stopFlashcard() {
   try { speechSynthesis.cancel(); } catch {}
 
   status("Đã dừng.");
+}
+
+// ===== Pause / Resume =====
+function togglePauseFlashcard() {
+  if (!isRunning) return;
+  if (isPaused) {
+    resumeFlashcard();
+  } else {
+    pauseFlashcard();
+  }
+}
+
+function pauseFlashcard() {
+  if (!isRunning || isPaused) return;
+  isPaused = true;
+  pauseBtn.textContent = "Tiếp tục";
+  status("Đã tạm dừng.");
+
+  // Tạm dừng audio đang phát (buffer TTS + tick)
+  try { if (audioCtx && audioCtx.state === "running") audioCtx.suspend(); } catch {}
+  // Tạm dừng TTS trình duyệt (fallback)
+  try { speechSynthesis.pause(); } catch {}
+}
+
+function resumeFlashcard() {
+  if (!isRunning || !isPaused) return;
+  isPaused = false;
+  pauseBtn.textContent = "Tạm dừng";
+  status("Đang tiếp tục...");
+
+  // Tiếp tục audio
+  try { if (audioCtx && audioCtx.state === "suspended") audioCtx.resume(); } catch {}
+  // Tiếp tục TTS trình duyệt (fallback)
+  try { speechSynthesis.resume(); } catch {}
 }
 
 // ===== Play loop =====
@@ -354,6 +397,7 @@ async function runCountdown(seconds) {
     playTickSound();
 
     countdownTimer = setInterval(() => {
+      if (isPaused) return; // đứng yên khi đang tạm dừng
       n--;
       if (n <= 0) {
         clearInterval(countdownTimer);
@@ -485,7 +529,20 @@ async function speak(text, voice, rate = 1.0) {
 
 
 // ===== Utilities =====
-function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+function delay(ms) {
+  return new Promise((resolve) => {
+    let remaining = ms;
+    const step = 100;
+    const iv = setInterval(() => {
+      if (isPaused) return; // giữ nguyên thời gian còn lại khi đang tạm dừng
+      remaining -= step;
+      if (remaining <= 0) {
+        clearInterval(iv);
+        resolve();
+      }
+    }, step);
+  });
+}
 function safeStr(v) { return v == null ? "" : String(v); }
 function status(msg) { statusLine.textContent = msg || ""; }
 function toast(msg) {
@@ -515,4 +572,3 @@ function escapeHTML(str) {
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   })[ch]);
 }
-
