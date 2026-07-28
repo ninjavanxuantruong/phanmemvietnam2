@@ -607,6 +607,165 @@ window.SkillManager = {
         `;
         document.head.appendChild(style);
     },
+    injectAnnounceBannerStyles() {
+        if (document.getElementById('pkm-announce-style')) return;
+        const style = document.createElement('style');
+        style.id = 'pkm-announce-style';
+        style.textContent = `
+            .pkm-announce-wrap {
+                position: absolute; inset: 0;
+                display: flex; flex-direction: column;
+                align-items: center; justify-content: center;
+                z-index: 10020; opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.25s ease;
+                overflow: hidden;
+            }
+            .pkm-announce-wrap.show { opacity: 1; }
+
+            .pkm-announce-dim {
+                position: absolute; inset: 0;
+                background: radial-gradient(ellipse 75% 65% at 50% 45%, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.15) 55%, transparent 80%);
+            }
+
+            .pkm-announce-avatar-big {
+                position: relative;
+                width: min(58%, 230px);
+                height: min(58%, 230px);
+                object-fit: contain;
+                z-index: 2;
+                filter: drop-shadow(0 10px 16px rgba(0,0,0,0.6));
+                transform: scale(0.6) translateY(30px);
+                opacity: 0;
+                transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease;
+            }
+            .pkm-announce-wrap.show .pkm-announce-avatar-big {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+
+            /* Khối ruy băng đè lên khoảng 1/3 dưới avatar */
+            .pkm-announce-ribbons {
+                position: relative;
+                width: 100%;
+                margin-top: -34%;
+                z-index: 3;
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            /* Icon âm dương góc trên-trái của dải chính */
+            .pkm-announce-yinyang {
+                position: absolute;
+                left: 6%;
+                top: 8px;
+                width: 34px; height: 34px;
+                z-index: 4;
+                filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+                opacity: 0;
+                transform: scale(0.5) rotate(-30deg);
+                transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1) 0.15s, opacity 0.25s ease 0.15s;
+            }
+            .pkm-announce-wrap.show .pkm-announce-yinyang {
+                opacity: 1; transform: scale(1) rotate(0deg);
+            }
+
+            /* Dải mỏng phía trên, màu xanh lục, to bên trái nhỏ dần bên phải */
+            .pkm-announce-ribbon-top {
+                width: 92%; margin: 0 auto;
+                height: 14px;
+                background: linear-gradient(90deg, #8de85a 0%, #4caf2e 60%, #4caf2e 100%);
+                clip-path: polygon(0% 0%, 100% 25%, 100% 75%, 0% 100%);
+                box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+                transform: scaleX(0);
+                transform-origin: left center;
+                transition: transform 0.3s ease-out 0.05s;
+                margin-bottom: -3px;
+            }
+            .pkm-announce-wrap.show .pkm-announce-ribbon-top {
+                transform: scaleX(1);
+            }
+
+            /* Dải chính, to hơn, màu xanh biển, vuốt nhọn dần sang phải */
+            .pkm-announce-ribbon-main {
+                position: relative;
+                width: 100%;
+                min-height: 58px;
+                display: flex; align-items: center; justify-content: center;
+                background:
+                    repeating-linear-gradient(115deg, rgba(255,255,255,0.12) 0px, rgba(255,255,255,0.12) 8px, transparent 8px, transparent 22px),
+                    linear-gradient(180deg, #57c6f7 0%, #1e90d8 55%, #0d6cb0 100%);
+                clip-path: polygon(0% 4%, 100% 22%, 100% 78%, 0% 96%);
+                border-top: 2px solid rgba(255,255,255,0.5);
+                box-shadow: 0 6px 14px rgba(0,0,0,0.4);
+                transform: scaleX(0);
+                transform-origin: left center;
+                transition: transform 0.32s cubic-bezier(0.22,1,0.36,1) 0.08s;
+            }
+            .pkm-announce-wrap.show .pkm-announce-ribbon-main {
+                transform: scaleX(1);
+            }
+
+            .pkm-announce-ribbon-text {
+                color: #fff;
+                font-weight: 900;
+                font-size: clamp(15px, 3.6vw, 21px);
+                text-align: center;
+                text-shadow: 1px 2px 3px rgba(0,0,0,0.5);
+                padding: 0 20% 0 12%;
+                opacity: 0;
+                transition: opacity 0.25s ease 0.25s;
+                line-height: 1.15;
+            }
+            .pkm-announce-wrap.show .pkm-announce-ribbon-text {
+                opacity: 1;
+            }
+        `;
+        document.head.appendChild(style);
+    },
+    async showSkillAnnounceBanner(side, label, attackerIndex) {
+        this.injectAnnounceBannerStyles();
+        const trainerUrl = window.PkmStyles?.getTrainerUrl
+            ? window.PkmStyles.getTrainerUrl(side, attackerIndex)
+            : 'https://play.pokemonshowdown.com/sprites/trainers/red.png';
+
+        // Neo vào #battle-arena (khu 2/3 chiến đấu), KHÔNG dùng document.body,
+        // để không tràn sang khu quiz (1/3 còn lại của màn hình).
+        const arena = document.getElementById('battle-arena') || document.body;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'pkm-announce-wrap';
+        wrap.innerHTML = `
+            <div class="pkm-announce-dim"></div>
+            <img class="pkm-announce-avatar-big" src="${trainerUrl}" alt="trainer">
+            <div class="pkm-announce-ribbons">
+                <svg class="pkm-announce-yinyang" viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="18" fill="#fff" stroke="#222" stroke-width="1.5"/>
+                    <path d="M20,2 A18,18 0 0,1 20,38 A9,9 0 0,1 20,20 A9,9 0 0,0 20,2 Z" fill="#222"/>
+                    <circle cx="20" cy="11" r="3" fill="#222"/>
+                    <circle cx="20" cy="29" r="3" fill="#fff"/>
+                </svg>
+                <div class="pkm-announce-ribbon-top"></div>
+                <div class="pkm-announce-ribbon-main">
+                    <div class="pkm-announce-ribbon-text">${label}</div>
+                </div>
+            </div>
+        `;
+        arena.appendChild(wrap);
+        requestAnimationFrame(() => wrap.classList.add('show'));
+
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(label);
+            utter.lang = 'en-US';
+            window.speechSynthesis.speak(utter);
+        }
+
+        await new Promise(r => setTimeout(r, 1400));
+        wrap.classList.remove('show');
+        setTimeout(() => wrap.remove(), 300);
+    },
     async playSkillSelectPanel(attackerEl, type, chosenMethod, baseMethodName, pool, interactive) {
         const methods = (pool && pool.length > 0) ? pool : [baseMethodName];
 
@@ -631,6 +790,15 @@ window.SkillManager = {
             const grid = document.createElement('div');
             grid.className = 'pkm-skillpanel-grid';
             card.appendChild(grid);
+
+            const trainerAvatar = document.createElement('img');
+            trainerAvatar.src = 'https://play.pokemonshowdown.com/sprites/trainers/red.png';
+            trainerAvatar.style.cssText = `
+                position:absolute; left:-28px; bottom:-6px;
+                width:70px; height:auto; z-index:3; pointer-events:none;
+                filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.5));
+            `;
+            card.appendChild(trainerAvatar);
 
             // Hình lục giác đếm ngược ở giữa
             const hex = document.createElement('div');
@@ -728,6 +896,9 @@ window.SkillManager = {
             const chosenMethod = await this.chooseSkillInteractive(
                 attacker, info.type, baseMethodName, attackerSide === 'player'
             );
+
+            // PHASE 2.5: BANNER TÊN CHIÊU + AVATAR TRAINER
+            await this.showSkillAnnounceBanner(attackerSide, this.getSkillLabel(info.type, chosenMethod), attackerIndex);
 
             // PHASE 3: BUNG CHIÊU (phóng to lại rồi về scale gốc)
             if (imgWrapper) {
