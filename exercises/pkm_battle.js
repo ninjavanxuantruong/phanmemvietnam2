@@ -18,7 +18,7 @@ window.BattleGame = {
     wrongCount: 0,
     totalCount: 0,
         // 🆕 THÊM 2 DÒNG NÀY
-        MIN_QUESTIONS: 16,
+        MIN_QUESTIONS: 12,
         MAX_QUESTIONS: 24,
 
 
@@ -577,7 +577,7 @@ window.BattleGame = {
             const p = team[idx];
             if (!p || p.currentHp <= 0) continue;
 
-            const healAmount = Math.min(20, Math.floor(p.maxHp * 0.005));
+            const healAmount = Math.min(20, Math.floor(p.maxHp * 0.003));
             p.currentHp = Math.min(p.maxHp, p.currentHp + healAmount);
 
             window.PkmUnitFX?.showHealBurst(side, idx);
