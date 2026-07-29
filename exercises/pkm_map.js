@@ -160,7 +160,7 @@ function maybeShowDailySuggestion(selectedClass, rows, colID, colWord) {
         }));
         localStorage.setItem('selected_lesson_name', suggestion.lessonName);
 
-        window.handleNodeClick(displayTitle, suggestion.vList, 'pkm_battle.html');
+        window.handleNodeClick(displayTitle, suggestion.vList, 'pkm_mode_select.html');
     }).catch(e => console.error("❌ Lỗi khi kiểm tra bài đề xuất hôm nay:", e));
 }
 
@@ -313,9 +313,9 @@ async function initMap() {
                                 isBoss: true,
                                 bossItems   // [{lessonId, word}] — để quiz/vocab dùng thẳng, khỏi tính theo 1 mã bài
                             }));
-                            window.handleNodeClick(bossName, wordList, 'pkm_battle.html');
+                            window.handleNodeClick(bossName, wordList, 'pkm_mode_select.html');
                         } else {
-                            window.location.href = 'pkm_battle.html';
+                            window.location.href = 'pkm_mode_select.html';
                         }
                         return;
                     }
@@ -329,8 +329,8 @@ async function initMap() {
                     if (typeof window.handleNodeClick === 'function') {
                         localStorage.setItem('selected_lesson_name', lessonName);
                         localStorage.setItem('current_mission', JSON.stringify(node));
-                        window.handleNodeClick(lessonName, vList, 'pkm_battle.html');
-                    } else { window.location.href = 'pkm_battle.html'; }
+                        window.handleNodeClick(lessonName, vList, 'pkm_mode_select.html');
+                    } else { window.location.href = 'pkm_mode_select.html'; }
                 };
 
                 rowEl.appendChild(el);
