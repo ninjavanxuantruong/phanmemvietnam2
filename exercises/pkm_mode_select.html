@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Chọn chế độ chơi</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body {
+        height: 100%; width: 100%;
+        font-family: 'Nunito', sans-serif;
+        background: radial-gradient(circle at 50% 20%, #1e2a4a 0%, #0a0c16 70%);
+        color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        overflow: hidden;
+    }
+
+    .mode-wrap {
+        width: 100%;
+        max-width: 480px;
+        padding: 24px;
+        text-align: center;
+    }
+
+    .mode-title {
+        font-size: 22px;
+        font-weight: 900;
+        color: #ffcb05;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+        text-shadow: 0 0 20px rgba(255,203,5,0.4);
+    }
+
+    .mode-lesson {
+        font-size: 13px;
+        color: #8fa3d1;
+        margin-bottom: 28px;
+    }
+
+    .mode-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .mode-card {
+        background: rgba(255,255,255,0.05);
+        border: 2px solid rgba(255,203,5,0.35);
+        border-radius: 20px;
+        padding: 20px;
+        cursor: pointer;
+        transition: transform .15s ease, border-color .15s ease, background .15s ease;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .mode-card:active { transform: scale(0.97); }
+    .mode-card:hover { border-color: #ffcb05; background: rgba(255,203,5,0.08); }
+
+    .mode-icon {
+        font-size: 40px;
+        flex-shrink: 0;
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+    }
+
+    .mode-info h3 {
+        font-size: 17px;
+        color: #fff;
+        margin-bottom: 4px;
+    }
+    .mode-info p {
+        font-size: 12.5px;
+        color: #aab7d1;
+        line-height: 1.4;
+    }
+
+    .mode-card.battle { border-color: rgba(231,76,60,0.5); }
+    .mode-card.battle:hover { border-color: #e74c3c; background: rgba(231,76,60,0.08); }
+
+    .mode-card.block { border-color: rgba(52,152,219,0.5); }
+    .mode-card.block:hover { border-color: #3498db; background: rgba(52,152,219,0.08); }
+
+    #warnBox {
+        display: none;
+        margin-top: 20px;
+        background: rgba(231,76,60,0.15);
+        border: 1px solid #e74c3c;
+        border-radius: 12px;
+        padding: 12px;
+        font-size: 12.5px;
+        color: #ffb3ab;
+    }
+</style>
+</head>
+<body>
+    <div class="mode-wrap">
+        <div class="mode-title">🎮 Chọn cách chơi</div>
+        <div class="mode-lesson" id="lessonLabel">Đang tải bài học...</div>
+
+        <div class="mode-cards">
+            <div class="mode-card battle" id="pickBattle">
+                <div class="mode-icon">⚔️</div>
+                <div class="mode-info">
+                    <h3>Đấu Trận Pokémon</h3>
+                    <p>Trả lời đúng để tung đòn, sai thì địch được đánh trước.</p>
+                </div>
+            </div>
+
+            <div class="mode-card block" id="pickBlock">
+                <div class="mode-icon">🧱</div>
+                <div class="mode-info">
+                    <h3>Block Blast</h3>
+                    <p>Xếp khối phá hàng để ghi điểm. Cứ ít giây có 1 câu hỏi — trả lời
+                       đúng chơi tiếp bình thường, sai thì bị tự ghép 1 khối xấu vào bàn cờ.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="warnBox">
+            ⚠️ Chưa có bài học nào được chọn. Vui lòng quay lại Bản Đồ và chọn 1 nhiệm vụ trước.
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const missionRaw = localStorage.getItem('current_mission');
+            const lessonLabel = document.getElementById('lessonLabel');
+            const warnBox = document.getElementById('warnBox');
+            let hasMission = false;
+
+            try {
+                const mission = missionRaw ? JSON.parse(missionRaw) : null;
+                if (mission && (mission.id || mission.isBoss)) {
+                    hasMission = true;
+                    lessonLabel.innerText = mission.isBoss
+                        ? '👑 Nhiệm vụ Boss'
+                        : `📘 Bài: ${mission.id}`;
+                } else {
+                    lessonLabel.innerText = '';
+                }
+            } catch (e) {
+                lessonLabel.innerText = '';
+            }
+
+            if (!hasMission) {
+                warnBox.style.display = 'block';
+            }
+
+            document.getElementById('pickBattle').onclick = () => {
+                window.location.href = 'pkm_battle.html';
+            };
+            document.getElementById('pickBlock').onclick = () => {
+                window.location.href = 'pkm_block.html';
+            };
+        })();
+    </script>
+</body>
+</html>
