@@ -2,6 +2,11 @@
  * =========================================================================
  * POKEMON VOCABULARY LEARNING MODULE - FIXED PHONICS & SPRITES
  * =========================================================================
+ * CẤU TRÚC MỚI (đã gộp bước 1+2, giảm hội thoại còn 2 từ):
+ *   Phase "learn": với MỖI từ -> thẻ từ vựng (1 lần, không lặp lại vòng 2)
+ *                  -> thẻ tách âm CỦA CHÍNH TỪ ĐÓ -> sang từ tiếp theo.
+ *   Phase "conversation": chỉ random 2 từ trong currentLessonData để hội thoại.
+ * =========================================================================
  */
 
 /**
@@ -87,8 +92,17 @@ window.MobileAudioEngine = (() => {
 window.VocabularyModule = {
     currentLessonData: [],
     currentIndex: 0,
-    currentRound: 1, // Vòng 1 (Học), Vòng 2 (Ôn tập), Vòng 2.5 (Tách âm), Vòng 3 (Hội thoại)
-    turnPhase: "ask", 
+
+    // ── PHASE ĐIỀU KHIỂN TỔNG THỂ ──
+    // "learn"        : gộp thẻ từ vựng + tách âm cho từng từ, làm 1 lượt duy nhất
+    // "conversation" : hội thoại, chỉ chạy trên 2 từ được random chọn
+    currentPhase: "learn",
+    // Trong phase "learn": "vocab" (đang xem nghĩa+ảnh) hay "phonics" (đang tách âm)
+    learnSubStep: "vocab",
+
+    turnPhase: "ask", // dùng trong phase hội thoại
+
+    conversationWords: [], // 2 từ được random chọn cho phase hội thoại
 
     voiceMale: null,
     voiceFemale: null,
@@ -193,6 +207,17 @@ window.VocabularyModule = {
         return listVocabs;
     },
 
+    // Chọn ngẫu nhiên `n` từ trong currentLessonData (Fisher-Yates), dùng
+    // riêng cho phase hội thoại — không liên quan tới thứ tự học ở phase "learn".
+    pickRandomWords(n) {
+        const arr = [...this.currentLessonData];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr.slice(0, Math.min(n, arr.length));
+    },
+
     async start() {
         await this.initVoices();
         const data = await this.fetchAllVocabData();
@@ -216,8 +241,10 @@ window.VocabularyModule = {
         }
 
         this.currentIndex = 0;
-        this.currentRound = 1;
+        this.currentPhase = "learn";
+        this.learnSubStep = "vocab";
         this.turnPhase = "ask";
+        this.conversationWords = [];
 
         let mainCard = document.getElementById("mainCard");
         if (!mainCard) {
@@ -250,31 +277,29 @@ window.VocabularyModule = {
     },
 
     render() {
-        if (this.currentIndex >= this.currentLessonData.length) {
-            if (this.currentRound === 1) {
-                this.currentRound = 2;
-                this.currentIndex = 0;
-                alert("🌟 Đã xong Vòng 1! Bắt đầu Vòng 2 ôn tập nhanh.");
-            } else if (this.currentRound === 2) {
-                this.currentRound = 2.5;
-                this.currentIndex = 0;
-                alert("🗣️ Chuẩn bị sang phần: PHÁT ÂM CHUYÊN SÂU (Tách & Blend âm)!");
-            } else if (this.currentRound === 2.5) {
-                this.currentRound = 3; 
+        if (this.currentPhase === "learn") {
+            if (this.currentIndex >= this.currentLessonData.length) {
+                // Đã học xong (nghĩa + tách âm) hết mọi từ -> chuyển sang hội thoại,
+                // chỉ random chọn 2 từ để hội thoại (không dùng hết toàn bộ từ nữa).
+                this.currentPhase = "conversation";
                 this.currentIndex = 0;
                 this.turnPhase = "ask";
+                this.conversationWords = this.pickRandomWords(2);
                 alert("💬 Tuyệt vời! Hãy cùng xem cuộc đối thoại thực tế giữa 2 Trainer Pokémon!");
+                return this.render();
+            }
+
+            if (this.learnSubStep === "vocab") {
+                this.renderVocabCard();
             } else {
+                this.renderPhonicsCard();
+            }
+        } else {
+            // phase "conversation"
+            if (this.currentIndex >= this.conversationWords.length) {
                 this.endLearning();
                 return;
             }
-        }
-
-        if (this.currentRound === 1 || this.currentRound === 2) {
-            this.renderVocabCard();
-        } else if (this.currentRound === 2.5) {
-            this.renderPhonicsCard(); 
-        } else {
             this.renderConversationCard();
         }
     },
@@ -312,7 +337,7 @@ window.VocabularyModule = {
         mainCard.innerHTML = `
             <div style="width: 100%; max-width: 500px; background: rgba(20, 24, 40, 0.7); padding: 30px; border-radius: 24px; border: 3px solid #ffcb05; box-shadow: 0 12px 40px rgba(0,0,0,0.5); box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #ffcb05; margin-bottom: 15px; font-weight: bold;">
-                    <span>📖 HỌC TỪ VỰNG: <span style="background:#ffcb05; color:#000; padding:2px 8px; border-radius:10px;">VÒNG ${this.currentRound}/2</span></span>
+                    <span>📖 HỌC TỪ VỰNG</span>
                     <span>TỪ: ${this.currentIndex + 1}/${this.currentLessonData.length}</span>
                 </div>
 
@@ -342,7 +367,9 @@ window.VocabularyModule = {
         setTimeout(() => { if(document.getElementById("v1PlayBtn")) playBtn.click(); }, 300);
 
         document.getElementById("v1NextBtn").onclick = () => {
-            this.currentIndex++;
+            // Gộp bước: sau khi xem nghĩa+ảnh, chuyển ngay sang tách âm
+            // CỦA CHÍNH TỪ NÀY (không nhảy sang từ tiếp theo vội).
+            this.learnSubStep = "phonics";
             this.render();
         };
     },
@@ -712,7 +739,9 @@ window.VocabularyModule = {
 
             isReading = false;
             window.speechSynthesis.cancel();
+            // Xong tách âm của từ này -> sang từ TIẾP THEO, quay lại substep "vocab"
             this.currentIndex++;
+            this.learnSubStep = "vocab";
             this.render();
         };
 
@@ -722,16 +751,15 @@ window.VocabularyModule = {
     },
 
     async renderConversationCard() {
-        if (this.currentLessonData.length > 6) {
-            this.currentLessonData = this.currentLessonData.slice(0, 6);
-        }
-
-        if (this.currentIndex >= this.currentLessonData.length) {
+        // Danh sách từ hội thoại đã được chốt CỐ ĐỊNH (random 2 từ) từ trước
+        // khi chuyển sang phase "conversation" trong render() — không random
+        // lại và không dùng currentLessonData nữa.
+        if (this.currentIndex >= this.conversationWords.length) {
             this.endLearning();
             return;
         }
 
-        const currentItem = this.currentLessonData[this.currentIndex];
+        const currentItem = this.conversationWords[this.currentIndex];
         const mainCard = document.getElementById("mainCard");
         const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -753,8 +781,8 @@ window.VocabularyModule = {
         mainCard.innerHTML = `
             <div style="width: 100%; max-width: 700px; display: flex; flex-direction: column; box-sizing: border-box;">
                 <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: #ffcb05; margin-bottom: 10px; font-weight: bold; padding: 0 4px;">
-                    <span>💬 HỘI THOẠI LUYỆN PHẢN XẠ (VÒNG 3/3)</span>
-                    <span>HIỆP: ${this.currentIndex + 1}/${this.currentLessonData.length}</span>
+                    <span>💬 HỘI THOẠI LUYỆN PHẢN XẠ</span>
+                    <span>HIỆP: ${this.currentIndex + 1}/${this.conversationWords.length}</span>
                 </div>
 
                 <div id="battle-layer" style="position: relative; width: 100%; height: 420px; background: #2c3e50; border: 3px solid #ffcb05; border-radius: 16px; overflow: hidden; margin-bottom: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
@@ -924,5 +952,3 @@ window.VocabularyModule = {
         }
     }
 };
-
-
