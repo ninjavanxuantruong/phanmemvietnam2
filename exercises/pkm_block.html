@@ -27,24 +27,45 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 14px;
+            gap: 10px;
+            padding: 8px 12px;
             background: rgba(20, 24, 40, 0.85);
             border-bottom: 2px solid #ffcb05;
         }
         #top-bar .score-box {
             font-weight: 900;
-            font-size: 15px;
+            font-size: 14px;
             color: #ffcb05;
+            white-space: nowrap;
         }
         #top-bar .score-box span { color: #fff; }
-        #quiz-stats {
-            font-size: 12px;
-            font-weight: 800;
-            color: #ddd;
+
+        #collected-tray {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 2px 4px;
+            min-width: 0;
         }
-        #nextQuizHint {
-            font-size: 11px;
+        #collected-tray::-webkit-scrollbar { height: 4px; }
+        #collected-tray .collected-icon {
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid #ffcb05;
+            flex-shrink: 0;
+            background-size: 75%;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        #collected-label {
+            font-size: 10px;
             color: #7d8bb5;
+            flex-shrink: 0;
+            white-space: nowrap;
         }
 
         /* ============ KHU VỰC BÀN CỜ ============ */
@@ -82,12 +103,15 @@
             background: rgba(255,255,255,0.06);
             border-radius: 5px;
             transition: background .15s ease, transform .15s ease;
+            background-size: 78% !important;
+            background-repeat: no-repeat !important;
+            background-position: center !important;
         }
         .block-cell.filled {
             box-shadow: inset 0 -3px 0 rgba(0,0,0,0.25), inset 0 3px 0 rgba(255,255,255,0.25);
         }
-        .block-cell.preview-ok { background: rgba(46,204,113,0.55) !important; }
-        .block-cell.preview-bad { background: rgba(231,76,60,0.55) !important; }
+        .block-cell.preview-ok { outline: 3px solid rgba(46,204,113,0.9); outline-offset: -3px; }
+        .block-cell.preview-bad { outline: 3px solid rgba(231,76,60,0.9); outline-offset: -3px; }
         .block-cell.clearing { animation: cellClear .35s ease forwards; }
         @keyframes cellClear {
             0% { transform: scale(1); opacity: 1; }
@@ -135,8 +159,62 @@
         }
         .tray-piece-cell {
             border-radius: 3px;
+            background-size: 78%;
+            background-repeat: no-repeat;
+            background-position: center;
         }
         .tray-piece-cell.empty { background: transparent; }
+
+        /* ============ POPUP THU PHỤC ============ */
+        #capture-popup {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.6);
+            z-index: 8000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            pointer-events: none;
+            opacity: 0;
+        }
+        #capture-popup.show {
+            display: flex;
+            animation: capturePop .9s ease forwards;
+        }
+        @keyframes capturePop {
+            0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+            25%  { transform: translate(-50%, -50%) scale(1); }
+            75%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+        }
+        #capture-popup .praise-text {
+            font-size: 34px;
+            font-weight: 900;
+            font-style: italic;
+            color: #ffcb05;
+            text-shadow: 0 0 20px #ffcb05, 0 0 40px #ff9500, 2px 2px 0 #000;
+            text-transform: uppercase;
+        }
+        #capture-popup img {
+            width: 96px; height: 96px;
+            object-fit: contain;
+            filter: drop-shadow(0 6px 14px rgba(0,0,0,0.6));
+        }
+
+        .fly-icon {
+            position: fixed;
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background-size: 78%;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: rgba(255,255,255,0.1);
+            z-index: 8100;
+            pointer-events: none;
+            transition: transform .55s cubic-bezier(.3,.6,.3,1), opacity .55s ease, left .55s cubic-bezier(.3,.6,.3,1), top .55s cubic-bezier(.3,.6,.3,1);
+        }
 
         /* ============ QUIZ MODAL (ẩn mặc định, pkm_quiz.js tự bật/tắt) ============ */
         #quiz-overlay {
@@ -183,7 +261,7 @@
         }
         .option-btn:active { background: #2a2a50; }
 
-        /* ============ VICTORY / DEFEAT (dùng chung mẫu Battle) ============ */
+        /* ============ VICTORY / DEFEAT ============ */
         #victory-overlay {
             position: fixed; inset: 0;
             background: linear-gradient(135deg, rgba(0,0,0,0.85) 0%, rgba(20,20,60,0.95) 100%);
@@ -209,8 +287,9 @@
 <body>
     <div class="game-viewport">
         <div id="top-bar">
-            <div class="score-box">🧱 Điểm: <span id="blockScoreValue">0</span></div>
-            <div id="nextQuizHint">Câu hỏi tiếp theo sẽ xuất hiện bất chợt...</div>
+            <div class="score-box">🧱 <span id="blockScoreValue">0</span></div>
+            <span id="collected-label">Đã thu phục:</span>
+            <div id="collected-tray"></div>
         </div>
 
         <div id="board-area">
@@ -226,6 +305,12 @@
 
     <div id="quiz-stats" style="position:fixed; top:12px; left:12px; z-index:9999; font-size:12px; font-weight:800; background:rgba(0,0,0,0.4); padding:4px 10px; border-radius:20px;">
         ✅ 0 &nbsp; ❌ 0 &nbsp; 📊 0 câu
+    </div>
+
+    <!-- POPUP THU PHỤC -->
+    <div id="capture-popup">
+        <div class="praise-text" id="capturePraiseText">EXCELLENT!</div>
+        <img id="capturePokemonImg" src="" alt="">
     </div>
 
     <!-- QUIZ MODAL: pkm_quiz.js tự set display flex/none lên chính div này -->
