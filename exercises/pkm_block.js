@@ -1,14 +1,23 @@
 /**
  * ==========================================
- * POKEMON BLOCK BLAST - GAME LOGIC
+ * POKEMON BLOCK BLAST - GAME LOGIC (v2)
  * ==========================================
  * Luồng: giống hệt pkm_battle.js ở phần "học từ vựng trước" (VocabularyModule),
  * chỉ khác phần "sân chơi" — thay vì đấu Pokémon thì xếp khối phá hàng.
  *
- * LƯU Ý QUAN TRỌNG: pkm_vocabulary.js (dùng chung, KHÔNG sửa) sau khi học xong
+ * LƯU Ý QUAN TRỌNG 1: pkm_vocabulary.js (dùng chung, KHÔNG sửa) sau khi học xong
  * gọi cứng `window.startPokemonBattle()`. Vì vậy bên dưới ta vẫn đặt tên hàm
  * khởi động game là `window.startPokemonBattle` (dù thực chất nó khởi động
  * Block Blast) để không phải đụng vào file gốc.
+ *
+ * LƯU Ý QUAN TRỌNG 2: pkm_quiz.js (dùng chung, KHÔNG sửa) không trả về trực
+ * tiếp "câu vừa hỏi thuộc kỹ năng nào" qua callback của ask(). Nhưng nó có
+ * biến đếm nội bộ `skillCycleIndex` — cứ mỗi câu hỏi THẬT SỰ được hỏi thì
+ * tăng thêm 1, xoay vòng đúng thứ tự SKILL_ORDER = ["listening","speaking",
+ * "reading","writing"]. Đọc biến này ngay lúc callback trả về, ta suy ra
+ * chính xác câu vừa rồi thuộc kỹ năng nào — không cần sửa pkm_quiz.js.
+ * Mảng SKILL_ORDER_LOCAL bên dưới PHẢI khớp đúng thứ tự với SKILL_ORDER
+ * trong pkm_quiz.js — nếu sau này đổi thứ tự bên đó thì nhớ đổi luôn ở đây.
  */
 
 window.BlockGame = {
@@ -16,7 +25,11 @@ window.BlockGame = {
     MIN_QUESTIONS: 12,
     MAX_QUESTIONS: 24,
 
+    // Phải khớp SKILL_ORDER trong pkm_quiz.js
+    SKILL_ORDER_LOCAL: ["listening", "speaking", "reading", "writing"],
+
     grid: [],          // 8x8, mỗi ô: null hoặc mã màu (string)
+    pokemonGrid: [],    // 8x8 song song với grid, mỗi ô: null hoặc {id, url}
     tray: [null, null, null],
     selectedTrayIndex: null,
 
@@ -24,6 +37,12 @@ window.BlockGame = {
     correctCount: 0,
     wrongCount: 0,
     totalCount: 0,
+    skillStats: {
+        listening: { correct: 0, total: 0 },
+        speaking: { correct: 0, total: 0 },
+        reading: { correct: 0, total: 0 },
+        writing: { correct: 0, total: 0 },
+    },
 
     isPaused: false,
     gameOver: false,
@@ -60,6 +79,89 @@ window.BlockGame = {
     ],
 
     // ═══════════════════════════════════════════════════════════
+    // HỆ POKÉMON HOÁ (roster đang chơi / kho dự trữ / thu phục)
+    // ═══════════════════════════════════════════════════════════
+    ACTIVE_ROSTER_SIZE: 10,
+    RESERVE_BATCH_SIZE: 15,
+    RESERVE_REFILL_THRESHOLD: 3,
+    POKEMON_ID_MAX: 649, // giới hạn Gen 1-5, khớp cách random enemy bên Battle
+
+    activeRoster: [],   // [{id, url}] — nguồn để gán cho khối MỚI sinh ra
+    reservePool: [],    // [{id, url}] — hàng chờ để thế chỗ khi có con bị thu phục
+    usedIds: new Set(), // tránh trùng ngay giữa các đợt sinh, không chặn tuyệt đối
+    collectedList: [],  // log các con đã thu phục trong ván (để vẽ dải UI)
+    captureBusy: false, // khoá để hiện popup thu phục tuần tự, không đè lên nhau
+
+    PRAISE_WORDS: ["EXCELLENT!", "GREAT!", "BRAVO!", "AWESOME!", "FANTASTIC!", "SUPER!"],
+
+    pokemonSpriteUrl(id) {
+        return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+    },
+
+    preloadImage(url) {
+        const img = new Image();
+        img.src = url;
+    },
+
+    randomPokemonId(excludeSet) {
+        let id, attempts = 0;
+        do {
+            id = Math.floor(Math.random() * this.POKEMON_ID_MAX) + 1;
+            attempts++;
+        } while (excludeSet && excludeSet.has(id) && attempts < 60);
+        return id;
+    },
+
+    generateBatch(count, excludeSet) {
+        const batch = [];
+        const localExclude = new Set(excludeSet);
+        for (let i = 0; i < count; i++) {
+            const id = this.randomPokemonId(localExclude);
+            localExclude.add(id);
+            this.usedIds.add(id);
+            const url = this.pokemonSpriteUrl(id);
+            this.preloadImage(url);
+            batch.push({ id, url });
+        }
+        return batch;
+    },
+
+    initRosterAndReserve() {
+        this.activeRoster = this.generateBatch(this.ACTIVE_ROSTER_SIZE, this.usedIds);
+        this.reservePool = this.generateBatch(this.RESERVE_BATCH_SIZE, this.usedIds);
+    },
+
+    refillReserveIfLow() {
+        if (this.reservePool.length <= this.RESERVE_REFILL_THRESHOLD) {
+            const more = this.generateBatch(this.RESERVE_BATCH_SIZE, this.usedIds);
+            this.reservePool = this.reservePool.concat(more);
+        }
+    },
+
+    pickRandomActivePokemon() {
+        if (this.activeRoster.length === 0) {
+            // an toàn: nếu vì lý do gì đó roster rỗng, tạo tạm 1 con mới
+            return this.generateBatch(1, this.usedIds)[0];
+        }
+        return this.activeRoster[Math.floor(Math.random() * this.activeRoster.length)];
+    },
+
+    // Rút 1 con khỏi roster đang chơi (vì vừa bị "thu phục"), thế bằng 1 con
+    // từ kho dự trữ, rồi bổ sung thêm dự trữ nếu sắp cạn.
+    retireAndReplace(pokemonId) {
+        const idx = this.activeRoster.findIndex(p => p.id === pokemonId);
+        if (idx === -1) return; // đã bị rút trước đó rồi (2 line clear cùng lúc), bỏ qua
+        this.activeRoster.splice(idx, 1);
+
+        if (this.reservePool.length === 0) {
+            this.reservePool = this.generateBatch(this.RESERVE_BATCH_SIZE, this.usedIds);
+        }
+        const replacement = this.reservePool.shift();
+        this.activeRoster.push(replacement);
+        this.refillReserveIfLow();
+    },
+
+    // ═══════════════════════════════════════════════════════════
     // ÂM THANH (tự tạo bằng Web Audio API — khỏi cần file mp3)
     // ═══════════════════════════════════════════════════════════
     _audioCtx: null,
@@ -86,17 +188,20 @@ window.BlockGame = {
             osc.stop(startTime + duration + 0.02);
         } catch (e) { /* im lặng nếu trình duyệt chặn audio */ }
     },
-    // Tiếng "tock" ngắn khi đặt khối thành công
     playPlaceSound() {
         this.playTone(520, 0.08, "triangle", 0.22);
     },
-    // Chuỗi nốt đi lên khi phá hàng/cột — càng phá nhiều dòng cùng lúc càng dài
     playClearSound(linesCleared) {
         const notes = [660, 880, 1046, 1318];
         const count = Math.min(notes.length, 1 + linesCleared);
         for (let i = 0; i < count; i++) {
             this.playTone(notes[i], 0.15, "sine", 0.25, i * 0.09);
         }
+    },
+    playCaptureSound() {
+        this.playTone(784, 0.1, "sine", 0.22, 0);
+        this.playTone(988, 0.1, "sine", 0.22, 0.09);
+        this.playTone(1318, 0.18, "sine", 0.25, 0.18);
     },
 
     async init() {
@@ -105,6 +210,12 @@ window.BlockGame = {
         this.setupGrid();
         this.renderBoard();
         this.attachTraySlotHandlers();
+        this.initRosterAndReserve(); // preload ngầm ngay từ đầu, song song lúc học từ vựng
+
+        // Pre-fetch dữ liệu quiz (4 kỹ năng) NGAY TỪ ĐẦU, chạy song song lúc
+        // học từ vựng — giống hệt battle.js — để câu hỏi đầu tiên không bị
+        // khựng chờ fetch network.
+        if (window.QuizManager) window.QuizManager.prepareData();
 
         const quizOverlay = document.getElementById("quiz-overlay");
         if (quizOverlay) quizOverlay.style.display = "none";
@@ -191,6 +302,7 @@ window.BlockGame = {
     // ═══════════════════════════════════════════════════════════
     setupGrid() {
         this.grid = Array.from({ length: this.GRID_SIZE }, () => Array(this.GRID_SIZE).fill(null));
+        this.pokemonGrid = Array.from({ length: this.GRID_SIZE }, () => Array(this.GRID_SIZE).fill(null));
     },
 
     renderBoard() {
@@ -215,15 +327,17 @@ window.BlockGame = {
         return document.querySelector(`.block-cell[data-r="${r}"][data-c="${c}"]`);
     },
 
-    paintCell(r, c, color) {
+    paintCell(r, c, color, pokemonUrl) {
         const el = this.getCellEl(r, c);
         if (!el) return;
         if (color) {
             el.classList.add("filled");
             el.style.background = color;
+            el.style.backgroundImage = pokemonUrl ? `url('${pokemonUrl}')` : "";
         } else {
             el.classList.remove("filled");
             el.style.background = "";
+            el.style.backgroundImage = "";
         }
     },
 
@@ -233,7 +347,8 @@ window.BlockGame = {
     randomShape() {
         const shape = this.PIECE_SHAPES[Math.floor(Math.random() * this.PIECE_SHAPES.length)];
         const color = this.COLORS[Math.floor(Math.random() * this.COLORS.length)];
-        return { cells: shape.cells, color };
+        const pokemon = this.pickRandomActivePokemon();
+        return { cells: shape.cells, color, pokemon };
     },
 
     spawnTray() {
@@ -266,12 +381,14 @@ window.BlockGame = {
             const maxC = Math.max(...piece.cells.map(p => p[1])) + 1;
             const cellPx = Math.floor(70 / Math.max(maxR, maxC));
             const filledSet = new Set(piece.cells.map(p => `${p[0]}_${p[1]}`));
+            const bg = piece.pokemon ? piece.pokemon.url : "";
 
             let html = `<div class="tray-piece-grid" style="grid-template-columns:repeat(${maxC},${cellPx}px);grid-template-rows:repeat(${maxR},${cellPx}px);">`;
             for (let r = 0; r < maxR; r++) {
                 for (let c = 0; c < maxC; c++) {
                     const on = filledSet.has(`${r}_${c}`);
-                    html += `<div class="tray-piece-cell ${on ? "" : "empty"}" style="${on ? `background:${piece.color};` : ""}"></div>`;
+                    const style = on ? `background-color:${piece.color};background-image:url('${bg}');` : "";
+                    html += `<div class="tray-piece-cell ${on ? "" : "empty"}" style="${style}"></div>`;
                 }
             }
             html += `</div>`;
@@ -346,7 +463,8 @@ window.BlockGame = {
         piece.cells.forEach(([dr, dc]) => {
             const r = anchorR + dr, c = anchorC + dc;
             this.grid[r][c] = piece.color;
-            this.paintCell(r, c, piece.color);
+            this.pokemonGrid[r][c] = piece.pokemon;
+            this.paintCell(r, c, piece.color, piece.pokemon ? piece.pokemon.url : null);
             if (opts.auto) {
                 const el = this.getCellEl(r, c);
                 el?.classList.add("auto-placed");
@@ -382,6 +500,15 @@ window.BlockGame = {
         fullRows.forEach(r => { for (let c = 0; c < this.GRID_SIZE; c++) cellsToClear.add(`${r}_${c}`); });
         fullCols.forEach(c => { for (let r = 0; r < this.GRID_SIZE; r++) cellsToClear.add(`${r}_${c}`); });
 
+        // Thu thập các loài Pokémon xuất hiện trong những ô sắp bị xoá — đây
+        // chính là các con "bị thu phục" ở lượt này.
+        const capturedMap = new Map(); // id -> {id,url}
+        cellsToClear.forEach(key => {
+            const [r, c] = key.split("_").map(Number);
+            const p = this.pokemonGrid[r][c];
+            if (p) capturedMap.set(p.id, p);
+        });
+
         cellsToClear.forEach(key => {
             const [r, c] = key.split("_").map(Number);
             this.getCellEl(r, c)?.classList.add("clearing");
@@ -395,11 +522,92 @@ window.BlockGame = {
             cellsToClear.forEach(key => {
                 const [r, c] = key.split("_").map(Number);
                 this.grid[r][c] = null;
-                this.paintCell(r, c, null);
+                this.pokemonGrid[r][c] = null;
+                this.paintCell(r, c, null, null);
                 this.getCellEl(r, c)?.classList.remove("clearing");
             });
             this.updateScoreUI();
+
+            if (capturedMap.size > 0) {
+                this.processCaptures(Array.from(capturedMap.values()));
+            }
         }, 350);
+    },
+
+    // ═══════════════════════════════════════════════════════════
+    // THU PHỤC POKÉMON (popup + dải "Đã thu phục")
+    // ═══════════════════════════════════════════════════════════
+    async processCaptures(list) {
+        this.captureQueue = (this.captureQueue || []).concat(list);
+        if (this.captureBusy) return;
+        this.captureBusy = true;
+        while (this.captureQueue.length > 0) {
+            const pokemon = this.captureQueue.shift();
+            await this.showCaptureEvent(pokemon);
+        }
+        this.captureBusy = false;
+    },
+
+    showCaptureEvent(pokemon) {
+        return new Promise((resolve) => {
+            this.retireAndReplace(pokemon.id);
+            this.collectedList.push(pokemon);
+            this.playCaptureSound();
+
+            const popup = document.getElementById("capture-popup");
+            const praiseEl = document.getElementById("capturePraiseText");
+            const imgEl = document.getElementById("capturePokemonImg");
+            if (praiseEl) praiseEl.innerText = this.PRAISE_WORDS[Math.floor(Math.random() * this.PRAISE_WORDS.length)];
+            if (imgEl) imgEl.src = pokemon.url;
+
+            if (popup) {
+                popup.classList.remove("show");
+                void popup.offsetWidth; // ép reflow để restart animation
+                popup.classList.add("show");
+            }
+
+            // Icon "bay" từ popup vào dải thu phục
+            const trayEl = document.getElementById("collected-tray");
+            setTimeout(() => {
+                if (popup && trayEl) {
+                    const startRect = popup.getBoundingClientRect();
+                    const fly = document.createElement("div");
+                    fly.className = "fly-icon";
+                    fly.style.backgroundImage = `url('${pokemon.url}')`;
+                    fly.style.left = `${startRect.left + startRect.width / 2 - 20}px`;
+                    fly.style.top = `${startRect.top + startRect.height / 2 - 20}px`;
+                    document.body.appendChild(fly);
+
+                    requestAnimationFrame(() => {
+                        const endRect = trayEl.getBoundingClientRect();
+                        fly.style.left = `${endRect.left + 10}px`;
+                        fly.style.top = `${endRect.top + endRect.height / 2 - 20}px`;
+                        fly.style.transform = "scale(0.4)";
+                        fly.style.opacity = "0.3";
+                    });
+
+                    setTimeout(() => {
+                        fly.remove();
+                        this.appendCollectedIcon(pokemon);
+                    }, 580);
+                } else {
+                    this.appendCollectedIcon(pokemon);
+                }
+            }, 550);
+
+            setTimeout(resolve, 950);
+        });
+    },
+
+    appendCollectedIcon(pokemon) {
+        const trayEl = document.getElementById("collected-tray");
+        if (!trayEl) return;
+        const icon = document.createElement("div");
+        icon.className = "collected-icon";
+        icon.style.backgroundImage = `url('${pokemon.url}')`;
+        icon.title = `#${pokemon.id}`;
+        trayEl.appendChild(icon);
+        trayEl.scrollLeft = trayEl.scrollWidth;
     },
 
     isBoardStuck() {
@@ -450,7 +658,7 @@ window.BlockGame = {
     // ═══════════════════════════════════════════════════════════
     scheduleNextQuiz() {
         if (this.gameOver) return;
-        const delay = 12000 + Math.random() * 5000;
+        const delay = 20000 + Math.random() * 10000;
         clearTimeout(this.quizTimer);
         this.quizTimer = setTimeout(() => this.triggerQuiz(), delay);
     },
@@ -468,9 +676,28 @@ window.BlockGame = {
         }
     },
 
+    // Suy ra kỹ năng của câu VỪA hỏi từ skillCycleIndex của QuizManager.
+    // pickNextTypeName() bên pkm_quiz.js tăng skillCycleIndex NGAY TRƯỚC khi
+    // xử lý câu hỏi, và không có lần tăng nào khác xảy ra giữa lúc đó và lúc
+    // callback (isCorrect) được gọi — nên (skillCycleIndex - 1) chính là chỉ
+    // số của kỹ năng vừa hỏi, kể cả khi có các lượt "bỏ qua do thiếu dữ liệu"
+    // trước đó (mỗi lượt bỏ qua cũng tự tăng biến này).
+    getSkillJustAsked() {
+        if (!window.QuizManager || typeof window.QuizManager.skillCycleIndex !== "number") return null;
+        const order = this.SKILL_ORDER_LOCAL;
+        const idx = ((window.QuizManager.skillCycleIndex - 1) % order.length + order.length) % order.length;
+        return order[idx];
+    },
+
     onQuizAnswered(isCorrect) {
+        const skillName = this.getSkillJustAsked();
+
         this.totalCount++;
         if (isCorrect) this.correctCount++; else this.wrongCount++;
+        if (skillName && this.skillStats[skillName]) {
+            this.skillStats[skillName].total++;
+            if (isCorrect) this.skillStats[skillName].correct++;
+        }
         this.updateStatsUI();
 
         this.isPaused = false;
@@ -535,19 +762,37 @@ window.BlockGame = {
         return streak;
     },
 
+    // Lưu kết quả: TỔNG dùng chung key với Battle (result_battle) để cộng dồn
+    // xuyên suốt mọi game, và chi tiết theo 4 kỹ năng vào pkm_skill_scores
+    // (cũng cộng dồn, dùng chung cho mọi game trong tương lai).
     saveBattleResult() {
         try {
-            const prev = JSON.parse(localStorage.getItem("result_block")) || { score: 0, total: 0 };
-            const updated = {
-                score: (prev.score || 0) + this.correctCount,
-                total: (prev.total || 0) + this.totalCount,
+            const prevTotal = JSON.parse(localStorage.getItem("result_battle")) || { score: 0, total: 0 };
+            const updatedTotal = {
+                score: (prevTotal.score || 0) + this.correctCount,
+                total: (prevTotal.total || 0) + this.totalCount,
             };
-            localStorage.setItem("result_block", JSON.stringify(updated));
+            localStorage.setItem("result_battle", JSON.stringify(updatedTotal));
+
+            const defaultSkills = () => ({
+                listening: { correct: 0, total: 0 },
+                speaking: { correct: 0, total: 0 },
+                reading: { correct: 0, total: 0 },
+                writing: { correct: 0, total: 0 },
+            });
+            const prevSkills = JSON.parse(localStorage.getItem("pkm_skill_scores")) || defaultSkills();
+            Object.keys(this.skillStats).forEach(skill => {
+                if (!prevSkills[skill]) prevSkills[skill] = { correct: 0, total: 0 };
+                prevSkills[skill].correct += this.skillStats[skill].correct;
+                prevSkills[skill].total += this.skillStats[skill].total;
+            });
+            localStorage.setItem("pkm_skill_scores", JSON.stringify(prevSkills));
+
             if (!localStorage.getItem("startTime_global")) {
                 localStorage.setItem("startTime_global", Date.now().toString());
             }
         } catch (e) {
-            console.error("❌ Lỗi lưu result_block:", e);
+            console.error("❌ Lỗi lưu kết quả Block Blast:", e);
         }
     },
 
@@ -617,6 +862,12 @@ window.BlockGame = {
         const titleEl = document.getElementById("victory-title-text");
         if (titleEl) titleEl.innerText = "🏆 HOÀN THÀNH!";
 
+        const skillLines = this.SKILL_ORDER_LOCAL.map(s => {
+            const st = this.skillStats[s];
+            const label = { listening: "🎧 Nghe", speaking: "🗣️ Nói", reading: "📖 Đọc", writing: "✍️ Viết" }[s];
+            return `<div>${label}: ${st.correct}/${st.total}</div>`;
+        }).join("");
+
         const expText = document.getElementById("victory-exp-text");
         if (expText) {
             expText.innerHTML = `
@@ -630,8 +881,11 @@ window.BlockGame = {
                 <div style="color:#aaa; font-size:12px; margin-bottom:4px;">
                     🧱 Điểm Block Blast: ${this.score}
                 </div>
-                <div style="color:#aaa; font-size:12px;">
-                    📊 Kết quả: ✅ ${this.correctCount} đúng / ❌ ${this.wrongCount} sai / tổng ${this.totalCount} câu
+                <div style="color:#aaa; font-size:12px; margin-bottom:8px;">
+                    📊 Tổng: ✅ ${this.correctCount} đúng / ❌ ${this.wrongCount} sai / ${this.totalCount} câu
+                </div>
+                <div style="color:#8fa3d1; font-size:11px; text-align:left;">
+                    ${skillLines}
                 </div>`;
         }
 
@@ -657,13 +911,22 @@ window.BlockGame = {
             titleEl.style.textShadow = "0 0 30px #e74c3c, 0 0 60px #c0392b";
         }
 
+        const skillLines = this.SKILL_ORDER_LOCAL.map(s => {
+            const st = this.skillStats[s];
+            const label = { listening: "🎧 Nghe", speaking: "🗣️ Nói", reading: "📖 Đọc", writing: "✍️ Viết" }[s];
+            return `<div>${label}: ${st.correct}/${st.total}</div>`;
+        }).join("");
+
         const expText = document.getElementById("victory-exp-text");
         if (expText) {
             expText.innerHTML = `
                 <div style="color:#ccc; margin-bottom:14px;">Không còn khối nào đặt vừa bàn cờ nữa!</div>
                 <div style="font-size:13px; text-align:left; margin-bottom:12px; line-height:1.8;">
                     <div>🧱 Điểm Block Blast: <b>${this.score}</b></div>
-                    <div>📊 Kết quả: ✅ ${this.correctCount} đúng / ❌ ${this.wrongCount} sai / tổng ${this.totalCount} câu</div>
+                    <div>📊 Tổng: ✅ ${this.correctCount} đúng / ❌ ${this.wrongCount} sai / ${this.totalCount} câu</div>
+                </div>
+                <div style="color:#8fa3d1; font-size:11px; text-align:left; margin-bottom:10px;">
+                    ${skillLines}
                 </div>
                 <div style="font-size:12px; color:#ffbc00;">Chơi lại để cải thiện điểm và nhận thưởng nhé!</div>`;
         }
