@@ -23,6 +23,26 @@ let selectedUid = null; // UID của Pokemon đang được chọn
         console.log("🔧 Đã tự động dọn đội hình cũ (vị trí 4,5) do đội hình mới chỉ còn 3 chỗ.");
     }
 })();
+// Số ô đội hình HIỆN TẠI: bằng số Pokémon đang có trong kho, tối đa 3.
+// 1 con -> 1 ô, 2 con -> 2 ô, từ 3 con trở lên -> 3 ô.
+function getMaxTeamSlots() {
+    return Math.min(3, Math.max(1, inventory.length));
+}
+
+// Dọn đội hình nếu có con đang xếp ở vị trí vượt quá số ô cho phép hiện
+// tại (VD kho bị giảm số lượng sau khi đã xếp đội hình trước đó).
+function enforceTeamSlotLimit() {
+    const maxSlots = getMaxTeamSlots();
+    let changed = false;
+    inventory.forEach(p => {
+        if (p.inTeam && p.position > maxSlots) {
+            p.inTeam = false;
+            p.position = null;
+            changed = true;
+        }
+    });
+    if (changed) localStorage.setItem('pkm_inventory', JSON.stringify(inventory));
+}
 
 // Thêm hàm tính CP chuẩn hóa đồng bộ hệ thống để hiển thị chiến lực
 function calculateCP(pkm) {
@@ -40,6 +60,7 @@ function calculateCP(pkm) {
 }
 
 function init() {
+    enforceTeamSlotLimit();
     // Đưa updateBuffs lên đầu để xác định xem đội hình có Buff hay không trước khi tính CP tổng
     updateBuffs();
     renderFormation();
@@ -49,15 +70,24 @@ function init() {
 // =============================================
 // 1. VẼ SƠ ĐỒ ĐỘI HÌNH (Hiển thị Hệ, Sao & CP cộng thêm từ Buff)
 // =============================================
-function renderFormation() {
-    const slots = document.querySelectorAll('.slot');
-    let totalTeamCP = 0;
+            function renderFormation() {
+                const slots = document.querySelectorAll('.slot');
+                const maxSlots = getMaxTeamSlots();
+                let totalTeamCP = 0;
 
-    slots.forEach(slot => {
-        const pos = parseInt(slot.dataset.pos);
-        const pkm = inventory.find(p => p.inTeam && p.position === pos);
+                slots.forEach(slot => {
+                    const pos = parseInt(slot.dataset.pos);
 
-        if (pkm) {
+                    if (pos > maxSlots) {
+                        slot.style.display = 'none';
+                        slot.onclick = null;
+                        return;
+                    }
+                    slot.style.display = '';
+
+                    const pkm = inventory.find(p => p.inTeam && p.position === pos);
+
+                    if (pkm) {
             const cp = calculateCP(pkm);
             totalTeamCP += cp;
 
