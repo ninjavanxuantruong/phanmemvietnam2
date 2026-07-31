@@ -464,7 +464,10 @@ window.BattleGame = {
             const target = opponentTeam[targetIdx];
             if (!target || target.currentHp <= 0) return; // mục tiêu đã chết trước đó (VD dính AOE của lượt vừa rồi)
             const typeBonus = window.PkmTypeChart?.isSuperEffective(attacker.type, target.type) ? 1.10 : 1.0;
-            const damage = Math.max(15, Math.floor((attacker.atk * 1.8) / (1 + target.def / 100) * typeBonus));
+
+            // 💥 Đã x2 damage cho đòn đơn
+            const damage = Math.max(15, Math.floor((attacker.atk * 1.8) / (1 + target.def / 100) * typeBonus) * 2);
+
             this.dealDamage(target, damage, targetSide, targetIdx);
 
             const playInfo = { type: attacker.type || 'normal', gen: attacker.gen || 1, attackerIndex: unitIndex, attackerSide: side,
@@ -479,7 +482,10 @@ window.BattleGame = {
             aliveTargets.forEach(idx => {
                 const target = opponentTeam[idx];
                 const typeBonus = window.PkmTypeChart?.isSuperEffective(attacker.type, target.type) ? 1.10 : 1.0;
-                const damage = Math.max(20, Math.floor((attacker.sAtk * 1.2) / (1 + target.def / 100) * typeBonus));
+
+                // 💥 Đã x2 damage cho đòn AOE
+                const damage = Math.max(20, Math.floor((attacker.sAtk * 1.2) / (1 + target.def / 100) * typeBonus) * 2);
+
                 this.dealDamage(target, damage, targetSide, idx);
                 playInfo.damage = damage;
             });
