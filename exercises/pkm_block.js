@@ -46,7 +46,8 @@ window.BlockGame = {
 
     isPaused: false,
     gameOver: false,
-    quizTimer: null,
+    movesSinceLastQuiz: 0,
+    movesUntilNextQuiz: 3,
 
     COLORS: ['#ff6b6b', '#4ecdc4', '#ffe66d', '#a29bfe', '#55efc4', '#fd79a8', '#74b9ff', '#fab1a0', '#ffb142'],
 
@@ -203,6 +204,16 @@ window.BlockGame = {
         this.playTone(988, 0.1, "sine", 0.22, 0.09);
         this.playTone(1318, 0.18, "sine", 0.25, 0.18);
     },
+    // Đọc to chữ khen (Excellent!/Bravo!...) bằng giọng đọc trình duyệt
+    speakPraise(text) {
+        try {
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = "en-US";
+            utter.rate = 1.05;
+            utter.pitch = 1.1;
+            window.speechSynthesis.speak(utter);
+        } catch (e) { /* im lặng nếu trình duyệt không hỗ trợ */ }
+    },
 
     async init() {
         console.log("🧱 [DEBUG] BlockGame.init() started");
@@ -294,7 +305,8 @@ window.BlockGame = {
         this.renderTray();
         this.updateScoreUI();
         this.updateStatsUI();
-        this.scheduleNextQuiz();
+        this.movesSinceLastQuiz = 0;
+        this.movesUntilNextQuiz = this.randomMoveThreshold();
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -481,7 +493,8 @@ window.BlockGame = {
             this.updateScoreUI();
             this.maybeRefillTray();
             this.renderTray();
-            this.checkGameOver();
+            if (this.checkGameOver()) return;
+            if (!opts.auto) this.registerMovePlayed();
         }, opts.auto ? 350 : 0);
     },
 
@@ -557,8 +570,10 @@ window.BlockGame = {
             const popup = document.getElementById("capture-popup");
             const praiseEl = document.getElementById("capturePraiseText");
             const imgEl = document.getElementById("capturePokemonImg");
-            if (praiseEl) praiseEl.innerText = this.PRAISE_WORDS[Math.floor(Math.random() * this.PRAISE_WORDS.length)];
+            const praiseWord = this.PRAISE_WORDS[Math.floor(Math.random() * this.PRAISE_WORDS.length)];
+            if (praiseEl) praiseEl.innerText = praiseWord;
             if (imgEl) imgEl.src = pokemon.url;
+            this.speakPraise(praiseWord);
 
             if (popup) {
                 popup.classList.remove("show");
@@ -654,13 +669,21 @@ window.BlockGame = {
     },
 
     // ═══════════════════════════════════════════════════════════
-    // QUIZ ĐỊNH KỲ (20-30s)
+    // QUIZ THEO LƯỢT CHƠI (cứ 3-4 lượt đặt khối thành công thì hỏi 1 câu)
     // ═══════════════════════════════════════════════════════════
-    scheduleNextQuiz() {
-        if (this.gameOver) return;
-        const delay = 20000 + Math.random() * 10000;
-        clearTimeout(this.quizTimer);
-        this.quizTimer = setTimeout(() => this.triggerQuiz(), delay);
+    randomMoveThreshold() {
+        return 3 + Math.floor(Math.random() * 2); // ra 3 hoặc 4
+    },
+
+    // Gọi mỗi khi người chơi tự đặt được 1 khối (không tính lượt phạt auto)
+    registerMovePlayed() {
+        if (this.gameOver || this.isPaused) return;
+        this.movesSinceLastQuiz++;
+        if (this.movesSinceLastQuiz >= this.movesUntilNextQuiz) {
+            this.movesSinceLastQuiz = 0;
+            this.movesUntilNextQuiz = this.randomMoveThreshold();
+            this.triggerQuiz();
+        }
     },
 
     triggerQuiz() {
@@ -705,8 +728,7 @@ window.BlockGame = {
 
         if (!isCorrect) this.autoPlayPenalty();
 
-        if (this.checkGameOver()) return;
-        this.scheduleNextQuiz();
+        this.checkGameOver();
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -730,14 +752,12 @@ window.BlockGame = {
 
         if (this.isBoardStuck()) {
             this.gameOver = true;
-            clearTimeout(this.quizTimer);
             this.defeat();
             return true;
         }
 
         if (this.totalCount >= this.MAX_QUESTIONS) {
             this.gameOver = true;
-            clearTimeout(this.quizTimer);
             this.victory();
             return true;
         }
