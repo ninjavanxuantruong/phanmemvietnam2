@@ -53,35 +53,36 @@ window.BattleGame = {
             if (heightsChanged) localStorage.setItem('pkm_inventory', JSON.stringify(inv));
 
             this.playerTeam = team.map(p => this.calculateStats(p, false));
-            this.enemyTeam  = team.map(p => this.calculateStats(p, true));
 
-            // ✅ THÊM LOGIC NÀY: Lấy tên thật cho đối thủ dựa trên ID ngẫu nhiên đã tạo
-            // ✅ SỬA TRONG BattleGame.init()
-            for (let p of this.enemyTeam) {
-                try {
-                    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${p.id}`);
-                    const data = await res.json();
+            // Dùng đội địch đã được CHỐT SẴN từ màn hình xem trước trận
+            // (pkm_prebattle.js) — luôn khắc hệ đúng từng vị trí, và đã hiển
+            // thị cho người chơi xem trước khi họ chỉnh sửa đội hình của mình.
+            const prebuiltEnemy = window.__pkmPrebattleEnemyPreview;
 
-                    // 1. Ghi đè tên
-                    p.name = data.name.charAt(0).toUpperCase() + data.name.slice(1);
-
-                    // 2. Ghi đè hệ (Type) - Lấy hệ đầu tiên của Pokemon đó
-                    if (data.types && data.types.length > 0) {
-                        p.type = data.types[0].type.name; 
+            if (prebuiltEnemy && prebuiltEnemy.length === team.length) {
+                this.enemyTeam = team.map((p, i) => {
+                    const stats = this.calculateStats(p, true);
+                    stats.id     = prebuiltEnemy[i].id;
+                    stats.type   = prebuiltEnemy[i].type;   // ép cứng để đảm bảo LUÔN khắc hệ
+                    stats.name   = prebuiltEnemy[i].name;
+                    stats.height = prebuiltEnemy[i].height;
+                    return stats;
+                });
+            } else {
+                // Fallback an toàn (không có màn xem trước, VD test trực tiếp): random như cũ
+                this.enemyTeam = team.map(p => this.calculateStats(p, true));
+                for (let p of this.enemyTeam) {
+                    try {
+                        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${p.id}`);
+                        const data = await res.json();
+                        p.name = data.name.charAt(0).toUpperCase() + data.name.slice(1);
+                        if (data.types && data.types.length > 0) p.type = data.types[0].type.name;
+                        p.height = data.height;
+                    } catch (e) {
+                        p.name = "Unknown";
+                        p.type = "normal";
+                        p.height = 10;
                     }
-
-                    // 3. (Tùy chọn) Ghi đè Gen nếu sếp muốn hiệu ứng xịn theo đúng con đó
-                    // Pokemon ID > 493 thường là Gen 5 trở đi, sếp có thể tạm logic hóa ở đây
-
-                    // 4. Ghi đè CHIỀU CAO theo đúng ID ngẫu nhiên vừa random — vì địch
-                    // là 1 Pokémon HOÀN TOÀN KHÁC con gốc trong túi đồ, height gốc (nếu
-                    // có) không còn đúng nữa, phải lấy height của chính con vừa random.
-                    p.height = data.height;
-
-                } catch (e) {
-                    p.name = "Unknown";
-                    p.type = "normal";
-                    p.height = 10; // fallback ~1m nếu fetch lỗi
                 }
             }
 
@@ -462,7 +463,8 @@ window.BattleGame = {
         if (!isAOE) {
             const target = opponentTeam[targetIdx];
             if (!target || target.currentHp <= 0) return; // mục tiêu đã chết trước đó (VD dính AOE của lượt vừa rồi)
-            const damage = Math.max(15, Math.floor((attacker.atk * 1.8) / (1 + target.def / 100)));
+            const typeBonus = window.PkmTypeChart?.isSuperEffective(attacker.type, target.type) ? 1.10 : 1.0;
+            const damage = Math.max(15, Math.floor((attacker.atk * 1.8) / (1 + target.def / 100) * typeBonus));
             this.dealDamage(target, damage, targetSide, targetIdx);
 
             const playInfo = { type: attacker.type || 'normal', gen: attacker.gen || 1, attackerIndex: unitIndex, attackerSide: side,
@@ -476,7 +478,8 @@ window.BattleGame = {
                                 attackerId: attacker.id, attackerName: attacker.name, targetSide, targets: aliveTargets, damage: 0, isAOE: true, isSkill: true };
             aliveTargets.forEach(idx => {
                 const target = opponentTeam[idx];
-                const damage = Math.max(20, Math.floor((attacker.sAtk * 1.2) / (1 + target.def / 100)));
+                const typeBonus = window.PkmTypeChart?.isSuperEffective(attacker.type, target.type) ? 1.10 : 1.0;
+                const damage = Math.max(20, Math.floor((attacker.sAtk * 1.2) / (1 + target.def / 100) * typeBonus));
                 this.dealDamage(target, damage, targetSide, idx);
                 playInfo.damage = damage;
             });
@@ -899,4 +902,9 @@ window.BattleGame = {
     }
 };
 
-window.BattleGame.init();
+if (!window.PkmPreBattle) {
+    // Không có màn xem trước (pkm_prebattle.js chưa nạp) -> vào thẳng trận như cũ
+    window.BattleGame.init();
+}
+// Có PkmPreBattle: chính pkm_prebattle.js đã tự chạy begin() và sẽ gọi
+// window.BattleGame.init() sau khi người chơi bấm "BẮT ĐẦU TRẬN".
