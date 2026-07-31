@@ -72,13 +72,9 @@ body, html {
 }
 
 /* ── RUNG KHI BỊ ĐÁNH ── */
+/* ── RUNG KHI BỊ ĐÁNH — ĐÃ TẮT (giữ class rỗng để JS gọi classList.add/remove không lỗi) ── */
 .shake {
-    animation: shakeAnim 0.3s ease;
-}
-@keyframes shakeAnim {
-    0%, 100% { transform: translateX(0); }
-    25%       { transform: translateX(-8px); }
-    75%       { transform: translateX(8px); }
+    animation: none;
 }
 
 /* ── SỐ SÁT THƯƠNG BAY LÊN ── */
