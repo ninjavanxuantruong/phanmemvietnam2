@@ -38,7 +38,7 @@ document.getElementById("studentInfo").textContent = `${studentName} (${studentC
  * Hình ảnh cũ.
  */
 const GROUPS = [
-  { label: "🎯 Giới thiệu", legacyKeys: ["vocabulary", "image"] },
+  { label: "🎯 Giới thiệu", legacyKeys: ["vocabulary", "image"], skillKey: "intro" },
   { label: "🎧 Nghe",       legacyKeys: ["listening"],                            skillKey: "listening" },
   { label: "🗣️ Nói",        legacyKeys: ["speaking", "phonics", "communication"], skillKey: "speaking" },
   { label: "📖 Đọc",        legacyKeys: [],                                       skillKey: "reading" },
