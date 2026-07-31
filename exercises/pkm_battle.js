@@ -385,7 +385,10 @@ window.BattleGame = {
         const plan = this.telegraph;
         this.telegraph = null;
 
+        // SAU
         if (plan.playerPlan) {
+            if (window.PkmScore) window.PkmScore.recordAnswer(playerCorrect);   // ⬅️ THÊM DÒNG NÀY
+
             this.totalCount++;
             if (playerCorrect) this.correctCount++; else this.wrongCount++;
             const statEl = document.getElementById('quiz-stats');
@@ -845,21 +848,12 @@ window.BattleGame = {
 
         return streak;
     },
+    // SAU
     saveBattleResult() {
-        try {
-            const prev = JSON.parse(localStorage.getItem('result_battle')) || { score: 0, total: 0 };
-            const updated = {
-                score: (prev.score || 0) + this.correctCount,
-                total: (prev.total || 0) + this.totalCount
-            };
-            localStorage.setItem('result_battle', JSON.stringify(updated));
-
-            if (!localStorage.getItem('startTime_global')) {
-                localStorage.setItem('startTime_global', Date.now().toString());
-            }
-            console.log('📊 [Battle] Cộng dồn result_battle:', updated);
-        } catch (e) {
-            console.error('❌ Lỗi lưu result_battle:', e);
+        if (window.PkmScore) {
+            window.PkmScore.commitSession();
+        } else {
+            console.error('❌ PkmScore chưa được nạp — thiếu <script src="pkm_score.js"> trong HTML?');
         }
     },
     defeat() {
