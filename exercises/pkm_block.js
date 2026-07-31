@@ -5,28 +5,19 @@
  * Luồng: giống hệt pkm_battle.js ở phần "học từ vựng trước" (VocabularyModule),
  * chỉ khác phần "sân chơi" — thay vì đấu Pokémon thì xếp khối phá hàng.
  *
- * LƯU Ý QUAN TRỌNG 1: pkm_vocabulary.js (dùng chung, KHÔNG sửa) sau khi học xong
+ * LƯU Ý QUAN TRỌNG: pkm_vocabulary.js (dùng chung, KHÔNG sửa) sau khi học xong
  * gọi cứng `window.startPokemonBattle()`. Vì vậy bên dưới ta vẫn đặt tên hàm
  * khởi động game là `window.startPokemonBattle` (dù thực chất nó khởi động
  * Block Blast) để không phải đụng vào file gốc.
  *
- * LƯU Ý QUAN TRỌNG 2: pkm_quiz.js (dùng chung, KHÔNG sửa) không trả về trực
- * tiếp "câu vừa hỏi thuộc kỹ năng nào" qua callback của ask(). Nhưng nó có
- * biến đếm nội bộ `skillCycleIndex` — cứ mỗi câu hỏi THẬT SỰ được hỏi thì
- * tăng thêm 1, xoay vòng đúng thứ tự SKILL_ORDER = ["listening","speaking",
- * "reading","writing"]. Đọc biến này ngay lúc callback trả về, ta suy ra
- * chính xác câu vừa rồi thuộc kỹ năng nào — không cần sửa pkm_quiz.js.
- * Mảng SKILL_ORDER_LOCAL bên dưới PHẢI khớp đúng thứ tự với SKILL_ORDER
- * trong pkm_quiz.js — nếu sau này đổi thứ tự bên đó thì nhớ đổi luôn ở đây.
+ * Phần ghi điểm theo 4 kỹ năng + tổng điểm "Trò chơi" nay dùng chung
+ * window.PkmScore (file pkm_score.js, nạp TRƯỚC file này trong HTML).
  */
 
 window.BlockGame = {
     GRID_SIZE: 8,
     MIN_QUESTIONS: 12,
     MAX_QUESTIONS: 24,
-
-    // Phải khớp SKILL_ORDER trong pkm_quiz.js
-    SKILL_ORDER_LOCAL: ["listening", "speaking", "reading", "writing"],
 
     grid: [],          // 8x8, mỗi ô: null hoặc mã màu (string)
     pokemonGrid: [],    // 8x8 song song với grid, mỗi ô: null hoặc {id, url}
@@ -37,12 +28,6 @@ window.BlockGame = {
     correctCount: 0,
     wrongCount: 0,
     totalCount: 0,
-    skillStats: {
-        listening: { correct: 0, total: 0 },
-        speaking: { correct: 0, total: 0 },
-        reading: { correct: 0, total: 0 },
-        writing: { correct: 0, total: 0 },
-    },
 
     isPaused: false,
     gameOver: false,
@@ -699,28 +684,11 @@ window.BlockGame = {
         }
     },
 
-    // Suy ra kỹ năng của câu VỪA hỏi từ skillCycleIndex của QuizManager.
-    // pickNextTypeName() bên pkm_quiz.js tăng skillCycleIndex NGAY TRƯỚC khi
-    // xử lý câu hỏi, và không có lần tăng nào khác xảy ra giữa lúc đó và lúc
-    // callback (isCorrect) được gọi — nên (skillCycleIndex - 1) chính là chỉ
-    // số của kỹ năng vừa hỏi, kể cả khi có các lượt "bỏ qua do thiếu dữ liệu"
-    // trước đó (mỗi lượt bỏ qua cũng tự tăng biến này).
-    getSkillJustAsked() {
-        if (!window.QuizManager || typeof window.QuizManager.skillCycleIndex !== "number") return null;
-        const order = this.SKILL_ORDER_LOCAL;
-        const idx = ((window.QuizManager.skillCycleIndex - 1) % order.length + order.length) % order.length;
-        return order[idx];
-    },
-
     onQuizAnswered(isCorrect) {
-        const skillName = this.getSkillJustAsked();
+        if (window.PkmScore) window.PkmScore.recordAnswer(isCorrect);
 
         this.totalCount++;
         if (isCorrect) this.correctCount++; else this.wrongCount++;
-        if (skillName && this.skillStats[skillName]) {
-            this.skillStats[skillName].total++;
-            if (isCorrect) this.skillStats[skillName].correct++;
-        }
         this.updateStatsUI();
 
         this.isPaused = false;
@@ -785,34 +753,14 @@ window.BlockGame = {
     // Lưu kết quả: TỔNG dùng chung key với Battle (result_battle) để cộng dồn
     // xuyên suốt mọi game, và chi tiết theo 4 kỹ năng vào pkm_skill_scores
     // (cũng cộng dồn, dùng chung cho mọi game trong tương lai).
+    // Lưu kết quả: giao hết cho PkmScore (pkm_score.js) — ghi cộng dồn vào
+    // result_battle (tổng "Trò chơi", dùng chung mọi game) + pkm_skill_scores
+    // (chi tiết 4 kỹ năng, cũng dùng chung mọi game).
     saveBattleResult() {
-        try {
-            const prevTotal = JSON.parse(localStorage.getItem("result_battle")) || { score: 0, total: 0 };
-            const updatedTotal = {
-                score: (prevTotal.score || 0) + this.correctCount,
-                total: (prevTotal.total || 0) + this.totalCount,
-            };
-            localStorage.setItem("result_battle", JSON.stringify(updatedTotal));
-
-            const defaultSkills = () => ({
-                listening: { correct: 0, total: 0 },
-                speaking: { correct: 0, total: 0 },
-                reading: { correct: 0, total: 0 },
-                writing: { correct: 0, total: 0 },
-            });
-            const prevSkills = JSON.parse(localStorage.getItem("pkm_skill_scores")) || defaultSkills();
-            Object.keys(this.skillStats).forEach(skill => {
-                if (!prevSkills[skill]) prevSkills[skill] = { correct: 0, total: 0 };
-                prevSkills[skill].correct += this.skillStats[skill].correct;
-                prevSkills[skill].total += this.skillStats[skill].total;
-            });
-            localStorage.setItem("pkm_skill_scores", JSON.stringify(prevSkills));
-
-            if (!localStorage.getItem("startTime_global")) {
-                localStorage.setItem("startTime_global", Date.now().toString());
-            }
-        } catch (e) {
-            console.error("❌ Lỗi lưu kết quả Block Blast:", e);
+        if (window.PkmScore) {
+            window.PkmScore.commitSession();
+        } else {
+            console.error('❌ PkmScore chưa được nạp — thiếu <script src="pkm_score.js"> trong pkm_block.html?');
         }
     },
 
@@ -882,8 +830,10 @@ window.BlockGame = {
         const titleEl = document.getElementById("victory-title-text");
         if (titleEl) titleEl.innerText = "🏆 HOÀN THÀNH!";
 
-        const skillLines = this.SKILL_ORDER_LOCAL.map(s => {
-            const st = this.skillStats[s];
+        const skillOrder = window.PkmScore ? window.PkmScore.SKILL_ORDER : ["listening", "speaking", "reading", "writing"];
+        const skillStatsNow = window.PkmScore ? window.PkmScore.session.skillStats : {};
+        const skillLines = skillOrder.map(s => {
+            const st = skillStatsNow[s] || { correct: 0, total: 0 };
             const label = { listening: "🎧 Nghe", speaking: "🗣️ Nói", reading: "📖 Đọc", writing: "✍️ Viết" }[s];
             return `<div>${label}: ${st.correct}/${st.total}</div>`;
         }).join("");
@@ -931,8 +881,10 @@ window.BlockGame = {
             titleEl.style.textShadow = "0 0 30px #e74c3c, 0 0 60px #c0392b";
         }
 
-        const skillLines = this.SKILL_ORDER_LOCAL.map(s => {
-            const st = this.skillStats[s];
+        const skillOrderD = window.PkmScore ? window.PkmScore.SKILL_ORDER : ["listening", "speaking", "reading", "writing"];
+        const skillStatsNowD = window.PkmScore ? window.PkmScore.session.skillStats : {};
+        const skillLines = skillOrderD.map(s => {
+            const st = skillStatsNowD[s] || { correct: 0, total: 0 };
             const label = { listening: "🎧 Nghe", speaking: "🗣️ Nói", reading: "📖 Đọc", writing: "✍️ Viết" }[s];
             return `<div>${label}: ${st.correct}/${st.total}</div>`;
         }).join("");
