@@ -42,7 +42,9 @@ window.PkmScore = {
         correctCount: 0,
         wrongCount: 0,
         totalCount: 0,
+        introRecorded: false, // đảm bảo "Giới thiệu" chỉ cộng đúng 1 lần / ván
         skillStats: {
+            intro: { correct: 0, total: 0 },
             listening: { correct: 0, total: 0 },
             speaking: { correct: 0, total: 0 },
             reading: { correct: 0, total: 0 },
@@ -58,7 +60,9 @@ window.PkmScore = {
             correctCount: 0,
             wrongCount: 0,
             totalCount: 0,
+            introRecorded: false,
             skillStats: {
+                intro: { correct: 0, total: 0 },
                 listening: { correct: 0, total: 0 },
                 speaking: { correct: 0, total: 0 },
                 reading: { correct: 0, total: 0 },
@@ -79,6 +83,14 @@ window.PkmScore = {
     // Trả về tên kỹ năng vừa ghi (để game gọi có thể dùng nếu cần), hoặc
     // null nếu không xác định được (ví dụ QuizManager chưa sẵn sàng).
     recordAnswer(isCorrect) {
+        // Hễ đã gọi tới quiz là chắc chắn đã học xong phần Giới thiệu (Vocabulary-
+        // Module) từ trước rồi — cộng cố định 3 điểm, CHỈ 1 LẦN cho mỗi ván chơi.
+        if (!this.session.introRecorded) {
+            this.session.introRecorded = true;
+            this.session.skillStats.intro.correct += 3;
+            this.session.skillStats.intro.total += 3;
+        }
+
         const skillName = this.getSkillJustAsked();
         this.session.totalCount++;
         if (isCorrect) this.session.correctCount++; else this.session.wrongCount++;
@@ -103,6 +115,7 @@ window.PkmScore = {
 
             // 2. Chi tiết theo 4 kỹ năng — cộng dồn qua mọi ván, mọi game
             const defaultSkills = () => ({
+                intro: { correct: 0, total: 0 },
                 listening: { correct: 0, total: 0 },
                 speaking: { correct: 0, total: 0 },
                 reading: { correct: 0, total: 0 },
