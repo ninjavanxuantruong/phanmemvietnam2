@@ -1,847 +1,770 @@
 /**
  * ==========================================
- * POKEMON BLOCK BLAST - GAME LOGIC (v2)
+ * POKEMON BATTLE LOGIC - TURN BASED VERSION
  * ==========================================
- * Luồng: giống hệt pkm_battle.js ở phần "học từ vựng trước" (VocabularyModule),
- * chỉ khác phần "sân chơi" — thay vì đấu Pokémon thì xếp khối phá hàng.
- *
- * LƯU Ý QUAN TRỌNG 1: pkm_vocabulary.js (dùng chung, KHÔNG sửa) sau khi học xong
- * gọi cứng `window.startPokemonBattle()`. Vì vậy bên dưới ta vẫn đặt tên hàm
- * khởi động game là `window.startPokemonBattle` (dù thực chất nó khởi động
- * Block Blast) để không phải đụng vào file gốc.
- *
- * LƯU Ý QUAN TRỌNG 2: pkm_quiz.js (dùng chung, KHÔNG sửa) không trả về trực
- * tiếp "câu vừa hỏi thuộc kỹ năng nào" qua callback của ask(). Nhưng nó có
- * biến đếm nội bộ `skillCycleIndex` — cứ mỗi câu hỏi THẬT SỰ được hỏi thì
- * tăng thêm 1, xoay vòng đúng thứ tự SKILL_ORDER = ["listening","speaking",
- * "reading","writing"]. Đọc biến này ngay lúc callback trả về, ta suy ra
- * chính xác câu vừa rồi thuộc kỹ năng nào — không cần sửa pkm_quiz.js.
- * Mảng SKILL_ORDER_LOCAL bên dưới PHẢI khớp đúng thứ tự với SKILL_ORDER
- * trong pkm_quiz.js — nếu sau này đổi thứ tự bên đó thì nhớ đổi luôn ở đây.
  */
 
-window.BlockGame = {
-    GRID_SIZE: 8,
-    MIN_QUESTIONS: 12,
-    MAX_QUESTIONS: 24,
-
-    // Phải khớp SKILL_ORDER trong pkm_quiz.js
-    SKILL_ORDER_LOCAL: ["listening", "speaking", "reading", "writing"],
-
-    grid: [],          // 8x8, mỗi ô: null hoặc mã màu (string)
-    pokemonGrid: [],    // 8x8 song song với grid, mỗi ô: null hoặc {id, url}
-    tray: [null, null, null],
-    selectedTrayIndex: null,
-
-    score: 0,
-    correctCount: 0,
+window.BattleGame = {
+    playerTeam: [],
+    enemyTeam: [],
+    activeUnitIndex: 0, // Chỉ số con đang đến lượt (0-4)
+    isPlayerSide: true, // Đang là lượt phe mình hay phe địch
+    isProcessing: false,
+    telegraph: null, // Kế hoạch (attacker/target/AOE) đã "dự báo" trước 1 lượt, đang hiện FX chờ tới lượt thực thi
+    pendingHealBursts: [], // Hàng đợi hiệu ứng buff (hồi máu) chờ phát SAU khi animation đòn đánh đã tắt hẳn
+        turnCounter: 0, // Đếm tổng số turn đã diễn ra — dùng để chia khối normal/AOE theo từng "round" (round = turnCounter / số Pokémon trong đội)
+        // Thống kê câu hỏi
+        correctCount: 0,
     wrongCount: 0,
     totalCount: 0,
-    skillStats: {
-        listening: { correct: 0, total: 0 },
-        speaking: { correct: 0, total: 0 },
-        reading: { correct: 0, total: 0 },
-        writing: { correct: 0, total: 0 },
-    },
+        // 🆕 THÊM 2 DÒNG NÀY
+        MIN_QUESTIONS: 12,
+        MAX_QUESTIONS: 24,
 
-    isPaused: false,
-    gameOver: false,
-    quizTimer: null,
 
-    COLORS: ['#ff6b6b', '#4ecdc4', '#ffe66d', '#a29bfe', '#55efc4', '#fd79a8', '#74b9ff', '#fab1a0', '#ffb142'],
+        async init() {
+        console.log("⚔️ [DEBUG] BattleGame.init() started");
+            if (window.ArenaReady) await window.ArenaReady;
 
-    // Mỗi shape là danh sách toạ độ [row, col] đã chuẩn hoá về gốc (0,0)
-    PIECE_SHAPES: [
-        { cells: [[0, 0]] },
-        { cells: [[0, 0], [0, 1]] },
-        { cells: [[0, 0], [1, 0]] },
-        { cells: [[0, 0], [0, 1], [0, 2]] },
-        { cells: [[0, 0], [1, 0], [2, 0]] },
-        { cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
-        { cells: [[0, 0], [1, 0], [2, 0], [3, 0]] },
-        { cells: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
-        { cells: [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]] },
-        { cells: [[0, 0], [0, 1], [1, 0], [1, 1]] }, // vuông 2x2
-        { cells: [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2]] }, // vuông 3x3
-        { cells: [[0, 0], [1, 0], [2, 0], [2, 1]] }, // L
-        { cells: [[0, 0], [0, 1], [0, 2], [1, 0]] }, // L lật
-        { cells: [[0, 0], [0, 1], [1, 1], [2, 1]] }, // L lật 2
-        { cells: [[0, 2], [1, 0], [1, 1], [1, 2]] }, // L lật 3
-        { cells: [[0, 0], [0, 1], [0, 2], [1, 1]] }, // T
-        { cells: [[0, 1], [1, 0], [1, 1], [2, 1]] }, // T dọc
-        { cells: [[0, 1], [0, 2], [1, 0], [1, 1]] }, // S
-        { cells: [[0, 0], [0, 1], [1, 1], [1, 2]] }, // Z
-        { cells: [[0, 0], [0, 1], [1, 0]] }, // góc nhỏ
-        { cells: [[0, 0], [0, 1], [1, 1]] }, // góc nhỏ
-        { cells: [[0, 1], [1, 0], [1, 1]] }, // góc nhỏ
-        { cells: [[0, 0], [1, 0], [1, 1]] }, // góc nhỏ
-        { cells: [[0, 1], [1, 0], [1, 1], [1, 2], [2, 1]] }, // dấu cộng
-    ],
+        const inv = JSON.parse(localStorage.getItem('pkm_inventory')) || [];
 
-    // ═══════════════════════════════════════════════════════════
-    // HỆ POKÉMON HOÁ (roster đang chơi / kho dự trữ / thu phục)
-    // ═══════════════════════════════════════════════════════════
-    ACTIVE_ROSTER_SIZE: 10,
-    RESERVE_BATCH_SIZE: 15,
-    RESERVE_REFILL_THRESHOLD: 3,
-    POKEMON_ID_MAX: 649, // giới hạn Gen 1-5, khớp cách random enemy bên Battle
-
-    activeRoster: [],   // [{id, url}] — nguồn để gán cho khối MỚI sinh ra
-    reservePool: [],    // [{id, url}] — hàng chờ để thế chỗ khi có con bị thu phục
-    usedIds: new Set(), // tránh trùng ngay giữa các đợt sinh, không chặn tuyệt đối
-    collectedList: [],  // log các con đã thu phục trong ván (để vẽ dải UI)
-    captureBusy: false, // khoá để hiện popup thu phục tuần tự, không đè lên nhau
-
-    PRAISE_WORDS: ["EXCELLENT!", "GREAT!", "BRAVO!", "AWESOME!", "FANTASTIC!", "SUPER!"],
-
-    pokemonSpriteUrl(id) {
-        return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
-    },
-
-    preloadImage(url) {
-        const img = new Image();
-        img.src = url;
-    },
-
-    randomPokemonId(excludeSet) {
-        let id, attempts = 0;
-        do {
-            id = Math.floor(Math.random() * this.POKEMON_ID_MAX) + 1;
-            attempts++;
-        } while (excludeSet && excludeSet.has(id) && attempts < 60);
-        return id;
-    },
-
-    generateBatch(count, excludeSet) {
-        const batch = [];
-        const localExclude = new Set(excludeSet);
-        for (let i = 0; i < count; i++) {
-            const id = this.randomPokemonId(localExclude);
-            localExclude.add(id);
-            this.usedIds.add(id);
-            const url = this.pokemonSpriteUrl(id);
-            this.preloadImage(url);
-            batch.push({ id, url });
-        }
-        return batch;
-    },
-
-    initRosterAndReserve() {
-        this.activeRoster = this.generateBatch(this.ACTIVE_ROSTER_SIZE, this.usedIds);
-        this.reservePool = this.generateBatch(this.RESERVE_BATCH_SIZE, this.usedIds);
-    },
-
-    refillReserveIfLow() {
-        if (this.reservePool.length <= this.RESERVE_REFILL_THRESHOLD) {
-            const more = this.generateBatch(this.RESERVE_BATCH_SIZE, this.usedIds);
-            this.reservePool = this.reservePool.concat(more);
-        }
-    },
-
-    pickRandomActivePokemon() {
-        if (this.activeRoster.length === 0) {
-            // an toàn: nếu vì lý do gì đó roster rỗng, tạo tạm 1 con mới
-            return this.generateBatch(1, this.usedIds)[0];
-        }
-        return this.activeRoster[Math.floor(Math.random() * this.activeRoster.length)];
-    },
-
-    // Rút 1 con khỏi roster đang chơi (vì vừa bị "thu phục"), thế bằng 1 con
-    // từ kho dự trữ, rồi bổ sung thêm dự trữ nếu sắp cạn.
-    retireAndReplace(pokemonId) {
-        const idx = this.activeRoster.findIndex(p => p.id === pokemonId);
-        if (idx === -1) return; // đã bị rút trước đó rồi (2 line clear cùng lúc), bỏ qua
-        this.activeRoster.splice(idx, 1);
-
-        if (this.reservePool.length === 0) {
-            this.reservePool = this.generateBatch(this.RESERVE_BATCH_SIZE, this.usedIds);
-        }
-        const replacement = this.reservePool.shift();
-        this.activeRoster.push(replacement);
-        this.refillReserveIfLow();
-    },
-
-    // ═══════════════════════════════════════════════════════════
-    // ÂM THANH (tự tạo bằng Web Audio API — khỏi cần file mp3)
-    // ═══════════════════════════════════════════════════════════
-    _audioCtx: null,
-    ensureAudioCtx() {
-        if (!this._audioCtx) {
-            this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (this._audioCtx.state === "suspended") this._audioCtx.resume();
-        return this._audioCtx;
-    },
-    playTone(freq, duration = 0.12, type = "sine", volume = 0.25, delay = 0) {
-        try {
-            const ctx = this.ensureAudioCtx();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = type;
-            osc.frequency.value = freq;
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            const startTime = ctx.currentTime + delay;
-            gain.gain.setValueAtTime(volume, startTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-            osc.start(startTime);
-            osc.stop(startTime + duration + 0.02);
-        } catch (e) { /* im lặng nếu trình duyệt chặn audio */ }
-    },
-    playPlaceSound() {
-        this.playTone(520, 0.08, "triangle", 0.22);
-    },
-    playClearSound(linesCleared) {
-        const notes = [660, 880, 1046, 1318];
-        const count = Math.min(notes.length, 1 + linesCleared);
-        for (let i = 0; i < count; i++) {
-            this.playTone(notes[i], 0.15, "sine", 0.25, i * 0.09);
-        }
-    },
-    playCaptureSound() {
-        this.playTone(784, 0.1, "sine", 0.22, 0);
-        this.playTone(988, 0.1, "sine", 0.22, 0.09);
-        this.playTone(1318, 0.18, "sine", 0.25, 0.18);
-    },
-
-    async init() {
-        console.log("🧱 [DEBUG] BlockGame.init() started");
-
-        this.setupGrid();
-        this.renderBoard();
-        this.attachTraySlotHandlers();
-        this.initRosterAndReserve(); // preload ngầm ngay từ đầu, song song lúc học từ vựng
-
-        // Pre-fetch dữ liệu quiz (4 kỹ năng) NGAY TỪ ĐẦU, chạy song song lúc
-        // học từ vựng — giống hệt battle.js — để câu hỏi đầu tiên không bị
-        // khựng chờ fetch network.
-        if (window.QuizManager) window.QuizManager.prepareData();
-
-        const quizOverlay = document.getElementById("quiz-overlay");
-        if (quizOverlay) quizOverlay.style.display = "none";
-
-        // Màn chọn cấp độ riêng cho Block Blast — 3 lựa chọn giống Battle
-        const renderLevelSelect = (container) => {
-            return new Promise((resolve) => {
-                const LEVELS = [
-                    { key: "de", emoji: "🟢", label: "Dễ", sub: "Hội thoại/đoạn văn ngắn" },
-                    { key: "trung_binh", emoji: "🟡", label: "Trung bình", sub: "Độ dài vừa phải" },
-                    { key: "kho", emoji: "🔴", label: "Khó", sub: "Hội thoại/đoạn văn dài" },
-                ];
-                container.innerHTML = `
-                    <div style="text-align:center;">
-                        <div style="font-size:16px;color:#FFCB05;font-weight:700;margin-bottom:18px;">🧱 Chọn cấp độ Block Blast!</div>
-                        <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
-                            ${LEVELS.map(lv => `
-                                <div class="block-level-card" data-level="${lv.key}" style="
-                                    background:rgba(255,255,255,.06); border:2px solid rgba(255,203,5,.3);
-                                    border-radius:16px; padding:18px 22px; text-align:center; cursor:pointer;
-                                    min-width:120px; transition:all .2s;">
-                                    <div style="font-size:38px;">${lv.emoji}</div>
-                                    <div style="font-weight:800;color:#FFCB05;margin-top:6px;font-size:16px;">${lv.label}</div>
-                                    <div style="font-size:12px;color:#bbb;margin-top:4px;">${lv.sub}</div>
-                                </div>`).join("")}
-                        </div>
-                    </div>`;
-                container.querySelectorAll(".block-level-card").forEach(card => {
-                    card.onclick = () => {
-                        localStorage.setItem("selected_level", card.dataset.level);
-                        resolve(card.dataset.level);
-                    };
-                });
-            });
-        };
-
-        // Tên hàm PHẢI là startPokemonBattle vì pkm_vocabulary.js gọi cứng tên này
-        window.startPokemonBattle = async () => {
-            console.log("🧱 Chọn cấp độ trước khi vào Block Blast...");
-
-            let mainCard = document.getElementById("mainCard");
-            if (!mainCard) {
-                mainCard = document.createElement("div");
-                mainCard.id = "mainCard";
-                document.body.appendChild(mainCard);
+        // 🔧 TỰ ĐỘNG DỌN DỮ LIỆU CŨ: đội hình tối đa giờ chỉ còn 3
+        let migrated = false;
+        inv.forEach(p => {
+            if (p.inTeam && p.position > 3) {
+                p.inTeam = false;
+                p.position = null;
+                migrated = true;
             }
-            mainCard.style.cssText = `
-                position: fixed; top:0; left:0; width:100vw; height:100dvh;
-                background: radial-gradient(circle, #1a1c28 0%, #0a0c16 100%);
-                z-index: 99999; display:flex; align-items:center; justify-content:center;
-                padding:20px; box-sizing:border-box;
-            `;
-
-            await renderLevelSelect(mainCard);
-            mainCard.style.display = "none";
-
-            if (window.QuizManager) {
-                window.QuizManager.loadLevel();
-                window.QuizManager.initSkillPools();
-            }
-
-            this.startPlaying();
-        };
-
-        if (window.VocabularyModule && typeof window.VocabularyModule.start === "function") {
-            console.log("📘 [Block] Gọi VocabularyModule chạy phần học từ vựng...");
-            await window.VocabularyModule.start();
-        } else {
-            console.warn("⚠️ Không tìm thấy VocabularyModule, tự động vào thẳng Block Blast!");
-            window.startPokemonBattle();
-        }
-    },
-
-    startPlaying() {
-        this.spawnTray();
-        this.renderTray();
-        this.updateScoreUI();
-        this.updateStatsUI();
-        this.scheduleNextQuiz();
-    },
-
-    // ═══════════════════════════════════════════════════════════
-    // BÀN CỜ
-    // ═══════════════════════════════════════════════════════════
-    setupGrid() {
-        this.grid = Array.from({ length: this.GRID_SIZE }, () => Array(this.GRID_SIZE).fill(null));
-        this.pokemonGrid = Array.from({ length: this.GRID_SIZE }, () => Array(this.GRID_SIZE).fill(null));
-    },
-
-    renderBoard() {
-        const board = document.getElementById("block-board");
-        if (!board) return;
-        board.innerHTML = "";
-        for (let r = 0; r < this.GRID_SIZE; r++) {
-            for (let c = 0; c < this.GRID_SIZE; c++) {
-                const cell = document.createElement("div");
-                cell.className = "block-cell";
-                cell.dataset.r = r;
-                cell.dataset.c = c;
-                cell.addEventListener("click", () => this.handleCellClick(r, c));
-                cell.addEventListener("mouseenter", () => this.handleCellHover(r, c));
-                cell.addEventListener("mouseleave", () => this.clearPreview());
-                board.appendChild(cell);
-            }
-        }
-    },
-
-    getCellEl(r, c) {
-        return document.querySelector(`.block-cell[data-r="${r}"][data-c="${c}"]`);
-    },
-
-    paintCell(r, c, color, pokemonUrl) {
-        const el = this.getCellEl(r, c);
-        if (!el) return;
-        if (color) {
-            el.classList.add("filled");
-            el.style.background = color;
-            el.style.backgroundImage = pokemonUrl ? `url('${pokemonUrl}')` : "";
-        } else {
-            el.classList.remove("filled");
-            el.style.background = "";
-            el.style.backgroundImage = "";
-        }
-    },
-
-    // ═══════════════════════════════════════════════════════════
-    // KHAY KHỐI
-    // ═══════════════════════════════════════════════════════════
-    randomShape() {
-        const shape = this.PIECE_SHAPES[Math.floor(Math.random() * this.PIECE_SHAPES.length)];
-        const color = this.COLORS[Math.floor(Math.random() * this.COLORS.length)];
-        const pokemon = this.pickRandomActivePokemon();
-        return { cells: shape.cells, color, pokemon };
-    },
-
-    spawnTray() {
-        this.tray = [this.randomShape(), this.randomShape(), this.randomShape()];
-    },
-
-    maybeRefillTray() {
-        if (this.tray.every(p => !p)) this.spawnTray();
-    },
-
-    attachTraySlotHandlers() {
-        [0, 1, 2].forEach(i => {
-            const slot = document.getElementById(`traySlot${i}`);
-            if (slot) slot.addEventListener("click", () => this.selectTraySlot(i));
         });
-    },
+        if (migrated) localStorage.setItem('pkm_inventory', JSON.stringify(inv));
 
-    renderTray() {
-        this.tray.forEach((piece, i) => {
-            const slot = document.getElementById(`traySlot${i}`);
-            if (!slot) return;
-            slot.classList.remove("selected");
-            if (!piece) {
-                slot.classList.add("empty");
-                slot.innerHTML = "";
+            const team = inv.filter(p => p.inTeam).sort((a, b) => a.position - b.position);
+
+            if (team.length === 0) {
+                alert("Đội hình trống!");
+                window.location.href = 'pkm_team.html';
                 return;
             }
-            slot.classList.remove("empty");
-            const maxR = Math.max(...piece.cells.map(p => p[0])) + 1;
-            const maxC = Math.max(...piece.cells.map(p => p[1])) + 1;
-            const cellPx = Math.floor(70 / Math.max(maxR, maxC));
-            const filledSet = new Set(piece.cells.map(p => `${p[0]}_${p[1]}`));
-            const bg = piece.pokemon ? piece.pokemon.url : "";
 
-            let html = `<div class="tray-piece-grid" style="grid-template-columns:repeat(${maxC},${cellPx}px);grid-template-rows:repeat(${maxR},${cellPx}px);">`;
-            for (let r = 0; r < maxR; r++) {
-                for (let c = 0; c < maxC; c++) {
-                    const on = filledSet.has(`${r}_${c}`);
-                    const style = on ? `background-color:${piece.color};background-image:url('${bg}');` : "";
-                    html += `<div class="tray-piece-cell ${on ? "" : "empty"}" style="${style}"></div>`;
+            // 🆕 FETCH BÙ height cho Pokémon cũ (ấp trứng trước khi có field này),
+            // để bodyScale (pkm_styles.js) tính đúng cho mọi con, kể cả dữ liệu cũ.
+            const heightsChanged = await this.ensureHeights(team);
+            if (heightsChanged) localStorage.setItem('pkm_inventory', JSON.stringify(inv));
+
+            this.playerTeam = team.map(p => this.calculateStats(p, false));
+            this.enemyTeam  = team.map(p => this.calculateStats(p, true));
+
+            // ✅ THÊM LOGIC NÀY: Lấy tên thật cho đối thủ dựa trên ID ngẫu nhiên đã tạo
+            // ✅ SỬA TRONG BattleGame.init()
+            for (let p of this.enemyTeam) {
+                try {
+                    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${p.id}`);
+                    const data = await res.json();
+
+                    // 1. Ghi đè tên
+                    p.name = data.name.charAt(0).toUpperCase() + data.name.slice(1);
+
+                    // 2. Ghi đè hệ (Type) - Lấy hệ đầu tiên của Pokemon đó
+                    if (data.types && data.types.length > 0) {
+                        p.type = data.types[0].type.name; 
+                    }
+
+                    // 3. (Tùy chọn) Ghi đè Gen nếu sếp muốn hiệu ứng xịn theo đúng con đó
+                    // Pokemon ID > 493 thường là Gen 5 trở đi, sếp có thể tạm logic hóa ở đây
+
+                    // 4. Ghi đè CHIỀU CAO theo đúng ID ngẫu nhiên vừa random — vì địch
+                    // là 1 Pokémon HOÀN TOÀN KHÁC con gốc trong túi đồ, height gốc (nếu
+                    // có) không còn đúng nữa, phải lấy height của chính con vừa random.
+                    p.height = data.height;
+
+                } catch (e) {
+                    p.name = "Unknown";
+                    p.type = "normal";
+                    p.height = 10; // fallback ~1m nếu fetch lỗi
                 }
             }
-            html += `</div>`;
-            slot.innerHTML = html;
-        });
 
-        if (this.selectedTrayIndex !== null && !this.tray[this.selectedTrayIndex]) {
-            this.selectedTrayIndex = null;
-        }
-        if (this.selectedTrayIndex !== null) {
-            document.getElementById(`traySlot${this.selectedTrayIndex}`)?.classList.add("selected");
-        }
+    if (window.QuizManager) window.QuizManager.prepareData();
+
+        this.renderBattlefield();
+
+        // 🔥 Tiến trình điều khiển: Học từ vựng (wordBank2) -> Đấu trắc nghiệm
+        // 🔥 Tiến trình điều khiển ĐÃ CHUẨN HÓA: Học từ vựng (VocabularyModule) -> Xong mới Đấu trắc nghiệm
+        (async () => {
+            // 1. Ẩn bảng câu hỏi trắc nghiệm khi bắt đầu vào trang để ưu tiên học từ
+            const quizOverlay = document.getElementById("quiz-overlay");
+            if (quizOverlay) quizOverlay.style.display = "none";
+
+            // 2. Định nghĩa hàm callback toàn cục để khi bên module Vocab học xong thì gọi ngược lại đây
+            // 🆕 Hàm chọn cấp độ riêng cho trận đấu — CHỈ 3 lựa chọn (không có Mầm non)
+            const renderBattleLevelSelect = (container) => {
+                return new Promise((resolve) => {
+                    const LEVELS = [
+                        { key: "de",         emoji: "🟢", label: "Dễ",         sub: "Hội thoại/đoạn văn ngắn" },
+                        { key: "trung_binh", emoji: "🟡", label: "Trung bình", sub: "Độ dài vừa phải" },
+                        { key: "kho",        emoji: "🔴", label: "Khó",        sub: "Hội thoại/đoạn văn dài" },
+                    ];
+                    container.innerHTML = `
+                        <div style="text-align:center;">
+                            <div style="font-size:16px;color:#FFCB05;font-weight:700;margin-bottom:18px;">🎮 Chọn cấp độ trận đấu!</div>
+                            <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+                                ${LEVELS.map(lv => `
+                                    <div class="battle-level-card" data-level="${lv.key}" style="
+                                        background:rgba(255,255,255,.06); border:2px solid rgba(255,203,5,.3);
+                                        border-radius:16px; padding:18px 22px; text-align:center; cursor:pointer;
+                                        min-width:120px; transition:all .2s;">
+                                        <div style="font-size:38px;">${lv.emoji}</div>
+                                        <div style="font-weight:800;color:#FFCB05;margin-top:6px;font-size:16px;">${lv.label}</div>
+                                        <div style="font-size:12px;color:#bbb;margin-top:4px;">${lv.sub}</div>
+                                    </div>`).join("")}
+                            </div>
+                        </div>`;
+                    container.querySelectorAll(".battle-level-card").forEach(card => {
+                        card.onclick = () => {
+                            const level = card.dataset.level;
+                            localStorage.setItem("selected_level", level);
+                            resolve(level);
+                        };
+                    });
+                });
+            };
+
+            window.startPokemonBattle = async () => {
+                console.log("⚔️ Chọn cấp độ trước khi vào trận...");
+
+                // Tự tạo mainCard nếu chưa có (phòng trường hợp VocabularyModule lỗi)
+                let mainCard = document.getElementById("mainCard");
+                if (!mainCard) {
+                    mainCard = document.createElement("div");
+                    mainCard.id = "mainCard";
+                    document.body.appendChild(mainCard);
+                }
+                mainCard.style.cssText = `
+                    position: fixed; top:0; left:0; width:100vw; height:100dvh;
+                    background: radial-gradient(circle, #1a1c28 0%, #0a0c16 100%);
+                    z-index: 99999; display:flex; align-items:center; justify-content:center;
+                    padding:20px; box-sizing:border-box;
+                `;
+
+                await renderBattleLevelSelect(mainCard);
+                mainCard.style.display = "none";
+
+                // Nạp lại cấu hình cấp độ vừa chọn cho QuizManager (prepareData() đã chạy
+                // TRƯỚC KHI học sinh chọn nên cần gọi lại loadLevel() ở đây mới nhận đúng)
+                if (window.QuizManager) {
+                    window.QuizManager.loadLevel();
+                    // 🆕 Xây lại bể dạng bài theo ĐÚNG cấp độ vừa chọn — bắt buộc vì
+                    // initSkillPools() ban đầu (trong prepareData) chạy TRƯỚC khi chọn
+                    // cấp độ nên còn lọc theo cấp mặc định "Dễ" (loại speaking4/writing4).
+                    window.QuizManager.initSkillPools();
+                }
+
+                if (quizOverlay) quizOverlay.style.display = "flex";
+
+                this.activeUnitIndex = 0;
+                this.telegraph = this.buildTelegraph(this.activeUnitIndex);
+                this.showTelegraphFX(this.telegraph);
+                setTimeout(() => this.askAndResolve(), 1000);
+            };
+
+            // 3. Kích hoạt gọi thằng VocabularyModule tự mò localStorage/sessionStorage bốc dữ liệu và chạy
+            if (window.VocabularyModule && typeof window.VocabularyModule.start === "function") {
+                console.log("📘 [Battle Script] Gọi VocabularyModule chạy phần học từ vựng...");
+                await window.VocabularyModule.start();
+            } else {
+                // Phương án dự phòng nếu file vocab bị lỗi hoặc không tải được, vào thẳng trận đấu luôn
+                console.warn("⚠️ Không tìm thấy VocabularyModule, tự động vào thẳng trận đấu!");
+                window.startPokemonBattle();
+            }
+        })();
     },
+    // Fetch bù trường "height" (đơn vị decimet, PokeAPI) cho các Pokémon
+    // CŨ chưa có field này (ấp trứng trước khi pkm_egg.js được cập nhật).
+    // Trả về true nếu có ít nhất 1 con vừa được fetch bù (để nơi gọi biết
+    // mà lưu lại localStorage).
+    async ensureHeights(team) {
+        const missing = team.filter(p => !p.height);
+        if (missing.length === 0) return false;
 
-    selectTraySlot(i) {
-        if (this.isPaused || this.gameOver) return;
-        if (!this.tray[i]) return;
-        this.selectedTrayIndex = this.selectedTrayIndex === i ? null : i;
-        this.renderTray();
-    },
+        await Promise.all(missing.map(async (p) => {
+            try {
+                const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${p.id}`);
+                const data = await res.json();
+                p.height = data.height;
+            } catch (e) {
+                p.height = 10; // fallback ~1m nếu fetch lỗi, tránh vỡ hiển thị
+            }
+        }));
 
-    // ═══════════════════════════════════════════════════════════
-    // ĐẶT KHỐI
-    // ═══════════════════════════════════════════════════════════
-    canPlace(shapeCells, anchorR, anchorC) {
-        for (const [dr, dc] of shapeCells) {
-            const r = anchorR + dr, c = anchorC + dc;
-            if (r < 0 || r >= this.GRID_SIZE || c < 0 || c >= this.GRID_SIZE) return false;
-            if (this.grid[r][c]) return false;
-        }
         return true;
     },
 
-    handleCellHover(r, c) {
-        if (this.selectedTrayIndex === null || this.isPaused || this.gameOver) return;
-        const piece = this.tray[this.selectedTrayIndex];
-        if (!piece) return;
-        this.clearPreview();
-        const ok = this.canPlace(piece.cells, r, c);
-        piece.cells.forEach(([dr, dc]) => {
-            const rr = r + dr, cc = c + dc;
-            const el = this.getCellEl(rr, cc);
-            if (el) el.classList.add(ok ? "preview-ok" : "preview-bad");
+    calculateStats(pkm, isEnemy) {
+        const stats = pkm.baseStats || {};
+        let hp   = parseInt(stats.hp)  || 20;
+        let atk  = parseInt(stats.atk) || 20;
+        let def  = parseInt(stats.def) || 15;
+        let sAtk = parseInt(stats.sAtk) || 20;
+
+        if (!isEnemy) {
+            // 1. ĐỌC VÀ CỘNG CHỈ SỐ TỪ TRANG BỊ
+            const equipped = JSON.parse(localStorage.getItem('pkm_equipped')) || {};
+            const equippedIds = Object.values(equipped);
+            let bonusAtk = 0, bonusDef = 0, bonusHP = 0, bonusSAtk = 0;
+
+            const rankBonusMap = { 'silver': 0.02, 'gold': 0.03, 'red': 0.04, 'orange': 0.05 };
+
+            equippedIds.forEach(id => {
+                const parts = id.split('_');
+                const type = parts[0];
+                const rank = parts[1];
+                const b = rankBonusMap[rank] || 0;
+
+                if (type === 'weapon' || type === 'gloves') {
+                    bonusAtk += b;
+                    bonusSAtk += b;
+                } else if (type === 'armor' || type === 'earring') {
+                    bonusDef += b;
+                } else if (type === 'helmet' || type === 'shoes') {
+                    bonusHP += b;
+                } else if (type === 'cloak' || type === 'belt') {
+                    bonusSAtk += b;
+
+                }
+            });
+
+            atk = Math.floor(atk * (1 + bonusAtk));
+            sAtk = Math.floor(sAtk * (1 + bonusSAtk));
+            def = Math.floor(def * (1 + bonusDef));
+            hp  = Math.floor(hp  * (1 + bonusHP));
+
+            // 2. TÍCH HỢP KIỂM TRA VÀ CỘNG BUFF ĐỘI HÌNH (+5% Toàn bộ chỉ số gốc + trang bị)
+            const teamBuffStatus = localStorage.getItem('pkm_team_buff');
+            if (teamBuffStatus === 'active') {
+                atk  = Math.floor(atk * 1.05);
+                sAtk = Math.floor(sAtk * 1.05);
+                def  = Math.floor(def * 1.05);
+                hp   = Math.floor(hp * 1.05);
+                console.log(`💪 [BUFF ACTIVE] Đã cộng 5% chỉ số chiến đấu cho: ${pkm.name}`);
+            }
+        }
+
+        // 🔥 ĐOẠN SỬA ĐỔI: Tối ưu HP co giãn riêng cho 1 con và 2 con, giữ nguyên 3-5 con
+        const inv = JSON.parse(localStorage.getItem('pkm_inventory')) || [];
+        const actualTeamSize = inv.filter(p => p.inTeam).length || 1;
+
+        let hpMultiplier = 17; // Mặc định là x15 cho các trường hợp 3, 4, 5 con
+
+        if (actualTeamSize === 1) {
+            hpMultiplier = 45; // Đi 1 con đơn độc: x30 máu để kéo dài trận đấu
+        } else if (actualTeamSize === 2) {
+            hpMultiplier = 25; // Đi 2 con: x25 máu để trận đấu vừa vặn
+        }
+
+        // Cả phe ta và phe địch đều sẽ áp dụng hệ số co giãn này
+        const baseHP = (hp * hpMultiplier) + 200;
+        const randomPkmID = Math.floor(Math.random() * 649) + 1;
+
+        return {
+            ...pkm,
+            id: isEnemy ? randomPkmID : pkm.id,
+            name: isEnemy ? "Loading..." : pkm.name, 
+            maxHp: isEnemy ? Math.floor(baseHP * 0.7) : baseHP,
+            currentHp: isEnemy ? Math.floor(baseHP * 0.7) : baseHP,
+            atk: atk, 
+            sAtk: sAtk,
+            def: def,
+            type: pkm.type || 'normal',
+            gen: pkm.gen || 1,
+            hitsTaken: 0
+        };
+    },
+
+    // ═══════════════════════════════════════════════════════════
+    // PIPELINE LƯỢT ĐẤU MỚI — "dự báo trước 1 lượt" (telegraph)
+    // ═══════════════════════════════════════════════════════════
+    // Ý tưởng: ngay khi 1 cặp vừa đánh xong, ta CHỐT TRƯỚC (roll AOE/
+    // mục tiêu) cho cặp KẾ TIẾP và bật FX (Ring1/Ring2/Ring3) lên
+    // NGAY LÚC ĐÓ — trong khi cặp đó còn đứng yên chưa tới lượt.
+    // Chỉ khi tới lượt của cặp đó, ta mới hỏi quiz rồi thực thi ĐÚNG
+    // như đã báo trước (không roll lại). Nhờ vậy FX luôn xuất hiện
+    // trước, cách xa thời điểm ra đòn thật.
+
+    // Chốt trước kế hoạch tấn công cho 1 cặp (chưa thực thi damage)
+    buildTelegraph(unitIndex) {
+        const playerAttacker = this.playerTeam[unitIndex];
+        const enemyAttacker  = this.enemyTeam[unitIndex];
+        const pAlive = playerAttacker && playerAttacker.currentHp > 0;
+        const eAlive = enemyAttacker  && enemyAttacker.currentHp  > 0;
+
+        // Chia khối theo ROUND thay vì roll ngẫu nhiên: mỗi "round" gồm đủ
+        // N turn (N = số Pokémon trong đội). Round chẵn (0, 2, 4...) → cả
+        // đội đánh thường; round lẻ (1, 3, 5...) → cả đội tung AOE. Cả 2
+        // phe (ta + địch) LUÔN dùng chung 1 kết quả để đồng bộ loại đòn.
+        const teamLen = this.playerTeam.length || 1;
+        const roundIndex = Math.floor(this.turnCounter / teamLen);
+        const isAOE = (roundIndex % 2 === 1);
+        this.turnCounter++;
+
+        const plan = { unitIndex, enemyPlan: null, playerPlan: null };
+        if (eAlive) plan.enemyPlan  = this.rollActionPlan(enemyAttacker, this.playerTeam, 'enemy', unitIndex, isAOE);
+        if (pAlive) plan.playerPlan = this.rollActionPlan(playerAttacker, this.enemyTeam, 'player', unitIndex, isAOE);
+        return plan;
+    },
+
+    // Roll mục tiêu theo `isAOE` đã chốt sẵn từ buildTelegraph — KHÔNG tự
+    // roll random ở đây nữa (tránh lệch pha với bên còn lại)
+    rollActionPlan(attacker, opponentTeam, side, unitIndex, isAOE) {
+        const targetSide = side === 'player' ? 'enemy' : 'player';
+
+        if (!isAOE) {
+            const targetIdx = opponentTeam.findIndex(p => p.currentHp > 0);
+            if (targetIdx === -1) return null;
+            return { attacker, side, targetSide, unitIndex, isAOE: false, targetIdx, targets: [targetIdx] };
+        }
+
+        const targets = opponentTeam.map((p, i) => p.currentHp > 0 ? i : -1).filter(i => i !== -1);
+        if (targets.length === 0) return null;
+        return { attacker, side, targetSide, unitIndex, isAOE: true, targets };
+    },
+
+    // Bật FX Ring1 (sắp tấn công) / Ring2 (sắp AOE) / Ring3 (sắp bị tấn công) cho cả kế hoạch của 1 cặp
+    showTelegraphFX(plan) {
+        if (plan.enemyPlan)  this.showPlanFX(plan.enemyPlan);
+        if (plan.playerPlan) this.showPlanFX(plan.playerPlan);
+    },
+    showPlanFX(actionPlan) {
+        window.PkmUnitFX?.setAttacking(actionPlan.side, actionPlan.unitIndex, true);
+        if (actionPlan.isAOE) window.PkmUnitFX?.setAOECasting(actionPlan.side, actionPlan.unitIndex, true);
+        (actionPlan.targets || []).forEach(i => window.PkmUnitFX?.setTargeted(actionPlan.targetSide, i, true));
+    },
+    // Tắt hết FX telegraph của 1 cặp (gọi sau khi đã thực thi xong đòn đánh thật)
+    clearTelegraphFX(plan) {
+        [plan.enemyPlan, plan.playerPlan].forEach(actionPlan => {
+            if (!actionPlan) return;
+            window.PkmUnitFX?.setAttacking(actionPlan.side, actionPlan.unitIndex, false);
+            window.PkmUnitFX?.setAOECasting(actionPlan.side, actionPlan.unitIndex, false);
+            (actionPlan.targets || []).forEach(i => window.PkmUnitFX?.setTargeted(actionPlan.targetSide, i, false));
         });
     },
 
-    clearPreview() {
-        document.querySelectorAll(".block-cell.preview-ok, .block-cell.preview-bad")
-            .forEach(el => el.classList.remove("preview-ok", "preview-bad"));
+    // Log + hỏi quiz (nếu phe ta có tham chiến ở cặp đang được telegraph), rồi thực thi
+    askAndResolve() {
+        const plan = this.telegraph;
+        if (!plan || this.checkGameOver()) return;
+
+        const enemyName  = plan.enemyPlan?.attacker?.name;
+        const playerName = plan.playerPlan?.attacker?.name;
+
+        if (plan.enemyPlan && plan.playerPlan) {
+            this.log(`${enemyName} tấn công trước, ${playerName} phản công sau!`);
+        } else if (plan.playerPlan) {
+            this.log(`Lượt của ${playerName} (Phe mình)`);
+        } else if (plan.enemyPlan) {
+            this.log(`Lượt của ${enemyName} (Đối thủ)`);
+        }
+
+        if (plan.playerPlan) {
+            if (window.QuizManager) {
+                window.QuizManager.ask((isCorrect) => this.resolveRound(isCorrect));
+            } else {
+                this.resolveRound(true);
+            }
+        } else {
+            // Chỉ địch còn sống ở cặp này → không cần hỏi quiz
+            setTimeout(() => this.resolveRound(true), 600);
+        }
     },
 
-    handleCellClick(r, c) {
-        if (this.selectedTrayIndex === null || this.isPaused || this.gameOver) return;
-        const idx = this.selectedTrayIndex;
-        const piece = this.tray[idx];
-        if (!piece) return;
+    // Thực thi kế hoạch đã telegraph: ĐỊCH đánh trước, TA đánh sau (theo đúng kết quả quiz)
+    async resolveRound(playerCorrect) {
+        this.isProcessing = true;
 
-        if (!this.canPlace(piece.cells, r, c)) {
-            const board = document.getElementById("block-board");
-            board?.classList.add("shake");
-            setTimeout(() => board?.classList.remove("shake"), 300);
+        const plan = this.telegraph;
+        this.telegraph = null;
+
+        if (plan.playerPlan) {
+            this.totalCount++;
+            if (playerCorrect) this.correctCount++; else this.wrongCount++;
+            const statEl = document.getElementById('quiz-stats');
+            if (statEl) statEl.innerHTML =
+                `✅ ${this.correctCount} &nbsp; ❌ ${this.wrongCount} &nbsp; 📊 ${this.totalCount} câu`;
+        }
+
+        // ĐỊCH đánh trước — luôn trúng
+        if (plan.enemyPlan) await this.executePlannedAction(plan.enemyPlan, true);
+
+        // Nghỉ 1 nhịp cho animation đòn địch "lắng" hẳn trước khi đòn ta bắn ra, đỡ đơ
+        if (plan.enemyPlan && plan.playerPlan) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        // TA đánh sau — theo kết quả quiz
+        if (plan.playerPlan) await this.executePlannedAction(plan.playerPlan, playerCorrect);
+
+        this.clearTelegraphFX(plan);
+        this.updateUI();
+
+        // Phát hiệu ứng buff (nếu có) SAU KHI mọi animation đòn đánh của lượt này đã xong hẳn
+        await this.flushHealBursts();
+
+        if (this.checkGameOver()) {
+            this.isProcessing = false;
             return;
         }
 
-        this.clearPreview();
-        this.selectedTrayIndex = null;
-        this.playPlaceSound();
-        this.commitPlacement(idx, piece, r, c, { auto: false });
-    },
-
-    commitPlacement(idx, piece, anchorR, anchorC, opts = {}) {
-        piece.cells.forEach(([dr, dc]) => {
-            const r = anchorR + dr, c = anchorC + dc;
-            this.grid[r][c] = piece.color;
-            this.pokemonGrid[r][c] = piece.pokemon;
-            this.paintCell(r, c, piece.color, piece.pokemon ? piece.pokemon.url : null);
-            if (opts.auto) {
-                const el = this.getCellEl(r, c);
-                el?.classList.add("auto-placed");
-                setTimeout(() => el?.classList.remove("auto-placed"), 700);
-            }
-        });
-
-        this.score += piece.cells.length;
-        this.tray[idx] = null;
-        this.renderTray();
-
-        setTimeout(() => {
-            this.clearFullLines();
-            this.updateScoreUI();
-            this.maybeRefillTray();
-            this.renderTray();
-            this.checkGameOver();
-        }, opts.auto ? 350 : 0);
-    },
-
-    clearFullLines() {
-        const fullRows = [];
-        const fullCols = [];
-        for (let r = 0; r < this.GRID_SIZE; r++) {
-            if (this.grid[r].every(cell => cell)) fullRows.push(r);
+        // Tìm cặp kế tiếp còn ít nhất 1 bên sống
+        let nextIndex = (plan.unitIndex + 1) % this.playerTeam.length;
+        let guard = 0;
+        while (guard < this.playerTeam.length) {
+            const p = this.playerTeam[nextIndex], e = this.enemyTeam[nextIndex];
+            if ((p && p.currentHp > 0) || (e && e.currentHp > 0)) break;
+            nextIndex = (nextIndex + 1) % this.playerTeam.length;
+            guard++;
         }
-        for (let c = 0; c < this.GRID_SIZE; c++) {
-            if (this.grid.every(row => row[c])) fullCols.push(c);
+        this.activeUnitIndex = nextIndex;
+
+        // DỰ BÁO TRƯỚC cho cặp kế tiếp NGAY BÂY GIỜ — trong khi cặp vừa xong vẫn còn hiện trên sân,
+        // FX của cặp kế tiếp đã bật sẵn để người chơi thấy trước 1 lượt.
+        this.telegraph = this.buildTelegraph(this.activeUnitIndex);
+        this.showTelegraphFX(this.telegraph);
+
+        this.isProcessing = false;
+        setTimeout(() => this.askAndResolve(), 1000);
+    },
+
+    // Thực thi 1 đòn đánh đã được telegraph từ trước: tính damage thật, phát animation, trừ máu
+    async executePlannedAction(actionPlan, isCorrect) {
+        if (!actionPlan) return;
+        const { attacker, side, targetSide, isAOE, targetIdx, targets, unitIndex } = actionPlan;
+        if (!attacker || attacker.currentHp <= 0) return; // đã chết trong lúc chờ telegraph
+
+        const opponentTeam = targetSide === 'enemy' ? this.enemyTeam : this.playerTeam;
+
+        if (!isCorrect) {
+            this.log(`${attacker.name} đánh hụt!`);
+            const missTargetIdx = isAOE ? (targets && targets[0]) : targetIdx;
+            const playInfo = {
+                attackerIndex: unitIndex,
+                attackerSide: side,
+                targetSide,
+                missed: true,
+                targets: (missTargetIdx !== undefined ? [missTargetIdx] : [])
+            };
+            console.log('[BATTLE] playInfo khi MISS:', JSON.parse(JSON.stringify(playInfo)), 'missTargetIdx=', missTargetIdx, 'targetIdx=', targetIdx, 'targets=', targets); // ← thêm dòng này
+            if (window.SkillManager) await window.SkillManager.playNormalAttack(playInfo);
+            return;
         }
-        if (fullRows.length === 0 && fullCols.length === 0) return;
 
-        const cellsToClear = new Set();
-        fullRows.forEach(r => { for (let c = 0; c < this.GRID_SIZE; c++) cellsToClear.add(`${r}_${c}`); });
-        fullCols.forEach(c => { for (let r = 0; r < this.GRID_SIZE; r++) cellsToClear.add(`${r}_${c}`); });
+        if (attacker.name && window.SkillManager) window.SkillManager.speakName(attacker.name);
 
-        // Thu thập các loài Pokémon xuất hiện trong những ô sắp bị xoá — đây
-        // chính là các con "bị thu phục" ở lượt này.
-        const capturedMap = new Map(); // id -> {id,url}
-        cellsToClear.forEach(key => {
-            const [r, c] = key.split("_").map(Number);
-            const p = this.pokemonGrid[r][c];
-            if (p) capturedMap.set(p.id, p);
-        });
+        if (!isAOE) {
+            const target = opponentTeam[targetIdx];
+            if (!target || target.currentHp <= 0) return; // mục tiêu đã chết trước đó (VD dính AOE của lượt vừa rồi)
+            const damage = Math.max(15, Math.floor((attacker.atk * 1.8) / (1 + target.def / 100)));
+            this.dealDamage(target, damage, targetSide, targetIdx);
 
-        cellsToClear.forEach(key => {
-            const [r, c] = key.split("_").map(Number);
-            this.getCellEl(r, c)?.classList.add("clearing");
-        });
-
-        const linesCleared = fullRows.length + fullCols.length;
-        this.score += linesCleared * linesCleared * 10;
-        this.playClearSound(linesCleared);
-
-        setTimeout(() => {
-            cellsToClear.forEach(key => {
-                const [r, c] = key.split("_").map(Number);
-                this.grid[r][c] = null;
-                this.pokemonGrid[r][c] = null;
-                this.paintCell(r, c, null, null);
-                this.getCellEl(r, c)?.classList.remove("clearing");
-            });
-            this.updateScoreUI();
-
-            if (capturedMap.size > 0) {
-                this.processCaptures(Array.from(capturedMap.values()));
-            }
-        }, 350);
-    },
-
-    // ═══════════════════════════════════════════════════════════
-    // THU PHỤC POKÉMON (popup + dải "Đã thu phục")
-    // ═══════════════════════════════════════════════════════════
-    async processCaptures(list) {
-        this.captureQueue = (this.captureQueue || []).concat(list);
-        if (this.captureBusy) return;
-        this.captureBusy = true;
-        while (this.captureQueue.length > 0) {
-            const pokemon = this.captureQueue.shift();
-            await this.showCaptureEvent(pokemon);
-        }
-        this.captureBusy = false;
-    },
-
-    showCaptureEvent(pokemon) {
-        return new Promise((resolve) => {
-            this.retireAndReplace(pokemon.id);
-            this.collectedList.push(pokemon);
-            this.playCaptureSound();
-
-            const popup = document.getElementById("capture-popup");
-            const praiseEl = document.getElementById("capturePraiseText");
-            const imgEl = document.getElementById("capturePokemonImg");
-            if (praiseEl) praiseEl.innerText = this.PRAISE_WORDS[Math.floor(Math.random() * this.PRAISE_WORDS.length)];
-            if (imgEl) imgEl.src = pokemon.url;
-
-            if (popup) {
-                popup.classList.remove("show");
-                void popup.offsetWidth; // ép reflow để restart animation
-                popup.classList.add("show");
-            }
-
-            // Icon "bay" từ popup vào dải thu phục
-            const trayEl = document.getElementById("collected-tray");
-            setTimeout(() => {
-                if (popup && trayEl) {
-                    const startRect = popup.getBoundingClientRect();
-                    const fly = document.createElement("div");
-                    fly.className = "fly-icon";
-                    fly.style.backgroundImage = `url('${pokemon.url}')`;
-                    fly.style.left = `${startRect.left + startRect.width / 2 - 20}px`;
-                    fly.style.top = `${startRect.top + startRect.height / 2 - 20}px`;
-                    document.body.appendChild(fly);
-
-                    requestAnimationFrame(() => {
-                        const endRect = trayEl.getBoundingClientRect();
-                        fly.style.left = `${endRect.left + 10}px`;
-                        fly.style.top = `${endRect.top + endRect.height / 2 - 20}px`;
-                        fly.style.transform = "scale(0.4)";
-                        fly.style.opacity = "0.3";
-                    });
-
-                    setTimeout(() => {
-                        fly.remove();
-                        this.appendCollectedIcon(pokemon);
-                    }, 580);
-                } else {
-                    this.appendCollectedIcon(pokemon);
-                }
-            }, 550);
-
-            setTimeout(resolve, 950);
-        });
-    },
-
-    appendCollectedIcon(pokemon) {
-        const trayEl = document.getElementById("collected-tray");
-        if (!trayEl) return;
-        const icon = document.createElement("div");
-        icon.className = "collected-icon";
-        icon.style.backgroundImage = `url('${pokemon.url}')`;
-        icon.title = `#${pokemon.id}`;
-        trayEl.appendChild(icon);
-        trayEl.scrollLeft = trayEl.scrollWidth;
-    },
-
-    isBoardStuck() {
-        const activePieces = this.tray.filter(p => p);
-        if (activePieces.length === 0) return false; // sẽ được refill ngay
-        for (const piece of activePieces) {
-            for (let r = 0; r < this.GRID_SIZE; r++) {
-                for (let c = 0; c < this.GRID_SIZE; c++) {
-                    if (this.canPlace(piece.cells, r, c)) return false;
-                }
-            }
-        }
-        return true;
-    },
-
-    findFirstFitPosition(shapeCells) {
-        for (let r = 0; r < this.GRID_SIZE; r++) {
-            for (let c = 0; c < this.GRID_SIZE; c++) {
-                if (this.canPlace(shapeCells, r, c)) return { r, c };
-            }
-        }
-        return null;
-    },
-
-    // Phạt khi trả lời sai: tự chọn 1 khối trong khay và ghép vào ô đầu tiên
-    // tìm thấy (không tối ưu để phá hàng) — mô phỏng "rơi thẳng" ẩu.
-    autoPlayPenalty() {
-        for (let idx = 0; idx < this.tray.length; idx++) {
-            const piece = this.tray[idx];
-            if (!piece) continue;
-            const pos = this.findFirstFitPosition(piece.cells);
-            if (pos) {
-                this.commitPlacement(idx, piece, pos.r, pos.c, { auto: true });
-                return;
-            }
-        }
-        // Không khối nào đặt được nữa — bàn cờ coi như đã kẹt, checkGameOver() sẽ xử lý.
-    },
-
-    setInteractionEnabled(enabled) {
-        document.getElementById("block-board")?.classList.toggle("locked", !enabled);
-        document.getElementById("tray-area")?.classList.toggle("locked", !enabled);
-        if (!enabled) this.clearPreview();
-    },
-
-    // ═══════════════════════════════════════════════════════════
-    // QUIZ ĐỊNH KỲ (20-30s)
-    // ═══════════════════════════════════════════════════════════
-    scheduleNextQuiz() {
-        if (this.gameOver) return;
-        const delay = 10000 + Math.random() * 3000;
-        clearTimeout(this.quizTimer);
-        this.quizTimer = setTimeout(() => this.triggerQuiz(), delay);
-    },
-
-    triggerQuiz() {
-        if (this.gameOver || this.isPaused) return;
-        this.isPaused = true;
-        this.selectedTrayIndex = null;
-        this.setInteractionEnabled(false);
-
-        if (window.QuizManager) {
-            window.QuizManager.ask((isCorrect) => this.onQuizAnswered(isCorrect));
+            const playInfo = { type: attacker.type || 'normal', gen: attacker.gen || 1, attackerIndex: unitIndex, attackerSide: side,
+                                attackerId: attacker.id, attackerName: attacker.name, targetSide, damage, isAOE: false, targets: [targetIdx], isSkill: true };
+            await window.SkillManager.playNormalAttack(playInfo);
         } else {
-            this.onQuizAnswered(true);
+            const aliveTargets = targets.filter(i => opponentTeam[i] && opponentTeam[i].currentHp > 0);
+            if (aliveTargets.length === 0) return;
+
+            const playInfo = { type: attacker.type || 'normal', gen: attacker.gen || 1, attackerIndex: unitIndex, attackerSide: side,
+                                attackerId: attacker.id, attackerName: attacker.name, targetSide, targets: aliveTargets, damage: 0, isAOE: true, isSkill: true };
+            aliveTargets.forEach(idx => {
+                const target = opponentTeam[idx];
+                const damage = Math.max(20, Math.floor((attacker.sAtk * 1.2) / (1 + target.def / 100)));
+                this.dealDamage(target, damage, targetSide, idx);
+                playInfo.damage = damage;
+            });
+            await window.SkillManager.play(playInfo);
+        }
+
+        this.updateUI();
+    },
+
+    // Trừ máu + đếm số lần bị dính đòn → cứ đủ 3 đòn thì hồi máu (buff thật),
+    // và bật sẵn hiệu ứng "sắp được buff" (2 sao) ngay từ đòn thứ 2 để dự báo trước.
+        dealDamage(target, damage, targetSide, targetIndex) {
+        const team = targetSide === 'enemy' ? this.enemyTeam : this.playerTeam;
+        const otherAlive = team.some((p, i) => i !== targetIndex && p && p.currentHp > 0);
+        const wouldWipeTeam = (target.currentHp - damage) <= 0 && !otherAlive;
+
+        if (wouldWipeTeam && this.totalCount < this.MIN_QUESTIONS) {
+            // Chưa đủ số câu tối thiểu -> giữ sàn 1 máu, không cho đội bị xoá sổ sớm
+            target.currentHp = 1;
+        } else {
+            target.currentHp = Math.max(0, target.currentHp - damage);
+        }
+        target.hitsTaken = (target.hitsTaken || 0) + 1;
+
+        if (target.currentHp <= 0) return; // chết rồi thì thôi, khỏi buff
+
+        const mod = target.hitsTaken % 3;
+        if (mod === 2) {
+            // Đã lãnh đủ 2 đòn — báo trước sắp được buff ở đòn kế tiếp
+            window.PkmUnitFX?.setBuffing(targetSide, targetIndex, true);
+        } else if (mod === 0) {
+            // Đủ 3 đòn — CHƯA cộng máu ở đây nữa. Giờ buff hồi máu là buff
+            // cho CẢ ĐỘI, số liệu từng con khác nhau tuỳ maxHp, và máu chỉ
+            // thực sự được cộng đúng lúc hiệu ứng Pha 3 xuất hiện trên từng
+            // con (xem playHealBuffSequence). Ở đây chỉ ghi nhận SỰ KIỆN.
+            window.PkmUnitFX?.setBuffing(targetSide, targetIndex, false);
+            this.log(`${target.name} kích hoạt hồi máu đồng đội!`);
+
+            this.pendingHealBursts.push({
+                side: targetSide,
+                sourceIndex: targetIndex,
+                sourceType: target.type || 'normal'
+            });
         }
     },
 
-    // Suy ra kỹ năng của câu VỪA hỏi từ skillCycleIndex của QuizManager.
-    // pickNextTypeName() bên pkm_quiz.js tăng skillCycleIndex NGAY TRƯỚC khi
-    // xử lý câu hỏi, và không có lần tăng nào khác xảy ra giữa lúc đó và lúc
-    // callback (isCorrect) được gọi — nên (skillCycleIndex - 1) chính là chỉ
-    // số của kỹ năng vừa hỏi, kể cả khi có các lượt "bỏ qua do thiếu dữ liệu"
-    // trước đó (mỗi lượt bỏ qua cũng tự tăng biến này).
-    getSkillJustAsked() {
-        if (!window.QuizManager || typeof window.QuizManager.skillCycleIndex !== "number") return null;
-        const order = this.SKILL_ORDER_LOCAL;
-        const idx = ((window.QuizManager.skillCycleIndex - 1) % order.length + order.length) % order.length;
-        return order[idx];
+    // Phát các hiệu ứng buff đã dồn trong hàng đợi — chỉ gọi SAU KHI mọi animation
+    // đòn đánh của lượt đã hoàn toàn kết thúc, cách nhau 1 nhịp để không đơ.
+    async flushHealBursts() {
+        if (this.pendingHealBursts.length === 0) return;
+        const events = this.pendingHealBursts;
+        this.pendingHealBursts = [];
+
+        // Đợi Pokémon "im" trở lại sau đòn đánh rồi mới phát hiệu ứng buff
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Tách sự kiện theo PHE — trong 1 phe, nếu có nhiều con cùng proc buff
+        // ở turn này thì chạy TUẦN TỰ (con này xong hết mới tới con kia).
+        // Nhưng phe ta và phe địch thì chạy SONG SONG với nhau.
+        const bySide = { player: [], enemy: [] };
+        events.forEach(ev => bySide[ev.side]?.push(ev));
+
+        const runSideQueue = async (side, queue) => {
+            for (const ev of queue) {
+                await this.playHealBuffSequence(side, ev.sourceIndex, ev.sourceType);
+            }
+        };
+
+        await Promise.all([
+            runSideQueue('player', bySide.player),
+            runSideQueue('enemy', bySide.enemy)
+        ]);
     },
 
-    onQuizAnswered(isCorrect) {
-        const skillName = this.getSkillJustAsked();
+    // Chạy trọn 3 pha của 1 sự kiện buff hồi máu:
+    // Pha 1: cột sáng giáng xuống đúng con vừa đủ 3 đòn (con "chủ buff")
+    // Pha 2: mảng sáng lan từ con đó ra khắp các ô CÒN SỐNG cùng phe
+    // Pha 3: hồi máu đồng loạt cho cả đội còn sống — CỘNG MÁU THẬT đúng
+    //        lúc này, mỗi con hồi = min(20, 1% maxHp của chính nó)
+    async playHealBuffSequence(side, sourceIndex, sourceType) {
+        const team = side === 'player' ? this.playerTeam : this.enemyTeam;
+        const aliveIndices = team
+            .map((p, i) => (p && p.currentHp > 0) ? i : -1)
+            .filter(i => i !== -1);
+        if (aliveIndices.length === 0) return;
 
-        this.totalCount++;
-        if (isCorrect) this.correctCount++; else this.wrongCount++;
-        if (skillName && this.skillStats[skillName]) {
-            this.skillStats[skillName].total++;
-            if (isCorrect) this.skillStats[skillName].correct++;
+        const color = (window.SkillManager?.systemConfig?.[sourceType] || {}).color || '#2ecc71';
+
+        // PHA 1
+        await window.PkmUnitFX?.playDescendBeam(side, sourceIndex, color);
+
+        // PHA 2
+        await window.PkmUnitFX?.playGroundSpread(side, sourceIndex, aliveIndices, color);
+
+        // PHA 3 — cộng máu thật + hiện hiệu ứng + số hồi, từng con nối tiếp nhẹ
+        for (let i = 0; i < aliveIndices.length; i++) {
+            const idx = aliveIndices[i];
+            const p = team[idx];
+            if (!p || p.currentHp <= 0) continue;
+
+            const healAmount = Math.min(20, Math.floor(p.maxHp * 0.005));
+            p.currentHp = Math.min(p.maxHp, p.currentHp + healAmount);
+
+            window.PkmUnitFX?.showHealBurst(side, idx);
+            window.PkmUnitFX?.showHealNumber(side, idx, healAmount);
+
+            if (i < aliveIndices.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 150));
+            }
         }
-        this.updateStatsUI();
 
-        this.isPaused = false;
-        this.setInteractionEnabled(true);
-
-        if (!isCorrect) this.autoPlayPenalty();
-
-        if (this.checkGameOver()) return;
-        this.scheduleNextQuiz();
+        this.updateUI();
     },
 
-    // ═══════════════════════════════════════════════════════════
-    // UI PHỤ
-    // ═══════════════════════════════════════════════════════════
-    updateScoreUI() {
-        const el = document.getElementById("blockScoreValue");
-        if (el) el.innerText = this.score;
+    renderBattlefield() {
+    const arena = document.getElementById('battle-arena');
+    if (arena) arena.className = 'battle-arena';
+    const pContainer = document.getElementById('player-team-container');
+    const eContainer = document.getElementById('enemy-team-container');
+    if (!pContainer || !eContainer) return;
+    pContainer.innerHTML = '';
+    eContainer.innerHTML = '';
+    const teamSize = this.playerTeam.length; // player và enemy luôn cùng số lượng slot
+    if (window.SkillManager?.resetNormalStylePools) {
+        window.SkillManager.resetNormalStylePools();
+    }
+    // Chốt cố định trainer cho phe địch NGAY LÚC NÀY, 1 lần duy nhất mỗi trận
+    if (window.PkmStyles?.assignEnemyTrainers) {
+        window.PkmStyles.assignEnemyTrainers(teamSize);
+    }
+
+        // Vẽ TRAINER TRƯỚC (lớp dưới) rồi mới vẽ POKEMON (lớp trên) —
+        // trainer là phần tử riêng, không nằm trong .pkm-unit, không bị
+        // ảnh hưởng bởi animation đánh/trúng chiêu/AOE của Pokémon.
+        this.enemyTeam.forEach((p, i) => {
+            if (window.PkmStyles?.renderTrainer) {
+                eContainer.innerHTML += window.PkmStyles.renderTrainer('enemy', i, teamSize);
+            }
+        });
+
+        this.playerTeam.forEach((p, i) => { 
+            pContainer.innerHTML += this.createUnitHTML(p, i, 'player', teamSize); 
+        });
+        this.enemyTeam.forEach((p, i)  => { 
+            eContainer.innerHTML += this.createUnitHTML(p, i, 'enemy', teamSize);  
+        });
+        this.playerTeam.forEach((p,i)=>{ if(p.currentHp>0) window.PkmUnitFX?.attachBaseRings('player', i); });
+        this.enemyTeam.forEach((p,i)=>{ if(p.currentHp>0) window.PkmUnitFX?.attachBaseRings('enemy', i); });
+
+        this.updateActiveStatus();
+    },
+    createUnitHTML(pkm, index, side, teamSize) {
+        // Chỉ gọi style, không xử lý ảnh ở đây nữa
+        return PkmStyles.renderUnit(pkm, index, side, teamSize);
     },
 
-    updateStatsUI() {
-        const el = document.getElementById("quiz-stats");
-        if (el) el.innerHTML = `✅ ${this.correctCount} &nbsp; ❌ ${this.wrongCount} &nbsp; 📊 ${this.totalCount} câu`;
+    updateUI() {
+        [...this.playerTeam.entries()].forEach(([i, p]) => {
+            const fill = document.getElementById(`player-hp-fill-${i}`);
+            const text = document.getElementById(`player-hp-text-${i}`);
+            if (fill) {
+                const pct = Math.max(0, (p.currentHp / p.maxHp) * 100);
+                fill.style.width      = pct + "%";
+                fill.style.background = pct > 50 ? "#2ecc71" : pct > 25 ? "#f1c40f" : "#e74c3c";
+            }
+            if (text) text.innerText = `${Math.max(0, p.currentHp)}/${p.maxHp}`;
+            this.markDeadIfNeeded(`player-unit-${i}`, p.currentHp);
+        });
+
+        [...this.enemyTeam.entries()].forEach(([i, p]) => {
+            const fill = document.getElementById(`enemy-hp-fill-${i}`);
+            const text = document.getElementById(`enemy-hp-text-${i}`);
+            if (fill) {
+                const pct = Math.max(0, (p.currentHp / p.maxHp) * 100);
+                fill.style.width      = pct + "%";
+                fill.style.background = pct > 50 ? "#2ecc71" : pct > 25 ? "#f1c40f" : "#e74c3c";
+            }
+            if (text) text.innerText = `${Math.max(0, p.currentHp)}/${p.maxHp}`;
+            this.markDeadIfNeeded(`enemy-unit-${i}`, p.currentHp);
+        });
+
+        this.updateActiveStatus();
     },
 
-    // ═══════════════════════════════════════════════════════════
-    // KẾT THÚC GAME
-    // ═══════════════════════════════════════════════════════════
+    // Đánh dấu Pokemon chết và ẩn vĩnh viễn khỏi màn hình
+    markDeadIfNeeded(unitId, currentHp) {
+        const el = document.getElementById(unitId);
+        if (!el) return;
+        if (currentHp <= 0) {
+            el.dataset.dead = '1';
+            if (!el._teleportData) {
+                el.style.opacity    = '0';
+                el.style.visibility = 'hidden';
+                el.style.pointerEvents = 'none';
+            }
+            const side = unitId.startsWith('player') ? 'player' : 'enemy';
+            const idx = parseInt(unitId.split('-').pop());
+            window.PkmUnitFX?.removeUnit(side, idx);
+        }
+    },
+
+    updateActiveStatus() {
+        document.querySelectorAll('.pkm-unit').forEach(u => u.classList.remove('active-unit'));
+        const side = this.isPlayerSide ? 'player' : 'enemy';
+        const activeEl = document.getElementById(`${side}-unit-${this.activeUnitIndex}`);
+        if (activeEl) activeEl.classList.add('active-unit');
+    },
+    log(msg) {
+        console.log("🎮 [BATTLE]: " + msg);
+        const logElement = document.getElementById('turn-display'); // Đã đổi ID
+        if (logElement) {
+            logElement.innerHTML = msg;
+            logElement.style.display = 'block';
+
+            // Tự động ẩn sau 1.2 giây để tiếp tục trận đấu
+            if (this.turnTimeout) clearTimeout(this.turnTimeout);
+            this.turnTimeout = setTimeout(() => {
+                logElement.style.display = 'none';
+            }, 1200);
+        }
+    }, // Thêm dấu phẩy ở đây
+
     checkGameOver() {
-        if (this.gameOver) return true;
+        const isEnemyOut = this.enemyTeam.every(p => p.currentHp <= 0);
+        const isPlayerOut = this.playerTeam.every(p => p.currentHp <= 0);
 
-        if (this.isBoardStuck()) {
-            this.gameOver = true;
-            clearTimeout(this.quizTimer);
-            this.defeat();
+        if (this.totalCount < this.MIN_QUESTIONS) {
+            if (isEnemyOut || isPlayerOut) return false; // lớp bảo hiểm, thường không rơi vào vì dealDamage đã chặn
+        }
+
+        if (this.totalCount >= this.MAX_QUESTIONS && !isEnemyOut && !isPlayerOut) {
+            const playerHpSum = this.playerTeam.reduce((s, p) => s + Math.max(0, p.currentHp), 0);
+            const enemyHpSum  = this.enemyTeam.reduce((s, p) => s + Math.max(0, p.currentHp), 0);
+            if (playerHpSum >= enemyHpSum) { this.victory(); } else { this.defeat(); }
             return true;
         }
 
-        if (this.totalCount >= this.MAX_QUESTIONS) {
-            this.gameOver = true;
-            clearTimeout(this.quizTimer);
-            this.victory();
-            return true;
-        }
-
+        if (isEnemyOut) { this.victory(); return true; }
+        if (isPlayerOut) { this.defeat(); return true; }
         return false;
     },
 
-    updateStreak() {
-        const today = new Date().toISOString().slice(0, 10);
-        const lastPlay = localStorage.getItem("pkm_last_play_date") || "";
-        let streak = parseInt(localStorage.getItem("pkm_streak_days")) || 0;
 
-        if (lastPlay === today) {
-            // đã chơi hôm nay rồi
-        } else {
-            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-            if (lastPlay === yesterday) streak++;
-            else streak = 1;
-            localStorage.setItem("pkm_last_play_date", today);
-            localStorage.setItem("pkm_streak_days", streak);
-        }
-        return streak;
-    },
-
-    // Lưu kết quả: TỔNG dùng chung key với Battle (result_battle) để cộng dồn
-    // xuyên suốt mọi game, và chi tiết theo 4 kỹ năng vào pkm_skill_scores
-    // (cũng cộng dồn, dùng chung cho mọi game trong tương lai).
-    saveBattleResult() {
-        try {
-            const prevTotal = JSON.parse(localStorage.getItem("result_battle")) || { score: 0, total: 0 };
-            const updatedTotal = {
-                score: (prevTotal.score || 0) + this.correctCount,
-                total: (prevTotal.total || 0) + this.totalCount,
-            };
-            localStorage.setItem("result_battle", JSON.stringify(updatedTotal));
-
-            const defaultSkills = () => ({
-                listening: { correct: 0, total: 0 },
-                speaking: { correct: 0, total: 0 },
-                reading: { correct: 0, total: 0 },
-                writing: { correct: 0, total: 0 },
-            });
-            const prevSkills = JSON.parse(localStorage.getItem("pkm_skill_scores")) || defaultSkills();
-            Object.keys(this.skillStats).forEach(skill => {
-                if (!prevSkills[skill]) prevSkills[skill] = { correct: 0, total: 0 };
-                prevSkills[skill].correct += this.skillStats[skill].correct;
-                prevSkills[skill].total += this.skillStats[skill].total;
-            });
-            localStorage.setItem("pkm_skill_scores", JSON.stringify(prevSkills));
-
-            if (!localStorage.getItem("startTime_global")) {
-                localStorage.setItem("startTime_global", Date.now().toString());
-            }
-        } catch (e) {
-            console.error("❌ Lỗi lưu kết quả Block Blast:", e);
-        }
-    },
-
-    async getRewardImage() {
-        try {
-            const inv = JSON.parse(localStorage.getItem("pkm_inventory")) || [];
-            const team = inv.filter(p => p.inTeam).sort((a, b) => a.position - b.position);
-            if (team.length > 0) return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${team[0].id}.png`;
-        } catch (e) { /* ignore */ }
-        return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png`;
-    },
-
+    // ✅ Victory: hiện overlay đẹp, chờ bấm nút mới về map
     victory() {
-        this.saveBattleResult();
+        this.log("🏆 CHIẾN THẮNG!");
+         this.saveBattleResult();
 
-        const missionData = localStorage.getItem("current_mission");
+        // ── 1. ĐỌC DỮ LIỆU ──
+        const missionData     = localStorage.getItem('current_mission');
         const currentLessonId = missionData ? JSON.parse(missionData).id : null;
-        let passedMaps = JSON.parse(localStorage.getItem("pkm_passed_maps")) || [];
-        let currentEXP = parseInt(localStorage.getItem("pkm_global_exp")) || 0;
-        let currentDV = parseInt(localStorage.getItem("pkm_global_dv")) || 0;
-        const isNewLesson = currentLessonId && !passedMaps.includes(currentLessonId);
+        let passedMaps        = JSON.parse(localStorage.getItem('pkm_passed_maps')) || [];
+        let currentEXP        = parseInt(localStorage.getItem('pkm_global_exp')) || 0;
+        let currentDV         = parseInt(localStorage.getItem('pkm_global_dv'))  || 0;
+        const isNewLesson     = currentLessonId && !passedMaps.includes(currentLessonId);
 
         let bonusEXP = 0, bonusDV = 0;
         let messages = [];
 
-        const accuracy = this.totalCount > 0 ? Math.round((this.correctCount / this.totalCount) * 100) : 0;
+        // ── 2. THƯỞNG 1: BÀI MỚI (cần >= 90% đúng) ──
+        const accuracy = this.totalCount > 0
+            ? Math.round((this.correctCount / this.totalCount) * 100) : 0;
 
         if (isNewLesson) {
             if (accuracy >= 80) {
                 bonusEXP += 5; bonusDV += 5;
                 passedMaps.push(currentLessonId);
-                localStorage.setItem("pkm_passed_maps", JSON.stringify(passedMaps));
+                localStorage.setItem('pkm_passed_maps', JSON.stringify(passedMaps));
                 messages.push(`🌟 BÀI MỚI HOÀN THÀNH (${accuracy}% đúng): <b>+5 KN +5 DV</b>`);
             } else {
-                messages.push(`⚠️ Bài mới nhưng chỉ ${accuracy}% đúng — cần ≥80% để mở khoá!`);
+                messages.push(`⚠️ Bài mới nhưng chỉ ${accuracy}% đúng — cần ≥90% để mở khoá!`);
             }
         }
 
+        // ── 3. THƯỞNG 2: SỐ CÂU ĐÚNG / 2 ──
         const reward2 = Math.round(this.correctCount / 2);
         if (reward2 > 0) {
             bonusEXP += reward2; bonusDV += reward2;
             messages.push(`📝 ${this.correctCount} câu đúng ÷ 2 = <b>+${reward2} KN +${reward2} DV</b>`);
         }
 
+        // ── 4. THƯỞNG 3: CHĂM CHỈ (chuỗi ngày liên tục) ──
         const streak = this.updateStreak();
         let streakBonus = 0;
-        if (streak >= 30) streakBonus = 3;
+        if      (streak >= 30) streakBonus = 3;
         else if (streak >= 10) streakBonus = 2;
-        else if (streak >= 4) streakBonus = 1;
+        else if (streak >= 4)  streakBonus = 1;
+
         if (streakBonus > 0) {
             bonusEXP += streakBonus; bonusDV += streakBonus;
             messages.push(`🔥 Chuỗi ${streak} ngày liên tục: <b>+${streakBonus} KN +${streakBonus} DV</b>`);
@@ -849,91 +772,131 @@ window.BlockGame = {
             messages.push(`📅 Chuỗi hiện tại: <b>${streak} ngày</b>`);
         }
 
+        // ── 5. LƯU ──
         const newEXP = currentEXP + bonusEXP;
-        const newDV = currentDV + bonusDV;
-        localStorage.setItem("pkm_global_exp", newEXP);
-        localStorage.setItem("pkm_global_dv", newDV);
+        const newDV  = currentDV  + bonusDV;
+        localStorage.setItem('pkm_global_exp', newEXP);
+        localStorage.setItem('pkm_global_dv',  newDV);
 
-        this.getRewardImage().then(src => {
-            const img = document.getElementById("victory-pkm-img");
-            if (img) img.src = src;
-        });
+        // ── 6. HIỆN UI ──
+        const firstPkm   = this.playerTeam[0];
+        const victoryImg = document.getElementById('victory-pkm-img');
+        if (victoryImg && firstPkm) {
+            victoryImg.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${firstPkm.id}.png`;
+        }
 
-        const titleEl = document.getElementById("victory-title-text");
-        if (titleEl) titleEl.innerText = "🏆 HOÀN THÀNH!";
-
-        const skillLines = this.SKILL_ORDER_LOCAL.map(s => {
-            const st = this.skillStats[s];
-            const label = { listening: "🎧 Nghe", speaking: "🗣️ Nói", reading: "📖 Đọc", writing: "✍️ Viết" }[s];
-            return `<div>${label}: ${st.correct}/${st.total}</div>`;
-        }).join("");
-
-        const expText = document.getElementById("victory-exp-text");
+        const expText = document.getElementById('victory-exp-text');
         if (expText) {
             expText.innerHTML = `
                 <div style="font-size:13px; text-align:left; margin-bottom:12px; line-height:2;">
-                    ${messages.map(m => `<div>${m}</div>`).join("")}
+                    ${messages.map(m => `<div>${m}</div>`).join('')}
                 </div>
                 <div style="border-top:1px solid #444; padding-top:10px; margin-bottom:12px;">
                     <div style="color:#4caf50; font-size:16px; font-weight:bold;">+${bonusEXP} KN &nbsp; +${bonusDV} DV</div>
                     <div style="color:#aaa; font-size:12px;">Tổng: ${newEXP} KN | ${newDV} DV</div>
                 </div>
-                <div style="color:#aaa; font-size:12px; margin-bottom:4px;">
-                    🧱 Điểm Block Blast: ${this.score}
+                <div style="color:#aaa; font-size:12px; margin-bottom:12px;">
+                    📊 Kết quả: ✅ ${this.correctCount} đúng / ❌ ${this.wrongCount} sai / tổng ${this.totalCount} câu
                 </div>
-                <div style="color:#aaa; font-size:12px; margin-bottom:8px;">
-                    📊 Tổng: ✅ ${this.correctCount} đúng / ❌ ${this.wrongCount} sai / ${this.totalCount} câu
-                </div>
-                <div style="color:#8fa3d1; font-size:11px; text-align:left;">
-                    ${skillLines}
-                </div>`;
+                <button onclick="window.location.href='pkm_map.html'"
+                        style="background:#2ecc71; color:white; border:none; padding:10px 30px;
+                               border-radius:25px; cursor:pointer; font-weight:bold;">
+                    TIẾP TỤC
+                </button>
+            `;
         }
 
-        const overlay = document.getElementById("victory-overlay");
-        if (overlay) overlay.style.display = "flex";
+        const overlay = document.getElementById('victory-overlay');
+        if (overlay) overlay.style.display = 'flex';
     },
 
+    // ── HÀM TÍNH CHUỖI NGÀY ──
+    updateStreak() {
+        const today     = new Date().toISOString().slice(0, 10); // "2025-01-15"
+        const lastPlay  = localStorage.getItem('pkm_last_play_date') || '';
+        let   streak    = parseInt(localStorage.getItem('pkm_streak_days')) || 0;
+
+        if (lastPlay === today) {
+            // Hôm nay đã chơi rồi → không tăng, giữ nguyên streak
+        } else {
+            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+            if (lastPlay === yesterday) {
+                // Hôm qua có chơi → tăng streak
+                streak++;
+            } else if (lastPlay === '') {
+                // Lần đầu chơi
+                streak = 1;
+            } else {
+                // Bỏ ngày → reset
+                streak = 1;
+            }
+            localStorage.setItem('pkm_last_play_date', today);
+            localStorage.setItem('pkm_streak_days', streak);
+        }
+
+        return streak;
+    },
+    saveBattleResult() {
+        try {
+            const prev = JSON.parse(localStorage.getItem('result_battle')) || { score: 0, total: 0 };
+            const updated = {
+                score: (prev.score || 0) + this.correctCount,
+                total: (prev.total || 0) + this.totalCount
+            };
+            localStorage.setItem('result_battle', JSON.stringify(updated));
+
+            if (!localStorage.getItem('startTime_global')) {
+                localStorage.setItem('startTime_global', Date.now().toString());
+            }
+            console.log('📊 [Battle] Cộng dồn result_battle:', updated);
+        } catch (e) {
+            console.error('❌ Lỗi lưu result_battle:', e);
+        }
+    },
     defeat() {
+        this.log("💀 BẠN ĐÃ THẤT BẠI!");
+        this.isProcessing = true; 
         this.saveBattleResult();
 
-        this.getRewardImage().then(src => {
-            const img = document.getElementById("victory-pkm-img");
-            if (img) {
-                img.src = src;
-                img.style.filter = "grayscale(100%) opacity(0.7)";
-            }
-        });
-
-        const titleEl = document.getElementById("victory-title-text");
-        if (titleEl) {
-            titleEl.innerText = "💥 BÀN CỜ ĐÃ ĐẦY!";
-            titleEl.style.color = "#e74c3c";
-            titleEl.style.textShadow = "0 0 30px #e74c3c, 0 0 60px #c0392b";
+        // 1. Cập nhật hình ảnh Pokemon thất bại (làm xám)
+        const firstPkm = this.playerTeam[0];
+        const victoryImg = document.getElementById('victory-pkm-img');
+        if (victoryImg && firstPkm) {
+            victoryImg.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${firstPkm.id}.png`;
+            victoryImg.style.filter = "grayscale(100%) opacity(0.7)";
         }
 
-        const skillLines = this.SKILL_ORDER_LOCAL.map(s => {
-            const st = this.skillStats[s];
-            const label = { listening: "🎧 Nghe", speaking: "🗣️ Nói", reading: "📖 Đọc", writing: "✍️ Viết" }[s];
-            return `<div>${label}: ${st.correct}/${st.total}</div>`;
-        }).join("");
-
-        const expText = document.getElementById("victory-exp-text");
+        // 2. Nội dung thông báo và Nút quay lại
+        const expText = document.getElementById('victory-exp-text');
         if (expText) {
             expText.innerHTML = `
-                <div style="color:#ccc; margin-bottom:14px;">Không còn khối nào đặt vừa bàn cờ nữa!</div>
-                <div style="font-size:13px; text-align:left; margin-bottom:12px; line-height:1.8;">
-                    <div>🧱 Điểm Block Blast: <b>${this.score}</b></div>
-                    <div>📊 Tổng: ✅ ${this.correctCount} đúng / ❌ ${this.wrongCount} sai / ${this.totalCount} câu</div>
+                <div style="color: #ff4757; font-weight: bold; font-size: 1.5em; margin-bottom: 10px;">THẤT BẠI</div>
+                <p style="color: #ccc; margin-bottom: 20px;">Đội hình của bạn đã kiệt sức!</p>
+
+                <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px solid #444; margin-bottom: 20px;">
+                    <div style="color: #888; text-decoration: line-through;">+10 EXP</div>
+                    <div style="color: #888; text-decoration: line-through;">+10 Danh vọng</div>
+                    <div style="font-size: 0.8em; margin-top: 5px; color: #ffbc00;">Thử thách lại để nhận thưởng!</div>
                 </div>
-                <div style="color:#8fa3d1; font-size:11px; text-align:left; margin-bottom:10px;">
-                    ${skillLines}
-                </div>
-                <div style="font-size:12px; color:#ffbc00;">Chơi lại để cải thiện điểm và nhận thưởng nhé!</div>`;
+
+                <!-- Nút bấm quay lại Map -->
+                <button onclick="window.location.href='pkm_map.html'" 
+                        style="background: #444; color: white; border: 2px solid #666; padding: 10px 30px; 
+                               border-radius: 25px; cursor: pointer; font-weight: bold; transition: 0.3s;"
+                        onmouseover="this.style.background='#ff4757'; this.style.borderColor='#fff'"
+                        onmouseout="this.style.background='#444'; this.style.borderColor='#666'">
+                    QUAY LẠI BẢN ĐỒconst pkmImgRef = unit.querySelector('img');
+                </button>
+            `;
         }
 
-        const overlay = document.getElementById("victory-overlay");
-        if (overlay) overlay.style.display = "flex";
-    },
+        // 3. Hiển thị Overlay
+        const overlay = document.getElementById('victory-overlay');
+        if (overlay) {
+            overlay.style.display = 'flex';
+            overlay.style.backgroundColor = "rgba(0, 0, 0, 0.85)";
+        }
+    }
 };
 
-window.BlockGame.init();
+window.BattleGame.init();
