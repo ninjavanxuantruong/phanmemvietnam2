@@ -1,10 +1,10 @@
-// ✅ RESET DỮ LIỆU SAU 12 TIẾNG
+// ✅ RESET DỮ LIỆU SAU 3 TIẾNG KHÔNG HOẠT ĐỘNG
 const startTimeGlobal = localStorage.getItem("startTime_global");
 const now = Date.now();
 
 if (startTimeGlobal && now - parseInt(startTimeGlobal) > 3 * 60 * 60 * 1000) {
   const keysToReset = Object.keys(localStorage).filter(k =>
-    k.startsWith("result_") || k.startsWith("startTime_")
+    k.startsWith("result_") || k.startsWith("startTime_") || k === "pkm_skill_scores"
   );
   keysToReset.forEach(k => localStorage.removeItem(k));
   localStorage.removeItem("startTime_global");
@@ -22,46 +22,105 @@ const selectedLesson = localStorage.getItem("selectedLesson") || "Chưa chọn b
 
 document.getElementById("studentInfo").textContent = `${studentName} (${studentClass})`;
 
-const tableBody = document.getElementById("tableBody");
-const parts = [
-  { key: "vocabulary",     label: "Từ vựng" },
-  { key: "image",          label: "Hình ảnh" },
-  { key: "game",           label: "Trò chơi" },
-  { key: "listening",      label: "Bài tập nghe" },
-  { key: "speaking",       label: "Bài tập nói" },
-  { key: "phonics",        label: "Phát âm" },
-  { key: "overview",       label: "Bài viết" },
-  { key: "communication",  label: "Giao tiếp" },
-  { key: "grade8",         label: "Bài tập cấp 2" },
-  { key: "battle",         label: "⚔️ Chiến đấu (Battle)" } // ✅ THÊM
+/**
+ * ================== 6 NHÓM ĐIỂM CHUẨN + BÀI TẬP CẤP 2 (TÍNH RIÊNG) ==================
+ * Mỗi nhóm = tổng các key cũ (result_<key>, KHÔNG đổi tên, không đụng các
+ * trang bài tập cũ) CỘNG THÊM phần đóng góp từ Battle/Block/game sau này
+ * (đọc trong pkm_skill_scores — do pkm_score.js ghi). Việc gộp chỉ diễn ra
+ * LÚC HIỂN THỊ ở đây, dữ liệu gốc vẫn tách bạch, an toàn cho các trang cũ.
+ *
+ * "Trò chơi" không có skillKey vì lấy thẳng result_game (mini-game cũ, nếu
+ * có) + result_battle (đã là tổng Battle + Block + mọi game sau này, do
+ * pkm_score.js cộng dồn sẵn).
+ *
+ * "Giới thiệu" không có skillKey vì hệ quiz 4 kỹ năng trong Battle/Block
+ * không có dạng "giới thiệu từ mới" — điểm này chỉ đến từ trang Từ vựng/
+ * Hình ảnh cũ.
+ */
+const GROUPS = [
+  { label: "🎯 Giới thiệu", legacyKeys: ["vocabulary", "image"] },
+  { label: "🎧 Nghe",       legacyKeys: ["listening"],                            skillKey: "listening" },
+  { label: "🗣️ Nói",        legacyKeys: ["speaking", "phonics", "communication"], skillKey: "speaking" },
+  { label: "📖 Đọc",        legacyKeys: [],                                       skillKey: "reading" },
+  { label: "✍️ Viết",       legacyKeys: ["overview"],                            skillKey: "writing" },
+  { label: "🎮 Trò chơi",   legacyKeys: ["game", "battle"] },
 ];
+const GRADE8_GROUP = { label: "📐 Bài tập cấp 2 (tính riêng)", legacyKeys: ["grade8"] };
 
-let totalScore = 0;
-let totalMax = 0;
-
-parts.forEach(({ key, label }, index) => {
-  const result = JSON.parse(localStorage.getItem(`result_${key}`));
-  const score = result?.score || 0;
-  const total = result?.total || 0;
-  const percent = total > 0 ? Math.round((score / total) * 100) : 0;
-
-  let rating = "";
-  if (percent < 50) rating = "😕 Cần cố gắng";
-  else if (percent < 70) rating = "🙂 Khá";
-  else if (percent < 90) rating = "😃 Tốt";
-  else rating = "🏆 Tuyệt vời";
-
-  totalScore += score;
-  totalMax += total;
-
+function getLegacyResult(key) {
+  const r = JSON.parse(localStorage.getItem(`result_${key}`)) || {};
+  const score = r.score || 0;
+  const total = r.total || 0;
   if (total === 0 && !localStorage.getItem(`startTime_${key}`)) {
     localStorage.setItem(`startTime_${key}`, Date.now());
   }
+  return { score, total };
+}
 
+function getSkillResult(skillKey) {
+  const skills = JSON.parse(localStorage.getItem("pkm_skill_scores")) || {};
+  const s = skills[skillKey] || {};
+  return { score: s.correct || 0, total: s.total || 0 };
+}
+
+function computeGroup(group) {
+  let score = 0, total = 0;
+  group.legacyKeys.forEach(key => {
+    const r = getLegacyResult(key);
+    score += r.score;
+    total += r.total;
+  });
+  if (group.skillKey) {
+    const r = getSkillResult(group.skillKey);
+    score += r.score;
+    total += r.total;
+  }
+  return { score, total };
+}
+
+function ratingFromPercent(percent) {
+  if (percent < 50) return "😕 Cần cố gắng";
+  if (percent < 70) return "🙂 Khá";
+  if (percent < 90) return "😃 Tốt";
+  return "🏆 Tuyệt vời";
+}
+
+// ================== RENDER BẢNG ==================
+const tableBody = document.getElementById("tableBody");
+
+let totalScore = 0;
+let totalMax = 0;
+const completedLabelsCore = [];   // dùng để tính % chăm chỉ/kỹ năng (6 nhóm chuẩn, KHÔNG có cấp 2)
+const zeroLabelsCore = [];
+const completedLabelsAll = [];    // gửi Firebase (có cả cấp 2, để lưu đủ lịch sử)
+const learnedGroups = new Set();  // dùng tính % kỹ năng (6 nhóm chuẩn)
+let rowIndex = 0;
+
+function renderGroupRow(group, isCore) {
+  const { score, total } = computeGroup(group);
+  const percent = total > 0 ? Math.round((score / total) * 100) : 0;
+  const rating = ratingFromPercent(percent);
+
+  if (isCore) {
+    totalScore += score;
+    totalMax += total;
+  }
+
+  if (total > 0) {
+    completedLabelsAll.push(group.label);
+    if (isCore) {
+      completedLabelsCore.push(group.label);
+      learnedGroups.add(group.label);
+    }
+  } else if (isCore) {
+    zeroLabelsCore.push(group.label);
+  }
+
+  rowIndex++;
   const row = `
-    <tr>
-      <td>${index + 1}</td>
-      <td>${label}</td>
+    <tr${isCore ? "" : ' style="background:#fff7e0;"'}>
+      <td>${rowIndex}</td>
+      <td>${group.label}</td>
       <td>${score}</td>
       <td>${total}</td>
       <td>${percent}%</td>
@@ -69,74 +128,21 @@ parts.forEach(({ key, label }, index) => {
     </tr>
   `;
   tableBody.innerHTML += row;
-});
-
-// ✅ THÊM: Kiểm tra đã chơi Battle chưa (dùng để quy đổi tương đương các phần bên dưới)
-const battleResult = JSON.parse(localStorage.getItem('result_battle'));
-const battlePlayed = (battleResult?.total || 0) > 0;
-// ✅ Battle tương đương các phần này khi tính Chăm chỉ / Kỹ năng (không cộng điểm ảo)
-const battleEquivalentLabels = ["Từ vựng", "Hình ảnh", "Trò chơi", "Bài tập nghe", "Bài tập nói", "Bài viết"];
-
-// ✅ Xử lý phần đã làm và chưa làm
-const completedParts = [];
-const zeroParts = [];
-
-parts.forEach(({ key, label }) => {
-  const result = localStorage.getItem(`result_${key}`);
-  const parsed = result ? JSON.parse(result) : null;
-  const hasData = parsed?.total > 0;
-
-  if (hasData) {
-    completedParts.push(label);
-  } else {
-    zeroParts.push(label);
-  }
-});
-
-// ✅ THÊM: Nếu đã chơi Battle → coi như đã hoàn thành thêm các phần tương đương
-if (battlePlayed) {
-  battleEquivalentLabels.forEach(label => {
-    if (!completedParts.includes(label)) completedParts.push(label);
-    const idx = zeroParts.indexOf(label);
-    if (idx >= 0) zeroParts.splice(idx, 1);
-  });
 }
 
-// 👉 Tổng kết cuối
+GROUPS.forEach(g => renderGroupRow(g, true));
+renderGroupRow(GRADE8_GROUP, false);
+
+// 👉 Tổng kết cuối (KHÔNG tính Bài tập cấp 2)
 const finalPercent = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
 
-// ✅ Tính nhóm kỹ năng đã học
-const skillGroups = {
-  vocabulary: "Từ vựng",
-  image: "Hình ảnh",
-  game: "Trò chơi",
-  listening: "Nghe",
-  speaking: "Nói",
-  phonics: "Phát âm",
-  overview: "Viết",
-  communication: "Giao tiếp",
-  grade8: "Bài cấp 2"
-};
-
-const learnedGroups = new Set();
-parts.forEach(({ key }) => {
-  const result = JSON.parse(localStorage.getItem(`result_${key}`));
-  if (result?.total > 0 && skillGroups[key]) {
-    learnedGroups.add(skillGroups[key]);
-  }
-});
-
-// ✅ THÊM: Nếu đã chơi Battle → cộng thêm các nhóm kỹ năng tương đương
-if (battlePlayed) {
-  ["Từ vựng", "Hình ảnh", "Trò chơi", "Nghe", "Nói", "Viết"].forEach(g => learnedGroups.add(g));
-}
-
-// ✅ Gọi hàm đánh giá
+// ✅ Gọi hàm đánh giá (mẫu số dựa trên 6 nhóm chuẩn, không có cấp 2)
 const evaluation = getFullEvaluation({
   totalScore,
   totalMax,
-  completedParts,
-  learnedGroups
+  completedParts: completedLabelsCore,
+  learnedGroups,
+  totalGroupsCount: GROUPS.length,
 });
 
 document.getElementById("totalRating").textContent =
@@ -155,7 +161,7 @@ const month = String(dateStr.getMonth() + 1).padStart(2, '0');
 const year = String(dateStr.getFullYear()).slice(-2);
 const dateCode = `${day}${month}${year}`;
 
-const completedCount = completedParts.length;
+const completedCount = completedLabelsCore.length;
 
 // ✅ Tính tổng thời gian làm bài
 let totalMinutes = 0;
@@ -164,10 +170,10 @@ if (startTimeGlobal) {
   totalMinutes = Math.max(1, Math.floor(durationMs / 60000));
 }
 
-const zeroText = zeroParts.length > 0 ? ` (Các phần 0 điểm: ${zeroParts.join(", ")})` : "";
+const zeroText = zeroLabelsCore.length > 0 ? ` (Các phần 0 điểm: ${zeroLabelsCore.join(", ")})` : "";
 const timeText = totalMinutes > 0 ? ` [ ${totalMinutes} phút]` : "";
 
-const code = `${studentName}-${studentClass}-${selectedLesson}-${dateCode}-${totalScore}/${totalMax}-${completedCount}/${parts.length}-${finalRating}${zeroText}${timeText}`;
+const code = `${studentName}-${studentClass}-${selectedLesson}-${dateCode}-${totalScore}/${totalMax}-${completedCount}/${GROUPS.length}-${finalRating}${zeroText}${timeText}`;
 document.getElementById("resultCode").textContent = code;
 
 // ✅ Lưu local history
@@ -183,7 +189,7 @@ const newEntry = {
   rating: finalRating,
   date: dateCode,
   duration: totalMinutes,
-  parts: completedParts
+  parts: completedLabelsAll
 };
 
 const existingIndex = history.findIndex(entry => entry.date === dateCode);
@@ -196,11 +202,12 @@ localStorage.setItem(historyKey, JSON.stringify(history));
 
 // ✅ Auto-save một lần sau khi đã có completedParts
 saveTodayResult();
+
 // ================== HÀM ĐÁNH GIÁ ==================
-function getFullEvaluation({ totalScore, totalMax, completedParts, learnedGroups }) {
+function getFullEvaluation({ totalScore, totalMax, completedParts, learnedGroups, totalGroupsCount }) {
   const percentCorrect = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
-  const coveragePercent = Math.round((completedParts.length / 8) * 100);
-  const skillPercent = Math.round((learnedGroups.size / 8) * 100);
+  const coveragePercent = Math.round((completedParts.length / totalGroupsCount) * 100);
+  const skillPercent = Math.round((learnedGroups.size / totalGroupsCount) * 100);
 
   let effectiveness = "";
   if (percentCorrect < 50) effectiveness = "😕 Cần cố gắng";
@@ -239,8 +246,7 @@ function getFullEvaluation({ totalScore, totalMax, completedParts, learnedGroups
   const scoreSum = ratings.reduce((sum, r) => sum + scoreMap[r], 0);
 
   let overall = "";
-  if (scoreSum >= 11) overall = "🏆 Tuyệt vời toàn diện";
-  else if (scoreSum >= 9) overall = "😃 Rất tốt";
+  if (scoreSum >= 10) overall = "🏆 Xuất sắc";
   else if (scoreSum >= 7) overall = "🙂 Tốt";
   else overall = "⚠️ Cần cải thiện";
 
@@ -284,38 +290,27 @@ function getTodayEntry() {
     ? Math.max(1, Math.floor((Date.now() - parseInt(startTimeGlobal)) / 60000))
     : 0;
 
-  const partsMeta = [
-    { key: "vocabulary",    label: "Từ vựng" },
-    { key: "image",         label: "Hình ảnh" },
-    { key: "game",          label: "Trò chơi" },
-    { key: "listening",     label: "Bài tập nghe" },
-    { key: "speaking",      label: "Bài tập nói" },
-    { key: "phonics",       label: "Phát âm" },
-    { key: "overview",      label: "Bài viết" },
-    { key: "communication", label: "Giao tiếp" },
-    { key: "grade8",        label: "Bài tập cấp 2" },
-    { key: "battle",        label: "⚔️ Chiến đấu (Battle)" } // ✅ THÊM
-  ];
-
-  const completedParts = partsMeta
-    .filter(({ key }) => {
-      const r = JSON.parse(localStorage.getItem(`result_${key}`) || "{}");
-      return (r.total || 0) > 0;
-    })
-    .map(({ label }) => label);
-
-  const completedCount = completedParts.length;
+  // Dùng lại đúng logic gộp nhóm ở trên để tránh 2 nơi tính lệch nhau
+  const allLabelsDone = [];
+  GROUPS.forEach(g => {
+    const { total } = computeGroup(g);
+    if (total > 0) allLabelsDone.push(g.label);
+  });
+  {
+    const { total } = computeGroup(GRADE8_GROUP);
+    if (total > 0) allLabelsDone.push(GRADE8_GROUP.label);
+  }
 
   return {
     name: normalizedName,
     class: normalizedClass,
     score: totalScore,
     max: totalMax,
-    doneParts: completedCount,
+    doneParts: allLabelsDone.length,
     rating: finalRating,
     date: dateCode,
     duration: totalMinutes,
-    parts: completedParts,
+    parts: allLabelsDone,
     _displayName: studentName,
     _displayClass: studentClass
   };
