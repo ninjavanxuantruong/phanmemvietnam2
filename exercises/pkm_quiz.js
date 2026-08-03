@@ -22,6 +22,45 @@ import imageCache from "./pkm-image.js?update=now";
 import { startRecording, transcribeAudio } from "./all-shared.js";
 
 /* ============================================================================
+ * 0. TTS TIẾNG VIỆT — dùng riêng cho mọi nội dung tiếng Việt (nghĩa từ...),
+ *    KHÔNG dùng this.speak() (Web Speech API en-US) cho phần tiếng Việt.
+ * ============================================================================ */
+
+const VI_TTS_BASE = "https://googlevoice-tinh.onrender.com";
+const _viAudioCache = new Map();
+let _viAudioCtx = null;
+function _getViAudioCtx() {
+    if (!_viAudioCtx) _viAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_viAudioCtx.state === "suspended") _viAudioCtx.resume();
+    return _viAudioCtx;
+}
+function speakVI(text, speed = 0.9) {
+    return new Promise(async (resolve) => {
+        if (!text) return resolve();
+        try {
+            const key = `vi|${speed}|${text}`;
+            let buf = _viAudioCache.get(key);
+            if (!buf) {
+                const url = `${VI_TTS_BASE}/tts?q=${encodeURIComponent(text)}&speed=${speed}&lang=vi-VN&voice=`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("VI TTS fail");
+                const ab = await res.arrayBuffer();
+                buf = await _getViAudioCtx().decodeAudioData(ab);
+                _viAudioCache.set(key, buf);
+            }
+            const ctx = _getViAudioCtx();
+            const src = ctx.createBufferSource();
+            src.buffer = buf; src.connect(ctx.destination);
+            src.onended = resolve;
+            src.start();
+        } catch (e) {
+            console.error("speakVI lỗi:", e);
+            resolve();
+        }
+    });
+}
+
+/* ============================================================================
  * 1. CẤU HÌNH THEO CẤP ĐỘ — sau này chỉnh số thì chỉnh ở đây, khỏi lục code
  * ============================================================================ */
 
@@ -148,6 +187,13 @@ function extractKeywords(rawK) {
     return matches.map((s) => s.replace(/"/g, "").toLowerCase().trim()).filter(Boolean);
 }
 
+function randomPick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
+const POSITIVE_PHRASES = ["Bravo!", "Excellent!", "Great job!", "Awesome!", "Well done!", "Fantastic!", "You got it!", "Perfect!"];
+const RETRY_PHRASES = ["Try again!", "Try harder!", "Almost there!", "Good try, once more!", "Keep going!", "So close!"];
+
 /**
  * Tạo danh sách đáp án MCQ dùng chung cho mọi dạng trắc nghiệm.
  * - Ưu tiên tối thiểu `minSameLesson` nhiễu CÙNG bài với đáp án đúng.
@@ -259,6 +305,19 @@ const sharedUIMethods = {
         });
     },
 
+    // Dùng để "đóng băng" các lựa chọn ngẫu nhiên của 1 câu hỏi ngay từ lần
+    // render ĐẦU TIÊN — khi vào lượt làm lại bắt buộc (this._isRetryAttempt),
+    // trả về đúng giá trị đã lưu thay vì random mới, đảm bảo làm lại là Y HỆT câu cũ.
+    useRetryState(key, computeFn) {
+        if (!this._retryState) this._retryState = {};
+        if (this._isRetryAttempt && key in this._retryState) {
+            return this._retryState[key];
+        }
+        const val = computeFn();
+        this._retryState[key] = val;
+        return val;
+    },
+
     renderLoading() {
         const wordBox = this.resetWordBox();
         if (wordBox) wordBox.innerHTML = `<div style="color:#ffd54f;font-size:14px;">🔍 Đang tìm ảnh thực tế...</div>`;
@@ -285,16 +344,20 @@ const sharedUIMethods = {
             btn.onclick = () => { this.stopTimer(); this.handleAnswer(opt, btn); };
             wrap.appendChild(btn);
         });
-        const skipBtn = document.createElement("button");
-        skipBtn.className = "qz-skip-btn";
-        skipBtn.innerText = "⏭ Skip";
-        skipBtn.onclick = () => {
-            if (skipBtn.disabled) return;
-            skipBtn.disabled = true;
-            skipBtn.style.opacity = "0.5";
-            this.handleSkip();
-        };
-        optionsBox.appendChild(skipBtn);
+        // Lượt làm lại bắt buộc (sau khi trả lời sai lần đầu) thì KHÔNG cho Skip nữa —
+        // trừ các dạng Nói (renderSpeakingRecorder tự có nút Skip riêng, không đi qua đây).
+        if (!this._isRetryAttempt) {
+            const skipBtn = document.createElement("button");
+            skipBtn.className = "qz-skip-btn";
+            skipBtn.innerText = "⏭ Skip";
+            skipBtn.onclick = () => {
+                if (skipBtn.disabled) return;
+                skipBtn.disabled = true;
+                skipBtn.style.opacity = "0.5";
+                this.handleSkip();
+            };
+            optionsBox.appendChild(skipBtn);
+        }
     },
 
     // MCQ đơn giản: câu hỏi + N đáp án (dùng cho listening2, reading1, reading3...)
@@ -332,11 +395,14 @@ const sharedUIMethods = {
         this.lockAnswerArea();
 
         const playBtn = document.getElementById("qzPlayParagraph");
+        let isPlaying = false;
         const playParagraph = async () => {
-            if (playBtn.disabled) return;
-            playBtn.disabled = true; playBtn.style.opacity = "0.5";
+            if (isPlaying) return;
+            isPlaying = true;
+            playBtn.style.opacity = "0.5";
             await this.speak(playText, 0.9);
-            playBtn.disabled = false; playBtn.style.opacity = "1";
+            isPlaying = false;
+            playBtn.style.opacity = "1";
         };
         playBtn.onclick = playParagraph;
 
@@ -364,14 +430,17 @@ const sharedUIMethods = {
         this.lockAnswerArea();
 
         const playBtn = document.getElementById("qzPlayDialogue");
+        let isPlaying = false;
         const playDialogue = async () => {
-            if (playBtn.disabled) return;
-            playBtn.disabled = true; playBtn.style.opacity = "0.5";
+            if (isPlaying) return;
+            isPlaying = true;
+            playBtn.style.opacity = "0.5";
             for (const t of turns) {
                 await this.speakAs(t.question, "A");
                 await this.speakAs(t.finalAns, "B");
             }
-            playBtn.disabled = false; playBtn.style.opacity = "1";
+            isPlaying = false;
+            playBtn.style.opacity = "1";
         };
         playBtn.onclick = playDialogue;
 
@@ -398,27 +467,29 @@ const sharedUIMethods = {
                 <input type="text" id="qzTypedInput" class="qz-input" placeholder="${placeholder}" autocomplete="off"/>
                 <div class="qz-btn-row">
                     <button id="qzSubmitBtn" class="qz-btn blue">✅ Check</button>
-                    <button id="qzSkipBtn" class="qz-btn gray">⏭ Skip</button>
+                    ${this._isRetryAttempt ? "" : `<button id="qzSkipBtn" class="qz-btn gray">⏭ Skip</button>`}
                 </div>`;
             const input = document.getElementById("qzTypedInput");
             const submitBtn = document.getElementById("qzSubmitBtn");
             setTimeout(() => input.focus(), 300);
-            const check = () => {
+            const check = async () => {
                 const userVal = input.value.trim();
                 if (!userVal) return;
                 this.stopTimer();
                 input.disabled = true;
+                await this.speak(userVal); // đọc to đáp án vừa gõ (tiếng Anh)
                 this.showFeedback(normalizeText(userVal) === normalizeText(correctValue), correctValue);
             };
             submitBtn.onclick = check;
             input.onkeydown = (e) => { if (e.key === "Enter") check(); };
-            document.getElementById("qzSkipBtn").onclick = () => this.handleSkip();
+            const skipBtn = document.getElementById("qzSkipBtn");
+            if (skipBtn) skipBtn.onclick = () => this.handleSkip();
         }
         this.startTimer(60000);
     },
 
     // Câu hỏi phụ trước mỗi câu chính — CHỈ dùng nhiễu trong currentLessonData (từ đang học buổi này)
-    renderPreMeaningUI(questionText, options, correctAns, onCorrect, onWrongRetry) {
+    renderPreMeaningUI(questionText, options, correctAns, onCorrect, onWrongRetry, optionLang) {
         this.setOverlayTransparent();
         const wordBox = this.resetWordBox();
         const optionsBox = document.getElementById("quiz-options");
@@ -435,8 +506,10 @@ const sharedUIMethods = {
                 const btn = document.createElement("button");
                 btn.className = "qz-option-btn";
                 btn.innerText = opt;
-                btn.onclick = () => {
+                btn.onclick = async () => {
                     wrap.querySelectorAll("button").forEach((b) => (b.style.pointerEvents = "none"));
+                    if (optionLang === "vi") await speakVI(opt);       // đáp án nghĩa tiếng Việt -> speakVI
+                    else await this.speak(opt);                        // đáp án từ tiếng Anh -> this.speak
                     const isCorrect = opt === correctAns;
                     btn.style.background = isCorrect ? "#2ecc71" : "#e74c3c";
                     btn.style.color = "#fff";
@@ -509,18 +582,31 @@ const sharedUIMethods = {
         const lockMic = (locked) => { micRing.classList.toggle("qz-locked", locked); };
         const lockListen = (locked) => { listenBtn.disabled = locked; };
 
-        skipBtn.onclick = () => { this.stopTimer(); this.showFeedback(false, targetText); };
+        let cancelled = false;    // cờ huỷ riêng cho LƯỢT NÀY — chặn mọi tiến trình chạy ngầm khi đã Skip
+        let activeSession = null; // session ghi âm hiện tại, để dừng ngay khi Skip
+
+        skipBtn.onclick = () => {
+            if (cancelled) return;
+            cancelled = true;
+            this.stopTimer();
+            window.speechSynthesis.cancel();
+            if (activeSession) activeSession.stop(); // dừng ghi âm ngay, không đợi hết maxRecordMs
+            this.showFeedback(false, targetText);
+        };
 
         listenBtn.onclick = async () => {
+            if (cancelled) return;
             // Đang nghe lại -> khoá mic
             lockMic(true); lockListen(true);
             statusEl.textContent = "🔊 Listening to sample...";
             await this.speak(onListenAgainText || targetText, 0.9);
+            if (cancelled) return;
             statusEl.textContent = "🎤 Ready when you are...";
             lockMic(false); lockListen(false);
         };
 
         const doRecord = async () => {
+            if (cancelled) return;
             // Đang ghi âm -> khoá nút nghe lại
             lockListen(true);
             statusEl.textContent = "🎤 Recording... tap Finish when done!";
@@ -531,6 +617,7 @@ const sharedUIMethods = {
             try {
                 session = await startRecording(maxRecordMs);
             } catch (e) {
+                if (cancelled) return;
                 statusEl.textContent = "⚠️ Không truy cập được microphone.";
                 micRing.classList.remove("qz-listening");
                 finishBtn.style.display = "none";
@@ -538,14 +625,18 @@ const sharedUIMethods = {
                 this.showFeedback(false, targetText);
                 return;
             }
+            if (cancelled) { session.stop(); return; }
+            activeSession = session;
             finishBtn.onclick = () => session.stop();
             const blob = await session.blob;
+            if (cancelled) return;
 
             finishBtn.style.display = "none";
             micRing.classList.remove("qz-listening");
             statusEl.textContent = "⏳ Đang kiểm tra...";
 
             const transcript = await transcribeAudio(blob);
+            if (cancelled) return;
             if (transcript === null) {
                 statusEl.textContent = "⚠️ Không kết nối được máy chủ, thử lại nhé.";
                 lockListen(false);
@@ -562,10 +653,12 @@ const sharedUIMethods = {
 
         (async () => {
             await this.speak(instruction);
+            if (cancelled) return;
             if (onListenAgainText || targetText) {
                 lockMic(true);
                 statusEl.textContent = "🔊 Listen...";
                 await this.speak(onListenAgainText || targetText, 0.9);
+                if (cancelled) return;
                 lockMic(false);
             }
             this.unlockAnswerArea();
@@ -718,6 +811,8 @@ const coreMethods = {
     async executeAsk() {
         this._answerLocked = false;
         this._feedbackShown = false;
+        this._isRetryAttempt = false;
+        this._retryState = null;
         if (!this.wordQueue || this.wordQueue.length === 0) this.refreshWordQueue();
         if (!this.skillPools) this.initSkillPools();
 
@@ -726,16 +821,17 @@ const coreMethods = {
         const target = this.wordQueue.shift();
         let actualTarget = target;
         if (Math.random() < 0.3 && this.poolData.length >= 3) {
-            const candidates = this.poolData
-                .filter((item) => item.lessonId !== target.lessonId && item.word)
-                .sort(() => 0.5 - Math.random())
-                .slice(0, 3);
+            const candidates = shuffleArr(
+                this.poolData.filter((item) => item.lessonId !== target.lessonId && item.word)
+            ).slice(0, 3);
             if (candidates.length > 0) actualTarget = candidates[Math.floor(Math.random() * candidates.length)];
         }
 
         await this.runPreMeaningCheck(actualTarget);
 
         const typeName = this.pickNextTypeName();
+        this._currentTypeName = typeName;
+        this._currentTarget = actualTarget;
 
         console.log(`%c[PKM QUIZ] Dạng: ${typeName} | Từ: ${actualTarget.word} | Cấp độ: ${this.levelKey}`, "color:#ffcb05;background:#3b4cca;padding:2px 5px;border-radius:3px;");
 
@@ -746,10 +842,15 @@ const coreMethods = {
         }
     },
 
-    // Câu hỏi phụ trước mỗi câu — CHỈ lấy nhiễu trong currentLessonData (từ buổi
-    // học hiện tại), không dùng poolData nữa. Nếu buổi học quá ít từ để tạo
-    // nhiễu thì bỏ qua câu hỏi phụ luôn (không đủ dữ liệu để hỏi).
-    async runPreMeaningCheck(target) {
+    // Câu hỏi phụ trước mỗi câu — Dễ: dùng chung từ với câu chính (như cũ, có
+    // fallback ra poolData nếu buổi học quá ít từ). TB/Khó: chọn 1 từ NGẪU NHIÊN
+    // ĐỘC LẬP trong currentLessonData (không liên quan câu chính), không fallback
+    // ra ngoài buổi học — thiếu dữ liệu thì bỏ qua câu hỏi phụ lượt đó luôn.
+    async runPreMeaningCheck(actualTarget) {
+        const isDe = this.levelKey === "de";
+        const target = isDe ? actualTarget : shuffleArr(this.currentLessonData)[0];
+        if (!target) return;
+
         return new Promise((resolve) => {
             const attempt = () => {
                 const isEnToVi = Math.random() < 0.5;
@@ -761,15 +862,17 @@ const coreMethods = {
                     .map((item) => (isEnToVi ? item.meaning : item.word))
                     .filter((v) => v && v !== correctAns);
 
-                let finalWrongs = [...new Set(sessionWrongPool)].sort(() => 0.5 - Math.random()).slice(0, 3);
+                let finalWrongs = shuffleArr([...new Set(sessionWrongPool)]).slice(0, 3);
 
-                // Buổi học quá ít từ (vd chỉ 1 từ) -> bù thêm nhiễu từ poolData (bài khác)
-                if (finalWrongs.length < 3) {
+                // CHỈ Dễ mới được bù thêm nhiễu từ poolData khi buổi học quá ít từ.
+                // TB/Khó: giữ đúng yêu cầu "không liên quan câu chính, chỉ giới hạn
+                // trong từ cần học" — thiếu thì bỏ qua câu hỏi phụ lượt này luôn.
+                if (isDe && finalWrongs.length < 3) {
                     const extraWrongPool = this.poolData
                         .filter((item) => item.word !== target.word)
                         .map((item) => (isEnToVi ? item.meaning : item.word))
                         .filter((v) => v && v !== correctAns && !finalWrongs.includes(v));
-                    const extra = [...new Set(extraWrongPool)].sort(() => 0.5 - Math.random()).slice(0, 3 - finalWrongs.length);
+                    const extra = shuffleArr([...new Set(extraWrongPool)]).slice(0, 3 - finalWrongs.length);
                     finalWrongs = [...finalWrongs, ...extra];
                 }
 
@@ -780,7 +883,18 @@ const coreMethods = {
                     ? `What is the meaning of "${target.word}"?`
                     : `Which word means "${target.meaning}"?`;
 
-                this.renderPreMeaningUI(questionText, options, correctAns, () => resolve(), attempt);
+                // isEnToVi=true  -> câu hỏi THUẦN tiếng Anh, đáp án là NGHĨA tiếng Việt.
+                // isEnToVi=false -> câu hỏi GHÉP (khung Anh + nghĩa Việt), đáp án là TỪ tiếng Anh.
+                this.renderPreMeaningUI(questionText, options, correctAns, () => resolve(), attempt, isEnToVi ? "vi" : "en");
+
+                if (isEnToVi) {
+                    this.speak(questionText); // câu hỏi thuần tiếng Anh -> đọc thẳng
+                } else {
+                    (async () => {
+                        await this.speak(`Which word means`); // khung câu tiếng Anh
+                        await speakVI(target.meaning);         // nghĩa tiếng Việt đọc riêng bằng speakVI
+                    })();
+                }
             };
             attempt();
         });
@@ -843,9 +957,10 @@ const coreMethods = {
         if (this.callback) this.callback(false);
     },
 
-    handleAnswer(selected, btn) {
+    async handleAnswer(selected, btn) {
         if (this._answerLocked) return;
         this._answerLocked = true;
+        await this.speak(selected); // đọc to đáp án vừa chọn (tiếng Anh)
         const isCorrect = selected === this.correctAnswer;
         btn.style.background = isCorrect ? "#2ecc71" : "#e74c3c";
         btn.style.color = "#fff";
@@ -876,22 +991,55 @@ const coreMethods = {
 
         const allBtns = document.querySelectorAll(".option-btn, .qz-skip-btn");
         const inputEl = document.getElementById("qzTypedInput");
-        const wordBox = this.resetWordBox();
+        // KHÔNG dùng resetWordBox() ở đây — giữ nguyên giao diện câu hỏi vừa hiện,
+        // chỉ thêm dòng khen/động viên vào bên dưới.
+        const wordBox = document.getElementById("quiz-word");
         const overlay = document.getElementById("quiz-overlay");
 
-        if (!isCorrect && wordBox) {
+        const praiseText = isCorrect ? randomPick(POSITIVE_PHRASES) : randomPick(RETRY_PHRASES);
+        if (wordBox) {
             const feedbackDiv = document.createElement("div");
-            feedbackDiv.style = "color:#e74c3c;margin-top:15px;font-weight:bold;background:rgba(255,255,255,0.9);padding:10px;border-radius:10px;border:2px solid #e74c3c;";
-            feedbackDiv.innerHTML = `❌ Correct: <span style="color:#2ecc71">${correctValue}</span>`;
+            if (isCorrect) {
+                feedbackDiv.style = "color:#2ecc71;margin-top:15px;font-weight:bold;font-size:18px;text-align:center;";
+                feedbackDiv.innerText = "🎉 " + praiseText;
+            } else {
+                feedbackDiv.style = "color:#e74c3c;margin-top:15px;font-weight:bold;background:rgba(255,255,255,0.9);padding:10px;border-radius:10px;border:2px solid #e74c3c;text-align:center;";
+                feedbackDiv.innerHTML = `💡 ${praiseText}<br/>❌ Correct: <span style="color:#2ecc71">${correctValue}</span>`;
+            }
             wordBox.appendChild(feedbackDiv);
         }
+        this.speak(praiseText); // đọc TTS lời khen/động viên, không cần chờ
 
         allBtns.forEach((b) => (b.style.pointerEvents = "none"));
         if (inputEl) inputEl.disabled = true;
 
+        const isRetryRound = this._isRetryAttempt === true;
+
         setTimeout(() => {
-            if (overlay) { overlay.style.display = "none"; overlay.style.backgroundColor = "transparent"; }
-            if (this.callback) this.callback(isCorrect);
+            if (isCorrect || isRetryRound) {
+                // Đúng ngay lần đầu -> xong luôn, báo đúng kết quả lần này.
+                // Hoặc đây đã là lượt LÀM LẠI bắt buộc (dù đúng hay sai) -> xong luôn,
+                // luôn báo SAI về trận đấu vì chỉ vào lượt làm lại khi đã sai lần đầu.
+                const finalResult = isRetryRound ? false : isCorrect;
+                this._isRetryAttempt = false;
+                if (overlay) { overlay.style.display = "none"; overlay.style.backgroundColor = "transparent"; }
+                if (this.callback) this.callback(finalResult);
+            } else {
+                // Sai lần đầu -> bắt làm lại ĐÚNG câu này 1 lần (không phải câu mới),
+                // chưa báo kết quả về trận đấu vội. Overlay giữ nguyên hiển thị.
+                this._isRetryAttempt = true;
+                this._feedbackShown = false;
+                this._answerLocked = false;
+                const typeName = this._currentTypeName;
+                const target = this._currentTarget;
+                if (typeName && target && typeof this[typeName] === "function") {
+                    this[typeName](target);
+                } else if (this.callback) {
+                    this._isRetryAttempt = false;
+                    if (overlay) { overlay.style.display = "none"; overlay.style.backgroundColor = "transparent"; }
+                    this.callback(false);
+                }
+            }
         }, 2000);
     },
 };
@@ -912,10 +1060,10 @@ const listeningMethods = {
         const displayAns = target.finalAns.replace(regex, "_______");
         const textToSpeak = `${target.question}. ${target.finalAns}`;
 
-        const options = buildQuizOptions(correctAns, this.poolData, {
+        const options = this.useRetryState("listening1", () => buildQuizOptions(correctAns, this.poolData, {
             field: "word", sameLessonId: target.lessonId, minSameLesson: 1,
             maxOptions: 4, extraPool: this.currentLessonData,
-        });
+        }));
 
         this.renderMCQ({
             instruction,
@@ -936,10 +1084,10 @@ const listeningMethods = {
         if (!target.presentSent) return this.ask(this.callback);
         const instruction = "Listen and choose the correct sentence.";
         const correctAns = target.presentSent;
-        const options = buildQuizOptions(correctAns, this.poolData, {
+        const options = this.useRetryState("listening2", () => buildQuizOptions(correctAns, this.poolData, {
             field: "presentSent", sameLessonId: target.lessonId, minSameLesson: 1,
             maxOptions: 4, extraPool: this.currentLessonData,
-        });
+        }));
         this.renderMCQ({
             instruction,
             questionHTML: `<div id="qzReplaySent" style="cursor:pointer;">🔊<div style="font-size:13px;color:#2ecc71;">(Tap to listen again)</div></div>`,
@@ -957,21 +1105,23 @@ const listeningMethods = {
         if (!target.presentSent || !target.question || !target.finalAns) return this.ask(this.callback);
         this.stopTimer();
         const n = this.cfg.paragraphSentences;
-        const instruction = `Listen to the ${n}-sentence paragraph and answer.`;
 
-        const noiseSentences = shuffleArr(
-            this.poolData.filter((it) => it.word !== target.word && it.presentSent && it.presentSent.trim())
-        ).slice(0, n - 1).map((it) => this.ensureDot(it.presentSent));
-
-        const fullParagraph = shuffleArr([this.ensureDot(target.presentSent), ...noiseSentences]).join(" ");
-
-        const correctAns = target.finalAns;
-        const options = buildQuizOptions(correctAns, this.poolData, {
-            field: "finalAns", sameLessonId: target.lessonId, minSameLesson: 1,
-            maxOptions: 4, extraPool: this.currentLessonData,
+        const data = this.useRetryState("listening3", () => {
+            const noiseSentences = shuffleArr(
+                this.poolData.filter((it) => it.word !== target.word && it.presentSent && it.presentSent.trim())
+            ).slice(0, n - 1).map((it) => this.ensureDot(it.presentSent));
+            const actualCount = 1 + noiseSentences.length; // có thể < n nếu poolData không đủ câu nhiễu
+            const fullParagraph = shuffleArr([this.ensureDot(target.presentSent), ...noiseSentences]).join(" ");
+            const correctAns = target.finalAns;
+            const options = buildQuizOptions(correctAns, this.poolData, {
+                field: "finalAns", sameLessonId: target.lessonId, minSameLesson: 1,
+                maxOptions: 4, extraPool: this.currentLessonData,
+            });
+            return { actualCount, fullParagraph, correctAns, options };
         });
 
-        this.renderParagraphAudio({ instruction, playText: fullParagraph, questionText: target.question, options, correctValue: correctAns });
+        const instruction = `Listen to the ${data.actualCount}-sentence paragraph and answer.`;
+        this.renderParagraphAudio({ instruction, playText: data.fullParagraph, questionText: target.question, options: data.options, correctValue: data.correctAns });
         this.startTimer(60000);
     },
 
@@ -982,18 +1132,20 @@ const listeningMethods = {
         const n = this.cfg.dialogueTurns;
         const instruction = "Listen to the conversation and answer.";
 
-        const otherTurns = shuffleArr(
-            this.poolData.filter((it) => it.word !== target.word && it.question && it.finalAns)
-        ).slice(0, n - 1);
-        const turns = shuffleArr([target, ...otherTurns]);
-
-        const correctAns = target.finalAns;
-        const options = buildQuizOptions(correctAns, this.poolData, {
-            field: "finalAns", sameLessonId: target.lessonId, minSameLesson: 1,
-            maxOptions: 4, extraPool: this.currentLessonData,
+        const data = this.useRetryState("listening4", () => {
+            const otherTurns = shuffleArr(
+                this.poolData.filter((it) => it.word !== target.word && it.question && it.finalAns)
+            ).slice(0, n - 1);
+            const turns = shuffleArr([target, ...otherTurns]);
+            const correctAns = target.finalAns;
+            const options = buildQuizOptions(correctAns, this.poolData, {
+                field: "finalAns", sameLessonId: target.lessonId, minSameLesson: 1,
+                maxOptions: 4, extraPool: this.currentLessonData,
+            });
+            return { turns, correctAns, options };
         });
 
-        this.renderDialogueAudio({ instruction, turns, questionText: target.question, options, correctValue: correctAns });
+        this.renderDialogueAudio({ instruction, turns: data.turns, questionText: target.question, options: data.options, correctValue: data.correctAns });
         this.startTimer(60000);
     },
 };
@@ -1006,7 +1158,9 @@ const speakingMethods = {
     // speaking1: đọc to 1 câu ngẫu nhiên, chấm theo % từ khớp
     async speaking1(target) {
         const candidates = [target.presentSent, target.question, target.finalAns].filter((t) => t && t.length > 0);
-        const textToSay = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : target.word;
+        const textToSay = this.useRetryState("speaking1", () =>
+            candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : target.word
+        );
         const threshold = this.cfg.speakingThreshold.speaking1;
         this.renderSpeakingRecorder({
             instruction: "Read this out loud!",
@@ -1042,6 +1196,7 @@ const speakingMethods = {
             const imageResult = await imageCache.getImage(target.word);
             imgSrc = imageResult ? imageResult.url : "";
         } catch (e) { /* bỏ qua, dùng fallback rỗng */ }
+        await speakVI(target.meaning); // đọc nghĩa tiếng Việt trước khi vào phần ghi âm
         this.renderSpeakingRecorder({
             instruction: "Look at the picture and say the word.",
             promptHTML: `
@@ -1084,18 +1239,21 @@ const readingMethods = {
     // reading1 (gộp task2+3 cũ): random hiện câu hỏi (chọn Ans) HOẶC hiện câu trả lời (chọn Q)
     async reading1(target) {
         if (!target.question || !target.finalAns) return this.ask(this.callback);
-        const askQuestion = Math.random() < 0.5;
-        const instruction = askQuestion ? "Answer the question." : "Choose the correct question for this answer.";
-        const correctAns = askQuestion ? target.finalAns : target.question;
-        const field = askQuestion ? "finalAns" : "question";
-        const options = buildQuizOptions(correctAns, this.poolData, {
-            field, sameLessonId: target.lessonId, minSameLesson: 1, maxOptions: 4, extraPool: this.currentLessonData,
+        const data = this.useRetryState("reading1", () => {
+            const askQuestion = Math.random() < 0.5;
+            const correctAns = askQuestion ? target.finalAns : target.question;
+            const field = askQuestion ? "finalAns" : "question";
+            const options = buildQuizOptions(correctAns, this.poolData, {
+                field, sameLessonId: target.lessonId, minSameLesson: 1, maxOptions: 4, extraPool: this.currentLessonData,
+            });
+            return { askQuestion, correctAns, options };
         });
-        const headerText = askQuestion ? `Q: ${target.question}` : `Ans: ${target.finalAns}`;
-        this.renderMCQ({ instruction, questionHTML: headerText, options, correctValue: correctAns });
+        const instruction = data.askQuestion ? "Answer the question." : "Choose the correct question for this answer.";
+        const headerText = data.askQuestion ? `Q: ${target.question}` : `Ans: ${target.finalAns}`;
+        this.renderMCQ({ instruction, questionHTML: headerText, options: data.options, correctValue: data.correctAns });
         this.lockAnswerArea();
         await this.speak(instruction);
-        await this.speak(askQuestion ? target.question : target.finalAns);
+        await this.speak(data.askQuestion ? target.question : target.finalAns);
         this.unlockAnswerArea();
     },
 
@@ -1107,12 +1265,16 @@ const readingMethods = {
             { text: target.presentSent, label: "Presentation" },
         ].filter((s) => s.text && s.text.trim());
         if (!sources.length) return this.ask(this.callback);
-        const selected = sources[Math.floor(Math.random() * sources.length)];
-        const originalText = selected.text.trim();
-        const instruction = `Unscramble the ${selected.label}!`;
-        const wordsArray = originalText.match(/[\w']+|[^\w\s]/g);
-        if (!wordsArray) return this.ask(this.callback);
-        this.renderUnscramble(instruction, shuffleArr(wordsArray), wordsArray);
+
+        const data = this.useRetryState("reading2", () => {
+            const selected = sources[Math.floor(Math.random() * sources.length)];
+            const wordsArray = selected.text.trim().match(/[\w']+|[^\w\s]/g);
+            return { selected, wordsArray, shuffled: wordsArray ? shuffleArr(wordsArray) : null };
+        });
+        if (!data.wordsArray) return this.ask(this.callback);
+
+        const instruction = `Unscramble the ${data.selected.label}!`;
+        this.renderUnscramble(instruction, data.shuffled, data.wordsArray);
         this.lockAnswerArea();
         await this.speak(instruction);
         this.unlockAnswerArea();
@@ -1123,25 +1285,28 @@ const readingMethods = {
         if (!target.presentSent || !target.question || !target.finalAns) return this.ask(this.callback);
         this.stopTimer();
         const n = this.cfg.paragraphSentences;
-        const instruction = `Read the ${n}-sentence paragraph and answer the question.`;
 
-        const usedTexts = new Set();
-        const targetSentence = this.ensureDot(target.presentSent);
-        usedTexts.add(targetSentence.toLowerCase());
-        const noiseSentences = [];
-        for (const item of shuffleArr(this.poolData.filter((it) => it.word !== target.word && it.presentSent))) {
-            const t = this.ensureDot(item.presentSent);
-            if (!usedTexts.has(t.toLowerCase())) { noiseSentences.push(t); usedTexts.add(t.toLowerCase()); }
-            if (noiseSentences.length >= n - 1) break;
-        }
-        const fullParagraph = shuffleArr([targetSentence, ...noiseSentences]).join(" ");
-
-        const correctAns = target.finalAns;
-        const options = buildQuizOptions(correctAns, this.poolData, {
-            field: "finalAns", sameLessonId: target.lessonId, minSameLesson: 1, maxOptions: 4, extraPool: this.currentLessonData,
+        const data = this.useRetryState("reading3", () => {
+            const usedTexts = new Set();
+            const targetSentence = this.ensureDot(target.presentSent);
+            usedTexts.add(targetSentence.toLowerCase());
+            const noiseSentences = [];
+            for (const item of shuffleArr(this.poolData.filter((it) => it.word !== target.word && it.presentSent))) {
+                const t = this.ensureDot(item.presentSent);
+                if (!usedTexts.has(t.toLowerCase())) { noiseSentences.push(t); usedTexts.add(t.toLowerCase()); }
+                if (noiseSentences.length >= n - 1) break;
+            }
+            const actualCount = 1 + noiseSentences.length; // có thể < n nếu poolData không đủ câu nhiễu
+            const fullParagraph = shuffleArr([targetSentence, ...noiseSentences]).join(" ");
+            const correctAns = target.finalAns;
+            const options = buildQuizOptions(correctAns, this.poolData, {
+                field: "finalAns", sameLessonId: target.lessonId, minSameLesson: 1, maxOptions: 4, extraPool: this.currentLessonData,
+            });
+            return { actualCount, fullParagraph, correctAns, options };
         });
 
-        this.renderReadingParagraph(instruction, fullParagraph, target.question, options, correctAns);
+        const instruction = `Read the ${data.actualCount}-sentence paragraph and answer the question.`;
+        this.renderReadingParagraph(instruction, data.fullParagraph, target.question, data.options, data.correctAns);
         this.lockAnswerArea();
         await this.speak(instruction);
         this.unlockAnswerArea();
@@ -1153,36 +1318,40 @@ const readingMethods = {
         this.stopTimer();
         this.userAnswers = {};
         const instruction = "Fill in the blanks";
-
         const numBlanks = this.cfg.clozeBlanks;
-        const otherItems = shuffleArr(
-            this.poolData.filter((it) => it.lessonId !== target.lessonId && it.word !== target.word && it.presentSent)
-        ).slice(0, numBlanks - 1);
-        const mainItems = [target, ...otherItems];
-        const targetWords = mainItems.map((it) => it.word);
 
-        const fillerSentences = shuffleArr(
-            this.poolData.filter((it) => !targetWords.includes(it.word) && it.presentSent)
-        ).slice(0, 4).map((it) => this.ensureDot(it.presentSent));
+        const data = this.useRetryState("reading4", () => {
+            const otherItems = shuffleArr(
+                this.poolData.filter((it) => it.lessonId !== target.lessonId && it.word !== target.word && it.presentSent)
+            ).slice(0, numBlanks - 1);
+            const mainItems = [target, ...otherItems];
+            const targetWords = mainItems.map((it) => it.word);
 
-        const fullSentences = shuffleArr([
-            ...mainItems.map((it) => ({ word: it.word, text: this.ensureDot(it.presentSent) })),
-            ...fillerSentences.map((text) => ({ word: null, text })),
-        ]);
+            const fillerSentences = shuffleArr(
+                this.poolData.filter((it) => !targetWords.includes(it.word) && it.presentSent)
+            ).slice(0, 4).map((it) => this.ensureDot(it.presentSent));
 
-        let blankCount = 0;
-        const finalMainItems = [];
-        const paragraphText = fullSentences.map((obj) => {
-            if (obj.word) {
-                blankCount++;
-                finalMainItems.push(obj);
-                const regex = new RegExp(`\\b${obj.word}\\b`, "gi");
-                return obj.text.replace(regex, `___(${blankCount})___`);
-            }
-            return obj.text;
-        }).join(" ");
+            const fullSentences = shuffleArr([
+                ...mainItems.map((it) => ({ word: it.word, text: this.ensureDot(it.presentSent) })),
+                ...fillerSentences.map((text) => ({ word: null, text })),
+            ]);
 
-        this.renderCloze(paragraphText, shuffleArr(targetWords), finalMainItems);
+            let blankCount = 0;
+            const finalMainItems = [];
+            const paragraphText = fullSentences.map((obj) => {
+                if (obj.word) {
+                    blankCount++;
+                    finalMainItems.push(obj);
+                    const regex = new RegExp(`\\b${obj.word}\\b`, "gi");
+                    return obj.text.replace(regex, `___(${blankCount})___`);
+                }
+                return obj.text;
+            }).join(" ");
+
+            return { targetWords, finalMainItems, paragraphText, displayOptions: shuffleArr(targetWords) };
+        });
+
+        this.renderCloze(data.paragraphText, data.displayOptions, data.finalMainItems);
         this.lockAnswerArea();
         this.speak(instruction).then(() => this.unlockAnswerArea());
         this.startTimer(45000);
@@ -1194,19 +1363,20 @@ const readingMethods = {
         this.stopTimer();
         this.selectedQuestion = null;
         this.userMatches = {};
-
         const numPairs = this.cfg.matchPairs;
-        const getQA = (item) => ({ q: item.question || "No Question", a: item.finalAns || "No Answer", id: Math.random().toString(36).slice(2, 11) });
 
-        const mainPair = getQA(target);
-        const others = shuffleArr(
-            this.poolData.filter((it) => it.lessonId !== target.lessonId && it.question && it.finalAns)
-        ).slice(0, numPairs - 1).map(getQA);
+        const data = this.useRetryState("reading5", () => {
+            const getQA = (item) => ({ q: item.question || "No Question", a: item.finalAns || "No Answer", id: Math.random().toString(36).slice(2, 11) });
+            const mainPair = getQA(target);
+            const others = shuffleArr(
+                this.poolData.filter((it) => it.lessonId !== target.lessonId && it.question && it.finalAns)
+            ).slice(0, numPairs - 1).map(getQA);
+            const matchingPairs = [mainPair, ...others];
+            return { matchingPairs, shuffledQ: shuffleArr(matchingPairs), shuffledA: shuffleArr(matchingPairs) };
+        });
+        if (data.matchingPairs.length < 2) return this.ask(this.callback);
 
-        const matchingPairs = [mainPair, ...others]; // có thể ít hơn numPairs nếu pool thiếu — vẫn chạy được, tối thiểu 2 cặp
-        if (matchingPairs.length < 2) return this.ask(this.callback);
-
-        this.renderMatching(shuffleArr(matchingPairs), shuffleArr(matchingPairs), matchingPairs);
+        this.renderMatching(data.shuffledQ, data.shuffledA, data.matchingPairs);
         this.lockAnswerArea();
         this.speak("Match the pairs.").then(() => this.unlockAnswerArea());
         this.startTimer(45000);
@@ -1260,6 +1430,7 @@ const readingMethods = {
                 btn.innerText = word;
                 btn.style = "background:#444;color:#fff;border:1px solid #666;padding:8px 15px;border-radius:8px;cursor:pointer;font-size:16px;";
                 btn.onclick = () => {
+                    if (/[a-zA-Z]/.test(word)) this.speak(word); // chỉ đọc khi là chữ, bỏ qua dấu câu
                     userSequence.push(word);
                     btn.style.visibility = "hidden";
                     const resSpan = document.createElement("span");
@@ -1309,6 +1480,7 @@ const readingMethods = {
             optionsBox.querySelectorAll(".cloze-btn").forEach((btn) => {
                 btn.onclick = function () {
                     const word = this.innerText;
+                    _self.speak(word);
                     for (let i = 1; i <= finalMainItems.length; i++) {
                         if (!_self.userAnswers[i]) {
                             _self.userAnswers[i] = word;
@@ -1363,6 +1535,7 @@ const readingMethods = {
                 div.style = nodeStyle;
                 div.onclick = function () {
                     if (this.dataset.matched === "true") return;
+                    _self.speak(item.q);
                     colQ.querySelectorAll(".q-node").forEach((n) => { if (n.dataset.matched !== "true") { n.style.borderColor = "#ccc"; n.style.background = "#fff"; } });
                     this.style.borderColor = "#6c5ce7"; this.style.background = "#f0edff";
                     _self.selectedQuestion = this;
@@ -1377,6 +1550,7 @@ const readingMethods = {
                 div.style = nodeStyle;
                 div.onclick = function () {
                     if (!_self.selectedQuestion || this.dataset.matched === "true") return;
+                    _self.speak(item.a);
                     const color = pairColors[colorIdx % pairColors.length];
                     _self.userMatches[_self.selectedQuestion.dataset.id] = this.dataset.id;
                     this.dataset.matched = "true"; _self.selectedQuestion.dataset.matched = "true";
@@ -1426,6 +1600,7 @@ const writingMethods = {
         });
         this.lockAnswerArea();
         await this.speak(instruction);
+        await speakVI(target.meaning);
         this.unlockAnswerArea();
     },
 
@@ -1448,12 +1623,15 @@ const writingMethods = {
         const cleanWord = target.word.replace(/[^a-zA-Z]/g, "").toUpperCase();
         const letters = cleanWord.split("");
         const ratio = this.cfg.hiddenLetterRatio;
-        const numMissing = Math.max(1, Math.min(letters.length, Math.round(letters.length * ratio)));
-        const missingIndices = [];
-        while (missingIndices.length < numMissing) {
-            const r = Math.floor(Math.random() * letters.length);
-            if (!missingIndices.includes(r)) missingIndices.push(r);
-        }
+        const missingIndices = this.useRetryState("writing3", () => {
+            const numMissing = Math.max(1, Math.min(letters.length, Math.round(letters.length * ratio)));
+            const indices = [];
+            while (indices.length < numMissing) {
+                const r = Math.floor(Math.random() * letters.length);
+                if (!indices.includes(r)) indices.push(r);
+            }
+            return indices;
+        });
         this.renderPokeword(cleanWord, letters, missingIndices, target);
     },
 
@@ -1470,7 +1648,9 @@ const writingMethods = {
     // writing5: từ bị xáo chữ cái -> gõ lại
     async writing5(target) {
         const instruction = "Unscramble the letters to form the correct word.";
-        const scrambled = target.word.split("").sort(() => 0.5 - Math.random()).join("-").toLowerCase();
+        const scrambled = this.useRetryState("writing5", () =>
+            shuffleArr(target.word.split("")).join("-").toLowerCase()
+        );
         const hintText = `First letter: "${target.word[0].toUpperCase()}" | Meaning: ${target.meaning}`;
         this.renderScrambledWord(instruction, scrambled, hintText, target);
         this.lockAnswerArea();
@@ -1509,11 +1689,12 @@ const writingMethods = {
             const submitBtn = document.getElementById("qzSubmitBtn");
             const imgEl = document.getElementById("qzBlurImg");
             setTimeout(() => input.focus(), 400);
-            const check = () => {
+            const check = async () => {
                 const userVal = input.value.trim().toLowerCase();
                 if (!userVal) return;
                 this.stopTimer();
                 if (imgEl) imgEl.style.filter = "none";
+                await this.speak(userVal);
                 this.showFeedback(userVal === target.word.toLowerCase(), target.word);
             };
             submitBtn.onclick = check;
@@ -1523,6 +1704,7 @@ const writingMethods = {
                 const hintEl = document.getElementById("qzHintText");
                 if (hintEl) hintEl.innerHTML = `<span style="font-family:sans-serif;letter-spacing:0;color:#4ade80;">${target.meaning || "No meaning"}</span>`;
                 this.disabled = true; this.style.opacity = "0.5";
+                if (target.meaning) speakVI(target.meaning);
                 input.focus();
             };
         }
@@ -1556,13 +1738,14 @@ const writingMethods = {
                     <button id="qzPwAudio" class="qz-btn blue">🔊</button>
                 </div>`;
             const inputs = document.querySelectorAll(".pw-input");
-            const checkAction = () => {
+            const checkAction = async () => {
                 let guess = "";
                 document.querySelectorAll(".pw-cell").forEach((cell) => {
                     const inp = cell.querySelector("input");
                     guess += inp ? (inp.value || "_") : cell.innerText;
                 });
                 this.stopTimer();
+                await this.speak(guess);
                 this.showFeedback(guess.toUpperCase() === cleanWord, target.word);
             };
             inputs.forEach((inp, i) => {
@@ -1577,6 +1760,7 @@ const writingMethods = {
             document.getElementById("qzPwAudio").onclick = () => this.speak(target.word);
         }
         this.startAutoSkipTimer();
+        if (target.meaning) speakVI(target.meaning); // đọc gợi ý nghĩa (tiếng Việt) 1 lần khi vào bài
     },
 
     renderPhraseTranslation(chunks, target) {
@@ -1599,31 +1783,39 @@ const writingMethods = {
                     <div style="color:#d39e00;font-size:13px;text-align:left;margin-bottom:15px;font-weight:bold;">🧱 Dịch cụm</div>
                     <div style="max-height:400px;overflow-y:auto;padding-right:8px;">${rowsHTML}</div>
                 </div>`;
+            // Đọc lần lượt các cụm tiếng Việt bằng speakVI ngay khi hiện bài
+            (async () => {
+                for (const c of chunks) {
+                    if (c.vi) await speakVI(c.vi);
+                }
+            })();
         }
         if (optionsBox) {
             optionsBox.innerHTML = `
                 <div class="qz-btn-row" style="justify-content:flex-start;">
                     <button id="qzPhraseSubmit" class="qz-btn blue">✅ Kiểm tra</button>
-                    <button id="qzPhraseSkip" class="qz-btn gray">⏭ Bỏ qua</button>
+                    ${this._isRetryAttempt ? "" : `<button id="qzPhraseSkip" class="qz-btn gray">⏭ Bỏ qua</button>`}
                 </div>`;
             const inputs = document.querySelectorAll(".qz-phrase-input");
             if (inputs[0]) setTimeout(() => inputs[0].focus(), 300);
             inputs.forEach((inp, idx) => {
                 inp.onkeydown = (e) => { if (e.key === "Enter") { if (inputs[idx + 1]) inputs[idx + 1].focus(); else document.getElementById("qzPhraseSubmit").click(); } };
             });
-            document.getElementById("qzPhraseSubmit").onclick = () => {
+            document.getElementById("qzPhraseSubmit").onclick = async () => {
                 let correctCount = 0;
-                inputs.forEach((inp) => {
+                for (const inp of inputs) {
                     const user = inp.value.trim().toLowerCase();
                     const ans = inp.dataset.ans.trim().toLowerCase();
+                    if (user) await this.speak(inp.value.trim()); // đọc lần lượt cụm vừa gõ
                     if (user === ans && user) { correctCount++; inp.style.borderColor = "#2ecc71"; inp.style.color = "#12893d"; }
                     else { inp.style.borderColor = "#e74c3c"; inp.value = `${inp.value} ➔ ${inp.dataset.ans}`; inp.style.color = "#d63031"; }
                     inp.readOnly = true;
-                });
+                }
                 const ratio = correctCount / inputs.length;
                 this.showFeedback(ratio >= 0.7, `Đúng ${correctCount}/${inputs.length}`);
             };
-            document.getElementById("qzPhraseSkip").onclick = () => this.handleSkip();
+            const phraseSkipBtn = document.getElementById("qzPhraseSkip");
+            if (phraseSkipBtn) phraseSkipBtn.onclick = () => this.handleSkip();
         }
         this.timer = setTimeout(() => this.handleSkip(), 60000);
     },
@@ -1649,17 +1841,19 @@ const writingMethods = {
                 </div>`;
             const input = document.getElementById("qzTypedInput");
             setTimeout(() => input.focus(), 400);
-            const check = () => {
+            const check = async () => {
                 const userVal = input.value.trim().toLowerCase();
                 if (!userVal) return;
                 this.stopTimer();
+                await this.speak(userVal);
                 this.showFeedback(userVal === target.word.toLowerCase(), target.word);
             };
             document.getElementById("qzSubmitBtn").onclick = check;
             input.onkeydown = (e) => { if (e.key === "Enter") check(); };
-            document.getElementById("qzShowHintBtn").onclick = () => {
+            document.getElementById("qzShowHintBtn").onclick = async () => {
                 document.getElementById("qzHiddenHint").style.display = "block";
-                this.speak(target.meaning);
+                await this.speak(`First letter: ${target.word[0]}`);
+                await speakVI(target.meaning);
             };
         }
     },
@@ -1685,6 +1879,10 @@ window.QuizManager = Object.assign(
         _qzStylesInjected: false,
         _feedbackShown: false,
         _answerLocked: false,
+        _isRetryAttempt: false,
+        _currentTypeName: null,
+        _currentTarget: null,
+        _retryState: null,
     },
     sharedUIMethods,
     coreMethods,
