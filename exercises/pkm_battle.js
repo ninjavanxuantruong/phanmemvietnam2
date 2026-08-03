@@ -734,61 +734,22 @@ window.BattleGame = {
 
     // ✅ Victory: hiện overlay đẹp, chờ bấm nút mới về map
     victory() {
-        this.log("🏆 CHIẾN THẮNG!");
-         this.saveBattleResult();
+    this.log("🏆 CHIẾN THẮNG!");
 
-        // ── 1. ĐỌC DỮ LIỆU ──
-        const missionData     = localStorage.getItem('current_mission');
-        const currentLessonId = missionData ? JSON.parse(missionData).id : null;
-        let passedMaps        = JSON.parse(localStorage.getItem('pkm_passed_maps')) || [];
-        let currentEXP        = parseInt(localStorage.getItem('pkm_global_exp')) || 0;
-        let currentDV         = parseInt(localStorage.getItem('pkm_global_dv'))  || 0;
-        const isNewLesson     = currentLessonId && !passedMaps.includes(currentLessonId);
+    const result = window.PkmScore.finishMatch({ won: true, minQuestions: this.MIN_QUESTIONS });
 
-        let bonusEXP = 0, bonusDV = 0;
-        let messages = [];
+    const messages = (result.breakdown || []).map(b => {
+        if (b.type === 'new_lesson')        return `🌟 BÀI MỚI HOÀN THÀNH (${b.accuracy}% đúng): <b>+${b.exp} KN +${b.dv} DV</b>`;
+        if (b.type === 'new_lesson_failed')  return `⚠️ Bài mới nhưng chỉ ${b.accuracy}% đúng — cần ≥${b.requiredAccuracy}% để mở khoá!`;
+        if (b.type === 'correct_answers')    return `📝 ${b.correctCount} câu đúng ÷ ${b.divisor} = <b>+${b.exp} KN +${b.dv} DV</b>`;
+        if (b.type === 'streak')             return b.exp > 0
+            ? `🔥 Chuỗi ${b.streak} ngày liên tục: <b>+${b.exp} KN +${b.dv} DV</b>`
+            : `📅 Chuỗi hiện tại: <b>${b.streak} ngày</b>`;
+        return '';
+    }).filter(Boolean);
 
-        // ── 2. THƯỞNG 1: BÀI MỚI (cần >= 90% đúng) ──
-        const accuracy = this.totalCount > 0
-            ? Math.round((this.correctCount / this.totalCount) * 100) : 0;
-
-        if (isNewLesson) {
-            if (accuracy >= 80) {
-                bonusEXP += 5; bonusDV += 5;
-                passedMaps.push(currentLessonId);
-                localStorage.setItem('pkm_passed_maps', JSON.stringify(passedMaps));
-                messages.push(`🌟 BÀI MỚI HOÀN THÀNH (${accuracy}% đúng): <b>+5 KN +5 DV</b>`);
-            } else {
-                messages.push(`⚠️ Bài mới nhưng chỉ ${accuracy}% đúng — cần ≥90% để mở khoá!`);
-            }
-        }
-
-        // ── 3. THƯỞNG 2: SỐ CÂU ĐÚNG / 2 ──
-        const reward2 = Math.round(this.correctCount / 2);
-        if (reward2 > 0) {
-            bonusEXP += reward2; bonusDV += reward2;
-            messages.push(`📝 ${this.correctCount} câu đúng ÷ 2 = <b>+${reward2} KN +${reward2} DV</b>`);
-        }
-
-        // ── 4. THƯỞNG 3: CHĂM CHỈ (chuỗi ngày liên tục) ──
-        const streak = this.updateStreak();
-        let streakBonus = 0;
-        if      (streak >= 30) streakBonus = 3;
-        else if (streak >= 10) streakBonus = 2;
-        else if (streak >= 4)  streakBonus = 1;
-
-        if (streakBonus > 0) {
-            bonusEXP += streakBonus; bonusDV += streakBonus;
-            messages.push(`🔥 Chuỗi ${streak} ngày liên tục: <b>+${streakBonus} KN +${streakBonus} DV</b>`);
-        } else {
-            messages.push(`📅 Chuỗi hiện tại: <b>${streak} ngày</b>`);
-        }
-
-        // ── 5. LƯU ──
-        const newEXP = currentEXP + bonusEXP;
-        const newDV  = currentDV  + bonusDV;
-        localStorage.setItem('pkm_global_exp', newEXP);
-        localStorage.setItem('pkm_global_dv',  newDV);
+    const bonusEXP = result.bonusEXP, bonusDV = result.bonusDV;
+    const newEXP = result.newEXP, newDV = result.newDV;
 
         // ── 6. HIỆN UI ──
         const firstPkm   = this.playerTeam[0];
@@ -823,43 +784,11 @@ window.BattleGame = {
     },
 
     // ── HÀM TÍNH CHUỖI NGÀY ──
-    updateStreak() {
-        const today     = new Date().toISOString().slice(0, 10); // "2025-01-15"
-        const lastPlay  = localStorage.getItem('pkm_last_play_date') || '';
-        let   streak    = parseInt(localStorage.getItem('pkm_streak_days')) || 0;
-
-        if (lastPlay === today) {
-            // Hôm nay đã chơi rồi → không tăng, giữ nguyên streak
-        } else {
-            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-            if (lastPlay === yesterday) {
-                // Hôm qua có chơi → tăng streak
-                streak++;
-            } else if (lastPlay === '') {
-                // Lần đầu chơi
-                streak = 1;
-            } else {
-                // Bỏ ngày → reset
-                streak = 1;
-            }
-            localStorage.setItem('pkm_last_play_date', today);
-            localStorage.setItem('pkm_streak_days', streak);
-        }
-
-        return streak;
-    },
-    // SAU
-    saveBattleResult() {
-        if (window.PkmScore) {
-            window.PkmScore.commitSession();
-        } else {
-            console.error('❌ PkmScore chưa được nạp — thiếu <script src="pkm_score.js"> trong HTML?');
-        }
-    },
+    
     defeat() {
-        this.log("💀 BẠN ĐÃ THẤT BẠI!");
-        this.isProcessing = true; 
-        this.saveBattleResult();
+    this.log("💀 BẠN ĐÃ THẤT BẠI!");
+    this.isProcessing = true;
+    const result = window.PkmScore.finishMatch({ won: false, minQuestions: this.MIN_QUESTIONS });
 
         // 1. Cập nhật hình ảnh Pokemon thất bại (làm xám)
         const firstPkm = this.playerTeam[0];
@@ -877,9 +806,9 @@ window.BattleGame = {
                 <p style="color: #ccc; margin-bottom: 20px;">Đội hình của bạn đã kiệt sức!</p>
 
                 <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px solid #444; margin-bottom: 20px;">
-                    <div style="color: #888; text-decoration: line-through;">+10 EXP</div>
-                    <div style="color: #888; text-decoration: line-through;">+10 Danh vọng</div>
-                    <div style="font-size: 0.8em; margin-top: 5px; color: #ffbc00;">Thử thách lại để nhận thưởng!</div>
+                    <div style="color: #4caf50; font-weight: bold;">+${result.bonusEXP} EXP</div>
+                    <div style="color: #4caf50; font-weight: bold;">+${result.bonusDV} Danh vọng</div>
+                    <div style="font-size: 0.8em; margin-top: 5px; color: #ffbc00;">An ủi cho lần cố gắng — thử lại để nhận thưởng lớn hơn!</div>
                 </div>
 
                 <!-- Nút bấm quay lại Map -->
