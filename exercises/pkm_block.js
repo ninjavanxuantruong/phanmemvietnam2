@@ -17,7 +17,6 @@
 window.BlockGame = {
     GRID_SIZE: 8,
     MIN_QUESTIONS: 12,
-    MAX_QUESTIONS: 24,
 
     grid: [],          // 8x8, mỗi ô: null hoặc mã màu (string)
     pokemonGrid: [],    // 8x8 song song với grid, mỗi ô: null hoặc {id, url}
@@ -65,16 +64,11 @@ window.BlockGame = {
     ],
 
     // ═══════════════════════════════════════════════════════════
-    // HỆ POKÉMON HOÁ (roster đang chơi / kho dự trữ / thu phục)
+    // HỆ POKÉMON HOÁ (1 CON CỐ ĐỊNH / MÀU — nhẹ, chỉ tải 9 ảnh/ván)
     // ═══════════════════════════════════════════════════════════
-    ACTIVE_ROSTER_SIZE: 10,
-    RESERVE_BATCH_SIZE: 15,
-    RESERVE_REFILL_THRESHOLD: 3,
     POKEMON_ID_MAX: 649, // giới hạn Gen 1-5, khớp cách random enemy bên Battle
 
-    activeRoster: [],   // [{id, url}] — nguồn để gán cho khối MỚI sinh ra
-    reservePool: [],    // [{id, url}] — hàng chờ để thế chỗ khi có con bị thu phục
-    usedIds: new Set(), // tránh trùng ngay giữa các đợt sinh, không chặn tuyệt đối
+    colorPokemonMap: {}, // { "#ff6b6b": {id,url}, ... } — cố định suốt ván, không đổi
     collectedList: [],  // log các con đã thu phục trong ván (để vẽ dải UI)
     captureBusy: false, // khoá để hiện popup thu phục tuần tự, không đè lên nhau
 
@@ -98,53 +92,17 @@ window.BlockGame = {
         return id;
     },
 
-    generateBatch(count, excludeSet) {
-        const batch = [];
-        const localExclude = new Set(excludeSet);
-        for (let i = 0; i < count; i++) {
-            const id = this.randomPokemonId(localExclude);
-            localExclude.add(id);
-            this.usedIds.add(id);
+    // Gán CỐ ĐỊNH 1 Pokémon cho mỗi màu, làm 1 LẦN DUY NHẤT lúc bắt đầu ván —
+    // cả ván chỉ tải đúng this.COLORS.length ảnh, không bao giờ tải thêm nữa.
+    initColorPokemonMap() {
+        const usedIds = new Set();
+        this.COLORS.forEach(color => {
+            const id = this.randomPokemonId(usedIds);
+            usedIds.add(id);
             const url = this.pokemonSpriteUrl(id);
             this.preloadImage(url);
-            batch.push({ id, url });
-        }
-        return batch;
-    },
-
-    initRosterAndReserve() {
-        this.activeRoster = this.generateBatch(this.ACTIVE_ROSTER_SIZE, this.usedIds);
-        this.reservePool = this.generateBatch(this.RESERVE_BATCH_SIZE, this.usedIds);
-    },
-
-    refillReserveIfLow() {
-        if (this.reservePool.length <= this.RESERVE_REFILL_THRESHOLD) {
-            const more = this.generateBatch(this.RESERVE_BATCH_SIZE, this.usedIds);
-            this.reservePool = this.reservePool.concat(more);
-        }
-    },
-
-    pickRandomActivePokemon() {
-        if (this.activeRoster.length === 0) {
-            // an toàn: nếu vì lý do gì đó roster rỗng, tạo tạm 1 con mới
-            return this.generateBatch(1, this.usedIds)[0];
-        }
-        return this.activeRoster[Math.floor(Math.random() * this.activeRoster.length)];
-    },
-
-    // Rút 1 con khỏi roster đang chơi (vì vừa bị "thu phục"), thế bằng 1 con
-    // từ kho dự trữ, rồi bổ sung thêm dự trữ nếu sắp cạn.
-    retireAndReplace(pokemonId) {
-        const idx = this.activeRoster.findIndex(p => p.id === pokemonId);
-        if (idx === -1) return; // đã bị rút trước đó rồi (2 line clear cùng lúc), bỏ qua
-        this.activeRoster.splice(idx, 1);
-
-        if (this.reservePool.length === 0) {
-            this.reservePool = this.generateBatch(this.RESERVE_BATCH_SIZE, this.usedIds);
-        }
-        const replacement = this.reservePool.shift();
-        this.activeRoster.push(replacement);
-        this.refillReserveIfLow();
+            this.colorPokemonMap[color] = { id, url };
+        });
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -206,7 +164,7 @@ window.BlockGame = {
         this.setupGrid();
         this.renderBoard();
         this.attachTraySlotHandlers();
-        this.initRosterAndReserve(); // preload ngầm ngay từ đầu, song song lúc học từ vựng
+        this.initColorPokemonMap(); // gán cố định 1 Pokémon/màu, tải ảnh 1 lần duy nhất
 
         // Pre-fetch dữ liệu quiz (4 kỹ năng) NGAY TỪ ĐẦU, chạy song song lúc
         // học từ vựng — giống hệt battle.js — để câu hỏi đầu tiên không bị
@@ -344,7 +302,7 @@ window.BlockGame = {
     randomShape() {
         const shape = this.PIECE_SHAPES[Math.floor(Math.random() * this.PIECE_SHAPES.length)];
         const color = this.COLORS[Math.floor(Math.random() * this.COLORS.length)];
-        const pokemon = this.pickRandomActivePokemon();
+        const pokemon = this.colorPokemonMap[color];
         return { cells: shape.cells, color, pokemon };
     },
 
@@ -352,8 +310,10 @@ window.BlockGame = {
         this.tray = [this.randomShape(), this.randomShape(), this.randomShape()];
     },
 
-    maybeRefillTray() {
-        if (this.tray.every(p => !p)) this.spawnTray();
+    // Bổ sung NGAY 1 khối mới vào đúng ô vừa dùng hết — không cần chờ dùng hết
+    // cả 3 ô mới có khối mới nữa (đỡ bị bí chỗ đặt).
+    refillTraySlot(idx) {
+        this.tray[idx] = this.randomShape();
     },
 
     attachTraySlotHandlers() {
@@ -470,14 +430,12 @@ window.BlockGame = {
         });
 
         this.score += piece.cells.length;
-        this.tray[idx] = null;
+        this.refillTraySlot(idx); // bổ sung khối mới NGAY vào đúng ô vừa dùng
         this.renderTray();
 
         setTimeout(() => {
             this.clearFullLines();
             this.updateScoreUI();
-            this.maybeRefillTray();
-            this.renderTray();
             if (this.checkGameOver()) return;
             if (!opts.auto) this.registerMovePlayed();
         }, opts.auto ? 350 : 0);
@@ -548,7 +506,6 @@ window.BlockGame = {
 
     showCaptureEvent(pokemon) {
         return new Promise((resolve) => {
-            this.retireAndReplace(pokemon.id);
             this.collectedList.push(pokemon);
             this.playCaptureSound();
 
@@ -720,49 +677,14 @@ window.BlockGame = {
 
         if (this.isBoardStuck()) {
             this.gameOver = true;
-            this.defeat();
-            return true;
-        }
-
-        if (this.totalCount >= this.MAX_QUESTIONS) {
-            this.gameOver = true;
-            this.victory();
+            this.handleMatchEnd();
             return true;
         }
 
         return false;
     },
 
-    updateStreak() {
-        const today = new Date().toISOString().slice(0, 10);
-        const lastPlay = localStorage.getItem("pkm_last_play_date") || "";
-        let streak = parseInt(localStorage.getItem("pkm_streak_days")) || 0;
-
-        if (lastPlay === today) {
-            // đã chơi hôm nay rồi
-        } else {
-            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-            if (lastPlay === yesterday) streak++;
-            else streak = 1;
-            localStorage.setItem("pkm_last_play_date", today);
-            localStorage.setItem("pkm_streak_days", streak);
-        }
-        return streak;
-    },
-
-    // Lưu kết quả: TỔNG dùng chung key với Battle (result_battle) để cộng dồn
-    // xuyên suốt mọi game, và chi tiết theo 4 kỹ năng vào pkm_skill_scores
-    // (cũng cộng dồn, dùng chung cho mọi game trong tương lai).
-    // Lưu kết quả: giao hết cho PkmScore (pkm_score.js) — ghi cộng dồn vào
-    // result_battle (tổng "Trò chơi", dùng chung mọi game) + pkm_skill_scores
-    // (chi tiết 4 kỹ năng, cũng dùng chung mọi game).
-    saveBattleResult() {
-        if (window.PkmScore) {
-            window.PkmScore.commitSession();
-        } else {
-            console.error('❌ PkmScore chưa được nạp — thiếu <script src="pkm_score.js"> trong pkm_block.html?');
-        }
-    },
+    
 
     async getRewardImage() {
         try {
@@ -773,80 +695,76 @@ window.BlockGame = {
         return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png`;
     },
 
-    victory() {
-        this.saveBattleResult();
+    handleMatchEnd() {
+        const enoughQuestions = this.totalCount >= this.MIN_QUESTIONS;
+        const result = window.PkmScore.finishMatch({
+            won: enoughQuestions,
+            minQuestions: this.MIN_QUESTIONS,
+        });
 
-        const missionData = localStorage.getItem("current_mission");
-        const currentLessonId = missionData ? JSON.parse(missionData).id : null;
-        let passedMaps = JSON.parse(localStorage.getItem("pkm_passed_maps")) || [];
-        let currentEXP = parseInt(localStorage.getItem("pkm_global_exp")) || 0;
-        let currentDV = parseInt(localStorage.getItem("pkm_global_dv")) || 0;
-        const isNewLesson = currentLessonId && !passedMaps.includes(currentLessonId);
+        const titleEl = document.getElementById("victory-title-text");
+        const expText = document.getElementById("victory-exp-text");
 
-        let bonusEXP = 0, bonusDV = 0;
-        let messages = [];
+        // Chưa trả lời đủ câu tối thiểu -> không ghi điểm/thưởng gì cả
+        if (result.skipped) {
+            this.getRewardImage().then(src => {
+                const img = document.getElementById("victory-pkm-img");
+                if (img) { img.src = src; img.style.filter = "grayscale(100%) opacity(0.7)"; }
+            });
 
-        const accuracy = this.totalCount > 0 ? Math.round((this.correctCount / this.totalCount) * 100) : 0;
-
-        if (isNewLesson) {
-            if (accuracy >= 80) {
-                bonusEXP += 5; bonusDV += 5;
-                passedMaps.push(currentLessonId);
-                localStorage.setItem("pkm_passed_maps", JSON.stringify(passedMaps));
-                messages.push(`🌟 BÀI MỚI HOÀN THÀNH (${accuracy}% đúng): <b>+5 KN +5 DV</b>`);
-            } else {
-                messages.push(`⚠️ Bài mới nhưng chỉ ${accuracy}% đúng — cần ≥80% để mở khoá!`);
+            if (titleEl) {
+                titleEl.innerText = "💥 BÀN CỜ ĐÃ ĐẦY!";
+                titleEl.style.color = "#e74c3c";
+                titleEl.style.textShadow = "0 0 30px #e74c3c, 0 0 60px #c0392b";
             }
+            if (expText) {
+                expText.innerHTML = `
+                    <div style="color:#ccc; margin-bottom:14px;">Không còn khối nào đặt vừa bàn cờ nữa!</div>
+                    <div style="font-size:13px; color:#ff9f43; margin-bottom:10px;">
+                        Ván này mới trả lời ${this.totalCount}/${this.MIN_QUESTIONS} câu tối thiểu nên
+                        chưa được tính điểm hay thưởng.
+                    </div>
+                    <div style="font-size:12px; color:#ffbc00;">Chơi lại và trả lời đủ ${this.MIN_QUESTIONS} câu để được ghi nhận nhé!</div>`;
+            }
+            const overlay = document.getElementById("victory-overlay");
+            if (overlay) overlay.style.display = "flex";
+            return;
         }
 
-        const reward2 = Math.round(this.correctCount / 2);
-        if (reward2 > 0) {
-            bonusEXP += reward2; bonusDV += reward2;
-            messages.push(`📝 ${this.correctCount} câu đúng ÷ 2 = <b>+${reward2} KN +${reward2} DV</b>`);
-        }
-
-        const streak = this.updateStreak();
-        let streakBonus = 0;
-        if (streak >= 30) streakBonus = 3;
-        else if (streak >= 10) streakBonus = 2;
-        else if (streak >= 4) streakBonus = 1;
-        if (streakBonus > 0) {
-            bonusEXP += streakBonus; bonusDV += streakBonus;
-            messages.push(`🔥 Chuỗi ${streak} ngày liên tục: <b>+${streakBonus} KN +${streakBonus} DV</b>`);
-        } else {
-            messages.push(`📅 Chuỗi hiện tại: <b>${streak} ngày</b>`);
-        }
-
-        const newEXP = currentEXP + bonusEXP;
-        const newDV = currentDV + bonusDV;
-        localStorage.setItem("pkm_global_exp", newEXP);
-        localStorage.setItem("pkm_global_dv", newDV);
-
+        // Đã đủ câu tối thiểu -> tính là 1 ván hoàn thành, thưởng đầy đủ
         this.getRewardImage().then(src => {
             const img = document.getElementById("victory-pkm-img");
             if (img) img.src = src;
         });
 
-        const titleEl = document.getElementById("victory-title-text");
         if (titleEl) titleEl.innerText = "🏆 HOÀN THÀNH!";
 
-        const skillOrder = window.PkmScore ? window.PkmScore.SKILL_ORDER : ["listening", "speaking", "reading", "writing"];
-        const skillStatsNow = window.PkmScore ? window.PkmScore.session.skillStats : {};
+        const messages = (result.breakdown || []).map(b => {
+            if (b.type === 'new_lesson')        return `🌟 BÀI MỚI HOÀN THÀNH (${b.accuracy}% đúng): <b>+${b.exp} KN +${b.dv} DV</b>`;
+            if (b.type === 'new_lesson_failed')  return `⚠️ Bài mới nhưng chỉ ${b.accuracy}% đúng — cần ≥${b.requiredAccuracy}% để mở khoá!`;
+            if (b.type === 'correct_answers')    return `📝 ${b.correctCount} câu đúng ÷ ${b.divisor} = <b>+${b.exp} KN +${b.dv} DV</b>`;
+            if (b.type === 'streak')             return b.exp > 0
+                ? `🔥 Chuỗi ${b.streak} ngày liên tục: <b>+${b.exp} KN +${b.dv} DV</b>`
+                : `📅 Chuỗi hiện tại: <b>${b.streak} ngày</b>`;
+            return '';
+        }).filter(Boolean);
+
+        const skillOrder = window.PkmScore.SKILL_ORDER;
+        const skillStatsNow = window.PkmScore.session.skillStats;
         const skillLines = skillOrder.map(s => {
             const st = skillStatsNow[s] || { correct: 0, total: 0 };
             const label = { listening: "🎧 Nghe", speaking: "🗣️ Nói", reading: "📖 Đọc", writing: "✍️ Viết" }[s];
             return `<div>${label}: ${st.correct}/${st.total}</div>`;
         }).join("");
 
-        const expText = document.getElementById("victory-exp-text");
         if (expText) {
             expText.innerHTML = `
                 <div style="font-size:13px; text-align:left; margin-bottom:12px; line-height:2;">
                     ${messages.map(m => `<div>${m}</div>`).join("")}
                 </div>
                 <div style="border-top:1px solid #444; padding-top:10px; margin-bottom:12px;">
-                    <div style="color:#4caf50; font-size:16px; font-weight:bold;">+${bonusEXP} KN &nbsp; +${bonusDV} DV</div>
-                    <div style="color:#aaa; font-size:12px;">Tổng: ${newEXP} KN | ${newDV} DV</div>
+                    <div style="color:#4caf50; font-size:16px; font-weight:bold;">+${result.bonusEXP} KN &nbsp; +${result.bonusDV} DV</div>
+                    <div style="color:#aaa; font-size:12px;">Tổng: ${result.newEXP} KN | ${result.newDV} DV</div>
                 </div>
                 <div style="color:#aaa; font-size:12px; margin-bottom:4px;">
                     🧱 Điểm Block Blast: ${this.score}
@@ -857,50 +775,6 @@ window.BlockGame = {
                 <div style="color:#8fa3d1; font-size:11px; text-align:left;">
                     ${skillLines}
                 </div>`;
-        }
-
-        const overlay = document.getElementById("victory-overlay");
-        if (overlay) overlay.style.display = "flex";
-    },
-
-    defeat() {
-        this.saveBattleResult();
-
-        this.getRewardImage().then(src => {
-            const img = document.getElementById("victory-pkm-img");
-            if (img) {
-                img.src = src;
-                img.style.filter = "grayscale(100%) opacity(0.7)";
-            }
-        });
-
-        const titleEl = document.getElementById("victory-title-text");
-        if (titleEl) {
-            titleEl.innerText = "💥 BÀN CỜ ĐÃ ĐẦY!";
-            titleEl.style.color = "#e74c3c";
-            titleEl.style.textShadow = "0 0 30px #e74c3c, 0 0 60px #c0392b";
-        }
-
-        const skillOrderD = window.PkmScore ? window.PkmScore.SKILL_ORDER : ["listening", "speaking", "reading", "writing"];
-        const skillStatsNowD = window.PkmScore ? window.PkmScore.session.skillStats : {};
-        const skillLines = skillOrderD.map(s => {
-            const st = skillStatsNowD[s] || { correct: 0, total: 0 };
-            const label = { listening: "🎧 Nghe", speaking: "🗣️ Nói", reading: "📖 Đọc", writing: "✍️ Viết" }[s];
-            return `<div>${label}: ${st.correct}/${st.total}</div>`;
-        }).join("");
-
-        const expText = document.getElementById("victory-exp-text");
-        if (expText) {
-            expText.innerHTML = `
-                <div style="color:#ccc; margin-bottom:14px;">Không còn khối nào đặt vừa bàn cờ nữa!</div>
-                <div style="font-size:13px; text-align:left; margin-bottom:12px; line-height:1.8;">
-                    <div>🧱 Điểm Block Blast: <b>${this.score}</b></div>
-                    <div>📊 Tổng: ✅ ${this.correctCount} đúng / ❌ ${this.wrongCount} sai / ${this.totalCount} câu</div>
-                </div>
-                <div style="color:#8fa3d1; font-size:11px; text-align:left; margin-bottom:10px;">
-                    ${skillLines}
-                </div>
-                <div style="font-size:12px; color:#ffbc00;">Chơi lại để cải thiện điểm và nhận thưởng nhé!</div>`;
         }
 
         const overlay = document.getElementById("victory-overlay");
