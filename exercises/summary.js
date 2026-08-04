@@ -1,263 +1,483 @@
+// ✅ RESET DỮ LIỆU SAU 3 TIẾNG KHÔNG HOẠT ĐỘNG (tính theo LẦN CHƠI GẦN NHẤT,
+// không phải lần chơi đầu tiên trong đời — startTime_global chỉ ghi 1 lần
+// duy nhất nên không dùng để phát hiện "bỏ lâu không chơi" được)
+const lastActivity = localStorage.getItem("pkm_last_activity") || localStorage.getItem("startTime_global");
+const now = Date.now();
+
+if (lastActivity && now - parseInt(lastActivity) > 3 * 60 * 60 * 1000) {
+  const keysToReset = Object.keys(localStorage).filter(k =>
+    k.startsWith("result_") || k.startsWith("startTime_") || k === "pkm_skill_scores" || k === "pkm_last_activity"
+  );
+  keysToReset.forEach(k => localStorage.removeItem(k));
+  localStorage.removeItem("startTime_global");
+}
+
+const startTimeGlobal = localStorage.getItem("startTime_global");
+
+// ✅ THÔNG TIN HỌC SINH
+const studentName = localStorage.getItem("trainerName") || "Không tên";
+const studentClass = localStorage.getItem("trainerClass") || "Chưa có lớp";
+
+// Đã được cleanInput từ đầu vào nên ở đây chỉ cần lấy ra
+const normalizedName = studentName;
+const normalizedClass = studentClass;
+
+const selectedLesson = localStorage.getItem("selectedLesson") || "Chưa chọn bài học";
+
+document.getElementById("studentInfo").textContent = `${studentName} (${studentClass})`;
+
 /**
- * ==========================================
- * PKM SCORE SYSTEM — ghi điểm + thưởng EXP/DV dùng chung cho mọi game
- * ==========================================
- * Dùng chung cho pkm_battle.js, pkm_block.js, và mọi game Pokémon sau này.
- * Nạp file này (thẻ <script src="pkm_score.js">) TRƯỚC script của game.
+ * ================== 6 NHÓM ĐIỂM CHUẨN + BÀI TẬP CẤP 2 (TÍNH RIÊNG) ==================
+ * Mỗi nhóm = tổng các key cũ (result_<key>, KHÔNG đổi tên, không đụng các
+ * trang bài tập cũ) CỘNG THÊM phần đóng góp từ Battle/Block/game sau này
+ * (đọc trong pkm_skill_scores — do pkm_score.js ghi). Việc gộp chỉ diễn ra
+ * LÚC HIỂN THỊ ở đây, dữ liệu gốc vẫn tách bạch, an toàn cho các trang cũ.
  *
- * CÁCH DÙNG trong 1 game:
- *   1. Ngay trong callback của QuizManager.ask((isCorrect) => { ... }),
- *      gọi PkmScore.recordAnswer(isCorrect) — CHỈ gọi khi thật sự có 1 câu
- *      quiz vừa được hỏi.
- *   2. Lúc trận đấu/ván chơi KẾT THÚC (thắng hoặc thua), gọi:
+ * "Trò chơi" không có skillKey vì lấy thẳng result_game (mini-game cũ, nếu
+ * có) + result_battle (đã là tổng Battle + Block + mọi game sau này, do
+ * pkm_score.js cộng dồn sẵn).
  *
- *          const result = PkmScore.finishMatch({
- *              won: true/false,
- *              minQuestions: 10,   // (tuỳ chọn) số câu tối thiểu để được
- *                                  // tính là 1 ván hoàn chỉnh; mặc định 0
- *              unlockThreshold: 80,        // (tuỳ chọn) % đúng để mở khoá bài mới
- *              answerBonusDivisor: 2,      // (tuỳ chọn) chia số câu đúng ra thưởng
- *              loseFlatExp: 2, loseFlatDv: 2, // (tuỳ chọn) thưởng an ủi khi thua
- *          });
- *
- *      finishMatch() tự lo HẾT: ghi cộng dồn điểm kỹ năng (nếu đủ điều kiện),
- *      tính thưởng bài mới / số câu đúng / streak (nếu thắng) hoặc thưởng an
- *      ủi cố định (nếu thua), cộng dồn EXP/DV vào localStorage, rồi TRẢ VỀ
- *      dữ liệu thuần (không phải HTML) để game tự dựng UI theo ý mình:
- *
- *          {
- *            skipped: false,           // true nếu totalCount < minQuestions
- *            won, accuracy, correctCount, totalCount,
- *            bonusEXP, bonusDV, newEXP, newDV,
- *            isNewLesson, newLessonUnlocked, streak,
- *            breakdown: [ {type: 'new_lesson', exp, dv, accuracy}, ... ]
- *          }
- *
- *      Nếu skipped === true: KHÔNG có gì được ghi cả (không commitSession,
- *      không cộng EXP/DV) — coi như ván đó chưa tính.
- *
- * LƯU Ý QUAN TRỌNG: pkm_quiz.js (dùng chung, KHÔNG sửa) không lộ ra ngoài
- * "câu vừa hỏi thuộc kỹ năng nào" qua callback của ask(). Nhưng nó có biến
- * đếm nội bộ `skillCycleIndex` — tăng đúng 1 lần cho MỖI câu hỏi THẬT SỰ
- * được hỏi, xoay vòng đúng thứ tự SKILL_ORDER bên dưới.
- *
- * SKILL_ORDER dưới đây PHẢI khớp đúng thứ tự với SKILL_ORDER trong
- * pkm_quiz.js (hiện là ["listening","speaking","reading","writing"]).
+ * "Giới thiệu" không có skillKey vì hệ quiz 4 kỹ năng trong Battle/Block
+ * không có dạng "giới thiệu từ mới" — điểm này chỉ đến từ trang Từ vựng/
+ * Hình ảnh cũ.
  */
+const GROUPS = [
+  { label: "🎯 Giới thiệu", legacyKeys: ["vocabulary", "image"], skillKey: "intro" },
+  { label: "🎧 Nghe",       legacyKeys: ["listening"],                            skillKey: "listening" },
+  { label: "🗣️ Nói",        legacyKeys: ["speaking", "phonics", "communication"], skillKey: "speaking" },
+  { label: "📖 Đọc",        legacyKeys: [],                                       skillKey: "reading" },
+  { label: "✍️ Viết",       legacyKeys: ["overview"],                            skillKey: "writing" },
+  { label: "🎮 Trò chơi",   legacyKeys: ["game", "battle"] },
+];
+const GRADE8_GROUP = { label: "📐 Bài tập cấp 2 (tính riêng)", legacyKeys: ["grade8"] };
 
-window.PkmScore = {
-    SKILL_ORDER: ["listening", "speaking", "reading", "writing"],
+function getLegacyResult(key) {
+  const r = JSON.parse(localStorage.getItem(`result_${key}`)) || {};
+  const score = r.score || 0;
+  const total = r.total || 0;
+  if (total === 0 && !localStorage.getItem(`startTime_${key}`)) {
+    localStorage.setItem(`startTime_${key}`, Date.now());
+  }
+  return { score, total };
+}
 
-    session: {
-        correctCount: 0,
-        wrongCount: 0,
-        totalCount: 0,
-        introRecorded: false, // đảm bảo "Giới thiệu" chỉ cộng đúng 1 lần / ván
-        skillStats: {
-            intro: { correct: 0, total: 0 },
-            listening: { correct: 0, total: 0 },
-            speaking: { correct: 0, total: 0 },
-            reading: { correct: 0, total: 0 },
-            writing: { correct: 0, total: 0 },
-        },
-    },
+function getSkillResult(skillKey) {
+  const skills = JSON.parse(localStorage.getItem("pkm_skill_scores")) || {};
+  const s = skills[skillKey] || {};
+  return { score: s.correct || 0, total: s.total || 0 };
+}
 
-    // Gọi lúc bắt đầu 1 ván mới (không bắt buộc — hầu hết game hiện tại
-    // tải lại trang mỗi ván nên session đã sạch sẵn từ đầu).
-    reset() {
-        this.session = {
-            correctCount: 0,
-            wrongCount: 0,
-            totalCount: 0,
-            introRecorded: false,
-            skillStats: {
-                intro: { correct: 0, total: 0 },
-                listening: { correct: 0, total: 0 },
-                speaking: { correct: 0, total: 0 },
-                reading: { correct: 0, total: 0 },
-                writing: { correct: 0, total: 0 },
-            },
-        };
-    },
+function computeGroup(group) {
+  let score = 0, total = 0;
+  group.legacyKeys.forEach(key => {
+    const r = getLegacyResult(key);
+    score += r.score;
+    total += r.total;
+  });
+  if (group.skillKey) {
+    const r = getSkillResult(group.skillKey);
+    score += r.score;
+    total += r.total;
+  }
+  return { score, total };
+}
 
-    // Suy ra kỹ năng của câu VỪA hỏi từ skillCycleIndex của QuizManager.
-    getSkillJustAsked() {
-        if (!window.QuizManager || typeof window.QuizManager.skillCycleIndex !== "number") return null;
-        const order = this.SKILL_ORDER;
-        const idx = ((window.QuizManager.skillCycleIndex - 1) % order.length + order.length) % order.length;
-        return order[idx];
-    },
+function ratingFromPercent(percent) {
+  if (percent < 50) return "😕 Cần cố gắng";
+  if (percent < 70) return "🙂 Khá";
+  if (percent < 90) return "😃 Tốt";
+  return "🏆 Tuyệt vời";
+}
 
-    // Gọi ngay trong callback của QuizManager.ask((isCorrect) => ...).
-    recordAnswer(isCorrect) {
-        if (!this.session.introRecorded) {
-            this.session.introRecorded = true;
-            this.session.skillStats.intro.correct += 3;
-            this.session.skillStats.intro.total += 3;
-        }
+// ================== RENDER BẢNG ==================
+const tableBody = document.getElementById("tableBody");
 
-        const skillName = this.getSkillJustAsked();
-        this.session.totalCount++;
-        if (isCorrect) this.session.correctCount++; else this.session.wrongCount++;
-        if (skillName && this.session.skillStats[skillName]) {
-            this.session.skillStats[skillName].total++;
-            if (isCorrect) this.session.skillStats[skillName].correct++;
-        }
-        return skillName;
-    },
+let totalScore = 0;
+let totalMax = 0;
+const completedLabelsCore = [];   // dùng để tính % chăm chỉ/kỹ năng (6 nhóm chuẩn, KHÔNG có cấp 2)
+const zeroLabelsCore = [];
+const completedLabelsAll = [];    // gửi Firebase (có cả cấp 2, để lưu đủ lịch sử)
+const learnedGroups = new Set();  // dùng tính % kỹ năng (6 nhóm chuẩn)
+let rowIndex = 0;
 
-    // Ghi cộng dồn kết quả của ván vừa chơi vào localStorage (điểm kỹ năng
-    // + tổng điểm "Trò chơi") — KHÔNG đụng tới EXP/DV, đó là việc của
-    // finishMatch() bên dưới. Có thể gọi độc lập nếu 1 game nào đó chỉ cần
-    // ghi điểm kỹ năng mà không cần luồng thưởng EXP/DV chuẩn.
-    commitSession() {
-        try {
-            const prevTotal = JSON.parse(localStorage.getItem("result_battle")) || { score: 0, total: 0 };
-            const updatedTotal = {
-                score: (prevTotal.score || 0) + this.session.correctCount,
-                total: (prevTotal.total || 0) + this.session.totalCount,
-            };
-            localStorage.setItem("result_battle", JSON.stringify(updatedTotal));
+function renderGroupRow(group, isCore) {
+  const { score, total } = computeGroup(group);
+  const percent = total > 0 ? Math.round((score / total) * 100) : 0;
+  const rating = ratingFromPercent(percent);
 
-            const defaultSkills = () => ({
-                intro: { correct: 0, total: 0 },
-                listening: { correct: 0, total: 0 },
-                speaking: { correct: 0, total: 0 },
-                reading: { correct: 0, total: 0 },
-                writing: { correct: 0, total: 0 },
-            });
-            const prevSkills = JSON.parse(localStorage.getItem("pkm_skill_scores")) || defaultSkills();
-            Object.keys(this.session.skillStats).forEach(skill => {
-                if (!prevSkills[skill]) prevSkills[skill] = { correct: 0, total: 0 };
-                prevSkills[skill].correct += this.session.skillStats[skill].correct;
-                prevSkills[skill].total += this.session.skillStats[skill].total;
-            });
-            localStorage.setItem("pkm_skill_scores", JSON.stringify(prevSkills));
+  if (isCore) {
+    totalScore += score;
+    totalMax += total;
+  }
 
-            if (!localStorage.getItem("startTime_global")) {
-                localStorage.setItem("startTime_global", Date.now().toString());
-            }
+  if (total > 0) {
+    completedLabelsAll.push(group.label);
+    if (isCore) {
+      completedLabelsCore.push(group.label);
+      learnedGroups.add(group.label);
+    }
+  } else if (isCore) {
+    zeroLabelsCore.push(group.label);
+  }
 
-            console.log("📊 [PkmScore] Đã ghi cộng dồn:", updatedTotal, prevSkills);
-        } catch (e) {
-            console.error("❌ [PkmScore] Lỗi lưu kết quả:", e);
-        }
-    },
+  rowIndex++;
+  const row = `
+    <tr${isCore ? "" : ' style="background:#fff7e0;"'}>
+      <td>${rowIndex}</td>
+      <td>${group.label}</td>
+      <td>${score}</td>
+      <td>${total}</td>
+      <td>${percent}%</td>
+      <td class="rating">${rating}</td>
+    </tr>
+  `;
+  tableBody.innerHTML += row;
+}
 
-    // Cập nhật chuỗi ngày chơi liên tục — CHỈ nên gọi khi THẮNG (finishMatch
-    // tự gọi hàm này ở nhánh thắng). Trả về số ngày streak hiện tại.
-    updateStreak() {
-        const today = new Date().toISOString().slice(0, 10);
-        const lastPlay = localStorage.getItem("pkm_last_play_date") || "";
-        let streak = parseInt(localStorage.getItem("pkm_streak_days")) || 0;
+GROUPS.forEach(g => renderGroupRow(g, true));
+renderGroupRow(GRADE8_GROUP, false);
 
-        if (lastPlay === today) {
-            // đã chơi hôm nay rồi -> giữ nguyên
-        } else {
-            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-            if (lastPlay === yesterday) streak++;
-            else streak = 1;
-            localStorage.setItem("pkm_last_play_date", today);
-            localStorage.setItem("pkm_streak_days", streak);
-        }
-        return streak;
-    },
+// 👉 Tổng kết cuối (KHÔNG tính Bài tập cấp 2)
+const finalPercent = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
 
-    // ==========================================
-    // KẾT THÚC 1 VÁN — ghi điểm + tính & cộng thưởng EXP/DV, trả về dữ
-    // liệu thuần để game tự dựng UI.
-    // ==========================================
-    finishMatch(opts = {}) {
-        const {
-            won,
-            minQuestions = 0,
-            unlockThreshold = 80,
-            answerBonusDivisor = 2,
-            loseFlatExp = 2,
-            loseFlatDv = 2,
-        } = opts;
+// ✅ Gọi hàm đánh giá (mẫu số dựa trên 6 nhóm chuẩn, không có cấp 2)
+const evaluation = getFullEvaluation({
+  totalScore,
+  totalMax,
+  completedParts: completedLabelsCore,
+  learnedGroups,
+  totalGroupsCount: GROUPS.length,
+});
 
-        const totalCount = this.session.totalCount;
-        const correctCount = this.session.correctCount;
+document.getElementById("totalRating").textContent =
+`📦 Chăm chỉ: ${evaluation.diligence} | 🎯 Hiệu quả: ${evaluation.effectiveness} | 🧠 Kỹ năng: ${evaluation.skill} | 🧾 Đánh giá chung: ${evaluation.overall}`;
 
-        if (totalCount < minQuestions) {
-            // Chưa chơi đủ số câu tối thiểu -> KHÔNG tính là 1 ván hoàn
-            // chỉnh: không ghi điểm kỹ năng, không thưởng gì cả.
-            return {
-                skipped: true,
-                won, totalCount, minQuestions,
-                bonusEXP: 0, bonusDV: 0,
-                breakdown: [],
-            };
-        }
+const finalRating = evaluation.overall;
 
-        // Ghi điểm/kỹ năng — dùng chung cho cả thắng lẫn thua, miễn đã đủ
-        // số câu tối thiểu.
-        this.commitSession();
+document.getElementById("totalScore").textContent = totalScore;
+document.getElementById("totalMax").textContent = totalMax;
+document.getElementById("totalPercent").textContent = `${finalPercent}%`;
 
-        const missionData = localStorage.getItem("current_mission");
-        const currentLessonId = missionData ? JSON.parse(missionData).id : null;
-        let passedMaps = JSON.parse(localStorage.getItem("pkm_passed_maps")) || [];
-        const currentEXP = parseInt(localStorage.getItem("pkm_global_exp")) || 0;
-        const currentDV = parseInt(localStorage.getItem("pkm_global_dv")) || 0;
-        const accuracy = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+// 🧠 Mã ngày
+const dateStr = new Date();
+const day = String(dateStr.getDate()).padStart(2, '0');
+const month = String(dateStr.getMonth() + 1).padStart(2, '0');
+const year = String(dateStr.getFullYear()).slice(-2);
+const dateCode = `${day}${month}${year}`;
 
-        let bonusEXP = 0, bonusDV = 0;
-        let isNewLesson = false;
-        let newLessonUnlocked = false;
-        let streak = parseInt(localStorage.getItem("pkm_streak_days")) || 0;
-        const breakdown = [];
+const completedCount = completedLabelsCore.length;
 
-        if (won) {
-            // Thưởng 1: bài mới (cần đạt unlockThreshold% đúng)
-            isNewLesson = !!(currentLessonId && !passedMaps.includes(currentLessonId));
-            if (isNewLesson) {
-                if (accuracy >= unlockThreshold) {
-                    bonusEXP += 5; bonusDV += 5;
-                    passedMaps.push(currentLessonId);
-                    localStorage.setItem("pkm_passed_maps", JSON.stringify(passedMaps));
-                    newLessonUnlocked = true;
-                    breakdown.push({ type: "new_lesson", exp: 5, dv: 5, accuracy });
-                } else {
-                    breakdown.push({ type: "new_lesson_failed", accuracy, requiredAccuracy: unlockThreshold });
-                }
-            }
+// ✅ Tính tổng thời gian làm bài
+let totalMinutes = 0;
+if (startTimeGlobal) {
+  const durationMs = Date.now() - parseInt(startTimeGlobal);
+  totalMinutes = Math.max(1, Math.floor(durationMs / 60000));
+}
 
-            // Thưởng 2: số câu đúng chia đôi (hoặc theo divisor tuỳ game)
-            const reward2 = Math.round(correctCount / answerBonusDivisor);
-            if (reward2 > 0) {
-                bonusEXP += reward2; bonusDV += reward2;
-                breakdown.push({ type: "correct_answers", correctCount, divisor: answerBonusDivisor, exp: reward2, dv: reward2 });
-            }
+const zeroText = zeroLabelsCore.length > 0 ? ` (Các phần 0 điểm: ${zeroLabelsCore.join(", ")})` : "";
+const timeText = totalMinutes > 0 ? ` [ ${totalMinutes} phút]` : "";
 
-            // Thưởng 3: chuyên cần (chuỗi ngày liên tục) — chỉ cập nhật/thưởng khi THẮNG
-            streak = this.updateStreak();
-            let streakBonus = 0;
-            if (streak >= 30) streakBonus = 3;
-            else if (streak >= 10) streakBonus = 2;
-            else if (streak >= 4) streakBonus = 1;
-            if (streakBonus > 0) { bonusEXP += streakBonus; bonusDV += streakBonus; }
-            breakdown.push({ type: "streak", streak, exp: streakBonus, dv: streakBonus });
-        } else {
-            // Thua: thưởng an ủi cố định, không tính bài mới, không tính streak
-            bonusEXP += loseFlatExp;
-            bonusDV += loseFlatDv;
-            breakdown.push({ type: "consolation", exp: loseFlatExp, dv: loseFlatDv });
-        }
+const code = `${studentName}-${studentClass}-${selectedLesson}-${dateCode}-${totalScore}/${totalMax}-${completedCount}/${GROUPS.length}-${finalRating}${zeroText}${timeText}`;
+document.getElementById("resultCode").textContent = code;
 
-        const newEXP = currentEXP + bonusEXP;
-        const newDV = currentDV + bonusDV;
-        localStorage.setItem("pkm_global_exp", newEXP);
-        localStorage.setItem("pkm_global_dv", newDV);
+// ✅ Lưu local history
+const historyKey = `history_${studentName}_${studentClass}`;
+const history = JSON.parse(localStorage.getItem(historyKey)) || [];
 
-        console.log("🎁 [PkmScore] finishMatch:", { won, accuracy, bonusEXP, bonusDV, newEXP, newDV, breakdown });
-
-        return {
-            skipped: false,
-            won, accuracy, correctCount, totalCount,
-            bonusEXP, bonusDV, newEXP, newDV,
-            isNewLesson, newLessonUnlocked, streak,
-            breakdown,
-        };
-    },
+const newEntry = {
+  name: normalizedName,
+  class: normalizedClass,
+  score: totalScore,
+  max: totalMax,
+  doneParts: completedCount,
+  rating: finalRating,
+  date: dateCode,
+  duration: totalMinutes,
+  parts: completedLabelsAll
 };
+
+const existingIndex = history.findIndex(entry => entry.date === dateCode);
+if (existingIndex >= 0) {
+  history[existingIndex] = newEntry;
+} else {
+  history.push(newEntry);
+}
+localStorage.setItem(historyKey, JSON.stringify(history));
+
+// ✅ Auto-save một lần sau khi đã có completedParts
+saveTodayResult();
+
+// ================== HÀM ĐÁNH GIÁ ==================
+function getFullEvaluation({ totalScore, totalMax, completedParts, learnedGroups, totalGroupsCount }) {
+  const percentCorrect = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+  const coveragePercent = Math.round((completedParts.length / totalGroupsCount) * 100);
+  const skillPercent = Math.round((learnedGroups.size / totalGroupsCount) * 100);
+
+  let effectiveness = "";
+  if (percentCorrect < 50) effectiveness = "😕 Cần cố gắng";
+  else if (percentCorrect < 70) effectiveness = "🙂 Khá";
+  else if (percentCorrect < 90) effectiveness = "😃 Tốt";
+  else effectiveness = "🏆 Tuyệt vời";
+
+  let diligence = "";
+  if (coveragePercent < 30) diligence = "⚠️ Học quá ít";
+  else if (coveragePercent < 60) diligence = "🙂 Học chưa đủ";
+  else if (coveragePercent < 90) diligence = "😃 Học khá đầy đủ";
+  else diligence = "🏆 Học toàn diện";
+
+  let skill = "";
+  if (skillPercent < 40) skill = "⚠️ Thiếu kỹ năng";
+  else if (skillPercent < 70) skill = "🙂 Chưa đủ nhóm";
+  else if (skillPercent < 90) skill = "😃 Đa kỹ năng";
+  else skill = "🏆 Kỹ năng toàn diện";
+
+  const ratings = [effectiveness, diligence, skill];
+  const scoreMap = {
+    "😕 Cần cố gắng": 1,
+    "⚠️ Học quá ít": 1,
+    "⚠️ Thiếu kỹ năng": 1,
+    "🙂 Khá": 2,
+    "🙂 Học chưa đủ": 2,
+    "🙂 Chưa đủ nhóm": 2,
+    "😃 Tốt": 3,
+    "😃 Học khá đầy đủ": 3,
+    "😃 Đa kỹ năng": 3,
+    "🏆 Tuyệt vời": 4,
+    "🏆 Học toàn diện": 4,
+    "🏆 Kỹ năng toàn diện": 4
+  };
+
+  const scoreSum = ratings.reduce((sum, r) => sum + scoreMap[r], 0);
+
+  let overall = "";
+  if (scoreSum >= 10) overall = "🏆 Xuất sắc";
+  else if (scoreSum >= 7) overall = "🙂 Tốt";
+  else overall = "⚠️ Cần cải thiện";
+
+  return {
+    effectiveness,
+    diligence,
+    skill,
+    overall
+  };
+}
+
+// ================== TẠO ENTRY HÔM NAY (chuẩn hóa + có parts) ==================
+function getTodayEntry() {
+  const studentName = localStorage.getItem("trainerName") || "";
+  const studentClass = localStorage.getItem("trainerClass") || "";
+
+  const normalizedName =
+    localStorage.getItem("normalizedTrainerName") ||
+    studentName.toLowerCase().trim();
+  const normalizedClass =
+    localStorage.getItem("normalizedTrainerClass") ||
+    studentClass.toLowerCase().trim();
+
+  const dateStr = new Date();
+  const day = String(dateStr.getDate()).padStart(2, "0");
+  const month = String(dateStr.getMonth() + 1).padStart(2, "0");
+  const year = String(dateStr.getFullYear()).slice(-2);
+  const dateCode = `${day}${month}${year}`;
+
+  const totalScore = parseInt(document.getElementById("totalScore").textContent) || 0;
+  const totalMax   = parseInt(document.getElementById("totalMax").textContent) || 0;
+  const finalRating = document
+    .getElementById("totalRating")
+    .textContent.split(" | ")
+    .pop()
+    .split(": ")
+    .pop();
+
+  const startTimeGlobal = localStorage.getItem("startTime_global");
+  const totalMinutes = startTimeGlobal
+    ? Math.max(1, Math.floor((Date.now() - parseInt(startTimeGlobal)) / 60000))
+    : 0;
+
+  // Dùng lại đúng logic gộp nhóm ở trên để tránh 2 nơi tính lệch nhau
+  const allLabelsDone = [];
+  GROUPS.forEach(g => {
+    const { total } = computeGroup(g);
+    if (total > 0) allLabelsDone.push(g.label);
+  });
+  {
+    const { total } = computeGroup(GRADE8_GROUP);
+    if (total > 0) allLabelsDone.push(GRADE8_GROUP.label);
+  }
+
+  return {
+    name: normalizedName,
+    class: normalizedClass,
+    score: totalScore,
+    max: totalMax,
+    doneParts: allLabelsDone.length,
+    rating: finalRating,
+    date: dateCode,
+    duration: totalMinutes,
+    parts: allLabelsDone,
+    _displayName: studentName,
+    _displayClass: studentClass
+  };
+}
+
+// ================== LƯU KẾT QUẢ HÔM NAY (DUY NHẤT GỌI FIREBASE) ==================
+async function saveTodayResult() {
+  const entryBase = getTodayEntry();
+  const selectedLesson = localStorage.getItem("selectedLesson") || "Chưa chọn bài học";
+
+  // 👇 đảm bảo giữ cả duration từ entryBase
+  const entry = {
+    ...entryBase,
+    lesson: selectedLesson,
+    duration: entryBase.duration   // thêm rõ ràng để chắc chắn ghi lên Firebase
+  };
+
+  // Lưu local history (giữ nguyên)
+  const historyKey = `history_${entry._displayName}_${entry._displayClass}`;
+  const history = JSON.parse(localStorage.getItem(historyKey)) || [];
+  const existingIndex = history.findIndex(e => e.date === entry.date);
+  if (existingIndex >= 0) {
+    history[existingIndex] = entry;
+  } else {
+    history.push(entry);
+  }
+  localStorage.setItem(historyKey, JSON.stringify(history));
+
+  // Ghi Firebase
+  if (window.saveStudentResultToFirebase) {
+    try {
+      await window.saveStudentResultToFirebase(entry);
+
+      const scoreText = `${entry.score}/${entry.max}`;
+      const partText = `${entry.doneParts} phần`;
+      const timeText = entry.duration ? `${entry.duration} phút` : "–";
+
+      alert(`✅ Đã ghi kết quả lên hệ thống:\n• Điểm: ${scoreText}\n• Số phần: ${partText}\n• Thời gian: ${timeText}`);
+
+    } catch (err) {
+      console.error("❌ Lỗi khi ghi Firebase:", err.message);
+      alert("❌ Ghi không thành công. Vui lòng kiểm tra mạng hoặc ấn gửi lại kết quả.");
+    }
+  } else {
+    alert("⚠️ Hệ thống chưa sẵn sàng để ghi kết quả. Vui lòng thử lại hoặc báo cho giáo viên.");
+  }
+}
+
+
+
+// ================== BẢNG TUẦN TỪ FIREBASE ==================
+async function renderStudentWeekSummary() {
+  const isVerified = localStorage.getItem("isVerifiedStudent") === "true";
+  if (!isVerified) {
+    alert("❌ Bạn chưa được xác thực, không thể xem kết quả tuần.");
+    return;
+  }
+
+  const entryToday = getTodayEntry();
+
+  // Khởi tạo Firebase
+  const { initializeApp, getApp } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js");
+  const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js");
+
+  // Giữ nguyên cấu hình Firebase của Anh (đặt đúng như trong HTML)
+  const firebaseConfig = window.__FIREBASE_CONFIG__ || {
+    // Nếu Anh đã khởi tạo app ở HTML, có thể dùng getApp() ở dưới
+  };
+
+  let app;
+  try { app = initializeApp(firebaseConfig); } catch { app = getApp(); }
+  const db = getFirestore(app);
+
+  // ✅ Lấy summary chung
+  const ref = doc(db, "tonghop", `summary-${entryToday.class}-recent`);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    alert("⚠️ Chưa có dữ liệu tổng hợp cho lớp này.");
+    return;
+  }
+
+  const data = snap.data();
+  const allDates = [...(data.days || [])].sort((a,b)=>b.localeCompare(a));
+  const dayData = data.dayData || {};
+
+  // Gom dữ liệu của học sinh này
+  const entries = [];
+  for (const dateCode of allDates) {
+    const students = dayData[dateCode] || {};
+    if (students[entryToday.name]) {
+      entries.push({ date: dateCode, ...students[entryToday.name] });
+    }
+  }
+
+  // Lấy 7 ngày gần nhất
+  const recentEntries = entries.slice(0,7);
+
+  // Render bảng
+  const tbody = document.getElementById("weeklySummaryBody");
+  tbody.innerHTML = "";
+  recentEntries.forEach(e => {
+    const dateCode = e.date;
+    const date = `${dateCode.slice(0,2)}-${dateCode.slice(2,4)}-${dateCode.slice(4)}`;
+    const row = `
+      <tr>
+        <td>${date}</td>
+        <td>${e.score}</td>
+        <td>${e.max}</td>
+        <td>${e.doneParts}</td>
+        <td>${e.rating}</td>
+        <td><button onclick="deleteStudentDayResult('${dateCode}')">🗑️ Xoá</button></td>
+      </tr>
+    `;
+    tbody.innerHTML += row;
+  });
+
+
+  document.getElementById("weeklySummarySection").style.display = "block";
+}
+async function deleteStudentDayResult(dateCode) {
+  // Hiện popup nhập mật khẩu
+  const password = prompt("🔑 Nhập mật khẩu để xoá kết quả:");
+
+  if (password !== "1111") {
+    alert("❌ Mật khẩu sai. Không thể xoá kết quả.");
+    return; // dừng lại, không xoá
+  }
+
+  const entryToday = getTodayEntry();
+
+  const { initializeApp, getApp } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js");
+  const { getFirestore, doc, getDoc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js");
+
+  const firebaseConfig = window.__FIREBASE_CONFIG__ || {};
+  let app;
+  try { app = initializeApp(firebaseConfig); } catch { app = getApp(); }
+  const db = getFirestore(app);
+
+  const ref = doc(db, "tonghop", `summary-${entryToday.class}-recent`);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    alert("⚠️ Không tìm thấy dữ liệu để xoá.");
+    return;
+  }
+
+  const data = snap.data();
+  const dayData = data.dayData || {};
+
+  if (dayData[dateCode] && dayData[dateCode][entryToday.name]) {
+    delete dayData[dateCode][entryToday.name]; // xoá học sinh khỏi ngày đó
+
+    await updateDoc(ref, { dayData });
+    alert(`✅ Đã xoá kết quả ngày ${dateCode} của ${entryToday._displayName}`);
+    // Refresh lại bảng
+    renderStudentWeekSummary();
+  } else {
+    alert("⚠️ Không có dữ liệu của bạn trong ngày này.");
+  }
+}
+
+// 👇 để HTML gọi được
+window.deleteStudentDayResult = deleteStudentDayResult;
+
+// ================== GẮN SỰ KIỆN ==================
+document.getElementById("saveResultBtn").addEventListener("click", saveTodayResult);
+document.getElementById("weeklySummaryBtn").addEventListener("click", renderStudentWeekSummary);
