@@ -287,11 +287,11 @@
         ];
 
         const DOOR_CONFIG = { top: '50%', left: '50%', width: '7%' };
-        const MAP_CONFIG  = { top: '75%', left: '50%', width: '8%' };
+        const MAP_CONFIG  = { top: '75%', left: '50%', width: '16%' };
 
         const TRAINER_URL = name => `https://play.pokemonshowdown.com/sprites/trainers/${name}.png`;
         const POKEMON_URL  = name => `https://play.pokemonshowdown.com/sprites/ani/${name}.gif`;
-        const POKEBALL_URL = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png';
+        const POKEBALL_URL = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/town-map.png';
         const DOOR_ICON = '🚪';
         const FALLBACK_TRAINER = 'https://play.pokemonshowdown.com/sprites/trainers/acetrainer.png';
 
@@ -371,7 +371,7 @@
                     <text x="50" y="80" font-size="46" text-anchor="middle">${DOOR_ICON}</text>
                  </svg>`),
             label: 'Thoát',
-            onClick: () => { window.__pkmGoExit(); }
+            onClick: openDoorDialogue
         });
 
         /* ---------- Quả cầu Pokémon (World Map) ---------- */
@@ -459,6 +459,36 @@
 
             dlgChoices.appendChild(yesBtn);
             dlgChoices.appendChild(noBtn);
+
+            dlgOverlay.classList.add('open');
+            speakEnglish(qEn);
+        }
+        function openDoorDialogue() {
+            dlgPortrait.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                    <rect width="100" height="100" fill="#2c1f15"/>
+                    <text x="50" y="66" font-size="46" text-anchor="middle">🚪</text>
+                 </svg>`);
+            dlgPortrait.onerror = null;
+            dlgName.textContent = 'Cổng Ra';
+            const qEn = 'Do you want to save your results, or exit the game?';
+            const qVn = 'Bạn muốn lưu kết quả, hay thoát trò chơi?';
+            dlgQEn.textContent = qEn;
+            dlgQVn.textContent = qVn;
+
+            dlgChoices.innerHTML = '';
+            const saveBtn = document.createElement('a');
+            saveBtn.href = 'pkm_results.html';
+            saveBtn.className = 'dlg-choice-btn confirm';
+            saveBtn.innerHTML = `<span class="dlg-choice-en">A. Save Results</span><span class="dlg-choice-vn">Lưu kết quả</span>`;
+
+            const exitBtn = document.createElement('div');
+            exitBtn.className = 'dlg-choice-btn danger';
+            exitBtn.innerHTML = `<span class="dlg-choice-en">B. Exit Game</span><span class="dlg-choice-vn">Thoát trò chơi</span>`;
+            exitBtn.addEventListener('click', () => { closeDialogue(); window.__pkmGoExit(); });
+
+            dlgChoices.appendChild(saveBtn);
+            dlgChoices.appendChild(exitBtn);
 
             dlgOverlay.classList.add('open');
             speakEnglish(qEn);
