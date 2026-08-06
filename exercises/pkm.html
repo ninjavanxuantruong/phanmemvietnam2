@@ -286,7 +286,7 @@
             }
         ];
 
-        const DOOR_CONFIG = { top: '50%', left: '50%', width: '7%' };
+        const DOOR_CONFIG = { top: '30%', left: '50%', width: '7%' };
         const MAP_CONFIG  = { top: '75%', left: '50%', width: '16%' };
 
         const TRAINER_URL = name => `https://play.pokemonshowdown.com/sprites/trainers/${name}.png`;
@@ -573,8 +573,8 @@
     <!-- ✅ nạp file đồng bộ điểm học tập (bao gồm cả Battle) -->
     <script type="module" src="pkm_sync_score.js"></script>
     <script>
-        window.__pkmGoExit = function () {
-            const href = '../exercise.html';
+            window.__pkmGoExit = function () {
+                const href = '../index.html';
             const goNow = () => window.location.href = href;
             if (window.syncLearningResultToFirebase) {
                 window.syncLearningResultToFirebase().finally(goNow);
