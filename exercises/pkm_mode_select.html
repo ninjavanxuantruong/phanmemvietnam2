@@ -83,6 +83,9 @@
     .mode-card.block { border-color: rgba(52,152,219,0.5); }
     .mode-card.block:hover { border-color: #3498db; background: rgba(52,152,219,0.08); }
 
+    .mode-card.race { border-color: rgba(46,204,113,0.5); }
+    .mode-card.race:hover { border-color: #2ecc71; background: rgba(46,204,113,0.08); }
+
     #warnBox {
         display: none;
         margin-top: 20px;
@@ -101,6 +104,15 @@
         <div class="mode-lesson" id="lessonLabel">Đang tải bài học...</div>
 
         <div class="mode-cards">
+            
+
+            <div class="mode-card" id="pickSkills" style="border-color: rgba(155,89,182,0.5);">
+                <div class="mode-icon">🎓</div>
+                <div class="mode-info">
+                    <h3>Học Theo Kỹ Năng</h3>
+                    <p>Giới thiệu từ vựng, Nghe, Nói, Đọc, Viết — học bài bản cho bài chưa thuộc.</p>
+                </div>
+            </div>
             <div class="mode-card battle" id="pickBattle">
                 <div class="mode-icon">⚔️</div>
                 <div class="mode-info">
@@ -115,6 +127,30 @@
                     <h3>Block Blast</h3>
                     <p>Xếp khối phá hàng để ghi điểm. Cứ ít giây có 1 câu hỏi — trả lời
                        đúng chơi tiếp bình thường, sai thì bị tự ghép 1 khối xấu vào bàn cờ.</p>
+                </div>
+            </div>
+
+            <div class="mode-card block" id="pickTower">
+                <div class="mode-icon">🧱</div>
+                <div class="mode-info">
+                    <h3>Tower</h3>
+                    <p>Trò chơi thủ thành</p>
+                </div>
+            </div>
+
+            <div class="mode-card race" id="pickRace">
+                <div class="mode-icon">🏎️</div>
+                <div class="mode-info">
+                    <h3>Đường Đua Pokémon</h3>
+                    <p>Né chướng ngại vật, ăn vàng, và lái đúng làn đáp án khi câu hỏi hiện ra.</p>
+                </div>
+            </div>
+
+            <div class="mode-card" id="pickExercise" style="border-color: rgba(46,204,113,0.5);">
+                <div class="mode-icon">📚</div>
+                <div class="mode-info">
+                    <h3>Bài Tập Khác</h3>
+                    <p>Vocabulary, Listening, Speaking, Reading, Writing... các dạng bài tập truyền thống.</p>
                 </div>
             </div>
         </div>
@@ -154,6 +190,19 @@
             };
             document.getElementById('pickBlock').onclick = () => {
                 window.location.href = 'pkm_block.html';
+            };
+            document.getElementById('pickTower').onclick = () => {
+                window.location.href = 'pkm_tower.html';
+            };
+            document.getElementById('pickRace').onclick = () => {
+                window.location.href = 'pkm_race.html';
+            };
+            // mới
+            document.getElementById('pickExercise').onclick = () => {
+                window.location.href = '../exercise.html';
+            };
+            document.getElementById('pickSkills').onclick = () => {
+                window.location.href = 'all-shared.html';
             };
         })();
     </script>
