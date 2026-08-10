@@ -248,12 +248,13 @@ function askMCQWithReplay(cfg) {
         <div style="text-align:center;margin:10px 0 14px;">
           <button class="poke-btn blue" id="pklMcqReplayBtn" ${hasLimit && replayLeft <= 0 ? "disabled" : ""}>${replayLabel}</button>
         </div>
-        <div class="pkl-mcq-options ${hasImages ? "pkl-img-mode" : ""}" id="pklMcqOptions"></div>
+        <div id="pklMcqStage"></div>
         <div class="pkl-mcq-feedback" id="pklMcqFeedback"></div>
       `;
-      const optWrap = container.querySelector("#pklMcqOptions");
+      const stage = container.querySelector("#pklMcqStage");
       const feedback = container.querySelector("#pklMcqFeedback");
       const replayBtn = container.querySelector("#pklMcqReplayBtn");
+      let locked = false;
 
       replayBtn.onclick = async () => {
         if (hasLimit && replayUsed >= maxReplay) return;
@@ -267,52 +268,69 @@ function askMCQWithReplay(cfg) {
         else { replayBtn.disabled = true; replayBtn.textContent = "🔊 Hết lượt nghe lại"; }
       };
 
-      options.forEach(opt => {
-        const btn = document.createElement(opt.imageUrl ? "div" : "button");
-        btn.className = "pkl-mcq-btn" + (opt.imageUrl ? " pkl-mcq-img" : "");
-        btn.dataset.value = opt.value;
-        btn.innerHTML = opt.imageUrl
-          ? `<div class="img-wrap">
-               <img src="${opt.imageUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/>
-               <div class="img-fallback" style="display:none;">🖼️</div>
-             </div>
-             <div class="lbl">${opt.label}</div>`
-          : `<span>${opt.label}</span>`;
-        if (reveal && opt.value === correctValue) btn.classList.add("pkl-reveal");
+      // ─── Xử lý 1 lượt chọn đáp án — dùng chung cho cả nút bấm thường lẫn
+      // minigame, y hệt cách askMCQ() trong all-shared.js làm.
+      const handlePick = async (value, pickedEl) => {
+        if (locked) return;
+        locked = true;
+        replayBtn.disabled = true;
 
-        btn.onclick = async () => {
-          if (container.dataset.locked === "1") return;
-          container.dataset.locked = "1";
-          optWrap.querySelectorAll(".pkl-mcq-btn").forEach(b => b.classList.add("pkl-locked"));
-          replayBtn.disabled = true;
+        const isCorrect = value === correctValue;
+        if (isCorrect) {
+          pickedEl?.classList.add("pkl-correct-flash", "pkl-reveal");
+          feedback.textContent = "🎉 " + randomPick(POSITIVE_FEEDBACK);
+          feedback.style.color = "#69f0ae";
+          const attemptsUsed = tracker.attempt;
+          await new Promise(r => setTimeout(r, 1200));
+          resolve(attemptsUsed);
+        } else {
+          pickedEl?.classList.add("pkl-wrong-flash");
+          feedback.textContent = "💡 " + randomPick(ENCOURAGE_RETRY);
+          feedback.style.color = "#ffd54f";
+          const retryBtn = document.createElement("button");
+          retryBtn.className = "poke-btn yellow";
+          retryBtn.style.marginTop = "10px";
+          retryBtn.textContent = "🔄 Try again";
+          retryBtn.onclick = () => { goToNextAttempt(tracker); render(); };
+          feedback.after(retryBtn);
+        }
+      };
 
-          const isCorrect = opt.value === correctValue;
-          if (isCorrect) {
-            btn.classList.add("pkl-correct-flash", "pkl-reveal");
-            feedback.textContent = "🎉 " + randomPick(POSITIVE_FEEDBACK);
-            feedback.style.color = "#69f0ae";
-            const attemptsUsed = tracker.attempt;
-            await new Promise(r => setTimeout(r, 1200));
-            resolve(attemptsUsed);
-          } else {
-            btn.classList.add("pkl-wrong-flash");
-            optWrap.querySelectorAll(".pkl-mcq-btn").forEach(b => {
-              if (b.dataset.value === correctValue) b.classList.add("pkl-reveal");
-            });
-            feedback.textContent = "💡 " + randomPick(ENCOURAGE_RETRY);
-            feedback.style.color = "#ffd54f";
-            const retryBtn = document.createElement("button");
-            retryBtn.className = "poke-btn yellow";
-            retryBtn.style.marginTop = "10px";
-            retryBtn.textContent = "🔄 Try again";
-            retryBtn.onclick = () => { goToNextAttempt(tracker); render(); };
-            feedback.after(retryBtn);
-          }
-        };
-        optWrap.appendChild(btn);
-      });
+      const useMinigame = !!(
+        window.PkmMinigameRouter && window.PkmMinigameRouter.hasSupportedGame(options)
+      );
 
-      container.dataset.locked = "0";
+      if (useMinigame) {
+        window.PkmMinigameRouter.play({
+          stage, options, correctValue, reveal, hasImages,
+          onAnswer: (value, el) => handlePick(value, el),
+        });
+      } else {
+        const optWrap = document.createElement("div");
+        optWrap.className = "pkl-mcq-options " + (hasImages ? "pkl-img-mode" : "");
+        optWrap.id = "pklMcqOptions";
+        stage.appendChild(optWrap);
+
+        options.forEach(opt => {
+          const btn = document.createElement(opt.imageUrl ? "div" : "button");
+          btn.className = "pkl-mcq-btn" + (opt.imageUrl ? " pkl-mcq-img" : "");
+          btn.dataset.value = opt.value;
+          btn.innerHTML = opt.imageUrl
+            ? `<div class="img-wrap">
+                 <img src="${opt.imageUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/>
+                 <div class="img-fallback" style="display:none;">🖼️</div>
+               </div>
+               <div class="lbl">${opt.label}</div>`
+            : `<span>${opt.label}</span>`;
+          if (reveal && opt.value === correctValue) btn.classList.add("pkl-reveal");
+
+          btn.onclick = () => {
+            optWrap.querySelectorAll(".pkl-mcq-btn").forEach(b => b.classList.add("pkl-locked"));
+            handlePick(opt.value, btn);
+          };
+          optWrap.appendChild(btn);
+        });
+      }
       await speakInstructionOnce(instructionKey, instructionText);
       if (replayText && !autoPlayed) {
         autoPlayed = true;
@@ -625,6 +643,8 @@ export async function runListeningModule(ctx) {
     await randomPick(candidates)();
   }
 
+// mới
   saveListeningResult(tracker.assessScore, tracker.total);
   await showTransition("🎉", "Great listening!", "You did an amazing job!");
+  return { assessScore: tracker.assessScore, assessTotal: tracker.total };
 }
