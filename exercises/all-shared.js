@@ -475,59 +475,84 @@ export function askMCQ(cfg) {
       const reveal = shouldRevealAnswer(tracker);
       container.innerHTML = `
         <div class="pkl-mcq-question">${questionHTML}</div>
-        <div class="pkl-mcq-options ${hasImages ? "pkl-img-mode" : ""}" id="pklMcqOptions"></div>
+        <div id="pklMcqStage"></div>
         <div class="pkl-mcq-feedback" id="pklMcqFeedback"></div>
       `;
-      const optWrap = container.querySelector("#pklMcqOptions");
+      const stage = container.querySelector("#pklMcqStage");
       const feedback = container.querySelector("#pklMcqFeedback");
+      let locked = false;
 
-      options.forEach(opt => {
-        const btn = document.createElement(opt.imageUrl ? "div" : "button");
-        btn.className = "pkl-mcq-btn" + (opt.imageUrl ? " pkl-mcq-img" : "");
-        btn.dataset.value = opt.value;
-        btn.innerHTML = opt.imageUrl
-          ? `<div class="img-wrap">
-               <img src="${opt.imageUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/>
-               <div class="img-fallback" style="display:none;">🖼️</div>
-             </div>
-             <div class="lbl">${opt.label}</div>`
-          : `<span>${opt.label}</span>`;
-        if (reveal && opt.value === correctValue) btn.classList.add("pkl-reveal");
+      // ─── Xử lý 1 lượt chọn đáp án — DÙNG CHUNG cho cả nút bấm thường lẫn
+      // minigame (đua xe, bắn bóng...) bên dưới, để feedback/attempt/reveal
+      // luôn nhất quán bất kể học sinh chọn kiểu gì. `pickedEl` (tuỳ chọn)
+      // là phần tử đại diện cho lựa chọn đó, dùng để gắn hiệu ứng đúng/sai.
+      const handlePick = async (value, pickedEl) => {
+        if (locked) return;
+        locked = true;
 
-        btn.onclick = async () => {
-          if (container.dataset.locked === "1") return;
-          container.dataset.locked = "1";
-          optWrap.querySelectorAll(".pkl-mcq-btn").forEach(b => b.classList.add("pkl-locked"));
+        const opt = options.find(o => o.value === value) || {};
+        await speakByLang(opt.speakText || opt.label || value, optionLang, rate);
 
-          await speakByLang(opt.speakText || opt.label, optionLang, rate);
+        const isCorrect = value === correctValue;
+        if (isCorrect) {
+          pickedEl?.classList.add("pkl-correct-flash", "pkl-reveal");
+          feedback.textContent = "🎉 " + randomPick(POSITIVE_FEEDBACK);
+          feedback.style.color = "#69f0ae";
+          const attemptsUsed = tracker.attempt;
+          await new Promise(r => setTimeout(r, 1200));
+          resolve(attemptsUsed);
+        } else {
+          pickedEl?.classList.add("pkl-wrong-flash");
+          feedback.textContent = "💡 " + randomPick(ENCOURAGE_RETRY);
+          feedback.style.color = "#ffd54f";
+          const retryBtn = document.createElement("button");
+          retryBtn.className = "poke-btn yellow";
+          retryBtn.style.marginTop = "10px";
+          retryBtn.textContent = "🔄 Try again";
+          retryBtn.onclick = () => { goToNextAttempt(tracker); render(); };
+          feedback.after(retryBtn);
+        }
+      };
 
-          const isCorrect = opt.value === correctValue;
-          if (isCorrect) {
-            btn.classList.add("pkl-correct-flash", "pkl-reveal");
-            feedback.textContent = "🎉 " + randomPick(POSITIVE_FEEDBACK);
-            feedback.style.color = "#69f0ae";
-            const attemptsUsed = tracker.attempt;
-            await new Promise(r => setTimeout(r, 1200));
-            resolve(attemptsUsed);
-          } else {
-            btn.classList.add("pkl-wrong-flash");
-            optWrap.querySelectorAll(".pkl-mcq-btn").forEach(b => {
-              if (b.dataset.value === correctValue) b.classList.add("pkl-reveal");
-            });
-            feedback.textContent = "💡 " + randomPick(ENCOURAGE_RETRY);
-            feedback.style.color = "#ffd54f";
-            const retryBtn = document.createElement("button");
-            retryBtn.className = "poke-btn yellow";
-            retryBtn.style.marginTop = "10px";
-            retryBtn.textContent = "🔄 Try again";
-            retryBtn.onclick = () => { goToNextAttempt(tracker); render(); };
-            feedback.after(retryBtn);
-          }
-        };
-        optWrap.appendChild(btn);
-      });
+      // ─── Ưu tiên MINIGAME nếu có sẵn game hợp với số lượng đáp án hiện
+      // tại (2/3/4/5 đều tự lọc qua PkmMinigameRouter) — không thì fallback
+      // về nút bấm A/B/C/D như cũ, KHÔNG game nào chơi được cũng không sao.
+      const useMinigame = !!(
+        window.PkmMinigameRouter && window.PkmMinigameRouter.hasSupportedGame(options)
+      );
 
-      container.dataset.locked = "0";
+      if (useMinigame) {
+        window.PkmMinigameRouter.play({
+          stage, options, correctValue, reveal, hasImages,
+          onAnswer: (value, el) => handlePick(value, el),
+        });
+      } else {
+        const optWrap = document.createElement("div");
+        optWrap.className = "pkl-mcq-options " + (hasImages ? "pkl-img-mode" : "");
+        optWrap.id = "pklMcqOptions";
+        stage.appendChild(optWrap);
+
+        options.forEach(opt => {
+          const btn = document.createElement(opt.imageUrl ? "div" : "button");
+          btn.className = "pkl-mcq-btn" + (opt.imageUrl ? " pkl-mcq-img" : "");
+          btn.dataset.value = opt.value;
+          btn.innerHTML = opt.imageUrl
+            ? `<div class="img-wrap">
+                 <img src="${opt.imageUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/>
+                 <div class="img-fallback" style="display:none;">🖼️</div>
+               </div>
+               <div class="lbl">${opt.label}</div>`
+            : `<span>${opt.label}</span>`;
+          if (reveal && opt.value === correctValue) btn.classList.add("pkl-reveal");
+
+          btn.onclick = () => {
+            optWrap.querySelectorAll(".pkl-mcq-btn").forEach(b => b.classList.add("pkl-locked"));
+            handlePick(opt.value, btn);
+          };
+          optWrap.appendChild(btn);
+        });
+      }
+
       await speakInstructionOnce(instructionKey, instructionText);
       if (speakPromptText) await speakByLang(speakPromptText, promptLang, rate);
     };
@@ -788,55 +813,38 @@ export function recordSpeakingAttempt(tracker, isRecognizedCorrect) {
 //  - Module 5 Viết          -> result_overview    (score1/total1, giữ đúng slot all.js cũ dùng)
 // ============================================================================
 
-function mergeAndSave(storageKey, patch) {
-  const raw = localStorage.getItem(storageKey);
-  const prev = raw ? JSON.parse(raw) : {};
-  const next = { ...prev, ...patch };
-  localStorage.setItem(storageKey, JSON.stringify(next));
-  return next;
+// mới — thay bằng khối này
+// Ghi cộng dồn vào pkm_skill_scores — CÙNG 1 nguồn Battle đang dùng (qua
+// pkm_score.js), để summary.js/pkm_sync_score.js tự cộng đúng, không cần
+// sửa gì thêm ở summary.js.
+function mergeSkillScore(skillKey, correctDelta, totalDelta) {
+  const raw = localStorage.getItem("pkm_skill_scores");
+  const skills = raw ? JSON.parse(raw) : {};
+  if (!skills[skillKey]) skills[skillKey] = { correct: 0, total: 0 };
+  skills[skillKey].correct += correctDelta;
+  skills[skillKey].total += totalDelta;
+  localStorage.setItem("pkm_skill_scores", JSON.stringify(skills));
+  return skills[skillKey];
 }
 
 export function saveIntroResult(assessScore, assessTotal) {
-  return mergeAndSave("result_vocabulary", {
-    scoreV1: assessScore, totalV1: assessTotal,
-    score: assessScore + 0, total: assessTotal + 0,
-  });
+  return mergeSkillScore("intro", assessScore, assessTotal);
 }
 
 export function saveListeningResult(assessScore, assessTotal) {
-  const prevRaw = localStorage.getItem("result_listening");
-  const prev = prevRaw ? JSON.parse(prevRaw) : {};
-  return mergeAndSave("result_listening", {
-    score1: assessScore, total1: assessTotal,
-    score: assessScore + (prev.score2 || 0) + (prev.score3 || 0),
-    total: assessTotal + (prev.total2 || 0) + (prev.total3 || 0),
-  });
+  return mergeSkillScore("listening", assessScore, assessTotal);
 }
 
 export function saveSpeakingResult(assessScore, assessTotal) {
-  const prevRaw = localStorage.getItem("result_speaking");
-  const prev = prevRaw ? JSON.parse(prevRaw) : {};
-  return mergeAndSave("result_speaking", {
-    score2: assessScore, total2: assessTotal,
-    score: (prev.score1 || 0) + assessScore + (prev.score3 || 0),
-    total: (prev.total1 || 0) + assessTotal + (prev.total3 || 0),
-  });
+  return mergeSkillScore("speaking", assessScore, assessTotal);
 }
 
 export function saveWritingResult(assessScore, assessTotal) {
-  const prevRaw = localStorage.getItem("result_overview");
-  const prev = prevRaw ? JSON.parse(prevRaw) : {};
-  return mergeAndSave("result_overview", {
-    score1: assessScore, total1: assessTotal,
-    score: assessScore + (prev.score2 || 0) + (prev.score3 || 0),
-    total: assessTotal + (prev.total2 || 0) + (prev.total3 || 0),
-  });
+  return mergeSkillScore("writing", assessScore, assessTotal);
 }
 
 export function saveReadingResult(assessScore, assessTotal) {
-  return mergeAndSave("result_reading", {
-    score: assessScore, total: assessTotal,
-  });
+  return mergeSkillScore("reading", assessScore, assessTotal);
 }
 
 // ============================================================================
