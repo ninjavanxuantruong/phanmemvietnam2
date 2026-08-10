@@ -475,6 +475,8 @@ export async function runReadingModule(ctx) {
     await randomPick(candidates)();
   }
 
+// mới
   saveReadingResult(tracker.assessScore, tracker.total);
   await showTransition("🎉", "Great reading!", "You're becoming a great reader!");
+  return { assessScore: tracker.assessScore, assessTotal: tracker.total };
 }
