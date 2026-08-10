@@ -453,6 +453,8 @@ export async function runSpeakingModule(ctx) {
     }
   }
 
+// mới
   saveSpeakingResult(tracker.assessScore, tracker.total);
   await showTransition("🎉", "Great speaking!", "Your English is getting better and better!");
+  return { assessScore: tracker.assessScore, assessTotal: tracker.total };
 }
