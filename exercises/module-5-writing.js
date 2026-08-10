@@ -515,6 +515,8 @@ export async function runWritingModule(ctx) {
     await randomPick(candidates)();
   }
 
+// mới
   saveWritingResult(tracker.assessScore, tracker.total);
   await showTransition("🎉", "Great writing!", "Look how much English you can write now!");
+  return { assessScore: tracker.assessScore, assessTotal: tracker.total };
 }
