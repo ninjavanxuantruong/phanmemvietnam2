@@ -149,7 +149,16 @@
   <script src="tacham.js"></script>
   <script src="imagecache2.js"></script>
 
+  <!-- MINIGAME TRẢ LỜI TRẮC NGHIỆM — PHẢI nạp TRƯỚC all-orchestrator.js để
+       window.PkmMinigameRouter sẵn sàng lúc askMCQ() chạy. Thêm game mới thì
+       chỉ cần thêm 1 dòng <script> ở đây, game tự đăng ký vào router. -->
+  <script src="pkm_minigame_router.js"></script>
+  <script src="pkm_minigame_race.js"></script>
+
   <!-- ĐIỀU PHỐI CHÍNH (module) -->
+  <!-- thêm -->
+  <script src="pkm_score.js"></script>
+  <script src="pkm_sync_score.js" type="module"></script>
   <script type="module" src="all-orchestrator.js"></script>
 </body>
 </html>
