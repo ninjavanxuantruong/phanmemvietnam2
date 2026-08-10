@@ -860,6 +860,8 @@ export async function runIntroModule(ctx) {
   await showTransition("🧠", "Quick check!", "Let's see if you remember the meanings!");
   await runStage4(rootEl, sessionVocab, poolData, level, tracker);
 
+// mới
   saveIntroResult(tracker.assessScore, tracker.total);
   await showTransition("🎉", "Awesome!", "You've learned all the new words today!");
+  return { assessScore: tracker.assessScore, assessTotal: tracker.total };
 }
