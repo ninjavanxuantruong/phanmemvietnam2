@@ -151,6 +151,7 @@ function _getViAudioCtx() {
   if (_viAudioCtx.state === "suspended") _viAudioCtx.resume();
   return _viAudioCtx;
 }
+// mới
 export function speakVI(text, speed = 0.9) {
   return new Promise(async resolve => {
     if (!text) return resolve();
@@ -159,7 +160,17 @@ export function speakVI(text, speed = 0.9) {
       let buf = _viAudioCache.get(key);
       if (!buf) {
         const url = `${VI_TTS_BASE}/tts?q=${encodeURIComponent(text)}&speed=${speed}&lang=vi-VN&voice=`;
-        const res = await fetch(url);
+        // Cầu chì mạng: server TTS chạy trên Render free-tier có thể "ngủ đông"
+        // và phản hồi rất chậm/không phản hồi — không giới hạn thời gian thì
+        // fetch() có thể treo rất lâu, kéo theo mọi nơi await speakVI(...) đơ theo.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        let res;
+        try {
+          res = await fetch(url, { signal: controller.signal });
+        } finally {
+          clearTimeout(timeoutId);
+        }
         if (!res.ok) throw new Error("VI TTS fail");
         const ab = await res.arrayBuffer();
         buf = await _getViAudioCtx().decodeAudioData(ab);
@@ -333,6 +344,7 @@ export function initTTSVoice() {
 }
 
 /** Đọc 1 câu tiếng Anh, trả Promise khi đọc XONG. Luôn await trước khi cho tương tác tiếp. */
+// mới
 export function speakEN(text, rate = 1) {
   return new Promise(resolve => {
     if (!text) return resolve();
@@ -342,9 +354,14 @@ export function speakEN(text, rate = 1) {
     u.lang = "en-US";
     u.voice = ttsVoice;
     u.rate = rate;
-    const done = () => { ttsBusy = false; resolve(); };
-    u.onend = done;
-    u.onerror = done;
+    let done_ = false;
+    const done = () => { if (done_) return; done_ = true; ttsBusy = false; resolve(); };
+    // Cầu chì an toàn: speechSynthesis đôi lúc KHÔNG BAO GIỜ bắn onend/onerror
+    // (lỗi có thật của trình duyệt) — không có cầu chì này thì mọi await
+    // speakEN(...) phía sau treo vĩnh viễn, làm cả module đứng hình.
+    const safety = setTimeout(done, Math.max((text.length * 130) / (rate || 1), 4000));
+    u.onend = () => { clearTimeout(safety); done(); };
+    u.onerror = () => { clearTimeout(safety); done(); };
     window.speechSynthesis.speak(u);
   });
 }
@@ -588,11 +605,22 @@ export async function startRecording(maxMs = 4000) {
 }
 
 /** Gửi audio lên server Whisper, trả về chữ nhận dạng được. null = lỗi kỹ thuật (server chưa dậy/mất mạng...) */
+// mới
 export async function transcribeAudio(blob) {
   try {
     const form = new FormData();
     form.append("audio", blob, "speech.webm");
-    const res = await fetch(`${WHISPER_SERVER_URL}/transcribe`, { method: "POST", body: form });
+    // Cầu chì mạng: server Whisper cũng chạy trên Render free-tier, cùng nguy
+    // cơ "ngủ đông" như server TTS tiếng Việt — không giới hạn thì có thể treo
+    // rất lâu ở màn "Đang kiểm tra..." khiến phần Nói đứng hình.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    let res;
+    try {
+      res = await fetch(`${WHISPER_SERVER_URL}/transcribe`, { method: "POST", body: form, signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!res.ok) throw new Error("transcribe failed: " + res.status);
     const data = await res.json();
     return data.text || "";
