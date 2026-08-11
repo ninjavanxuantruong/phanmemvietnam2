@@ -34,6 +34,7 @@ function _getViAudioCtx() {
     if (_viAudioCtx.state === "suspended") _viAudioCtx.resume();
     return _viAudioCtx;
 }
+// mới
 function speakVI(text, speed = 0.9) {
     return new Promise(async (resolve) => {
         if (!text) return resolve();
@@ -42,7 +43,17 @@ function speakVI(text, speed = 0.9) {
             let buf = _viAudioCache.get(key);
             if (!buf) {
                 const url = `${VI_TTS_BASE}/tts?q=${encodeURIComponent(text)}&speed=${speed}&lang=vi-VN&voice=`;
-                const res = await fetch(url);
+                // Cầu chì mạng: server TTS chạy trên Render free-tier có thể "ngủ
+                // đông" và phản hồi rất chậm/không phản hồi — không giới hạn thời
+                // gian thì fetch() có thể treo rất lâu.
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+                let res;
+                try {
+                    res = await fetch(url, { signal: controller.signal });
+                } finally {
+                    clearTimeout(timeoutId);
+                }
                 if (!res.ok) throw new Error("VI TTS fail");
                 const ab = await res.arrayBuffer();
                 buf = await _getViAudioCtx().decodeAudioData(ab);
@@ -900,6 +911,7 @@ const coreMethods = {
         });
     },
 
+    // mới
     async speak(text, rate) {
         return new Promise((resolve) => {
             window.speechSynthesis.cancel();
@@ -907,14 +919,22 @@ const coreMethods = {
             const utter = new SpeechSynthesisUtterance(text);
             utter.lang = "en-US";
             utter.rate = rate != null ? rate : (this.cfg ? this.cfg.ttsRate : 0.9);
-            utter.onend = () => resolve();
-            utter.onerror = () => resolve();
+            let done = false;
+            const finish = () => { if (done) return; done = true; resolve(); };
+            // Cầu chì an toàn: speechSynthesis đôi lúc KHÔNG BAO GIỜ bắn onend/onerror
+            // (lỗi có thật, đặc biệt sau cancel() gọi liên tiếp nhiều lần) — không có
+            // cầu chì này thì mọi await this.speak(...) phía sau treo vĩnh viễn, kéo
+            // theo cả trận đấu/game đứng hình.
+            const safety = setTimeout(finish, Math.max((text.length * 130) / (utter.rate || 1), 4000));
+            utter.onend = () => { clearTimeout(safety); finish(); };
+            utter.onerror = () => { clearTimeout(safety); finish(); };
             window.speechSynthesis.speak(utter);
         });
     },
 
     // Giọng thứ 2 dùng cho hội thoại (listening4): ưu tiên 2 giọng khác nhau nếu
     // máy có sẵn, nếu không thì phân biệt bằng pitch để học sinh vẫn nghe ra 2 vai.
+    // mới
     async speakAs(text, voiceRole = "A") {
         return new Promise((resolve) => {
             window.speechSynthesis.cancel();
@@ -930,8 +950,11 @@ const coreMethods = {
                 utter.pitch = 1.3;
             }
             utter.rate = this.cfg ? this.cfg.ttsRate : 0.9;
-            utter.onend = () => resolve();
-            utter.onerror = () => resolve();
+            let done = false;
+            const finish = () => { if (done) return; done = true; resolve(); };
+            const safety = setTimeout(finish, Math.max((text.length * 130) / (utter.rate || 1), 4000));
+            utter.onend = () => { clearTimeout(safety); finish(); };
+            utter.onerror = () => { clearTimeout(safety); finish(); };
             window.speechSynthesis.speak(utter);
         });
     },
