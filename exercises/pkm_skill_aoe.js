@@ -251,79 +251,113 @@ window.SkillManager = {
     // spawnDefault nên chưa cần khai báo — thêm dần khi viết chiêu mới.
     skillMeta: {
         fire: {
-            spawnFire1: 'Fire Rune',              // Trận pháp lửa thư pháp
-            spawnFire3: 'Infernal Spirit Rush',    // Bản thể Thần Lửa khổng lồ
-            spawnFire4: 'Solar Flare',             // ★ Skill toàn màn hình
+            spawnFire1: 'Meteor Descent',          // ★ mưa thiên thạch từ trời (dự trù, chưa code)
+            spawnFire2: 'Wildfire Torrent',         // Trận pháp lửa thư pháp
+            spawnFire3: 'Infernal Spirit Rush',     // Bản thể Thần Lửa khổng lồ
+            spawnFire4: 'Solar Flare',              // ★ Skill toàn màn hình
         },
         electric: {
             spawnElectric:  'Thunderbolt',
-            spawnElectric1: 'Thunderstorm',
-            spawnElectric3: 'Thunder Spirit Rush', // Bản thể Thần Sấm khổng lồ
+            spawnElectric1: 'Thunderstorm Descent', // ★ skill mới (giáng thế) — đang làm
+            spawnElectric3: 'Thunder Spirit Rush',  // Bản thể Thần Sấm khổng lồ
             spawnElectric4: 'Static Burst',         // ★ Skill toàn màn hình
+            spawnElectric5: 'Thunderstorm',         // tên cũ của spawnElectric1 (đổi tên hàm)
         },
         water: {
+            spawnWater1: 'Tidal Descent',           // ★ cột nước/vòi rồng giáng từ trời (dự trù)
+            spawnWater2: 'Tidal Onslaught',
             spawnWater3: 'Tidal Spirit Rush',       // Bản thể Thần Nước khổng lồ
             spawnWater4: 'Tsunami Surge',           // ★
         },
         grass: {
+            spawnGrass1: 'Root Uprising',           // ★ rễ cây/gai gỗ mọc từ đất (dự trù)
+            spawnGrass2: 'Verdant Cyclone',
             spawnGrass3: 'Verdant Spirit Rush',     // Bản thể Thần Cỏ khổng lồ
             spawnGrass4: 'Bloom Cascade',           // ★
         },
         ice: {
+            spawnIce1: 'Glacial Descent',           // ★ tảng băng rơi từ trời (dự trù)
+            spawnIce2: 'Blizzard Fury',
             spawnIce3: 'Glacial Spirit Rush',       // Bản thể Thần Băng khổng lồ
             spawnIce4: 'Absolute Zero',             // ★
         },
         poison: {
+            spawnPoison1: 'Venom Downpour',         // ★ giọt độc lớn rơi từ trời (dự trù)
+            spawnPoison2: 'Toxic Deluge',
             spawnPoison3: 'Toxic Spirit Rush',      // Bản thể Thần Độc khổng lồ
             spawnPoison4: 'Miasma Surge',           // ★
         },
         ground: {
+            spawnGround1: 'Spike Uprising',         // ★ gai đá mọc từ đất (dự trù)
+            spawnGround2: 'Seismic Barrage',
             spawnGround3: 'Terra Spirit Rush',      // Bản thể Thần Đất khổng lồ
             spawnGround4: 'Tectonic Rift',          // ★
         },
         flying: {
+            spawnFlying1: 'Skyfall Onslaught',      // ★ lông vũ/luồng gió giáng từ trời (dự trù)
+            spawnFlying2: 'Gale Onslaught',
             spawnFlying3: 'Tempest Spirit Rush',    // Bản thể Thần Gió khổng lồ
             spawnFlying4: 'Tempest Wing',           // ★
         },
         psychic: {
+            spawnPsychic1: 'Cosmic Descent',        // ★ mảnh năng lượng vũ trụ rơi từ trời (dự trù)
+            spawnPsychic2: 'Mindquake Surge',
             spawnPsychic3: 'Mind Spirit Rush',      // Bản thể Thần Tâm Linh khổng lồ
             spawnPsychic4: 'Mind Swarm',            // ★
         },
         fighting: {
+            spawnFighting1: 'Meteor Fist',          // ★ nắm đấm/thiên thạch giáng từ trời (dự trù)
+            spawnFighting2: 'Berserker Onslaught',
             spawnFighting3: 'Warrior Spirit Rush',  // Bản thể Thần Đấu Sĩ khổng lồ
             spawnFighting4: "Titan's Fury",         // ★
         },
         ghost: {
+            spawnGhost1: 'Wraith Descent',          // ★ hồn ma giáng/trồi từ 2 phía (dự trù)
+            spawnGhost2: 'Spectral Onslaught',
             spawnGhost3: 'Phantom Spirit Rush',     // Bản thể Thần Ma khổng lồ
             spawnGhost4: 'Spectral Wail',           // ★
         },
         bug: {
+            spawnBug1: 'Swarm Descent',             // ★ bầy côn trùng rơi/trồi từ đất (dự trù)
+            spawnBug2: 'Swarm Onslaught',
             spawnBug3: 'Swarm Spirit Rush',         // Bản thể Thần Côn Trùng khổng lồ
             spawnBug4: 'Swarm Eclipse',             // ★
         },
         rock: {
+            spawnRock1: 'Meteor Descent',           // ★ thiên thạch đá rơi từ trời (dự trù)
+            spawnRock2: 'Stalagmite Barrage',
             spawnRock3: 'Boulder Spirit Rush',      // Bản thể Thần Đá khổng lồ
-            spawnRock4: 'Meteor Fall',              // ★
+            spawnRock4: 'Meteor Fall',               // ★
         },
         dark: {
+            spawnDark1: 'Umbral Descent',           // ★ vệt tối giáng/trồi 2 phía (dự trù)
+            spawnDark2: 'Umbral Onslaught',
             spawnDark3: 'Abyssal Spirit Rush',      // Bản thể Thần Bóng Tối khổng lồ
-            spawnDark4: 'Void Collapse',            // ★
+            spawnDark4: 'Void Collapse',             // ★
         },
         steel: {
-            spawnSteel3: 'Titan Spirit Rush',        // Bản thể Thần Thép khổng lồ
+            spawnSteel1: 'Iron Downpour',           // ★ mảnh kim loại rơi từ trời (dự trù)
+            spawnSteel2: 'Metallic Onslaught',
+            spawnSteel3: 'Titan Spirit Rush',       // Bản thể Thần Thép khổng lồ
             spawnSteel4: 'Iron Cataclysm',          // ★
         },
         dragon: {
+            spawnDragon1: 'Draconic Descent',       // ★ mảnh năng lượng rồng giáng từ trời (dự trù)
+            spawnDragon2: 'Draconic Onslaught',
             spawnDragon3: 'Draconic Spirit Rush',   // Bản thể Thần Rồng khổng lồ
-            spawnDragon4: 'Draconic Ascension',     // ★
+            spawnDragon4: 'Draconic Ascension',      // ★
         },
         fairy: {
+            spawnFairy1: 'Stardust Descent',        // ★ ánh sao/cánh hoa rơi từ trời (dự trù)
+            spawnFairy2: 'Fairy Onslaught',
             spawnFairy3: 'Celestial Spirit Rush',   // Bản thể Thần Tiên khổng lồ
             spawnFairy4: 'Starlight Requiem',        // ★
         },
         normal: {
+            spawnNormal1: 'Meteoric Judgment',      // ★ vật thể trắng-vàng giáng từ trời (dự trù)
+            spawnNormal2: 'Resonant Wavefront',
             spawnNormal3: 'Radiant Spirit Rush',
-            spawnNormal4: 'Cosmic Judgment',   // ★ Skill toàn màn hình — 16 ngôi sao hoàng kim bao vây
+            spawnNormal4: 'Cosmic Judgment',         // ★ Skill toàn màn hình — 16 ngôi sao hoàng kim bao vây
         },
     },
 
@@ -337,16 +371,13 @@ window.SkillManager = {
     peekSkillPool(baseMethodName) {
         if (!this.skillPools[baseMethodName] || this.skillPools[baseMethodName].length === 0) {
             // Dò ĐỘNG, không giới hạn cứng ở suffix 3 — quét tới khi hết biến thể
-            // (baseMethodName, baseMethodName2, baseMethodName3, baseMethodName4, ...)
+            // (baseMethodName, baseMethodName1, baseMethodName2, ...). GIỮ NGUYÊN
+            // thứ tự tăng dần (KHÔNG xáo trộn) để bảng chọn chiêu luôn hiển thị
+            // cố định 1→2→3→4→5. Việc CHỌN skill nào vẫn ngẫu nhiên — xem
+            // playSkillSelectPanel (Math.random(), không phụ thuộc thứ tự mảng này).
             const candidates = [baseMethodName];
             for (let n = 1; n <= 8; n++) candidates.push(`${baseMethodName}${n}`);
-            const filtered = candidates.filter(name => typeof this[name] === 'function');
-
-            for (let i = filtered.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
-            }
-            this.skillPools[baseMethodName] = filtered;
+            this.skillPools[baseMethodName] = candidates.filter(name => typeof this[name] === 'function');
         }
         return this.skillPools[baseMethodName];
     },
@@ -897,6 +928,18 @@ window.SkillManager = {
                 attacker, info.type, baseMethodName, attackerSide === 'player'
             );
 
+            // 50% COMBO: ghép thêm 1 skill "đồng hành" trong pool còn lại
+            // (trừ skill vừa chọn), chạy ĐỒNG THỜI với skill chính. Skill
+            // đồng hành KHÔNG bị rút khỏi pool — chỉ mượn hình ảnh chạy kèm,
+            // không ảnh hưởng vòng xoay 1-5 của skill chính.
+            let companionMethod = null;
+            if (Math.random() < 0.5) {
+                const remaining = (this.skillPools[baseMethodName] || []).filter(m => m !== chosenMethod);
+                if (remaining.length > 0) {
+                    companionMethod = remaining[Math.floor(Math.random() * remaining.length)];
+                }
+            }
+
             // PHASE 2.5: BANNER TÊN CHIÊU + AVATAR TRAINER
             await this.showSkillAnnounceBanner(attackerSide, this.getSkillLabel(info.type, chosenMethod), attackerIndex);
 
@@ -910,10 +953,15 @@ window.SkillManager = {
 
             if (this.playRandomSfx) this.playRandomSfx();
 
-            // PHASE 4: TUNG CHIÊU tới từng mục tiêu (song song)
-            const allAnimations = aliveTargets.map(targetIdx =>
-                this.triggerMultiEffect(attacker, targetIdx, info.targetSide, countPerTarget, sizeScale, info.type, info.damage, chosenMethod)
-            );
+            // PHASE 4: TUNG CHIÊU tới từng mục tiêu (song song) — kèm skill
+            // đồng hành (nếu combo trúng 50%) chạy ĐỒNG THỜI với skill chính.
+            const allAnimations = aliveTargets.flatMap(targetIdx => {
+                const tasks = [this.triggerMultiEffect(attacker, targetIdx, info.targetSide, countPerTarget, sizeScale, info.type, info.damage, chosenMethod)];
+                if (companionMethod) {
+                    tasks.push(this.triggerMultiEffect(attacker, targetIdx, info.targetSide, countPerTarget, sizeScale, info.type, info.damage, companionMethod));
+                }
+                return tasks;
+            });
             await Promise.all(allAnimations);
 
             // PHASE 5: THU QUÂN
@@ -942,7 +990,7 @@ window.SkillManager = {
     // rải ngẫu nhiên khắp arena) làm endEl — hàm gốc tưởng đang bay tới Pokémon
     // thật nhưng thực ra đang bay tới toạ độ ảo đó, tạo cảm giác phủ khắp màn hình.
     // ══════════════════════════════════════════════
-    async runAsScreenBarrage(action, attacker, realTarget, count, scale, targetSide) {
+        async runAsScreenBarrage(action, attacker, realTarget, count, scale, targetSide, damage) {
         const arena = document.getElementById('battle-arena');
         const arenaRect = arena ? arena.getBoundingClientRect()
                                  : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
@@ -962,7 +1010,7 @@ window.SkillManager = {
         singlePoint.dataset.targetSide = targetSide; // ✅ để spawn3 (giant spirit) biết đẩy lùi đúng phe
         document.body.appendChild(singlePoint);
 
-        await action.call(this, attacker, singlePoint, count, scale); // gọi action() ĐÚNG 1 LẦN
+            await action.call(this, attacker, singlePoint, count, scale, damage); // gọi action() ĐÚNG 1 LẦN
 
         singlePoint.remove();
     },
@@ -982,7 +1030,7 @@ window.SkillManager = {
 
         if (!cache[methodName]) {
             // Chỗ đang gọi (trong triggerMultiEffect):
-            cache[methodName] = this.runAsScreenBarrage(action, attacker, target, count, sizeScale, targetSide);
+            cache[methodName] = this.runAsScreenBarrage(action, attacker, target, count, sizeScale, targetSide, damage);
             cache[methodName].finally(() => { delete cache[methodName]; });
         }
         await cache[methodName];
@@ -1106,7 +1154,7 @@ window.SkillManager = {
     // SKILL 3 HỆ ĐIỆN — spawnElectric3 (Bão Điện Thiên Lôi)
     // Dạng kỹ năng: Triệu hồi bão mây tĩnh điện và giáng sấm sét liên tục
     // ══════════════════════════════════════════════
-    async spawnElectric1(startEl, endEl, count, scale) {
+    async spawnElectric5(startEl, endEl, count, scale) {
         const cfg = this.durationConfig.aoe;
         const rectE = endEl.getBoundingClientRect();
         const centerX = rectE.left + rectE.width / 2;
@@ -1260,197 +1308,8 @@ window.SkillManager = {
             curX = nextX; curY = nextY;
         }
     },
-    // HẸ LỬA
-    // SKILL 3 HỆ LỬA — spawnFire3 (Fire Rune - Trận Pháp Lửa Thư Pháp)
-    // Dạng kỹ năng: Triệu hồi vòng tròn trận pháp thư pháp rực lửa phong ấn dưới chân/quanh đối thủ
-    // Logic bám sát chuẩn xác tư duy vẽ nét coordinates sinh hạt theo timeline giống spawnFire2
-    // ══════════════════════════════════════════════
-    async spawnFire1(startEl, endEl, count, scale, data) {
-        const rectE = endEl.getBoundingClientRect();
-
-        // Trận pháp hình thành NGAY TẠI VỊ TRÍ ĐỐI THỦ (endEl)
-        const targetCx = rectE.left + rectE.width / 2;
-        const targetCy = rectE.top + rectE.height / 2;
-
-        // Kích thước trận pháp bao quanh đối thủ
-        const runeSize = rectE.width * 1.8 * scale;
-        const half = runeSize / 2;
-
-        if (this.playChargeSfx) this.playChargeSfx('fire');
-
-        // Toạ độ chuẩn hoá (0..1) vẽ Vòng tròn ma pháp Ngôi sao/Trận pháp cổ đại rực lửa bao quanh địch
-        // Thứ tự vẽ: Vẽ vòng tròn ngoài bằng 4 cung, sau đó vẽ lõi chữ Thập/Rune phong ấn bên trong
-        const strokes = [
-            { from: [0.15, 0.15], to: [0.85, 0.15] }, // Nét biên trên
-            { from: [0.85, 0.15], to: [0.85, 0.85] }, // Nét biên phải
-            { from: [0.85, 0.85], to: [0.15, 0.85] }, // Nét biên dưới
-            { from: [0.15, 0.85], to: [0.15, 0.15] }, // Nét biên trái
-            { from: [0.25, 0.25], to: [0.75, 0.75] }, // Nét chéo phong ấn 1
-            { from: [0.75, 0.25], to: [0.25, 0.75] }  // Nét chéo phong ấn 2
-        ];
-
-        // Chuyển đổi toạ độ normalize thành Pixels dựa theo tâm đối thủ
-        const toPx = ([nx, ny]) => [targetCx - half + nx * runeSize, targetCy - half + ny * runeSize];
-
-        const pointsPerStroke = Math.max(8, 6 + count);
-
-        // ── TIMELINE ĐỒNG BỘ TỪ CONFIG DURATION ──
-        const chargeMs  = this.durationConfig.aoe.chargeAura;    // Thời gian vẽ trận pháp + tích tụ sáng dưới chân địch
-        const sustainMs = this.durationConfig.aoe.targetSustain; // Thời gian kích nổ trận pháp dồn dập
-
-        const drawDuration   = chargeMs * 0.7;   // 70% thời gian gồng để vẽ các nét trận pháp xuất hiện lần lượt
-        const holdDuration   = chargeMs * 0.3;   // 30% còn lại giữ trận pháp rực sáng đỉnh điểm
-        const explodeStart   = drawDuration + holdDuration; // Thời điểm bắt đầu kích nổ
-        const totalMs        = chargeMs + sustainMs;
-
-        const allEls = [];
-
-        // Duyệt qua từng nét để rải hạt lửa hình thành ma trận
-        strokes.forEach((stroke, strokeIdx) => {
-            const [x1, y1] = toPx(stroke.from);
-            const [x2, y2] = toPx(stroke.to);
-
-            // Nét sau vẽ sau nét trước một chút tạo hiệu ứng nét bút thư pháp chảy đều
-            const strokeStartDelay  = (strokeIdx / strokes.length) * drawDuration * 0.8;
-            const strokeOwnDuration = drawDuration * 0.4;
-
-            for (let i = 0; i <= pointsPerStroke; i++) {
-                const t = i / pointsPerStroke;
-                const px = x1 + (x2 - x1) * t;
-                const py = y1 + (y2 - y1) * t;
-                const litAt = strokeStartDelay + t * strokeOwnDuration;
-
-                // Độ lệch hạt ngẫu nhiên nhẹ quanh nét vẽ
-                const jitterX = (Math.random() - 0.5) * 10 * scale;
-                const jitterY = (Math.random() - 0.5) * 10 * scale;
-
-                const size = (8 + Math.random() * 8) * scale;
-                const flame = document.createElement('div');
-                flame.className = 'pkm-particle particle-fire';
-                flame.style.cssText = `
-                    position: fixed;
-                    left: ${px + jitterX}px; top: ${py + jitterY}px;
-                    width: ${size}px; height: ${size}px;
-                    background: radial-gradient(circle, #fff 20%, #ff9f43 50%, #ee5253 90%, transparent 100%);
-                    box-shadow: 0 0 ${10 * scale}px #ff9f43, 0 0 ${20 * scale}px #ee5253;
-                    border-radius: 50%;
-                    transform: translate(-50%, -50%) scale(0);
-                    z-index: 9998; pointer-events: none;
-                    opacity: 0;
-                `;
-                document.body.appendChild(flame);
-                allEls.push(flame);
-
-                // Giai đoạn 1: Vẽ nổi hình trận pháp phong ấn (pop-in mọc dần)
-                flame.animate([
-                    { transform: 'translate(-50%,-50%) scale(0)',   opacity: 0 },
-                    { transform: 'translate(-50%,-50%) scale(1.4)', opacity: 1, offset: 0.2 },
-                    { transform: 'translate(-50%,-50%) scale(1)',   opacity: 0.95 }
-                ], {
-                    duration: Math.max(1, drawDuration + holdDuration - litAt),
-                    delay: litAt,
-                    fill: 'forwards',
-                    easing: 'ease-out'
-                });
-
-                // Giai đoạn 2: Trận pháp co cụm sụp đổ hút mạnh vào tâm đối thủ gây nổ dữ dội
-                flame.animate([
-                    { left: `${px + jitterX}px`, top: `${py + jitterY}px`, transform: 'translate(-50%,-50%) scale(1)' },
-                    { left: `${targetCx}px`, top: `${targetCy}px`, transform: 'translate(-50%,-50%) scale(1.5)', opacity: 1, offset: 0.7 },
-                    { left: `${targetCx}px`, top: `${targetCy}px`, transform: 'translate(-50%,-50%) scale(0)', opacity: 0 }
-                ], {
-                    duration: sustainMs * 0.4,
-                    delay: explodeStart,
-                    fill: 'forwards',
-                    easing: 'ease-in'
-                });
-
-                // Tàn lửa bốc lên lác đác tại vị trí trận pháp đang tụ năng lượng
-                if (i % 4 === 0) {
-                    const ember = document.createElement('div');
-                    const emberSize = (3 + Math.random() * 4) * scale;
-                    ember.style.cssText = `
-                        position: fixed; left: ${px}px; top: ${py}px;
-                        width: ${emberSize}px; height: ${emberSize}px;
-                        background: #ffffbf; border-radius: 50%;
-                        box-shadow: 0 0 6px #ff6b6b;
-                        z-index: 9997; pointer-events: none; opacity: 0;
-                    `;
-                    document.body.appendChild(ember);
-                    allEls.push(ember);
-
-                    const riseDist = (25 + Math.random() * 30) * scale;
-                    ember.animate([
-                        { transform: 'translate(-50%,-50%) translateY(0px)',            opacity: 0.8 },
-                        { transform: `translate(-50%,-50%) translateY(-${riseDist}px)`, opacity: 0 }
-                    ], {
-                        duration: 600,
-                        delay: litAt + 100,
-                        fill: 'forwards',
-                        easing: 'ease-out'
-                    });
-                }
-            }
-        });
-
-        // Lớp quầng nhiệt bổ trợ nằm dưới chân đối thủ, co giãn theo nhịp gồng ma pháp
-        const glowSize = runeSize * 1.2;
-        const glow = document.createElement('div');
-        glow.style.cssText = `
-            position: fixed; left: ${targetCx}px; top: ${targetCy}px;
-            width: ${glowSize}px; height: ${glowSize}px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(238,82,83,0.3) 0%, rgba(255,159,67,0.1) 50%, transparent 70%);
-            transform: translate(-50%, -50%) scale(0.5);
-            z-index: 9996; pointer-events: none; opacity: 0;
-            filter: blur(${8 * scale}px);
-        `;
-        document.body.appendChild(glow);
-        allEls.push(glow);
-
-        // Quầng nhiệt bành trướng khi vẽ trận pháp
-        glow.animate([
-            { opacity: 0,   transform: 'translate(-50%,-50%) scale(0.5)' },
-            { opacity: 0.85, transform: 'translate(-50%,-50%) scale(1)' }
-        ], {
-            duration: drawDuration,
-            fill: 'forwards',
-            easing: 'ease-out'
-        });
-
-        // Quầng nhiệt co rút bùng nổ dữ dội ở sustainMs
-        glow.animate([
-            { opacity: 0.85, transform: 'translate(-50%,-50%) scale(1)' },
-            { opacity: 1,    transform: 'translate(-50%,-50%) scale(0.2)', offset: 0.6 },
-            { opacity: 0,    transform: 'translate(-50%,-50%) scale(2)' }
-        ], {
-            duration: sustainMs * 0.5,
-            delay: explodeStart,
-            fill: 'forwards',
-            easing: 'ease-in-out'
-        });
-
-        // Kích hoạt chuỗi hiệu ứng bùng nổ (createFireExplosion) ngay khi các nét tụ lại ở tâm điểm địch
-        setTimeout(() => {
-            if (this.createFireExplosion) {
-                this.createFireExplosion(targetCx, targetCy, scale);
-                // Bồi thêm 1 vụ nổ phụ cách đó ít mili-giây để tăng uy lực cho skill 3 AoE
-                setTimeout(() => this.createFireExplosion(targetCx + 15 * scale, targetCy - 10 * scale, scale * 0.8), 80);
-            }
-            if (window.SoundEngine) {
-                window.SoundEngine.playDelayed('explosion', 0, 1000, 0, 0.22);
-            }
-        }, explodeStart + sustainMs * 0.28);
-
-        // Đợi toàn bộ chu kỳ vẽ pháp trận và kích nổ kết thúc để dọn dẹp phần tử
-        await new Promise((resolve) => {
-            setTimeout(() => {
-                allEls.forEach((el) => el.remove());
-                resolve();
-            }, totalMs + 50);
-        });
-    },
     
+
     // ══════════════════════════════════════════════
     //SKILL 1 TRIỆU HỒI TOÀN MÀN HÌNH
     // ══════════════════════════════════════════════════════════
@@ -3355,7 +3214,7 @@ window.SkillManager = {
         imgWrapper.style.transition = '';
     },
 
-    
+
 
     // Hệ thống CSS keyframe 2.5D xoay chậm vững chãi và cuộn lửa xoắn ốc đi lên
     injectVortexKeyframes() {
@@ -3618,9 +3477,3975 @@ window.SkillManager = {
             sfxType: 'fairy',
         });
     },
+
+
+
+    // ══════════════════════════════════════════════════════════
+    // ENGINE DÙNG CHUNG — "DÒNG CHẢY NGUYÊN TỐ" (skill thứ 3, toàn màn
+    // hình). KHÔNG hệ nào được sửa vào hàm này. Mỗi hệ tự viết 1 hàm
+    // spawn<Hệ>2 riêng, TỰ CHỨA toàn bộ hàm vẽ hình bên trong nó, rồi
+    // gọi engine này — xem khuôn mẫu spawnFire2 ngay dưới.
+    // ══════════════════════════════════════════════════════════
+    async playElementalStreamBarrage(startEl, endEl, count, scale, damage, opts) {
+        const {
+            itemBuilder,
+            color = '#fff',
+            emberColors = null,
+            curveStyle = 'wavy',
+            spawnRatePerSec = 14,
+            travelDuration = 750,
+            sfxType = 'normal',
+            buildFrame = null,
+            screenSpreadRatio = 0.92,
+        } = opts || {};
+        
+
+        // Random 1 trong 2 kiểu MỖI LẦN tung skill: giữ đúng curveStyle đã
+        // cấu hình cho hệ đó, hoặc bay thẳng luôn — chọn 1 lần, áp dụng
+        // đồng nhất cho toàn bộ streak trong lượt đánh này.
+        const effectiveCurveStyle = Math.random() < 0.5 ? curveStyle : 'straight';
+        console.log(`[STREAM BARRAGE] curveStyle gốc: ${curveStyle} -> chọn: ${effectiveCurveStyle}`);
+
+        const palette = (emberColors && emberColors.length) ? emberColors : [color];
+
+        const cfg = this.durationConfig.aoe;
+        const arena = document.getElementById('battle-arena');
+        const arenaRect = arena ? arena.getBoundingClientRect()
+                                 : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+
+        const rectS = startEl.getBoundingClientRect();
+        const rectE = endEl.getBoundingClientRect();
+
+        const attackerSide = startEl.id.startsWith('player') ? 'player' : 'enemy';
+        const behindSign = attackerSide === 'player' ? 1 : -1;
+        const behindY = rectS.top + rectS.height / 2 + behindSign * rectS.height * 1.1;
+
+        // Căn theo TÂM ARENA (không theo vị trí attacker) để phủ toàn màn hình
+        const bandCenterX = arenaRect.left + arenaRect.width / 2;
+        const bandW = arenaRect.width * screenSpreadRatio;
+
+        const targetX = rectE.left + (rectE.width || 0) / 2;
+        const targetY = rectE.top + (rectE.height || 0) / 2;
+
+        const targetSide = endEl.dataset.targetSide || (attackerSide === 'player' ? 'enemy' : 'player');
+        const getRealTargets = () => Array.from(
+            document.querySelectorAll(`.pkm-unit[id^="${targetSide}-unit-"]`)
+        ).filter(el => el.dataset.dead !== '1');
+
+        const chargeMs = cfg.chargeAura * 0.7;
+        const streamMs = cfg.targetSustain * 1.15;
+        const finaleMs = 420;
+
+        const allEls = [];
+
+        // ── PHA 1: GỒNG ──
+        this.playChargeSfx(sfxType);
+
+        const bandGlow = document.createElement('div');
+        bandGlow.style.cssText = `
+            position: fixed; left:${bandCenterX}px; top:${behindY}px;
+            width:${bandW}px; height:${34 * scale}px;
+            transform: translate(-50%,-50%) scaleX(0.2);
+            background: linear-gradient(90deg, transparent, ${color}bb 30%, #fff 50%, ${color}bb 70%, transparent);
+            filter: blur(${6 * scale}px);
+            opacity: 0; z-index: 9985; pointer-events:none;
+        `;
+        document.body.appendChild(bandGlow);
+        allEls.push(bandGlow);
+
+        const frameEls = buildFrame ? buildFrame(arenaRect, scale, color) : [];
+        frameEls.forEach(el => {
+            if (!el.parentNode) document.body.appendChild(el); // fallback nếu hàm build chưa tự chèn vào đâu
+            allEls.push(el);
+        });
+
+        const introAnims = [
+            bandGlow.animate([
+                { transform: 'translate(-50%,-50%) scaleX(0.2)', opacity: 0 },
+                { transform: 'translate(-50%,-50%) scaleX(1)', opacity: 0.9 }
+            ], { duration: chargeMs, fill: 'forwards', easing: 'ease-out' }).finished
+        ];
+        frameEls.forEach(el => {
+            const targetOpacity = el.dataset.targetOpacity || '0.95';
+            introAnims.push(el.animate([
+                { opacity: 0 },
+                { opacity: targetOpacity }
+            ], { duration: chargeMs, fill: 'forwards', easing: 'ease-out' }).finished);
+        });
+        await Promise.all(introAnims);
+
+        const bandPulse = bandGlow.animate(
+            [{ opacity: 0.75, filter: `blur(${5 * scale}px)` }, { opacity: 1, filter: `blur(${9 * scale}px)` }],
+            { duration: 380, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' }
+        );
+
+        // ── PHA 2: DÒNG CHẢY LIÊN TỤC ──
+        if (this.playTravelSfx) this.playTravelSfx(sfxType);
+
+        let flowActive = true;
+        let hitTickCounter = 0;
+        const activeStreaks = new Set();
+
+        const estimatedHits = Math.max(8, Math.round(streamMs / (1000 / spawnRatePerSec) / 2.2));
+        const hitQueue = [];
+        if (damage > 0) {
+            const n = estimatedHits;
+            const base = Math.floor(damage / n);
+            const rem = damage - base * n;
+            for (let i = 0; i < n; i++) hitQueue.push(base + (i === n - 1 ? rem : 0));
+        }
+
+        const consumeStreamHit = () => {
+            if (hitQueue.length === 0) return;
+            const chunk = hitQueue.shift();
+            const targets = getRealTargets();
+            if (targets.length === 0 || chunk <= 0) return;
+            const t = targets[Math.floor(Math.random() * targets.length)];
+            this.createDamageText(t, chunk, false);
+            this.playImpactSfx(sfxType);
+            t.classList.add('shake');
+            setTimeout(() => t.classList.remove('shake'), 90);
+        };
+
+        const spawnStreak = () => {
+            if (!flowActive) return;
+            const originX = bandCenterX + (Math.random() - 0.5) * bandW * 0.96;
+            const originY = behindY + (Math.random() - 0.5) * 20 * scale;
+
+            const jitterTX = targetX + (Math.random() - 0.5) * arenaRect.width * 0.96;
+            const dx = jitterTX - originX;
+            const dy = targetY - originY;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+            const streakColor = palette[Math.floor(Math.random() * palette.length)];
+            const el = itemBuilder(scale, streakColor);
+            el.style.position = 'fixed';
+            el.style.left = `${originX}px`;
+            el.style.top = `${originY}px`;
+            el.style.zIndex = '9997';
+            el.style.pointerEvents = 'none';
+            el.style.willChange = 'transform, opacity';
+            document.body.appendChild(el);
+            allEls.push(el);
+            activeStreaks.add(el);
+
+            const perpX = -dy / dist, perpY = dx / dist;
+            const amp = effectiveCurveStyle === 'straight' ? 0 : (effectiveCurveStyle === 'zigzag' ? 22 * scale : 36 * scale);
+            const waveCount = effectiveCurveStyle === 'zigzag' ? 3 : 1.6;
+
+            const steps = 10;
+            const kfs = [];
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                let off = 0;
+                if (amp) {
+                    off = effectiveCurveStyle === 'zigzag'
+                        ? amp * Math.sign(Math.sin(t * Math.PI * waveCount * 2)) * (1 - t * 0.2)
+                        : Math.sin(t * Math.PI * waveCount) * amp * (1 - t * 0.35);
+                }
+                const opacity = t < 0.1 ? t / 0.1 : (t > 0.82 ? Math.max(0, (1 - t) / 0.18) : 1);
+                kfs.push({
+                    transform: `translate(calc(-50% + ${dx * t + perpX * off}px), calc(-50% + ${dy * t + perpY * off}px)) rotate(${angle}deg) scale(${0.85 + t * 0.3})`,
+                    opacity
+                });
+            }
+
+            const dur = travelDuration * (0.82 + Math.random() * 0.36);
+            const anim = el.animate(kfs, { duration: dur, easing: 'linear', fill: 'forwards' });
+            anim.onfinish = () => {
+                el.remove();
+                activeStreaks.delete(el);
+                const idx = allEls.indexOf(el);
+                if (idx !== -1) allEls.splice(idx, 1);
+                if (!flowActive) return;
+                hitTickCounter++;
+                if (hitTickCounter % 2 === 0) consumeStreamHit();
+            };
+        };
+
+        const spawnInterval = 1000 / spawnRatePerSec;
+        const flowTimer = setInterval(spawnStreak, spawnInterval);
+        spawnStreak(); spawnStreak(); spawnStreak();
+
+        const rumbleTimer = setInterval(() => {
+            if (this.applyGlobalShake) this.applyGlobalShake(scale * 0.45);
+        }, 260);
+
+        await new Promise(r => setTimeout(r, streamMs));
+
+        // ── PHA 3: TẮT DÒNG CHẢY ──
+        flowActive = false;
+        clearInterval(flowTimer);
+        clearInterval(rumbleTimer);
+        bandPulse.cancel();
+        while (hitQueue.length > 0) consumeStreamHit();
+
+        await Promise.all([...activeStreaks].map(el => el.animate(
+            [{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }],
+            { duration: 220, fill: 'forwards' }
+        ).finished));
+
+        const outroAnims = [
+            bandGlow.animate([
+                { transform: 'translate(-50%,-50%) scaleX(1)', opacity: 0.9 },
+                { transform: 'translate(-50%,-50%) scaleX(0.3)', opacity: 0 }
+            ], { duration: 260, fill: 'forwards', easing: 'ease-in' }).finished
+        ];
+        frameEls.forEach(el => {
+            outroAnims.push(el.animate([
+                { opacity: getComputedStyle(el).opacity },
+                { opacity: 0 }
+            ], { duration: 300, fill: 'forwards', easing: 'ease-in' }).finished);
+        });
+        await Promise.all(outroAnims);
+
+        // ── PHA 4: NỔ TOÀN MÀN HÌNH ──
+        const finaleEls = [];
+        this.triggerScreenFinale(arenaRect, targetX, targetY, color, scale * 1.15, finaleMs, finaleEls);
+        await new Promise(r => setTimeout(r, finaleMs + 150));
+
+        allEls.forEach(el => el.remove());
+        finaleEls.forEach(el => el.remove());
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ LỬA — spawnFire2 (Wildfire Torrent) — KHUÔN MẪU đầy đủ, TỰ CHỨA
+    // toàn bộ hàm vẽ hình bên trong. Muốn thêm hệ khác: copy nguyên hàm
+    // này, đổi tên, đổi nội dung 2 hàm build bên trong + màu/curveStyle.
+    // KHÔNG cần đụng gì ở engine hay bất kỳ đâu khác.
+    // ══════════════════════════════════════════════════════════
+    async spawnFire2(startEl, endEl, count, scale, damage) {
+        // Đốm lửa dạng "sao chổi" — KHÔNG dùng clip-path (tránh viền răng cưa
+        // giả), chỉ dùng gradient + blur mềm mại, đầu sáng trắng ở cạnh dẫn
+        // hướng bay (được engine tự rotate theo hướng di chuyển).
+        const buildFlameEmber = (s, c) => {
+            const w = (72 + Math.random() * 24) * s;
+            const h = (15 + Math.random() * 6) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px; border-radius:${h}px;
+                background:
+                    radial-gradient(circle at 88% 50%, #fff 0%, #fff6cf 20%, #ffb703 36%, transparent 62%),
+                    linear-gradient(90deg, transparent 0%, ${c}33 20%, ${c}aa 55%, ${c}dd 82%, transparent 100%);
+                filter: blur(${1.1 * s}px) drop-shadow(0 0 ${7 * s}px ${c});
+            `;
+            return el;
+        };
+
+        // Lớp SƯƠNG NỀN toàn màn hình arena — gắn NGAY TRONG #battle-arena,
+        // z-index THẤP (nằm SAU Pokémon), giống đúng cách các skill toàn
+        // màn hình khác (spawn*4) và nền pkm_arena3d.css đang làm — đây là
+        // lý do chúng nhìn tự nhiên, không phẳng/giả như lớp dán phía trên.
+        const buildFireMist = (arenaRect) => {
+            if (!document.getElementById('pkm-fire2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-fire2-mist-style';
+                style.textContent = `
+                    @keyframes pkmFire2Eruption {
+                        0%, 100% { opacity: 0.75; transform: scale(1); }
+                        50%      { opacity: 1;    transform: scale(1.04); }
+                    }
+                    @keyframes pkmFire2EmberDrift {
+                        0%   { background-position: 0px 0px, 0px 0px, 0px 0px; }
+                        100% { background-position: 30px -260px, -40px -320px, 15px -220px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `
+                position: absolute; inset: 0;
+                z-index: 0; pointer-events: none; overflow: hidden;
+                opacity: 0;
+            `;
+
+            // Lớp 1: hào quang nóng lan toả (đáy sáng rực, 2 góc trên ấm nhẹ)
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 80% at 50% 105%, rgba(255,230,150,0.9) 0%, rgba(255,110,0,0.55) 32%, rgba(120,20,0,0.35) 60%, transparent 82%),
+                    radial-gradient(ellipse 70% 60% at 15% 15%, rgba(255,90,0,0.25) 0%, transparent 65%),
+                    radial-gradient(ellipse 70% 60% at 85% 15%, rgba(255,90,0,0.25) 0%, transparent 65%);
+                animation: pkmFire2Eruption 1.8s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            // Lớp 2: tàn lửa nhỏ trôi lên liên tục, tiled khắp toàn arena
+            const emberLayer = document.createElement('div');
+            emberLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 3px, rgba(255,255,255,0.9) 0%, transparent 70%),
+                    radial-gradient(circle 4px, rgba(255,200,0,0.85) 0%, transparent 70%),
+                    radial-gradient(circle 3px, rgba(255,120,0,0.8) 0%, transparent 70%);
+                background-size: 140px 180px, 190px 230px, 160px 200px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmFire2EmberDrift 2.6s linear infinite;
+                opacity: 0.85;
+            `;
+            mistRoot.appendChild(emberLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildFlameEmber,
+            buildFrame: buildFireMist,
+            color: '#ff6d00',
+            emberColors: ['#ff6d00', '#ff3d00', '#ffab00'],
+            curveStyle: 'wavy',
+            spawnRatePerSec: 20,
+            travelDuration: 850,
+            sfxType: 'fire',
+        });
+    },
+    // ══════════════════════════════════════════════════════════
+    // HỆ NƯỚC — spawnWater2 (Tidal Onslaught) — làn sóng dập dờn
+    // ══════════════════════════════════════════════════════════
+    async spawnWater2(startEl, endEl, count, scale, damage) {
+        // Từng con sóng cong, đỉnh sáng trắng, thân xanh đậm dần, có bọt tràn
+        const buildWaveCrest = (s, c) => {
+            const w = (95 + Math.random() * 30) * s;
+            const h = (26 + Math.random() * 10) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background:
+                    radial-gradient(ellipse ${w*0.3}px ${h*0.9}px at 85% 40%, #fff 0%, #eafaff 25%, transparent 60%),
+                    linear-gradient(90deg, transparent 0%, ${c}33 18%, ${c}bb 55%, ${c}ee 85%, transparent 100%);
+                border-radius: 0 50% 50% 0 / 0 90% 90% 0;
+                filter: blur(${1 * s}px) drop-shadow(0 0 ${6 * s}px ${c});
+            `;
+            return el;
+        };
+
+        // Lớp NỀN đại dương dập dờn toàn arena — nằm trong arena, z-index thấp
+        const buildOceanMist = (arenaRect) => {
+            if (!document.getElementById('pkm-water2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-water2-mist-style';
+                style.textContent = `
+                    @keyframes pkmWater2Swell {
+                        0%, 100% { opacity: 0.7; transform: scale(1) translateY(0); }
+                        50%      { opacity: 1;   transform: scale(1.03) translateY(-1%); }
+                    }
+                    @keyframes pkmWater2FoamDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 280px 40px, -220px -30px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 95% 75% at 50% 100%, rgba(140,220,255,0.55) 0%, rgba(20,110,200,0.4) 40%, rgba(5,40,90,0.3) 65%, transparent 85%),
+                    radial-gradient(ellipse 70% 50% at 10% 10%, rgba(120,200,255,0.2) 0%, transparent 65%),
+                    radial-gradient(ellipse 70% 50% at 90% 10%, rgba(120,200,255,0.2) 0%, transparent 65%);
+                animation: pkmWater2Swell 2.2s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const foamLayer = document.createElement('div');
+            foamLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 4px, rgba(255,255,255,0.85) 0%, transparent 70%),
+                    radial-gradient(circle 3px, rgba(200,240,255,0.7) 0%, transparent 70%);
+                background-size: 170px 130px, 140px 110px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmWater2FoamDrift 3s linear infinite;
+                opacity: 0.75;
+            `;
+            mistRoot.appendChild(foamLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildWaveCrest,
+            buildFrame: buildOceanMist,
+            color: '#3498db',
+            emberColors: ['#3498db', '#5dade2', '#a9d6f5'],
+            curveStyle: 'wavy',
+            spawnRatePerSec: 16,
+            travelDuration: 900,
+            sfxType: 'water',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ ĐIỆN — spawnElectric2 (Voltage Deluge) — tia điện dày đặc
+    // ══════════════════════════════════════════════════════════
+    async spawnElectric2(startEl, endEl, count, scale, damage) {
+        // Tia sét ngắn, lõi trắng chói, viền vàng, giật lag ngẫu nhiên bằng skew
+        const buildElectricBolt = (s, c) => {
+            const w = (60 + Math.random() * 20) * s;
+            const h = (5 + Math.random() * 3) * s;
+            const skew = (Math.random() - 0.5) * 30;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                transform: skewY(${skew}deg);
+                background: linear-gradient(90deg, transparent 0%, ${c} 20%, #fff 50%, ${c} 80%, transparent 100%);
+                box-shadow: 0 0 ${6 * s}px #fff, 0 0 ${12 * s}px ${c};
+                filter: drop-shadow(0 0 ${4 * s}px #fff);
+            `;
+            return el;
+        };
+
+        // Lớp NỀN bão điện — chớp sáng ngẫu nhiên + tia lưới điện toàn arena
+        const buildStormMist = (arenaRect) => {
+            if (!document.getElementById('pkm-electric2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-electric2-mist-style';
+                style.textContent = `
+                    @keyframes pkmElectric2Flicker {
+                        0%, 82%, 100% { opacity: 0.55; }
+                        84%  { opacity: 1; }
+                        86%  { opacity: 0.6; }
+                        90%  { opacity: 0.95; }
+                        92%  { opacity: 0.55; }
+                    }
+                    @keyframes pkmElectric2GridDrift {
+                        0%   { background-position: 0px 0px; }
+                        100% { background-position: 60px -180px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 80% at 50% 50%, rgba(255,240,150,0.35) 0%, rgba(90,70,10,0.35) 45%, transparent 78%);
+                animation: pkmElectric2Flicker 0.9s steps(3) infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const gridLayer = document.createElement('div');
+            gridLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    repeating-linear-gradient(80deg, transparent 0px, transparent 38px, rgba(255,255,255,0.18) 39px, rgba(255,235,80,0.3) 40px, transparent 41px, transparent 70px),
+                    repeating-linear-gradient(-70deg, transparent 0px, transparent 46px, rgba(255,255,255,0.14) 47px, rgba(255,235,80,0.24) 48px, transparent 49px, transparent 80px);
+                mix-blend-mode: screen;
+                animation: pkmElectric2GridDrift 1.4s linear infinite;
+            `;
+            mistRoot.appendChild(gridLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildElectricBolt,
+            buildFrame: buildStormMist,
+            color: '#f1c40f',
+            emberColors: ['#fff8b0', '#f1c40f', '#ffe066'],
+            curveStyle: 'zigzag',
+            spawnRatePerSec: 26,
+            travelDuration: 480,
+            sfxType: 'electric',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ CỎ — spawnGrass2 (Verdant Cyclone) — lá xoay tròn kèm gió
+    // ══════════════════════════════════════════════════════════
+    async spawnGrass2(startEl, endEl, count, scale, damage) {
+        // Lá cây bo cong, tự xoay liên tục trong lúc bay (animation riêng bên trong)
+        const buildSpinningLeaf = (s, c) => {
+            const w = (30 + Math.random() * 14) * s;
+            const h = w * 0.55;
+            if (!document.getElementById('pkm-grass2-leaf-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-grass2-leaf-style';
+                style.textContent = `
+                    @keyframes pkmGrass2LeafSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                `;
+                document.head.appendChild(style);
+            }
+            const outer = document.createElement('div');
+            outer.style.cssText = `width:${w}px; height:${h}px;`;
+            const inner = document.createElement('div');
+            inner.style.cssText = `
+                width:100%; height:100%;
+                background: linear-gradient(135deg, #eaffea, ${c} 55%, #1b5e20);
+                border-radius: 80% 10% 80% 10%;
+                border: ${1 * s}px solid #145a32;
+                animation: pkmGrass2LeafSpin ${0.5 + Math.random() * 0.4}s linear infinite;
+                filter: drop-shadow(0 0 ${4 * s}px rgba(0,0,0,0.4));
+            `;
+            outer.appendChild(inner);
+            return outer;
+        };
+
+        // Lớp NỀN gió lốc lá cuộn khắp arena
+        const buildWindLeafMist = (arenaRect) => {
+            if (!document.getElementById('pkm-grass2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-grass2-mist-style';
+                style.textContent = `
+                    @keyframes pkmGrass2Sway {
+                        0%, 100% { opacity: 0.65; transform: skewX(0deg); }
+                        50%      { opacity: 0.95; transform: skewX(-2deg); }
+                    }
+                    @keyframes pkmGrass2LeafDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: -260px 220px, 220px -180px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 95% 70% at 50% 100%, rgba(120,220,110,0.5) 0%, rgba(20,90,30,0.4) 45%, transparent 78%),
+                    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(150,255,140,0.2) 0%, transparent 60%);
+                animation: pkmGrass2Sway 1.6s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const leafLayer = document.createElement('div');
+            leafLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 6px 3px, rgba(200,255,160,0.8) 0%, transparent 70%),
+                    radial-gradient(ellipse 5px 3px, rgba(46,204,113,0.75) 0%, transparent 70%);
+                background-size: 150px 140px, 190px 170px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmGrass2LeafDrift 3.4s linear infinite;
+                opacity: 0.8;
+            `;
+            mistRoot.appendChild(leafLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildSpinningLeaf,
+            buildFrame: buildWindLeafMist,
+            color: '#2ecc71',
+            emberColors: ['#2ecc71', '#6fcf5a', '#a8e063'],
+            curveStyle: 'zigzag',
+            spawnRatePerSec: 15,
+            travelDuration: 780,
+            sfxType: 'grass',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ BĂNG — spawnIce2 (Blizzard Fury) — bão tuyết
+    // ══════════════════════════════════════════════════════════
+    async spawnIce2(startEl, endEl, count, scale, damage) {
+        // Bông tuyết nhỏ + mảnh băng dài xen kẽ, lấp lánh trắng-xanh
+        const buildSnowShard = (s, c) => {
+            const isFlake = Math.random() < 0.5;
+            const el = document.createElement('div');
+            if (isFlake) {
+                const size = (10 + Math.random() * 8) * s;
+                el.style.cssText = `
+                    width:${size}px; height:${size}px;
+                    background: radial-gradient(circle, #fff 0%, ${c} 60%, transparent 90%);
+                    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+                    filter: drop-shadow(0 0 ${4 * s}px #fff);
+                `;
+            } else {
+                const w = (55 + Math.random() * 20) * s, h = (9 + Math.random() * 4) * s;
+                el.style.cssText = `
+                    width:${w}px; height:${h}px;
+                    background: linear-gradient(90deg, transparent, #fff 30%, ${c} 60%, transparent);
+                    filter: blur(${0.6 * s}px) drop-shadow(0 0 ${5 * s}px ${c});
+                `;
+            }
+            return el;
+        };
+
+        // Lớp NỀN bão tuyết — tuyết rơi dày tiled toàn arena + sương lạnh
+        const buildBlizzardMist = (arenaRect) => {
+            if (!document.getElementById('pkm-ice2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-ice2-mist-style';
+                style.textContent = `
+                    @keyframes pkmIce2Glow {
+                        0%, 100% { opacity: 0.7; }
+                        50%      { opacity: 1; }
+                    }
+                    @keyframes pkmIce2SnowFall {
+                        0%   { background-position: 0px 0px, 0px 0px, 0px 0px; }
+                        100% { background-position: 40px 300px, -30px 340px, 20px 260px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 95% 80% at 50% 50%, rgba(220,245,255,0.45) 0%, rgba(120,180,220,0.35) 45%, transparent 80%);
+                animation: pkmIce2Glow 2s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const snowLayer = document.createElement('div');
+            snowLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 3px, rgba(255,255,255,0.95) 0%, transparent 70%),
+                    radial-gradient(circle 2px, rgba(220,245,255,0.85) 0%, transparent 70%),
+                    radial-gradient(circle 4px, rgba(255,255,255,0.7) 0%, transparent 70%);
+                background-size: 120px 150px, 90px 120px, 160px 190px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmIce2SnowFall 2.6s linear infinite;
+                opacity: 0.9;
+            `;
+            mistRoot.appendChild(snowLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildSnowShard,
+            buildFrame: buildBlizzardMist,
+            color: '#74b9ff',
+            emberColors: ['#74b9ff', '#b3e5fc', '#dff6ff'],
+            curveStyle: 'wavy',
+            spawnRatePerSec: 18,
+            travelDuration: 950,
+            sfxType: 'ice',
+        });
+    },
+    // ══════════════════════════════════════════════════════════
+    // HỆ THƯỜNG — spawnNormal2 (Resonant Wavefront) — vành sóng âm lan tỏa
+    // ══════════════════════════════════════════════════════════
+    async spawnNormal2(startEl, endEl, count, scale, damage) {
+        // Vành khuyên rỗng (crescent ring), lõi trong suốt, viền trắng-vàng nhạt sáng rực
+        const buildSonicArc = (s, c) => {
+            const w = (70 + Math.random() * 26) * s;
+            const h = w * 0.42;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px; border-radius:50%;
+                border: ${3.2 * s}px solid #fff;
+                border-left-color: transparent; border-right-color: transparent;
+                box-shadow: 0 0 ${8 * s}px ${c}, inset 0 0 ${6 * s}px ${c};
+                filter: drop-shadow(0 0 ${5 * s}px #fff);
+            `;
+            return el;
+        };
+
+        // Lớp NỀN hào quang trắng-vàng lan tỏa toàn arena, nhịp co giãn theo tần số âm
+        const buildResonanceMist = (arenaRect) => {
+            if (!document.getElementById('pkm-normal2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-normal2-mist-style';
+                style.textContent = `
+                    @keyframes pkmNormal2Pulse {
+                        0%, 100% { opacity: 0.6; transform: scale(1); }
+                        50%      { opacity: 0.95; transform: scale(1.05); }
+                    }
+                    @keyframes pkmNormal2RingDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 200px 0px, -180px 0px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 75% at 50% 50%, rgba(255,255,240,0.5) 0%, rgba(200,200,170,0.32) 45%, transparent 80%);
+                animation: pkmNormal2Pulse 1.4s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const ringLayer = document.createElement('div');
+            ringLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 90px at 50% 50%, transparent 60%, rgba(255,255,255,0.18) 62%, transparent 66%),
+                    radial-gradient(circle 60px at 50% 50%, transparent 60%, rgba(255,240,200,0.16) 62%, transparent 66%);
+                background-size: 260px 260px, 200px 200px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmNormal2RingDrift 3s linear infinite;
+                opacity: 0.7;
+            `;
+            mistRoot.appendChild(ringLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildSonicArc,
+            buildFrame: buildResonanceMist,
+            color: '#e8e2c0',
+            emberColors: ['#fff8e0', '#e8e2c0', '#d6d6c2'],
+            curveStyle: 'straight',
+            spawnRatePerSec: 15,
+            travelDuration: 720,
+            sfxType: 'normal',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ CHIẾN ĐẤU — spawnFighting2 (Berserker Onslaught) — vệt chém + bụi
+    // ══════════════════════════════════════════════════════════
+    async spawnFighting2(startEl, endEl, count, scale, damage) {
+        // Vệt móng vuốt/chém xé không khí — 3 sọc song song, đỏ-cam, viền trắng chói
+        const buildClawSlash = (s, c) => {
+            const w = (78 + Math.random() * 24) * s;
+            const h = (20 + Math.random() * 6) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background:
+                    linear-gradient(90deg, transparent 0%, #fff 10%, transparent 16%, transparent 30%,
+                        #fff 40%, transparent 46%, transparent 60%, #fff 70%, transparent 76%, transparent 100%),
+                    linear-gradient(90deg, transparent 0%, ${c}66 15%, ${c}dd 50%, ${c}66 85%, transparent 100%);
+                filter: drop-shadow(0 0 ${5 * s}px ${c});
+            `;
+            return el;
+        };
+
+        // Lớp NỀN bụi đất bay + rung động chiến trường, đỏ cam ám khói
+        const buildBattleDustMist = (arenaRect) => {
+            if (!document.getElementById('pkm-fighting2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-fighting2-mist-style';
+                style.textContent = `
+                    @keyframes pkmFighting2Shock {
+                        0%, 100% { opacity: 0.6; transform: scale(1); }
+                        45%      { opacity: 0.95; transform: scale(1.03); }
+                        55%      { opacity: 0.7; transform: scale(0.99); }
+                    }
+                    @keyframes pkmFighting2DustDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: -220px 180px, 260px -140px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 75% at 50% 100%, rgba(255,120,60,0.5) 0%, rgba(100,20,10,0.4) 45%, transparent 80%),
+                    radial-gradient(ellipse 60% 45% at 15% 15%, rgba(255,90,50,0.2) 0%, transparent 60%),
+                    radial-gradient(ellipse 60% 45% at 85% 15%, rgba(255,90,50,0.2) 0%, transparent 60%);
+                animation: pkmFighting2Shock 0.7s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const dustLayer = document.createElement('div');
+            dustLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 5px, rgba(200,150,110,0.55) 0%, transparent 70%),
+                    radial-gradient(circle 4px, rgba(255,190,140,0.5) 0%, transparent 70%);
+                background-size: 130px 110px, 170px 150px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmFighting2DustDrift 2.8s linear infinite;
+                opacity: 0.7;
+            `;
+            mistRoot.appendChild(dustLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildClawSlash,
+            buildFrame: buildBattleDustMist,
+            color: '#e74c3c',
+            emberColors: ['#e74c3c', '#ff7043', '#ffab91'],
+            curveStyle: 'zigzag',
+            spawnRatePerSec: 18,
+            travelDuration: 560,
+            sfxType: 'fighting',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ ĐỘC — spawnPoison2 (Toxic Deluge) — giọt độc nhớt rơi kéo vệt
+    // ══════════════════════════════════════════════════════════
+    async spawnPoison2(startEl, endEl, count, scale, damage) {
+        // Giọt độc hình bầu, đầu tròn đặc, thân kéo dài nhớt dần, viền xanh lục dạ quang
+        const buildToxinDrop = (s, c) => {
+            const w = (16 + Math.random() * 10) * s;
+            const h = w * 3.4;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background:
+                    radial-gradient(circle at 50% 18%, #eafce0 0%, #a3e635 22%, ${c} 48%, transparent 70%),
+                    linear-gradient(180deg, transparent 0%, ${c}55 30%, ${c}22 70%, transparent 100%);
+                border-radius: 50% 50% 30% 30% / 60% 60% 40% 40%;
+                filter: blur(${0.6 * s}px) drop-shadow(0 0 ${5 * s}px ${c});
+            `;
+            return el;
+        };
+
+        // Lớp NỀN đầm lầy độc — bong bóng khí sủi lên, sương tím-lục ám khói
+        const buildToxicSwampMist = (arenaRect) => {
+            if (!document.getElementById('pkm-poison2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-poison2-mist-style';
+                style.textContent = `
+                    @keyframes pkmPoison2Bubble {
+                        0%, 100% { opacity: 0.6; transform: scale(1) translateY(0); }
+                        50%      { opacity: 0.95; transform: scale(1.03) translateY(-1%); }
+                    }
+                    @keyframes pkmPoison2BubbleRise {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 30px -260px, -25px -220px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 75% at 50% 100%, rgba(160,0,220,0.45) 0%, rgba(60,0,90,0.4) 45%, transparent 80%),
+                    radial-gradient(ellipse 55% 45% at 20% 15%, rgba(140,220,40,0.2) 0%, transparent 60%);
+                animation: pkmPoison2Bubble 1.7s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const bubbleLayer = document.createElement('div');
+            bubbleLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 4px, rgba(180,255,80,0.65) 0%, transparent 70%),
+                    radial-gradient(circle 5px, rgba(180,0,255,0.5) 0%, transparent 70%);
+                background-size: 150px 170px, 190px 200px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmPoison2BubbleRise 3.2s linear infinite;
+                opacity: 0.75;
+            `;
+            mistRoot.appendChild(bubbleLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildToxinDrop,
+            buildFrame: buildToxicSwampMist,
+            color: '#a040a0',
+            emberColors: ['#a040a0', '#8e24aa', '#39ff14'],
+            curveStyle: 'wavy',
+            spawnRatePerSec: 14,
+            travelDuration: 880,
+            sfxType: 'poison',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ ĐẤT — spawnGround2 (Seismic Barrage) — mảnh đá vụn xoay tumble + bụi
+    // ══════════════════════════════════════════════════════════
+    async spawnGround2(startEl, endEl, count, scale, damage) {
+        // Mảnh đá góc cạnh thô ráp, tự xoay lăn liên tục khi bay (khác hẳn dáng người/linh hồn)
+        const buildRockShard = (s, c) => {
+            if (!document.getElementById('pkm-ground2-shard-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-ground2-shard-style';
+                style.textContent = `
+                    @keyframes pkmGround2Tumble { from { transform: rotate(0deg); } to { transform: rotate(720deg); } }
+                `;
+                document.head.appendChild(style);
+            }
+            const size = (22 + Math.random() * 16) * s;
+            const clipPaths = [
+                'polygon(20% 0%,80% 8%,100% 45%,78% 100%,20% 95%,0% 50%)',
+                'polygon(10% 15%,60% 0%,100% 30%,90% 80%,45% 100%,0% 65%)',
+                'polygon(30% 0%,90% 20%,100% 70%,55% 100%,5% 75%,0% 25%)',
+            ];
+            const clip = clipPaths[Math.floor(Math.random() * clipPaths.length)];
+            const outer = document.createElement('div');
+            outer.style.cssText = `width:${size}px; height:${size}px;`;
+            const inner = document.createElement('div');
+            inner.style.cssText = `
+                width:100%; height:100%;
+                background: linear-gradient(135deg, #fff2, ${c} 55%, #00000055);
+                clip-path: ${clip};
+                box-shadow: 0 0 ${size * 0.3}px #00000066;
+                animation: pkmGround2Tumble ${0.6 + Math.random() * 0.5}s linear infinite;
+                filter: drop-shadow(0 0 ${3 * s}px ${c});
+            `;
+            outer.appendChild(inner);
+            return outer;
+        };
+
+        // Lớp NỀN địa chấn — nứt đất phát sáng cam + bụi cát dày đặc toàn arena
+        const buildQuakeDustMist = (arenaRect) => {
+            if (!document.getElementById('pkm-ground2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-ground2-mist-style';
+                style.textContent = `
+                    @keyframes pkmGround2Rumble {
+                        0%, 100% { opacity: 0.65; transform: translateX(0); }
+                        25%      { opacity: 0.9;  transform: translateX(-1%); }
+                        75%      { opacity: 0.9;  transform: translateX(1%); }
+                    }
+                    @keyframes pkmGround2DustDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 240px 40px, -200px -30px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 78% at 50% 100%, rgba(220,150,60,0.5) 0%, rgba(90,50,10,0.4) 45%, transparent 80%);
+                animation: pkmGround2Rumble 0.5s steps(4) infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const dustLayer = document.createElement('div');
+            dustLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 5px, rgba(200,160,100,0.6) 0%, transparent 70%),
+                    radial-gradient(circle 6px, rgba(160,110,60,0.5) 0%, transparent 70%);
+                background-size: 160px 130px, 200px 170px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmGround2DustDrift 3s linear infinite;
+                opacity: 0.8;
+            `;
+            mistRoot.appendChild(dustLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildRockShard,
+            buildFrame: buildQuakeDustMist,
+            color: '#e2bf65',
+            emberColors: ['#e2bf65', '#c19a5b', '#8d6e63'],
+            curveStyle: 'straight',
+            spawnRatePerSec: 16,
+            travelDuration: 700,
+            sfxType: 'ground',
+        });
+    },
+    // ══════════════════════════════════════════════════════════
+    // HỆ BAY — spawnFlying2 (Gale Onslaught) — lưỡi gió mảnh dài cong
+    // ══════════════════════════════════════════════════════════
+    async spawnFlying2(startEl, endEl, count, scale, damage) {
+        // Lưỡi gió cong hình lưỡi liềm mảnh, viền trắng sáng, thân tím nhạt trong suốt
+        const buildWindBlade = (s, c) => {
+            const w = (88 + Math.random() * 26) * s;
+            const h = (10 + Math.random() * 5) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background: linear-gradient(90deg, transparent 0%, ${c}44 15%, #fff 50%, ${c}44 85%, transparent 100%);
+                border-radius: 50%;
+                filter: blur(${0.8 * s}px) drop-shadow(0 0 ${6 * s}px #fff);
+            `;
+            return el;
+        };
+
+        // Lớp NỀN cuồng phong — xoáy gió cuộn toàn arena, mờ trắng-tím lướt nhanh
+        const buildGaleMist = (arenaRect) => {
+            if (!document.getElementById('pkm-flying2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-flying2-mist-style';
+                style.textContent = `
+                    @keyframes pkmFlying2Gust {
+                        0%, 100% { opacity: 0.6; transform: skewX(0deg); }
+                        50%      { opacity: 0.9; transform: skewX(-3deg); }
+                    }
+                    @keyframes pkmFlying2StreakDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: -300px 20px, 260px -15px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 75% at 50% 50%, rgba(200,180,255,0.4) 0%, rgba(90,60,150,0.32) 45%, transparent 80%);
+                animation: pkmFlying2Gust 0.9s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const streakLayer = document.createElement('div');
+            streakLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    repeating-linear-gradient(8deg, transparent 0px, transparent 40px, rgba(255,255,255,0.16) 42px, transparent 46px, transparent 90px),
+                    repeating-linear-gradient(-6deg, transparent 0px, transparent 55px, rgba(230,220,255,0.14) 57px, transparent 60px, transparent 100px);
+                mix-blend-mode: screen;
+                animation: pkmFlying2StreakDrift 1.6s linear infinite;
+            `;
+            mistRoot.appendChild(streakLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildWindBlade,
+            buildFrame: buildGaleMist,
+            color: '#a890f0',
+            emberColors: ['#a890f0', '#c5b3ff', '#f5f5ff'],
+            curveStyle: 'wavy',
+            spawnRatePerSec: 19,
+            travelDuration: 560,
+            sfxType: 'flying',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ TÂM LINH — spawnPsychic2 (Mindquake Surge) — mắt/vòng năng lượng méo mó
+    // ══════════════════════════════════════════════════════════
+    async spawnPsychic2(startEl, endEl, count, scale, damage) {
+        // Vòng năng lượng hình elip méo, tâm sáng như "con mắt", nhấp nháy loạn nhịp
+        const buildPsiRing = (s, c) => {
+            if (!document.getElementById('pkm-psychic2-ring-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-psychic2-ring-style';
+                style.textContent = `
+                    @keyframes pkmPsychic2Warp {
+                        0%   { transform: scale(1, 1) rotate(0deg); }
+                        33%  { transform: scale(1.25, 0.8) rotate(8deg); }
+                        66%  { transform: scale(0.8, 1.2) rotate(-6deg); }
+                        100% { transform: scale(1, 1) rotate(0deg); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            const size = (34 + Math.random() * 18) * s;
+            const outer = document.createElement('div');
+            outer.style.cssText = `width:${size}px; height:${size}px;`;
+            const inner = document.createElement('div');
+            inner.style.cssText = `
+                width:100%; height:100%; border-radius:50%;
+                border: ${3 * s}px solid ${c};
+                background: radial-gradient(circle at 50% 50%, #fff 0%, ${c}aa 40%, transparent 75%);
+                box-shadow: 0 0 ${8 * s}px ${c}, inset 0 0 ${6 * s}px #fff;
+                animation: pkmPsychic2Warp ${0.5 + Math.random() * 0.3}s ease-in-out infinite;
+                filter: drop-shadow(0 0 ${5 * s}px ${c});
+            `;
+            outer.appendChild(inner);
+            return outer;
+        };
+
+        // Lớp NỀN không gian bóp méo — sóng đồng tâm tím-hồng lan toàn arena
+        const buildPsychicMist = (arenaRect) => {
+            if (!document.getElementById('pkm-psychic2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-psychic2-mist-style';
+                style.textContent = `
+                    @keyframes pkmPsychic2Pulse {
+                        0%, 100% { opacity: 0.6; transform: scale(1); }
+                        50%      { opacity: 0.95; transform: scale(1.06); }
+                    }
+                    @keyframes pkmPsychic2RingExpand {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 220px 0px, -180px 0px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 75% at 50% 50%, rgba(248,88,136,0.4) 0%, rgba(90,10,60,0.35) 45%, transparent 80%);
+                animation: pkmPsychic2Pulse 1.3s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const ringLayer = document.createElement('div');
+            ringLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 80px at 50% 50%, transparent 55%, rgba(248,88,136,0.2) 58%, transparent 63%),
+                    radial-gradient(circle 50px at 50% 50%, transparent 55%, rgba(200,140,255,0.18) 58%, transparent 63%);
+                background-size: 240px 240px, 180px 180px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmPsychic2RingExpand 2.6s linear infinite;
+                opacity: 0.7;
+            `;
+            mistRoot.appendChild(ringLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildPsiRing,
+            buildFrame: buildPsychicMist,
+            color: '#f85888',
+            emberColors: ['#f85888', '#c58fff', '#ffffff'],
+            curveStyle: 'zigzag',
+            spawnRatePerSec: 13,
+            travelDuration: 800,
+            sfxType: 'psychic',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ BỌ — spawnBug2 (Swarm Onslaught) — cánh bọ mảnh vo ve rung
+    // ══════════════════════════════════════════════════════════
+    async spawnBug2(startEl, endEl, count, scale, damage) {
+        // Cặp cánh mảnh trong suốt rung nhanh (khác hẳn thân sâu bò trườn), màu vàng-lục dạ quang
+        const buildBuzzWing = (s, c) => {
+            if (!document.getElementById('pkm-bug2-wing-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-bug2-wing-style';
+                style.textContent = `
+                    @keyframes pkmBug2Buzz {
+                        0%, 100% { transform: scaleY(1) skewX(0deg); }
+                        50%      { transform: scaleY(0.7) skewX(8deg); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            const w = (30 + Math.random() * 14) * s;
+            const h = w * 0.6;
+            const outer = document.createElement('div');
+            outer.style.cssText = `width:${w}px; height:${h}px; display:flex; gap:${2*s}px;`;
+            for (let i = 0; i < 2; i++) {
+                const wing = document.createElement('div');
+                wing.style.cssText = `
+                    flex:1; height:100%;
+                    background: radial-gradient(ellipse at 30% 30%, #fff 0%, ${c}99 40%, transparent 75%);
+                    border: ${1 * s}px solid ${c};
+                    border-radius: 60% 40% 60% 40%;
+                    animation: pkmBug2Buzz ${0.08 + Math.random() * 0.05}s ease-in-out infinite;
+                    filter: drop-shadow(0 0 ${3 * s}px ${c});
+                `;
+                outer.appendChild(wing);
+            }
+            return outer;
+        };
+
+        // Lớp NỀN bầy đàn vo ve — hạt phấn dạ quang lấp lánh dày đặc toàn arena
+        const buildSwarmMist = (arenaRect) => {
+            if (!document.getElementById('pkm-bug2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-bug2-mist-style';
+                style.textContent = `
+                    @keyframes pkmBug2Flicker {
+                        0%, 100% { opacity: 0.55; }
+                        50%      { opacity: 0.9; }
+                    }
+                    @keyframes pkmBug2SporeDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 180px 200px, -160px -180px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 75% at 50% 50%, rgba(168,184,32,0.4) 0%, rgba(60,70,10,0.32) 45%, transparent 80%);
+                animation: pkmBug2Flicker 0.6s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const sporeLayer = document.createElement('div');
+            sporeLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 3px, rgba(220,255,80,0.75) 0%, transparent 70%),
+                    radial-gradient(circle 2px, rgba(168,184,32,0.7) 0%, transparent 70%);
+                background-size: 110px 100px, 90px 80px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmBug2SporeDrift 2.4s linear infinite;
+                opacity: 0.85;
+            `;
+            mistRoot.appendChild(sporeLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildBuzzWing,
+            buildFrame: buildSwarmMist,
+            color: '#a8b820',
+            emberColors: ['#a8b820', '#c6e05a', '#d4e157'],
+            curveStyle: 'zigzag',
+            spawnRatePerSec: 24,
+            travelDuration: 500,
+            sfxType: 'bug',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ ĐÁ — spawnRock2 (Stalagmite Barrage) — cột đá nhọn mọc trồi
+    // ══════════════════════════════════════════════════════════
+    async spawnRock2(startEl, endEl, count, scale, damage) {
+        // Cột đá nhọn hình tam giác dài, khác hẳn mảnh đá vụn góc cạnh (hệ Đất) —
+        // đây là dáng cột NHỌN, thẳng, giống thạch nhũ mọc lên.
+        const buildStoneSpike = (s, c) => {
+            const w = (18 + Math.random() * 10) * s;
+            const h = (60 + Math.random() * 24) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background: linear-gradient(180deg, #efebe9 0%, ${c} 45%, #4a3a20 90%);
+                clip-path: polygon(50% 0%, 85% 100%, 15% 100%);
+                filter: drop-shadow(0 0 ${3 * s}px #00000066);
+            `;
+            return el;
+        };
+
+        // Lớp NỀN hang đá — bụi khoáng nâu vàng phát sáng nhẹ, rung theo nhịp
+        const buildStoneDustMist = (arenaRect) => {
+            if (!document.getElementById('pkm-rock2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-rock2-mist-style';
+                style.textContent = `
+                    @keyframes pkmRock2Flicker {
+                        0%, 100% { opacity: 0.6; }
+                        50%      { opacity: 0.9; }
+                    }
+                    @keyframes pkmRock2DustDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 200px 60px, -180px -50px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 78% at 50% 100%, rgba(184,160,56,0.45) 0%, rgba(70,50,15,0.4) 45%, transparent 80%);
+                animation: pkmRock2Flicker 0.9s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const dustLayer = document.createElement('div');
+            dustLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 4px, rgba(200,180,120,0.55) 0%, transparent 70%),
+                    radial-gradient(circle 5px, rgba(160,130,70,0.5) 0%, transparent 70%);
+                background-size: 150px 140px, 190px 170px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmRock2DustDrift 3s linear infinite;
+                opacity: 0.75;
+            `;
+            mistRoot.appendChild(dustLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildStoneSpike,
+            buildFrame: buildStoneDustMist,
+            color: '#b8a038',
+            emberColors: ['#b8a038', '#a08050', '#efebe9'],
+            curveStyle: 'straight',
+            spawnRatePerSec: 13,
+            travelDuration: 650,
+            sfxType: 'rock',
+        });
+    },
+    // ══════════════════════════════════════════════════════════
+    // HỆ BAY — spawnFlying2 (Gale Onslaught) — lưỡi gió mảnh dài cong
+    // ══════════════════════════════════════════════════════════
+    async spawnFlying2(startEl, endEl, count, scale, damage) {
+        // Lưỡi gió cong hình lưỡi liềm mảnh, viền trắng sáng, thân tím nhạt trong suốt
+        const buildWindBlade = (s, c) => {
+            const w = (88 + Math.random() * 26) * s;
+            const h = (10 + Math.random() * 5) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background: linear-gradient(90deg, transparent 0%, ${c}44 15%, #fff 50%, ${c}44 85%, transparent 100%);
+                border-radius: 50%;
+                filter: blur(${0.8 * s}px) drop-shadow(0 0 ${6 * s}px #fff);
+            `;
+            return el;
+        };
+
+        // Lớp NỀN cuồng phong — xoáy gió cuộn toàn arena, mờ trắng-tím lướt nhanh
+        const buildGaleMist = (arenaRect) => {
+            if (!document.getElementById('pkm-flying2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-flying2-mist-style';
+                style.textContent = `
+                    @keyframes pkmFlying2Gust {
+                        0%, 100% { opacity: 0.6; transform: skewX(0deg); }
+                        50%      { opacity: 0.9; transform: skewX(-3deg); }
+                    }
+                    @keyframes pkmFlying2StreakDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: -300px 20px, 260px -15px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 75% at 50% 50%, rgba(200,180,255,0.4) 0%, rgba(90,60,150,0.32) 45%, transparent 80%);
+                animation: pkmFlying2Gust 0.9s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const streakLayer = document.createElement('div');
+            streakLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    repeating-linear-gradient(8deg, transparent 0px, transparent 40px, rgba(255,255,255,0.16) 42px, transparent 46px, transparent 90px),
+                    repeating-linear-gradient(-6deg, transparent 0px, transparent 55px, rgba(230,220,255,0.14) 57px, transparent 60px, transparent 100px);
+                mix-blend-mode: screen;
+                animation: pkmFlying2StreakDrift 1.6s linear infinite;
+            `;
+            mistRoot.appendChild(streakLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildWindBlade,
+            buildFrame: buildGaleMist,
+            color: '#a890f0',
+            emberColors: ['#a890f0', '#c5b3ff', '#f5f5ff'],
+            curveStyle: 'wavy',
+            spawnRatePerSec: 19,
+            travelDuration: 560,
+            sfxType: 'flying',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ TÂM LINH — spawnPsychic2 (Mindquake Surge) — mắt/vòng năng lượng méo mó
+    // ══════════════════════════════════════════════════════════
+    async spawnPsychic2(startEl, endEl, count, scale, damage) {
+        // Vòng năng lượng hình elip méo, tâm sáng như "con mắt", nhấp nháy loạn nhịp
+        const buildPsiRing = (s, c) => {
+            if (!document.getElementById('pkm-psychic2-ring-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-psychic2-ring-style';
+                style.textContent = `
+                    @keyframes pkmPsychic2Warp {
+                        0%   { transform: scale(1, 1) rotate(0deg); }
+                        33%  { transform: scale(1.25, 0.8) rotate(8deg); }
+                        66%  { transform: scale(0.8, 1.2) rotate(-6deg); }
+                        100% { transform: scale(1, 1) rotate(0deg); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            const size = (34 + Math.random() * 18) * s;
+            const outer = document.createElement('div');
+            outer.style.cssText = `width:${size}px; height:${size}px;`;
+            const inner = document.createElement('div');
+            inner.style.cssText = `
+                width:100%; height:100%; border-radius:50%;
+                border: ${3 * s}px solid ${c};
+                background: radial-gradient(circle at 50% 50%, #fff 0%, ${c}aa 40%, transparent 75%);
+                box-shadow: 0 0 ${8 * s}px ${c}, inset 0 0 ${6 * s}px #fff;
+                animation: pkmPsychic2Warp ${0.5 + Math.random() * 0.3}s ease-in-out infinite;
+                filter: drop-shadow(0 0 ${5 * s}px ${c});
+            `;
+            outer.appendChild(inner);
+            return outer;
+        };
+
+        // Lớp NỀN không gian bóp méo — sóng đồng tâm tím-hồng lan toàn arena
+        const buildPsychicMist = (arenaRect) => {
+            if (!document.getElementById('pkm-psychic2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-psychic2-mist-style';
+                style.textContent = `
+                    @keyframes pkmPsychic2Pulse {
+                        0%, 100% { opacity: 0.6; transform: scale(1); }
+                        50%      { opacity: 0.95; transform: scale(1.06); }
+                    }
+                    @keyframes pkmPsychic2RingExpand {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 220px 0px, -180px 0px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 75% at 50% 50%, rgba(248,88,136,0.4) 0%, rgba(90,10,60,0.35) 45%, transparent 80%);
+                animation: pkmPsychic2Pulse 1.3s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const ringLayer = document.createElement('div');
+            ringLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 80px at 50% 50%, transparent 55%, rgba(248,88,136,0.2) 58%, transparent 63%),
+                    radial-gradient(circle 50px at 50% 50%, transparent 55%, rgba(200,140,255,0.18) 58%, transparent 63%);
+                background-size: 240px 240px, 180px 180px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmPsychic2RingExpand 2.6s linear infinite;
+                opacity: 0.7;
+            `;
+            mistRoot.appendChild(ringLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildPsiRing,
+            buildFrame: buildPsychicMist,
+            color: '#f85888',
+            emberColors: ['#f85888', '#c58fff', '#ffffff'],
+            curveStyle: 'zigzag',
+            spawnRatePerSec: 13,
+            travelDuration: 800,
+            sfxType: 'psychic',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ BỌ — spawnBug2 (Swarm Onslaught) — cánh bọ mảnh vo ve rung
+    // ══════════════════════════════════════════════════════════
+    async spawnBug2(startEl, endEl, count, scale, damage) {
+        // Cặp cánh mảnh trong suốt rung nhanh (khác hẳn thân sâu bò trườn), màu vàng-lục dạ quang
+        const buildBuzzWing = (s, c) => {
+            if (!document.getElementById('pkm-bug2-wing-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-bug2-wing-style';
+                style.textContent = `
+                    @keyframes pkmBug2Buzz {
+                        0%, 100% { transform: scaleY(1) skewX(0deg); }
+                        50%      { transform: scaleY(0.7) skewX(8deg); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            const w = (30 + Math.random() * 14) * s;
+            const h = w * 0.6;
+            const outer = document.createElement('div');
+            outer.style.cssText = `width:${w}px; height:${h}px; display:flex; gap:${2*s}px;`;
+            for (let i = 0; i < 2; i++) {
+                const wing = document.createElement('div');
+                wing.style.cssText = `
+                    flex:1; height:100%;
+                    background: radial-gradient(ellipse at 30% 30%, #fff 0%, ${c}99 40%, transparent 75%);
+                    border: ${1 * s}px solid ${c};
+                    border-radius: 60% 40% 60% 40%;
+                    animation: pkmBug2Buzz ${0.08 + Math.random() * 0.05}s ease-in-out infinite;
+                    filter: drop-shadow(0 0 ${3 * s}px ${c});
+                `;
+                outer.appendChild(wing);
+            }
+            return outer;
+        };
+
+        // Lớp NỀN bầy đàn vo ve — hạt phấn dạ quang lấp lánh dày đặc toàn arena
+        const buildSwarmMist = (arenaRect) => {
+            if (!document.getElementById('pkm-bug2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-bug2-mist-style';
+                style.textContent = `
+                    @keyframes pkmBug2Flicker {
+                        0%, 100% { opacity: 0.55; }
+                        50%      { opacity: 0.9; }
+                    }
+                    @keyframes pkmBug2SporeDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 180px 200px, -160px -180px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 75% at 50% 50%, rgba(168,184,32,0.4) 0%, rgba(60,70,10,0.32) 45%, transparent 80%);
+                animation: pkmBug2Flicker 0.6s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const sporeLayer = document.createElement('div');
+            sporeLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 3px, rgba(220,255,80,0.75) 0%, transparent 70%),
+                    radial-gradient(circle 2px, rgba(168,184,32,0.7) 0%, transparent 70%);
+                background-size: 110px 100px, 90px 80px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmBug2SporeDrift 2.4s linear infinite;
+                opacity: 0.85;
+            `;
+            mistRoot.appendChild(sporeLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildBuzzWing,
+            buildFrame: buildSwarmMist,
+            color: '#a8b820',
+            emberColors: ['#a8b820', '#c6e05a', '#d4e157'],
+            curveStyle: 'zigzag',
+            spawnRatePerSec: 24,
+            travelDuration: 500,
+            sfxType: 'bug',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ ĐÁ — spawnRock2 (Stalagmite Barrage) — cột đá nhọn mọc trồi
+    // ══════════════════════════════════════════════════════════
+    async spawnRock2(startEl, endEl, count, scale, damage) {
+        // Cột đá nhọn hình tam giác dài, khác hẳn mảnh đá vụn góc cạnh (hệ Đất) —
+        // đây là dáng cột NHỌN, thẳng, giống thạch nhũ mọc lên.
+        const buildStoneSpike = (s, c) => {
+            const w = (18 + Math.random() * 10) * s;
+            const h = (60 + Math.random() * 24) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background: linear-gradient(180deg, #efebe9 0%, ${c} 45%, #4a3a20 90%);
+                clip-path: polygon(50% 0%, 85% 100%, 15% 100%);
+                filter: drop-shadow(0 0 ${3 * s}px #00000066);
+            `;
+            return el;
+        };
+
+        // Lớp NỀN hang đá — bụi khoáng nâu vàng phát sáng nhẹ, rung theo nhịp
+        const buildStoneDustMist = (arenaRect) => {
+            if (!document.getElementById('pkm-rock2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-rock2-mist-style';
+                style.textContent = `
+                    @keyframes pkmRock2Flicker {
+                        0%, 100% { opacity: 0.6; }
+                        50%      { opacity: 0.9; }
+                    }
+                    @keyframes pkmRock2DustDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 200px 60px, -180px -50px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 78% at 50% 100%, rgba(184,160,56,0.45) 0%, rgba(70,50,15,0.4) 45%, transparent 80%);
+                animation: pkmRock2Flicker 0.9s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const dustLayer = document.createElement('div');
+            dustLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 4px, rgba(200,180,120,0.55) 0%, transparent 70%),
+                    radial-gradient(circle 5px, rgba(160,130,70,0.5) 0%, transparent 70%);
+                background-size: 150px 140px, 190px 170px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmRock2DustDrift 3s linear infinite;
+                opacity: 0.75;
+            `;
+            mistRoot.appendChild(dustLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildStoneSpike,
+            buildFrame: buildStoneDustMist,
+            color: '#b8a038',
+            emberColors: ['#b8a038', '#a08050', '#efebe9'],
+            curveStyle: 'straight',
+            spawnRatePerSec: 13,
+            travelDuration: 650,
+            sfxType: 'rock',
+        });
+    },
+    // ══════════════════════════════════════════════════════════
+    // HỆ MA — spawnGhost2 (Spectral Onslaught) — vệt hồn ma lượn lờ, đuôi tan biến
+    // ══════════════════════════════════════════════════════════
+    async spawnGhost2(startEl, endEl, count, scale, damage) {
+        // Vệt sáng dài mờ ảo, đầu đặc dần mờ ra sau (khác dáng người/mặt đã có)
+        const buildWispTrail = (s, c) => {
+            const w = (80 + Math.random() * 26) * s;
+            const h = (16 + Math.random() * 8) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background: linear-gradient(90deg, transparent 0%, ${c}22 20%, ${c}bb 55%, #e8dfff 78%, transparent 100%);
+                border-radius: 50%;
+                filter: blur(${2.2 * s}px) drop-shadow(0 0 ${7 * s}px ${c});
+            `;
+            return el;
+        };
+
+        // Lớp NỀN sương hồn — sương xanh lục-tím lượn lờ, đủ sáng để nhìn rõ streak
+        const buildSpectralMist = (arenaRect) => {
+            if (!document.getElementById('pkm-ghost2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-ghost2-mist-style';
+                style.textContent = `
+                    @keyframes pkmGhost2Drift {
+                        0%, 100% { opacity: 0.55; transform: translateX(0); }
+                        50%      { opacity: 0.85; transform: translateX(1.5%); }
+                    }
+                    @keyframes pkmGhost2WispFloat {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: -240px -60px, 200px 50px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 78% at 50% 50%, rgba(112,88,152,0.42) 0%, rgba(40,20,60,0.35) 45%, transparent 80%),
+                    radial-gradient(ellipse 55% 45% at 20% 20%, rgba(0,255,200,0.15) 0%, transparent 60%);
+                animation: pkmGhost2Drift 2s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const wispLayer = document.createElement('div');
+            wispLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 5px, rgba(200,255,240,0.5) 0%, transparent 70%),
+                    radial-gradient(circle 4px, rgba(180,140,255,0.5) 0%, transparent 70%);
+                background-size: 180px 200px, 150px 170px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmGhost2WispFloat 3.6s linear infinite;
+                opacity: 0.7;
+            `;
+            mistRoot.appendChild(wispLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildWispTrail,
+            buildFrame: buildSpectralMist,
+            color: '#705898',
+            emberColors: ['#705898', '#8a6fd8', '#00ffcc'],
+            curveStyle: 'wavy',
+            spawnRatePerSec: 14,
+            travelDuration: 900,
+            sfxType: 'ghost',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ RỒNG — spawnDragon2 (Draconic Onslaught) — tia năng lượng xoắn đôi
+    // ══════════════════════════════════════════════════════════
+    async spawnDragon2(startEl, endEl, count, scale, damage) {
+        // 2 sọc xoắn quanh nhau (double-helix), tím-xanh, khác hẳn thân rồng SVG đã có
+        const buildDracoHelix = (s, c) => {
+            if (!document.getElementById('pkm-dragon2-helix-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-dragon2-helix-style';
+                style.textContent = `
+                    @keyframes pkmDragon2Spin { from { background-position: 0px 0px; } to { background-position: 40px 0px; } }
+                `;
+                document.head.appendChild(style);
+            }
+            const w = (86 + Math.random() * 22) * s;
+            const h = (22 + Math.random() * 6) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background:
+                    repeating-linear-gradient(70deg, transparent 0px, transparent 6px, #fff 7px, ${c} 10px, transparent 12px, transparent 20px),
+                    linear-gradient(90deg, transparent 0%, ${c}55 15%, ${c}dd 50%, ${c}55 85%, transparent 100%);
+                animation: pkmDragon2Spin 0.35s linear infinite;
+                filter: drop-shadow(0 0 ${6 * s}px ${c});
+            `;
+            return el;
+        };
+
+        // Lớp NỀN thiên hà rồng — tinh vân tím sâu + sao lấp lánh toàn arena
+        const buildDraconicMist = (arenaRect) => {
+            if (!document.getElementById('pkm-dragon2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-dragon2-mist-style';
+                style.textContent = `
+                    @keyframes pkmDragon2Pulse {
+                        0%, 100% { opacity: 0.6; transform: scale(1); }
+                        50%      { opacity: 0.95; transform: scale(1.04); }
+                    }
+                    @keyframes pkmDragon2StarDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 160px 140px, -140px -120px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 78% at 50% 50%, rgba(112,56,248,0.42) 0%, rgba(30,10,60,0.35) 45%, transparent 80%);
+                animation: pkmDragon2Pulse 1.5s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const starLayer = document.createElement('div');
+            starLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 3px, rgba(230,210,255,0.8) 0%, transparent 70%),
+                    radial-gradient(circle 2px, rgba(112,56,248,0.7) 0%, transparent 70%);
+                background-size: 130px 140px, 100px 110px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmDragon2StarDrift 3s linear infinite;
+                opacity: 0.85;
+            `;
+            mistRoot.appendChild(starLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildDracoHelix,
+            buildFrame: buildDraconicMist,
+            color: '#7038f8',
+            emberColors: ['#7038f8', '#a684ff', '#00f0ff'],
+            curveStyle: 'wavy',
+            spawnRatePerSec: 15,
+            travelDuration: 700,
+            sfxType: 'dragon',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ TỐI — spawnDark2 (Umbral Onslaught) — vệt hắc ám viền neon tím RÕ NÉT
+    // (chú ý: luôn giữ glow đủ mạnh + nền không quá đen để hiệu ứng dễ nhìn)
+    // ══════════════════════════════════════════════════════════
+    async spawnDark2(startEl, endEl, count, scale, damage) {
+        // Lõi đen đặc nhưng viền neon tím-magenta RẤT SÁNG bao quanh — đảm bảo
+        // luôn nổi rõ trên bất kỳ nền nào, không bị "chìm" vào tối.
+        const buildShadowStreak = (s, c) => {
+            const w = (78 + Math.random() * 24) * s;
+            const h = (14 + Math.random() * 6) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background: linear-gradient(90deg, transparent 0%, ${c}33 15%, #1a1024 45%, #1a1024 55%, ${c}33 85%, transparent 100%);
+                border-radius: ${h}px;
+                box-shadow: 0 0 ${9 * s}px ${c}, 0 0 ${16 * s}px #bd00ff88;
+                filter: drop-shadow(0 0 ${4 * s}px #fff);
+            `;
+            return el;
+        };
+
+        // Lớp NỀN: KHÔNG dùng đen thui — dùng tím đậm + glow magenta để vẫn
+        // thấy rõ Pokémon và streak phía trên, tránh tình trạng "tối quá không nhìn rõ".
+        const buildUmbralMist = (arenaRect) => {
+            if (!document.getElementById('pkm-dark2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-dark2-mist-style';
+                style.textContent = `
+                    @keyframes pkmDark2Pulse {
+                        0%, 100% { opacity: 0.45; transform: scale(1); }
+                        50%      { opacity: 0.7;  transform: scale(1.04); }
+                    }
+                    @keyframes pkmDark2SparkDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 180px 100px, -160px -90px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '0.75'; // NHẸ HƠN các hệ khác — tránh che mờ toàn cảnh
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 85% 70% at 50% 50%, rgba(120,0,180,0.32) 0%, rgba(40,0,60,0.24) 50%, transparent 80%);
+                animation: pkmDark2Pulse 1.1s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const sparkLayer = document.createElement('div');
+            sparkLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 3px, rgba(189,0,255,0.75) 0%, transparent 70%),
+                    radial-gradient(circle 2px, rgba(255,255,255,0.6) 0%, transparent 70%);
+                background-size: 140px 150px, 110px 120px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmDark2SparkDrift 2.8s linear infinite;
+                opacity: 0.7;
+            `;
+            mistRoot.appendChild(sparkLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildShadowStreak,
+            buildFrame: buildUmbralMist,
+            color: '#bd00ff',
+            emberColors: ['#bd00ff', '#705848', '#ffffff'],
+            curveStyle: 'zigzag',
+            spawnRatePerSec: 16,
+            travelDuration: 620,
+            sfxType: 'dark',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ THÉP — spawnSteel2 (Metallic Onslaught) — thanh kim loại vát cạnh xoay lăn
+    // ══════════════════════════════════════════════════════════
+    async spawnSteel2(startEl, endEl, count, scale, damage) {
+        // Thanh kim loại dài, phản sáng (highlight trắng chạy giữa), tự xoay quanh trục dọc
+        const buildMetalRod = (s, c) => {
+            if (!document.getElementById('pkm-steel2-rod-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-steel2-rod-style';
+                style.textContent = `
+                    @keyframes pkmSteel2Roll { from { transform: scaleY(1); } 50% { transform: scaleY(0.15); } to { transform: scaleY(1); } }
+                `;
+                document.head.appendChild(style);
+            }
+            const w = (74 + Math.random() * 22) * s;
+            const h = (13 + Math.random() * 5) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background: linear-gradient(90deg, transparent 0%, ${c} 15%, #fff 50%, ${c} 85%, transparent 100%);
+                animation: pkmSteel2Roll ${0.35 + Math.random() * 0.2}s linear infinite;
+                filter: drop-shadow(0 0 ${5 * s}px ${c});
+            `;
+            return el;
+        };
+
+        // Lớp NỀN nhà máy — tia lửa hàn bắn + ánh kim xám bạc phản chiếu toàn arena
+        const buildForgeMist = (arenaRect) => {
+            if (!document.getElementById('pkm-steel2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-steel2-mist-style';
+                style.textContent = `
+                    @keyframes pkmSteel2Shimmer {
+                        0%, 100% { opacity: 0.55; }
+                        50%      { opacity: 0.85; }
+                    }
+                    @keyframes pkmSteel2SparkDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 200px -60px, -180px 50px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 78% at 50% 50%, rgba(184,184,208,0.38) 0%, rgba(60,60,70,0.32) 45%, transparent 80%);
+                animation: pkmSteel2Shimmer 0.8s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const sparkLayer = document.createElement('div');
+            sparkLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 3px, rgba(255,255,255,0.85) 0%, transparent 70%),
+                    radial-gradient(circle 2px, rgba(255,240,180,0.7) 0%, transparent 70%);
+                background-size: 120px 130px, 95px 105px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmSteel2SparkDrift 2.2s linear infinite;
+                opacity: 0.75;
+            `;
+            mistRoot.appendChild(sparkLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildMetalRod,
+            buildFrame: buildForgeMist,
+            color: '#b8b8d0',
+            emberColors: ['#b8b8d0', '#eef0f5', '#787887'],
+            curveStyle: 'straight',
+            spawnRatePerSec: 17,
+            travelDuration: 600,
+            sfxType: 'steel',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ TIÊN — spawnFairy2 (Fairy Onslaught) — cánh hoa + ánh sao lấp lánh bay
+    // ══════════════════════════════════════════════════════════
+    async spawnFairy2(startEl, endEl, count, scale, damage) {
+        // Cánh hoa mềm mại xoay nhẹ khi bay, hồng phấn dạ quang (khác thực thể tinh linh hình người đã có)
+        const buildPetalGlint = (s, c) => {
+            if (!document.getElementById('pkm-fairy2-petal-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-fairy2-petal-style';
+                style.textContent = `
+                    @keyframes pkmFairy2Flutter {
+                        0%, 100% { transform: rotate(0deg) scale(1); }
+                        50%      { transform: rotate(20deg) scale(0.9); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            const size = (22 + Math.random() * 14) * s;
+            const outer = document.createElement('div');
+            outer.style.cssText = `width:${size}px; height:${size}px;`;
+            const inner = document.createElement('div');
+            inner.style.cssText = `
+                width:100%; height:100%;
+                background: radial-gradient(circle at 35% 30%, #fff 0%, ${c}cc 45%, transparent 80%);
+                border-radius: 100% 0% 100% 0%;
+                animation: pkmFairy2Flutter ${0.4 + Math.random() * 0.3}s ease-in-out infinite;
+                filter: drop-shadow(0 0 ${4 * s}px ${c});
+            `;
+            outer.appendChild(inner);
+            return outer;
+        };
+
+        // Lớp NỀN vườn tiên — ánh cầu vồng nhẹ + lấp lánh sao hồng-vàng toàn arena
+        const buildFairyMist = (arenaRect) => {
+            if (!document.getElementById('pkm-fairy2-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-fairy2-mist-style';
+                style.textContent = `
+                    @keyframes pkmFairy2Glow {
+                        0%, 100% { opacity: 0.6; }
+                        50%      { opacity: 0.92; }
+                    }
+                    @keyframes pkmFairy2SparkleDrift {
+                        0%   { background-position: 0px 0px, 0px 0px; }
+                        100% { background-position: 160px 140px, -140px -120px; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            const arena = document.getElementById('battle-arena') || document.body;
+
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const washLayer = document.createElement('div');
+            washLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(ellipse 90% 78% at 50% 50%, rgba(238,153,172,0.42) 0%, rgba(120,60,90,0.32) 45%, transparent 80%),
+                    linear-gradient(135deg, rgba(255,180,220,0.12) 0%, rgba(200,150,255,0.1) 50%, rgba(255,220,150,0.12) 100%);
+                animation: pkmFairy2Glow 1.4s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(washLayer);
+
+            const sparkleLayer = document.createElement('div');
+            sparkleLayer.style.cssText = `
+                position:absolute; inset:-10%;
+                background:
+                    radial-gradient(circle 3px, rgba(255,255,255,0.9) 0%, transparent 70%),
+                    radial-gradient(circle 3px, rgba(238,153,172,0.75) 0%, transparent 70%);
+                background-size: 130px 140px, 105px 115px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmFairy2SparkleDrift 3s linear infinite;
+                opacity: 0.8;
+            `;
+            mistRoot.appendChild(sparkleLayer);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playElementalStreamBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildPetalGlint,
+            buildFrame: buildFairyMist,
+            color: '#ee99ac',
+            emberColors: ['#ee99ac', '#ffd1e6', '#c58fff'],
+            curveStyle: 'wavy',
+            spawnRatePerSec: 18,
+            travelDuration: 700,
+            sfxType: 'fairy',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // ENGINE DÙNG CHUNG — "GIÁNG THẾ TỪ TRỜI/ĐẤT" (skill slot 1 mới).
+    // Vật thể rơi thẳng từ trên trời XUỐNG hoặc mọc thẳng từ ĐẤT LÊN,
+    // rải khắp NHIỀU vị trí ngang màn hình, NHIỀU CỠ khác nhau (to hiếm/
+    // nổi bật, nhỏ nhiều/dồn dập) — đúng kiểu "mưa sét/mưa thiên thạch".
+    // KHÔNG hệ nào được sửa vào hàm này. Mỗi hệ tự viết 1 hàm spawn<Hệ>1
+    // riêng, TỰ CHỨA toàn bộ hàm vẽ hình bên trong nó, rồi gọi engine
+    // này — xem khuôn mẫu spawnElectric1 ngay dưới.
+    // ══════════════════════════════════════════════════════════
+    async playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, opts) {
+        const {
+            itemBuilder,
+            color = '#fff',
+            direction = 'sky',
+            bigRatio = 0.15,
+            mediumRatio = 0.35,
+            fallDuration = 480,
+            strikeIntervalMs = 90,     // GIÃN CÁCH GIỮA CÁC LẦN SINH — nhỏ hơn fallDuration nhiều -> nhiều cái rơi CÙNG LÚC
+            sfxType = 'normal',
+            buildFrame = null,
+        } = opts || {};
+
+        const arena = document.getElementById('battle-arena');
+        const arenaRect = arena ? arena.getBoundingClientRect()
+                                 : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+
+        const rectE = endEl.getBoundingClientRect();
+        const targetX = rectE.left + (rectE.width || 0) / 2;
+        const targetY = rectE.top + (rectE.height || 0) / 2;
+
+        const attackerSide = startEl.id.startsWith('player') ? 'player' : 'enemy';
+        const targetSide = endEl.dataset.targetSide || (attackerSide === 'player' ? 'enemy' : 'player');
+        const getRealTargets = () => Array.from(
+            document.querySelectorAll(`.pkm-unit[id^="${targetSide}-unit-"]`)
+        ).filter(el => el.dataset.dead !== '1');
+
+        const bandCenterX = arenaRect.left + arenaRect.width / 2;
+        const bandW = arenaRect.width * 0.9;
+
+        const skyY = arenaRect.top - arenaRect.height * 0.35;
+        const groundY = arenaRect.top + arenaRect.height * 1.35;
+
+        const totalStrikes = Math.max(10, Math.round(count * 4)); // NHIỀU HƠN — cho cảm giác mưa rào
+        const allEls = [];
+
+        // ── LỚP NỀN KHÍ QUYỂN (tuỳ chọn) ──
+        const frameEls = buildFrame ? buildFrame(arenaRect, scale, color) : [];
+        frameEls.forEach(el => { if (!el.parentNode) document.body.appendChild(el); allEls.push(el); });
+        await Promise.all(frameEls.map(el => {
+            const targetOpacity = el.dataset.targetOpacity || '1';
+            return el.animate([{ opacity: 0 }, { opacity: targetOpacity }],
+                { duration: 220, fill: 'forwards', easing: 'ease-out' }).finished;
+        }));
+
+        this.playChargeSfx(sfxType);
+
+        // ── PHÂN BỔ CỠ ──
+        const bigCount = Math.max(1, Math.round(totalStrikes * bigRatio));
+        const mediumCount = Math.max(1, Math.round(totalStrikes * mediumRatio));
+        const smallCount = Math.max(1, totalStrikes - bigCount - mediumCount);
+        const tierList = [
+            ...Array(bigCount).fill('big'),
+            ...Array(mediumCount).fill('medium'),
+            ...Array(smallCount).fill('small'),
+        ];
+        for (let i = tierList.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [tierList[i], tierList[j]] = [tierList[j], tierList[i]];
+        }
+
+        const weightOf = t => t === 'big' ? 3 : t === 'medium' ? 1.5 : 1;
+        const totalWeight = tierList.reduce((s, t) => s + weightOf(t), 0);
+        const dmgChunks = tierList.map(t => Math.max(1, Math.round(damage * weightOf(t) / totalWeight)));
+
+        // ── 1 CÚ RƠI — KHÔNG telegraph, chỉ pop-in nhẹ rồi lao thẳng xuống/lên ──
+        const runOneStrike = async (tier, chunk) => {
+            const fromSky = direction === 'sky' || (direction === 'both' && Math.random() < 0.5);
+            const startY = fromSky ? skyY : groundY;
+            const strikeX = bandCenterX + (Math.random() - 0.5) * bandW;
+
+            const sizeMul = tier === 'big' ? 1.7 : tier === 'medium' ? 1.15 : 0.75;
+            const durMul  = tier === 'big' ? 1.25 : tier === 'medium' ? 1.0 : 0.8;
+
+            const el = itemBuilder(tier, scale * sizeMul, color);
+            el.style.position = 'fixed';
+            el.style.left = `${strikeX}px`;
+            el.style.top = `${startY}px`;
+            el.style.transform = 'translate(-50%,-50%) scale(0.5)';
+            el.style.opacity = '0';
+            el.style.zIndex = '9998';
+            el.style.pointerEvents = 'none';
+            document.body.appendChild(el);
+            allEls.push(el);
+
+            const dy = targetY - startY;
+            const anim = el.animate([
+                { transform: 'translate(-50%,-50%) scale(0.5)', opacity: 0 },
+                { transform: `translate(-50%, calc(-50% + ${dy * 0.08}px)) scale(1)`, opacity: 1, offset: 0.12 },
+                { transform: `translate(-50%, calc(-50% + ${dy}px)) scale(1)`, opacity: 1 }
+            ], { duration: fallDuration * durMul, easing: 'cubic-bezier(0.5,0,0.85,0.4)', fill: 'forwards' });
+            await anim.finished;
+
+            el.remove();
+            const idx = allEls.indexOf(el);
+            if (idx !== -1) allEls.splice(idx, 1);
+
+            // IMPACT
+            const flashSize = (tier === 'big' ? 140 : tier === 'medium' ? 85 : 50) * scale;
+            const flash = document.createElement('div');
+            flash.style.cssText = `
+                position: fixed; left:${strikeX}px; top:${targetY}px;
+                width:${flashSize}px; height:${flashSize}px; border-radius:50%;
+                background: radial-gradient(circle, #fff 0%, ${color} 45%, transparent 80%);
+                transform: translate(-50%,-50%) scale(0.3); opacity: 0.95;
+                z-index: 9999; pointer-events:none;
+            `;
+            document.body.appendChild(flash);
+            allEls.push(flash);
+            flash.animate([
+                { transform: 'translate(-50%,-50%) scale(0.3)', opacity: 0.95 },
+                { transform: 'translate(-50%,-50%) scale(1.6)', opacity: 0 }
+            ], { duration: 300, easing: 'ease-out' }).onfinish = () => {
+                flash.remove();
+                const fi = allEls.indexOf(flash);
+                if (fi !== -1) allEls.splice(fi, 1);
+            };
+
+            this.applyGlobalShake(scale * (tier === 'big' ? 1.6 : tier === 'medium' ? 0.9 : 0.5));
+            this.playImpactSfx(sfxType);
+
+            const targets = getRealTargets();
+            if (targets.length > 0) {
+                const t = targets[Math.floor(Math.random() * targets.length)];
+                this.createDamageText(t, chunk, tier === 'big');
+                t.classList.add('shake');
+                setTimeout(() => t.classList.remove('shake'), 120);
+            }
+        };
+
+        // ── LÊN LỊCH DỒN DẬP: KHÔNG await tuần tự — dùng setTimeout để
+        // nhiều thiên thạch/tia rơi CHỒNG LẤN thời gian, tạo cảm giác mưa rào ──
+        const durationMultiplier = 2; // 1 = giữ nguyên ~2s, 2 = kéo dài gấp đôi (~4s), v.v.
+
+        let scheduleT = 0;
+        const strikePromises = tierList.map((tier, i) => {
+            const delay = scheduleT;
+            scheduleT += strikeIntervalMs * durationMultiplier * (0.4 + Math.random() * 0.7);
+            return new Promise((resolve) => {
+                setTimeout(() => { runOneStrike(tier, dmgChunks[i]).then(resolve); }, delay);
+            });
+        });
+
+        await Promise.all(strikePromises);
+        await new Promise(r => setTimeout(r, 150));
+
+        // ── KẾT: chớp sáng toàn màn hình cuối cùng ──
+        const finaleEls = [];
+        this.triggerScreenFinale(arenaRect, targetX, targetY, color, scale * 1.2, 420, finaleEls);
+        await new Promise(r => setTimeout(r, 560));
+
+        const outroAnims = frameEls.map(el => el.animate(
+            [{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }],
+            { duration: 300, fill: 'forwards' }
+        ).finished);
+        await Promise.all(outroAnims);
+
+        allEls.forEach(el => el.remove());
+        finaleEls.forEach(el => el.remove());
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ ĐIỆN — spawnElectric1 (Thunderstorm Descent) — KHUÔN MẪU skill
+    // "giáng thế": sét to+nhỏ rơi khắp màn hình từ trên trời xuống, kèm
+    // nền trời chớp sáng đồng bộ (giống ảnh tham khảo).
+    // LƯU Ý: đổi tên bản spawnElectric1 CŨ hiện có thành spawnElectric5
+    // trước khi dán hàm này vào, để tránh trùng tên.
+    // ══════════════════════════════════════════════════════════
+    async spawnElectric1(startEl, endEl, count, scale, damage) {
+        // Tia sét zigzag — cỡ 'big' có nhiều nhánh phụ rẽ ngang, cỡ nhỏ chỉ 1 tia thẳng gọn
+        const buildLightningBolt = (tier, s, c) => {
+            const w = (tier === 'big' ? 26 : tier === 'medium' ? 15 : 8) * s;
+            const h = (tier === 'big' ? 260 : tier === 'medium' ? 170 : 110) * s;
+            const branchOpacity = tier === 'big' ? 1 : tier === 'medium' ? 0.6 : 0;
+
+            const el = document.createElement('div');
+            el.style.cssText = `width:${w}px; height:${h}px; position:relative;`;
+
+            const core = document.createElement('div');
+            core.style.cssText = `
+                position:absolute; left:50%; top:0; width:${w * 0.4}px; height:100%;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg, transparent, #fff 15%, ${c} 45%, #fff 55%, ${c} 85%, transparent);
+                clip-path: polygon(50% 0%, 70% 20%, 45% 38%, 65% 55%, 40% 72%, 60% 88%, 50% 100%,
+                                    40% 88%, 60% 72%, 35% 55%, 55% 38%, 30% 20%);
+                filter: drop-shadow(0 0 ${8 * s}px #fff) drop-shadow(0 0 ${14 * s}px ${c});
+            `;
+            el.appendChild(core);
+
+            if (branchOpacity > 0) {
+                [0.28, 0.62].forEach((posT, idx) => {
+                    const branch = document.createElement('div');
+                    const bw = w * 0.9, bh = h * 0.22;
+                    const dir = idx === 0 ? -1 : 1;
+                    branch.style.cssText = `
+                        position:absolute; left:50%; top:${posT * 100}%;
+                        width:${bw}px; height:${bh}px;
+                        transform: translateX(-50%) rotate(${dir * 35}deg);
+                        transform-origin: 50% 0%;
+                        background: linear-gradient(180deg, ${c}, transparent);
+                        clip-path: polygon(45% 0%, 55% 0%, 65% 60%, 50% 100%, 35% 60%);
+                        opacity: ${branchOpacity};
+                        filter: drop-shadow(0 0 ${5 * s}px ${c});
+                    `;
+                    el.appendChild(branch);
+                });
+            }
+            return el;
+        };
+
+        // Lớp nền: trời tối sầm + chớp sáng đồng bộ định kỳ toàn arena
+        const buildStormSky = (arenaRect) => {
+            if (!document.getElementById('pkm-electric1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-electric1-sky-style';
+                style.textContent = `
+                    @keyframes pkmElectric1SkyFlash {
+                        0%, 78%, 100% { opacity: 0.35; }
+                        80% { opacity: 0.9; }
+                        84% { opacity: 0.4; }
+                        88% { opacity: 0.75; }
+                        92% { opacity: 0.35; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '1';
+            skyRoot.style.cssText = `
+                position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;
+                background: radial-gradient(ellipse 90% 70% at 50% 30%, rgba(255,240,150,0.35) 0%, rgba(40,40,20,0.4) 55%, transparent 85%);
+                animation: pkmElectric1SkyFlash 1.6s linear infinite;
+            `;
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildLightningBolt,
+            buildFrame: buildStormSky,
+            color: '#f1c40f',
+            direction: 'sky',
+            bigRatio: 0.12,
+            mediumRatio: 0.35,
+            fallDuration: 420,
+            telegraphDuration: 220,
+            strikeIntervalMs: 190,
+            sfxType: 'electric',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ LỬA — spawnFire1 (Meteor Descent) — thiên thạch lửa rơi từ trời,
+    // khác hẳn Wildfire Torrent (dòng chảy ngang) và Solar Flare (hội tụ).
+    // ══════════════════════════════════════════════════════════
+    async spawnFire1(startEl, endEl, count, scale, damage) {
+        // Thiên thạch: khối đá lõi lửa, xoay tròn liên tục, đuôi lửa dài phía sau
+        const buildMeteor = (tier, s, c) => {
+            if (!document.getElementById('pkm-fire1-meteor-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-fire1-meteor-style';
+                style.textContent = `
+                    @keyframes pkmFire1Spin { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(360deg); } }
+                `;
+                document.head.appendChild(style);
+            }
+            const bodySize = (tier === 'big' ? 34 : tier === 'medium' ? 22 : 13) * s;
+            const tailLen  = (tier === 'big' ? 220 : tier === 'medium' ? 150 : 95) * s;
+
+            const el = document.createElement('div');
+            el.style.cssText = `width:${bodySize}px; height:${tailLen}px; position:relative;`;
+
+            const tail = document.createElement('div');
+            tail.style.cssText = `
+                position:absolute; left:50%; top:0; width:${bodySize * 0.55}px; height:100%;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg, transparent, ${c}33 30%, ${c}bb 65%, #fff 100%);
+                filter: blur(${1.2 * s}px);
+                border-radius: 50%;
+            `;
+            el.appendChild(tail);
+
+            const body = document.createElement('div');
+            body.style.cssText = `
+                position:absolute; left:50%; bottom:0; width:${bodySize}px; height:${bodySize}px;
+                background: radial-gradient(circle at 35% 30%, #fff2b0 0%, #ffb300 30%, ${c} 55%, #5a1500 85%);
+                border-radius: 50%;
+                animation: pkmFire1Spin ${0.5 + Math.random() * 0.3}s linear infinite;
+                box-shadow: 0 0 ${10 * s}px ${c}, 0 0 ${20 * s}px #ff6d00aa;
+                filter: drop-shadow(0 0 ${4 * s}px #fff);
+            `;
+            el.appendChild(body);
+            return el;
+        };
+
+        // Lớp nền: bầu trời ám đỏ cam + tro tàn bay lơ lửng toàn arena
+        const buildEmberSky = (arenaRect) => {
+            if (!document.getElementById('pkm-fire1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-fire1-sky-style';
+                style.textContent = `
+                    @keyframes pkmFire1Glow { 0%,100%{opacity:0.4;} 50%{opacity:0.7;} }
+                    @keyframes pkmFire1AshDrift { 0%{background-position:0px 0px;} 100%{background-position:40px -220px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '1';
+            skyRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(255,140,0,0.35) 0%, rgba(60,10,0,0.35) 55%, transparent 85%);
+                animation: pkmFire1Glow 1.4s ease-in-out infinite;
+            `;
+            skyRoot.appendChild(wash);
+
+            const ash = document.createElement('div');
+            ash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 3px, rgba(255,180,80,0.7) 0%, transparent 70%);
+                background-size: 130px 150px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmFire1AshDrift 2.6s linear infinite;
+                opacity: 0.7;
+            `;
+            skyRoot.appendChild(ash);
+
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildMeteor,
+            buildFrame: buildEmberSky,
+            color: '#ff6d00',
+            direction: 'sky',
+            bigRatio: 0.12,
+            mediumRatio: 0.35,
+            fallDuration: 460,
+            telegraphDuration: 200,
+            strikeIntervalMs: 200,
+            sfxType: 'fire',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ NƯỚC — spawnWater1 (Tidal Descent) — cột nước khổng lồ giáng từ
+    // trời xuống, khác hẳn Tidal Onslaught (sóng ngang) và Tsunami (hội tụ).
+    // ══════════════════════════════════════════════════════════
+    async spawnWater1(startEl, endEl, count, scale, damage) {
+        // Cột nước: thân trong suốt óng ánh, viền sáng trắng, xoáy nhẹ theo chiều rơi
+        const buildWaterColumn = (tier, s, c) => {
+            const w = (tier === 'big' ? 30 : tier === 'medium' ? 18 : 10) * s;
+            const h = (tier === 'big' ? 240 : tier === 'medium' ? 160 : 100) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background: linear-gradient(180deg, transparent, ${c}22 12%, ${c}99 50%, #eafaff 78%, #fff 100%);
+                border-radius: ${w}px;
+                box-shadow: inset -2px 0 6px rgba(255,255,255,0.5), 0 0 ${8 * s}px ${c};
+                filter: drop-shadow(0 0 ${5 * s}px #fff);
+            `;
+            return el;
+        };
+
+        // Lớp nền: mưa nhẹ + ánh sáng xanh biển lan toả toàn arena
+        const buildRainMist = (arenaRect) => {
+            if (!document.getElementById('pkm-water1-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-water1-mist-style';
+                style.textContent = `
+                    @keyframes pkmWater1Glow { 0%,100%{opacity:0.45;} 50%{opacity:0.75;} }
+                    @keyframes pkmWater1RainFall { 0%{background-position:0px 0px;} 100%{background-position:10px 260px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(80,180,255,0.35) 0%, rgba(10,40,90,0.35) 55%, transparent 85%);
+                animation: pkmWater1Glow 1.6s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(wash);
+
+            const rain = document.createElement('div');
+            rain.style.cssText = `
+                position:absolute; inset:-10%;
+                background: repeating-linear-gradient(100deg, transparent 0px, transparent 30px, rgba(200,240,255,0.22) 31px, transparent 33px, transparent 60px);
+                mix-blend-mode: screen;
+                animation: pkmWater1RainFall 0.8s linear infinite;
+                opacity: 0.6;
+            `;
+            mistRoot.appendChild(rain);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildWaterColumn,
+            buildFrame: buildRainMist,
+            color: '#3498db',
+            direction: 'sky',
+            bigRatio: 0.15,
+            mediumRatio: 0.35,
+            fallDuration: 500,
+            telegraphDuration: 230,
+            strikeIntervalMs: 210,
+            sfxType: 'water',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ BĂNG — spawnIce1 (Glacial Descent) — băng nhũ rơi từ trời, khác
+    // hẳn Blizzard Fury (bão tuyết ngang) và Absolute Zero (bông tuyết SVG).
+    // ══════════════════════════════════════════════════════════
+    async spawnIce1(startEl, endEl, count, scale, damage) {
+        // Băng nhũ: khối lăng trụ nhọn 1 đầu, trong suốt ánh sáng lam, viền trắng sắc lạnh
+        const buildIcicle = (tier, s, c) => {
+            const w = (tier === 'big' ? 28 : tier === 'medium' ? 17 : 10) * s;
+            const h = (tier === 'big' ? 210 : tier === 'medium' ? 140 : 90) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background: linear-gradient(180deg, #fff 0%, ${c}cc 45%, ${c} 75%, #fff 100%);
+                clip-path: polygon(50% 100%, 15% 20%, 30% 0%, 70% 0%, 85% 20%);
+                box-shadow: 0 0 ${6 * s}px #fff;
+                filter: drop-shadow(0 0 ${5 * s}px ${c});
+            `;
+            return el;
+        };
+
+        // Lớp nền: sương giá lạnh buốt + hạt tuyết lấp lánh rơi toàn arena
+        const buildFrostMist = (arenaRect) => {
+            if (!document.getElementById('pkm-ice1-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-ice1-mist-style';
+                style.textContent = `
+                    @keyframes pkmIce1Glow { 0%,100%{opacity:0.5;} 50%{opacity:0.8;} }
+                    @keyframes pkmIce1SnowFall { 0%{background-position:0px 0px;} 100%{background-position:20px 240px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(200,240,255,0.4) 0%, rgba(70,110,160,0.35) 55%, transparent 85%);
+                animation: pkmIce1Glow 1.7s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(wash);
+
+            const snow = document.createElement('div');
+            snow.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 3px, rgba(255,255,255,0.9) 0%, transparent 70%);
+                background-size: 120px 140px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmIce1SnowFall 2.4s linear infinite;
+                opacity: 0.8;
+            `;
+            mistRoot.appendChild(snow);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildIcicle,
+            buildFrame: buildFrostMist,
+            color: '#74b9ff',
+            direction: 'sky',
+            bigRatio: 0.13,
+            mediumRatio: 0.35,
+            fallDuration: 440,
+            telegraphDuration: 210,
+            strikeIntervalMs: 195,
+            sfxType: 'ice',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ ĐẤT — spawnGround1 (Spike Uprising) — gai đá MỌC TỪ ĐẤT LÊN
+    // (direction: 'ground'), khác hẳn Seismic Barrage (đá vụn xoay ngang)
+    // và Terra Spirit Rush (bản thể khổng lồ) — đây là hướng NGƯỢC LẠI
+    // duy nhất trong 5 hệ đã làm, chứng minh engine dùng chung cho cả 2 chiều.
+    // ══════════════════════════════════════════════════════════
+    async spawnGround1(startEl, endEl, count, scale, damage) {
+        // Gai đá: thân lăng trụ góc cạnh, đáy rộng đỉnh nhọn (đúng hướng trồi lên),
+        // viền nứt nẻ nâu vàng, bụi đất bám quanh gốc.
+        const buildEarthSpike = (tier, s, c) => {
+            const w = (tier === 'big' ? 32 : tier === 'medium' ? 20 : 12) * s;
+            const h = (tier === 'big' ? 200 : tier === 'medium' ? 135 : 85) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background: linear-gradient(0deg, #4a3a20 0%, ${c} 40%, #efebe9 85%);
+                clip-path: polygon(50% 0%, 78% 30%, 100% 100%, 0% 100%, 22% 30%);
+                box-shadow: 0 0 ${5 * s}px #00000066;
+                filter: drop-shadow(0 0 ${3 * s}px ${c});
+            `;
+            return el;
+        };
+
+        // Lớp nền: mặt đất nứt phát sáng cam + bụi cát rung toàn arena
+        const buildQuakeGroundMist = (arenaRect) => {
+            if (!document.getElementById('pkm-ground1-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-ground1-mist-style';
+                style.textContent = `
+                    @keyframes pkmGround1Rumble { 0%,100%{opacity:0.5; transform:translateY(0);} 50%{opacity:0.8; transform:translateY(-1%);} }
+                    @keyframes pkmGround1DustDrift { 0%{background-position:0px 0px;} 100%{background-position:180px -30px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 75% at 50% 100%, rgba(220,150,60,0.5) 0%, rgba(90,50,10,0.4) 45%, transparent 80%);
+                animation: pkmGround1Rumble 0.55s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(wash);
+
+            const dust = document.createElement('div');
+            dust.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 5px, rgba(200,160,100,0.6) 0%, transparent 70%);
+                background-size: 150px 130px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmGround1DustDrift 2.6s linear infinite;
+                opacity: 0.75;
+            `;
+            mistRoot.appendChild(dust);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildEarthSpike,
+            buildFrame: buildQuakeGroundMist,
+            color: '#e2bf65',
+            direction: 'ground',
+            bigRatio: 0.15,
+            mediumRatio: 0.35,
+            fallDuration: 420,
+            telegraphDuration: 200,
+            strikeIntervalMs: 200,
+            sfxType: 'ground',
+        });
+    },
+    // ══════════════════════════════════════════════════════════
+    // HỆ CỎ — spawnGrass1 (Root Uprising) — rễ gai MỌC TỪ ĐẤT LÊN
+    // (direction: 'ground'), khác hẳn Verdant Cyclone (lá xoay ngang)
+    // và Bloom Cascade (thân lá bay). Rễ có gai nhọn xen kẽ dọc thân.
+    // ══════════════════════════════════════════════════════════
+    async spawnGrass1(startEl, endEl, count, scale, damage) {
+        const buildThornRoot = (tier, s, c) => {
+            const w = (tier === 'big' ? 26 : tier === 'medium' ? 16 : 10) * s;
+            const h = (tier === 'big' ? 210 : tier === 'medium' ? 145 : 90) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `width:${w}px; height:${h}px; position:relative;`;
+
+            const stem = document.createElement('div');
+            stem.style.cssText = `
+                position:absolute; left:50%; top:0; width:${w * 0.4}px; height:100%;
+                transform: translateX(-50%);
+                background: linear-gradient(0deg, #145a32 0%, ${c} 45%, #6fcf5a 85%, #eaffea 100%);
+                border-radius: ${w}px ${w}px 0 0;
+                filter: drop-shadow(0 0 ${3 * s}px ${c});
+            `;
+            el.appendChild(stem);
+
+            const thornCount = tier === 'big' ? 5 : tier === 'medium' ? 3 : 2;
+            for (let i = 0; i < thornCount; i++) {
+                const dir = i % 2 === 0 ? -1 : 1;
+                const posT = 0.25 + (i / thornCount) * 0.6;
+                const thorn = document.createElement('div');
+                const tw = w * 0.9, th = h * 0.1;
+                thorn.style.cssText = `
+                    position:absolute; left:50%; top:${posT * 100}%;
+                    width:${tw}px; height:${th}px;
+                    transform: translateX(-50%) rotate(${dir * 35}deg) translateX(${dir * tw * 0.35}px);
+                    background: linear-gradient(${dir > 0 ? '90deg' : '270deg'}, ${c}, transparent);
+                    clip-path: polygon(0% 40%, 70% 0%, 100% 50%, 70% 100%, 0% 60%);
+                    filter: drop-shadow(0 0 ${2 * s}px ${c});
+                `;
+                el.appendChild(thorn);
+            }
+            return el;
+        };
+
+        const buildForestMist = (arenaRect) => {
+            if (!document.getElementById('pkm-grass1-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-grass1-mist-style';
+                style.textContent = `
+                    @keyframes pkmGrass1Rumble { 0%,100%{opacity:0.5; transform:scale(1);} 50%{opacity:0.8; transform:scale(1.03);} }
+                    @keyframes pkmGrass1PollenDrift { 0%{background-position:0px 0px;} 100%{background-position:-200px -30px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '1';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 78% at 50% 100%, rgba(46,204,113,0.5) 0%, rgba(10,60,20,0.4) 45%, transparent 80%);
+                animation: pkmGrass1Rumble 0.7s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(wash);
+
+            const pollen = document.createElement('div');
+            pollen.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 3px, rgba(220,255,170,0.75) 0%, transparent 70%);
+                background-size: 130px 120px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmGrass1PollenDrift 2.4s linear infinite;
+                opacity: 0.75;
+            `;
+            mistRoot.appendChild(pollen);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildThornRoot,
+            buildFrame: buildForestMist,
+            color: '#2ecc71',
+            direction: 'ground',
+            bigRatio: 0.14,
+            mediumRatio: 0.35,
+            fallDuration: 400,
+            strikeIntervalMs: 90,
+            sfxType: 'grass',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ ĐỘC — spawnPoison1 (Venom Downpour) — giọt acid RƠI TỪ TRỜI
+    // (direction: 'sky'), khác hẳn Toxic Deluge (nghiêng bay ngang)
+    // và Miasma Surge (5 con vật độc). Giọt có vệt nhớt kéo dài phía sau.
+    // ══════════════════════════════════════════════════════════
+    async spawnPoison1(startEl, endEl, count, scale, damage) {
+        const buildVenomDrop = (tier, s, c) => {
+            const w = (tier === 'big' ? 24 : tier === 'medium' ? 15 : 9) * s;
+            const h = (tier === 'big' ? 180 : tier === 'medium' ? 125 : 80) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `width:${w}px; height:${h}px; position:relative;`;
+
+            const trail = document.createElement('div');
+            trail.style.cssText = `
+                position:absolute; left:50%; top:0; width:${w * 0.35}px; height:${h * 0.8}px;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg, transparent, ${c}44 40%, ${c}aa 100%);
+                filter: blur(${1 * s}px);
+            `;
+            el.appendChild(trail);
+
+            const head = document.createElement('div');
+            head.style.cssText = `
+                position:absolute; left:50%; bottom:0; width:${w}px; height:${w * 1.3}px;
+                transform: translateX(-50%);
+                background: radial-gradient(circle at 40% 30%, #eafce0 0%, #a3e635 25%, ${c} 55%, #4a148c 90%);
+                border-radius: 50% 50% 40% 40% / 60% 60% 40% 40%;
+                filter: drop-shadow(0 0 ${5 * s}px ${c});
+            `;
+            el.appendChild(head);
+            return el;
+        };
+
+        const buildToxicRainSky = (arenaRect) => {
+            if (!document.getElementById('pkm-poison1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-poison1-sky-style';
+                style.textContent = `
+                    @keyframes pkmPoison1Glow { 0%,100%{opacity:0.45;} 50%{opacity:0.75;} }
+                    @keyframes pkmPoison1RainFall { 0%{background-position:0px 0px;} 100%{background-position:-10px 250px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '1';
+            skyRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(160,0,220,0.35) 0%, rgba(40,0,60,0.4) 55%, transparent 85%);
+                animation: pkmPoison1Glow 1.5s ease-in-out infinite;
+            `;
+            skyRoot.appendChild(wash);
+
+            const rain = document.createElement('div');
+            rain.style.cssText = `
+                position:absolute; inset:-10%;
+                background: repeating-linear-gradient(96deg, transparent 0px, transparent 26px, rgba(160,255,80,0.2) 27px, transparent 29px, transparent 55px);
+                mix-blend-mode: screen;
+                animation: pkmPoison1RainFall 0.9s linear infinite;
+                opacity: 0.65;
+            `;
+            skyRoot.appendChild(rain);
+
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildVenomDrop,
+            buildFrame: buildToxicRainSky,
+            color: '#a040a0',
+            direction: 'sky',
+            bigRatio: 0.14,
+            mediumRatio: 0.35,
+            fallDuration: 440,
+            strikeIntervalMs: 90,
+            sfxType: 'poison',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ ĐÁ — spawnRock1 (Meteor Descent) — thiên thạch đá nứt nham
+    // thạch RƠI TỪ TRỜI, khác hẳn Stalagmite Barrage (cột nhọn thẳng)
+    // và Boulder Spirit Rush/Meteor Fall (bản thể/thiên thạch cầu tròn).
+    // Đây là khối ĐA GIÁC THÔ, có vết nứt cam sáng chạy trên bề mặt.
+    // ══════════════════════════════════════════════════════════
+    async spawnRock1(startEl, endEl, count, scale, damage) {
+        const buildCrackedBoulder = (tier, s, c) => {
+            if (!document.getElementById('pkm-rock1-spin-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-rock1-spin-style';
+                style.textContent = `
+                    @keyframes pkmRock1Tumble { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(300deg); } }
+                `;
+                document.head.appendChild(style);
+            }
+            const bodySize = (tier === 'big' ? 40 : tier === 'medium' ? 25 : 15) * s;
+            const tailLen  = (tier === 'big' ? 150 : tier === 'medium' ? 100 : 65) * s;
+
+            const el = document.createElement('div');
+            el.style.cssText = `width:${bodySize}px; height:${tailLen}px; position:relative;`;
+
+            const tail = document.createElement('div');
+            tail.style.cssText = `
+                position:absolute; left:50%; top:0; width:${bodySize * 0.45}px; height:100%;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg, transparent, #ff6d0055 40%, #ff6d00aa 100%);
+                filter: blur(${1 * s}px);
+            `;
+            el.appendChild(tail);
+
+            const body = document.createElement('div');
+            body.style.cssText = `
+                position:absolute; left:50%; bottom:0; width:${bodySize}px; height:${bodySize}px;
+                background:
+                    linear-gradient(120deg, transparent 46%, #ff6d00 48%, #ffb300 50%, transparent 52%),
+                    linear-gradient(30deg, transparent 60%, #ff6d00 62%, transparent 64%),
+                    radial-gradient(circle at 35% 35%, #8d6e63 0%, ${c} 55%, #3e2723 90%);
+                clip-path: polygon(20% 0%, 80% 8%, 100% 45%, 78% 100%, 20% 95%, 0% 50%);
+                animation: pkmRock1Tumble ${0.7 + Math.random() * 0.4}s linear infinite;
+                box-shadow: 0 0 ${6 * s}px #ff6d0088;
+                filter: drop-shadow(0 0 ${3 * s}px #00000066);
+            `;
+            el.appendChild(body);
+            return el;
+        };
+
+        const buildAshSky = (arenaRect) => {
+            if (!document.getElementById('pkm-rock1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-rock1-sky-style';
+                style.textContent = `
+                    @keyframes pkmRock1Glow { 0%,100%{opacity:0.4;} 50%{opacity:0.7;} }
+                    @keyframes pkmRock1DustDrift { 0%{background-position:0px 0px;} 100%{background-position:30px -200px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '1';
+            skyRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(255,140,0,0.32) 0%, rgba(50,30,10,0.4) 55%, transparent 85%);
+                animation: pkmRock1Glow 1.4s ease-in-out infinite;
+            `;
+            skyRoot.appendChild(wash);
+
+            const dust = document.createElement('div');
+            dust.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 3px, rgba(220,180,120,0.65) 0%, transparent 70%);
+                background-size: 140px 150px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmRock1DustDrift 2.5s linear infinite;
+                opacity: 0.7;
+            `;
+            skyRoot.appendChild(dust);
+
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildCrackedBoulder,
+            buildFrame: buildAshSky,
+            color: '#8d6e63',
+            direction: 'sky',
+            bigRatio: 0.16,
+            mediumRatio: 0.35,
+            fallDuration: 460,
+            strikeIntervalMs: 95,
+            sfxType: 'rock',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ BAY — spawnFlying1 (Skyfall Onslaught) — lông vũ xoáy RƠI TỪ
+    // TRỜI, khác hẳn Gale Onslaught (lưỡi gió cong ngang) và Tempest
+    // Spirit Rush/Wing (bản thể/lưỡi liềm SVG). Lông vũ mảnh, tự xoay
+    // tròn liên tục khi rơi, viền ánh tím nhạt.
+    // ══════════════════════════════════════════════════════════
+    async spawnFlying1(startEl, endEl, count, scale, damage) {
+        const buildFallingFeather = (tier, s, c) => {
+            if (!document.getElementById('pkm-flying1-feather-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-flying1-feather-style';
+                style.textContent = `
+                    @keyframes pkmFlying1Twirl { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(360deg); } }
+                `;
+                document.head.appendChild(style);
+            }
+            const w = (tier === 'big' ? 30 : tier === 'medium' ? 19 : 11) * s;
+            const h = w * 2.6;
+            const el = document.createElement('div');
+            el.style.cssText = `width:${w}px; height:${h}px; position:relative;`;
+
+            const feather = document.createElement('div');
+            feather.style.cssText = `
+                position:absolute; left:50%; top:0; width:100%; height:100%;
+                background: linear-gradient(180deg, #fff 0%, ${c}cc 40%, ${c} 75%, transparent 100%);
+                clip-path: polygon(50% 0%, 85% 20%, 70% 55%, 90% 75%, 50% 100%, 10% 75%, 30% 55%, 15% 20%);
+                animation: pkmFlying1Twirl ${0.6 + Math.random() * 0.35}s linear infinite;
+                filter: drop-shadow(0 0 ${4 * s}px ${c});
+            `;
+            el.appendChild(feather);
+            return el;
+        };
+
+        const buildStormWindSky = (arenaRect) => {
+            if (!document.getElementById('pkm-flying1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-flying1-sky-style';
+                style.textContent = `
+                    @keyframes pkmFlying1Sway { 0%,100%{opacity:0.45; transform:skewX(0deg);} 50%{opacity:0.75; transform:skewX(-2deg);} }
+                    @keyframes pkmFlying1StreakDrift { 0%{background-position:0px 0px;} 100%{background-position:-260px 40px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '1';
+            skyRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(200,180,255,0.35) 0%, rgba(50,30,90,0.35) 55%, transparent 85%);
+                animation: pkmFlying1Sway 1.1s ease-in-out infinite;
+            `;
+            skyRoot.appendChild(wash);
+
+            const streak = document.createElement('div');
+            streak.style.cssText = `
+                position:absolute; inset:-10%;
+                background: repeating-linear-gradient(78deg, transparent 0px, transparent 34px, rgba(255,255,255,0.16) 36px, transparent 39px, transparent 75px);
+                mix-blend-mode: screen;
+                animation: pkmFlying1StreakDrift 1.3s linear infinite;
+            `;
+            skyRoot.appendChild(streak);
+
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildFallingFeather,
+            buildFrame: buildStormWindSky,
+            color: '#a890f0',
+            direction: 'sky',
+            bigRatio: 0.13,
+            mediumRatio: 0.35,
+            fallDuration: 420,
+            strikeIntervalMs: 90,
+            sfxType: 'flying',
+        });
+    },
+    // ══════════════════════════════════════════════════════════
+    // HỆ TÂM LINH — spawnPsychic1 (Cosmic Descent) — mảnh gương vỡ vũ trụ
+    // RƠI TỪ TRỜI, khác hẳn Mindquake Surge (vòng méo mó ngang) và Mind
+    // Spirit Rush/Swarm (bản thể/thìa cổ đại). Mảnh gương lục giác phản
+    // chiếu ánh hồng-tím, tự xoay khi rơi.
+    // ══════════════════════════════════════════════════════════
+    async spawnPsychic1(startEl, endEl, count, scale, damage) {
+        const buildMirrorShard = (tier, s, c) => {
+            if (!document.getElementById('pkm-psychic1-shard-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-psychic1-shard-style';
+                style.textContent = `
+                    @keyframes pkmPsychic1Tumble { from { transform: translateX(-50%) rotate(0deg) scale(1); } 50% { transform: translateX(-50%) rotate(180deg) scale(0.85); } to { transform: translateX(-50%) rotate(360deg) scale(1); } }
+                `;
+                document.head.appendChild(style);
+            }
+            const size = (tier === 'big' ? 34 : tier === 'medium' ? 21 : 13) * s;
+            const tailLen = (tier === 'big' ? 170 : tier === 'medium' ? 115 : 75) * s;
+
+            const el = document.createElement('div');
+            el.style.cssText = `width:${size}px; height:${tailLen}px; position:relative;`;
+
+            const trail = document.createElement('div');
+            trail.style.cssText = `
+                position:absolute; left:50%; top:0; width:${size * 0.35}px; height:100%;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg, transparent, ${c}44 40%, #fff8 100%);
+                filter: blur(${1 * s}px);
+            `;
+            el.appendChild(trail);
+
+            const shard = document.createElement('div');
+            shard.style.cssText = `
+                position:absolute; left:50%; bottom:0; width:${size}px; height:${size}px;
+                background: linear-gradient(135deg, #fff 0%, ${c} 40%, #4a004a 90%);
+                clip-path: polygon(50% 0%, 90% 25%, 100% 70%, 60% 100%, 15% 85%, 0% 40%);
+                animation: pkmPsychic1Tumble ${0.8 + Math.random() * 0.4}s ease-in-out infinite;
+                box-shadow: 0 0 ${7 * s}px ${c};
+                filter: drop-shadow(0 0 ${4 * s}px #fff);
+            `;
+            el.appendChild(shard);
+            return el;
+        };
+
+        const buildVoidSky = (arenaRect) => {
+            if (!document.getElementById('pkm-psychic1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-psychic1-sky-style';
+                style.textContent = `
+                    @keyframes pkmPsychic1Pulse { 0%,100%{opacity:0.45; transform:scale(1);} 50%{opacity:0.8; transform:scale(1.05);} }
+                    @keyframes pkmPsychic1StarDrift { 0%{background-position:0px 0px;} 100%{background-position:120px -180px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '1';
+            skyRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(248,88,136,0.35) 0%, rgba(50,10,60,0.4) 55%, transparent 85%);
+                animation: pkmPsychic1Pulse 1.3s ease-in-out infinite;
+            `;
+            skyRoot.appendChild(wash);
+
+            const star = document.createElement('div');
+            star.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 2px, rgba(255,255,255,0.85) 0%, transparent 70%);
+                background-size: 100px 110px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmPsychic1StarDrift 2.8s linear infinite;
+                opacity: 0.8;
+            `;
+            skyRoot.appendChild(star);
+
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildMirrorShard,
+            buildFrame: buildVoidSky,
+            color: '#f85888',
+            direction: 'sky',
+            bigRatio: 0.14,
+            mediumRatio: 0.35,
+            fallDuration: 440,
+            strikeIntervalMs: 92,
+            sfxType: 'psychic',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ ĐẤU — spawnFighting1 (Meteor Fist) — thiên thạch nắm đấm bốc lửa
+    // RƠI TỪ TRỜI, khác hẳn Berserker Onslaught (vệt chém ngang) và
+    // Warrior Spirit Rush/Titan's Fury (bản thể/icon vũ khí).
+    // ══════════════════════════════════════════════════════════
+    async spawnFighting1(startEl, endEl, count, scale, damage) {
+        const buildFistMeteor = (tier, s, c) => {
+            const bodySize = (tier === 'big' ? 36 : tier === 'medium' ? 23 : 14) * s;
+            const tailLen  = (tier === 'big' ? 190 : tier === 'medium' ? 130 : 82) * s;
+
+            const el = document.createElement('div');
+            el.style.cssText = `width:${bodySize}px; height:${tailLen}px; position:relative;`;
+
+            const tail = document.createElement('div');
+            tail.style.cssText = `
+                position:absolute; left:50%; top:0; width:${bodySize * 0.5}px; height:100%;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg, transparent, #ff704322 35%, ${c}bb 70%, #fff 100%);
+                filter: blur(${1 * s}px);
+            `;
+            el.appendChild(tail);
+
+            const fist = document.createElement('div');
+            fist.style.cssText = `
+                position:absolute; left:50%; bottom:0; width:${bodySize}px; height:${bodySize * 1.1}px;
+                transform: translateX(-50%);
+                background:
+                    radial-gradient(circle at 40% 30%, #fff3e0 0%, #ff7043 30%, ${c} 60%, #4a0e00 90%);
+                clip-path: polygon(30% 0%, 70% 0%, 90% 25%, 100% 55%, 75% 100%, 25% 100%, 0% 55%, 10% 25%);
+                box-shadow: 0 0 ${8 * s}px ${c};
+                filter: drop-shadow(0 0 ${4 * s}px #ff9800);
+            `;
+            el.appendChild(fist);
+            return el;
+        };
+
+        const buildImpactSky = (arenaRect) => {
+            if (!document.getElementById('pkm-fighting1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-fighting1-sky-style';
+                style.textContent = `
+                    @keyframes pkmFighting1Shock { 0%,100%{opacity:0.45; transform:scale(1);} 50%{opacity:0.8; transform:scale(1.04);} }
+                    @keyframes pkmFighting1DustDrift { 0%{background-position:0px 0px;} 100%{background-position:-160px 200px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '1';
+            skyRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(255,120,60,0.35) 0%, rgba(60,20,10,0.4) 55%, transparent 85%);
+                animation: pkmFighting1Shock 0.55s ease-in-out infinite;
+            `;
+            skyRoot.appendChild(wash);
+
+            const dust = document.createElement('div');
+            dust.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 4px, rgba(255,180,140,0.6) 0%, transparent 70%);
+                background-size: 130px 120px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmFighting1DustDrift 2.2s linear infinite;
+                opacity: 0.7;
+            `;
+            skyRoot.appendChild(dust);
+
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildFistMeteor,
+            buildFrame: buildImpactSky,
+            color: '#e74c3c',
+            direction: 'sky',
+            bigRatio: 0.15,
+            mediumRatio: 0.35,
+            fallDuration: 400,
+            strikeIntervalMs: 85,
+            sfxType: 'fighting',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ MA — spawnGhost1 (Wraith Descent) — linh hồn VỪA RƠI TỪ TRỜI
+    // VỪA TRỒI TỪ ĐẤT cùng lúc (direction: 'both'), khác hẳn Spectral
+    // Onslaught (vệt sáng ngang) và Phantom Spirit Rush/Spectral Wail
+    // (bản thể/emoji mặt). Linh hồn hình elip mờ ảo, đuôi tan biến.
+    // ══════════════════════════════════════════════════════════
+    async spawnGhost1(startEl, endEl, count, scale, damage) {
+        const buildWraithWisp = (tier, s, c) => {
+            if (!document.getElementById('pkm-ghost1-wisp-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-ghost1-wisp-style';
+                style.textContent = `
+                    @keyframes pkmGhost1Wobble { 0%,100%{transform:translateX(-50%) scaleX(1);} 50%{transform:translateX(-50%) scaleX(0.75);} }
+                `;
+                document.head.appendChild(style);
+            }
+            const w = (tier === 'big' ? 32 : tier === 'medium' ? 20 : 12) * s;
+            const h = (tier === 'big' ? 200 : tier === 'medium' ? 135 : 85) * s;
+
+            const el = document.createElement('div');
+            el.style.cssText = `width:${w}px; height:${h}px; position:relative;`;
+
+            const trail = document.createElement('div');
+            trail.style.cssText = `
+                position:absolute; left:50%; top:0; width:${w * 0.6}px; height:${h * 0.75}px;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg, transparent, ${c}55 40%, #00ffcc66 100%);
+                filter: blur(${2 * s}px);
+            `;
+            el.appendChild(trail);
+
+            const head = document.createElement('div');
+            head.style.cssText = `
+                position:absolute; left:50%; bottom:0; width:${w}px; height:${w}px;
+                transform: translateX(-50%);
+                background: radial-gradient(circle at 45% 40%, #fff 0%, #00ffcc88 30%, ${c}cc 60%, transparent 90%);
+                border-radius: 50%;
+                animation: pkmGhost1Wobble ${0.5 + Math.random() * 0.3}s ease-in-out infinite;
+                filter: drop-shadow(0 0 ${5 * s}px ${c});
+            `;
+            el.appendChild(head);
+            return el;
+        };
+
+        const buildHauntedMist = (arenaRect) => {
+            if (!document.getElementById('pkm-ghost1-mist-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-ghost1-mist-style';
+                style.textContent = `
+                    @keyframes pkmGhost1Drift { 0%,100%{opacity:0.5; transform:translateX(0);} 50%{opacity:0.8; transform:translateX(1%);} }
+                    @keyframes pkmGhost1WispFloat { 0%{background-position:0px 0px;} 100%{background-position:-180px -60px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const mistRoot = document.createElement('div');
+            mistRoot.dataset.targetOpacity = '0.85';
+            mistRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 78% at 50% 50%, rgba(112,88,152,0.4) 0%, rgba(30,20,45,0.32) 50%, transparent 80%);
+                animation: pkmGhost1Drift 1.6s ease-in-out infinite;
+            `;
+            mistRoot.appendChild(wash);
+
+            const wisp = document.createElement('div');
+            wisp.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 4px, rgba(200,255,240,0.55) 0%, transparent 70%);
+                background-size: 160px 170px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmGhost1WispFloat 2.8s linear infinite;
+                opacity: 0.65;
+            `;
+            mistRoot.appendChild(wisp);
+
+            arena.appendChild(mistRoot);
+            return [mistRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildWraithWisp,
+            buildFrame: buildHauntedMist,
+            color: '#705898',
+            direction: 'both',
+            bigRatio: 0.14,
+            mediumRatio: 0.35,
+            fallDuration: 460,
+            strikeIntervalMs: 95,
+            sfxType: 'ghost',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ BỌ — spawnBug1 (Swarm Descent) — nhện độc + kén tơ RƠI TỪ TRỜI,
+    // khác hẳn Swarm Onslaught (cánh vo ve ngang) và Swarm Spirit Rush/
+    // Eclipse (bản thể/SVG sâu bò). Kén hình bầu, tơ dính lơ lửng phía sau.
+    // ══════════════════════════════════════════════════════════
+    async spawnBug1(startEl, endEl, count, scale, damage) {
+        const buildCocoonDrop = (tier, s, c) => {
+            const w = (tier === 'big' ? 26 : tier === 'medium' ? 17 : 10) * s;
+            const h = w * 1.6;
+            const tailLen = (tier === 'big' ? 160 : tier === 'medium' ? 105 : 68) * s;
+
+            const el = document.createElement('div');
+            el.style.cssText = `width:${w * 1.4}px; height:${tailLen}px; position:relative;`;
+
+            const web = document.createElement('div');
+            web.style.cssText = `
+                position:absolute; left:50%; top:0; width:${1.5 * s}px; height:${tailLen - h}px;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg, transparent, rgba(255,255,255,0.7));
+            `;
+            el.appendChild(web);
+
+            const cocoon = document.createElement('div');
+            cocoon.style.cssText = `
+                position:absolute; left:50%; bottom:0; width:${w}px; height:${h}px;
+                transform: translateX(-50%);
+                background: repeating-linear-gradient(70deg, #f1f8e9 0px, #f1f8e9 3px, ${c} 4px, ${c} 6px);
+                border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
+                box-shadow: 0 0 ${5 * s}px ${c};
+                filter: drop-shadow(0 0 ${3 * s}px #00000055);
+            `;
+            el.appendChild(cocoon);
+            return el;
+        };
+
+        const buildSwarmSky = (arenaRect) => {
+            if (!document.getElementById('pkm-bug1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-bug1-sky-style';
+                style.textContent = `
+                    @keyframes pkmBug1Flicker { 0%,100%{opacity:0.45;} 50%{opacity:0.75;} }
+                    @keyframes pkmBug1SporeDrift { 0%{background-position:0px 0px;} 100%{background-position:150px -190px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '1';
+            skyRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(168,184,32,0.35) 0%, rgba(30,40,10,0.4) 55%, transparent 85%);
+                animation: pkmBug1Flicker 0.65s ease-in-out infinite;
+            `;
+            skyRoot.appendChild(wash);
+
+            const spore = document.createElement('div');
+            spore.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 2px, rgba(220,255,80,0.7) 0%, transparent 70%);
+                background-size: 95px 90px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmBug1SporeDrift 2.3s linear infinite;
+                opacity: 0.8;
+            `;
+            skyRoot.appendChild(spore);
+
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildCocoonDrop,
+            buildFrame: buildSwarmSky,
+            color: '#a8b820',
+            direction: 'sky',
+            bigRatio: 0.13,
+            mediumRatio: 0.35,
+            fallDuration: 430,
+            strikeIntervalMs: 88,
+            sfxType: 'bug',
+        });
+    },
+    // ══════════════════════════════════════════════════════════
+    // HỆ BÓNG TỐI — spawnDark1 (Umbral Descent) — mảnh hố đen vỡ vụn
+    // RƠI TỪ TRỜI, khác hẳn Umbral Onslaught (vệt lõi đen ngang) và
+    // Abyssal Spirit Rush/Void Collapse (bản thể/SVG hố đen tròn).
+    // Giữ glow neon tím-trắng ĐỦ MẠNH để luôn nhìn rõ, không bị "chìm".
+    // ══════════════════════════════════════════════════════════
+    async spawnDark1(startEl, endEl, count, scale, damage) {
+        const buildVoidShard = (tier, s, c) => {
+            if (!document.getElementById('pkm-dark1-shard-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-dark1-shard-style';
+                style.textContent = `
+                    @keyframes pkmDark1Tumble { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(300deg); } }
+                `;
+                document.head.appendChild(style);
+            }
+            const bodySize = (tier === 'big' ? 34 : tier === 'medium' ? 21 : 13) * s;
+            const tailLen  = (tier === 'big' ? 175 : tier === 'medium' ? 118 : 76) * s;
+
+            const el = document.createElement('div');
+            el.style.cssText = `width:${bodySize}px; height:${tailLen}px; position:relative;`;
+
+            const trail = document.createElement('div');
+            trail.style.cssText = `
+                position:absolute; left:50%; top:0; width:${bodySize * 0.4}px; height:100%;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg, transparent, #bd00ff55 40%, #fff8 100%);
+                filter: blur(${1 * s}px);
+            `;
+            el.appendChild(trail);
+
+            const body = document.createElement('div');
+            body.style.cssText = `
+                position:absolute; left:50%; bottom:0; width:${bodySize}px; height:${bodySize}px;
+                background: #1a1024;
+                clip-path: polygon(10% 0%, 100% 50%, 10% 100%, 0% 50%);
+                border: ${1.5 * s}px solid #bd00ff;
+                box-shadow: 0 0 ${9 * s}px #bd00ff, 0 0 ${16 * s}px #bd00ffaa, inset 0 0 ${5 * s}px #fff;
+                animation: pkmDark1Tumble ${0.7 + Math.random() * 0.4}s linear infinite;
+                filter: drop-shadow(0 0 ${5 * s}px #fff);
+            `;
+            el.appendChild(body);
+            return el;
+        };
+
+        // Lớp nền NHẸ hơn các hệ khác — vẫn tím sâu nhưng KHÔNG quá đen,
+        // để streak + Pokémon luôn nổi rõ (đúng lưu ý đã chốt trước đây).
+        const buildUmbralSky = (arenaRect) => {
+            if (!document.getElementById('pkm-dark1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-dark1-sky-style';
+                style.textContent = `
+                    @keyframes pkmDark1Pulse { 0%,100%{opacity:0.35;} 50%{opacity:0.55;} }
+                    @keyframes pkmDark1SparkDrift { 0%{background-position:0px 0px;} 100%{background-position:140px -170px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '0.7';
+            skyRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 85% 68% at 50% 20%, rgba(120,0,180,0.28) 0%, rgba(40,0,60,0.22) 55%, transparent 82%);
+                animation: pkmDark1Pulse 1.2s ease-in-out infinite;
+            `;
+            skyRoot.appendChild(wash);
+
+            const spark = document.createElement('div');
+            spark.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 2px, rgba(189,0,255,0.7) 0%, transparent 70%);
+                background-size: 110px 120px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmDark1SparkDrift 2.4s linear infinite;
+                opacity: 0.7;
+            `;
+            skyRoot.appendChild(spark);
+
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildVoidShard,
+            buildFrame: buildUmbralSky,
+            color: '#bd00ff',
+            direction: 'sky',
+            bigRatio: 0.14,
+            mediumRatio: 0.35,
+            fallDuration: 420,
+            strikeIntervalMs: 90,
+            sfxType: 'dark',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ THÉP — spawnSteel1 (Iron Downpour) — mảnh giáp kim loại nhọn
+    // RƠI TỪ TRỜI, khác hẳn Metallic Onslaught (thanh kim loại lăn ngang)
+    // và Titan Spirit Rush/Iron Cataclysm (bản thể/bánh răng SVG).
+    // ══════════════════════════════════════════════════════════
+    async spawnSteel1(startEl, endEl, count, scale, damage) {
+        const buildIronShard = (tier, s, c) => {
+            if (!document.getElementById('pkm-steel1-shard-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-steel1-shard-style';
+                style.textContent = `
+                    @keyframes pkmSteel1Glint { 0%,100%{filter:brightness(1);} 50%{filter:brightness(1.6);} }
+                `;
+                document.head.appendChild(style);
+            }
+            const w = (tier === 'big' ? 22 : tier === 'medium' ? 14 : 9) * s;
+            const h = (tier === 'big' ? 190 : tier === 'medium' ? 130 : 82) * s;
+            const el = document.createElement('div');
+            el.style.cssText = `
+                width:${w}px; height:${h}px;
+                background: linear-gradient(180deg, #fff 0%, ${c} 20%, #787887 45%, #fff 55%, ${c} 80%, #787887 100%);
+                clip-path: polygon(50% 100%, 20% 20%, 35% 0%, 65% 0%, 80% 20%);
+                animation: pkmSteel1Glint ${0.4 + Math.random() * 0.3}s ease-in-out infinite;
+                box-shadow: 0 0 ${5 * s}px #fff;
+                filter: drop-shadow(0 0 ${4 * s}px ${c});
+            `;
+            return el;
+        };
+
+        const buildForgeSky = (arenaRect) => {
+            if (!document.getElementById('pkm-steel1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-steel1-sky-style';
+                style.textContent = `
+                    @keyframes pkmSteel1Shimmer { 0%,100%{opacity:0.4;} 50%{opacity:0.65;} }
+                    @keyframes pkmSteel1SparkDrift { 0%{background-position:0px 0px;} 100%{background-position:170px -140px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '1';
+            skyRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(184,184,208,0.32) 0%, rgba(40,40,50,0.4) 55%, transparent 85%);
+                animation: pkmSteel1Shimmer 0.7s ease-in-out infinite;
+            `;
+            skyRoot.appendChild(wash);
+
+            const spark = document.createElement('div');
+            spark.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 2px, rgba(255,255,255,0.8) 0%, transparent 70%);
+                background-size: 100px 110px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmSteel1SparkDrift 2s linear infinite;
+                opacity: 0.75;
+            `;
+            skyRoot.appendChild(spark);
+
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildIronShard,
+            buildFrame: buildForgeSky,
+            color: '#b8b8d0',
+            direction: 'sky',
+            bigRatio: 0.13,
+            mediumRatio: 0.35,
+            fallDuration: 400,
+            strikeIntervalMs: 85,
+            sfxType: 'steel',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ RỒNG — spawnDragon1 (Draconic Descent) — mảnh vảy năng lượng
+    // rồng RƠI TỪ TRỜI, khác hẳn Draconic Onslaught (xoắn đôi ngang) và
+    // Draconic Spirit Rush/Ascension (bản thể/SVG rồng dài).
+    // ══════════════════════════════════════════════════════════
+    async spawnDragon1(startEl, endEl, count, scale, damage) {
+        const buildScaleShard = (tier, s, c) => {
+            if (!document.getElementById('pkm-dragon1-scale-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-dragon1-scale-style';
+                style.textContent = `
+                    @keyframes pkmDragon1Tumble { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(320deg); } }
+                `;
+                document.head.appendChild(style);
+            }
+            const bodySize = (tier === 'big' ? 32 : tier === 'medium' ? 20 : 12) * s;
+            const tailLen  = (tier === 'big' ? 180 : tier === 'medium' ? 122 : 78) * s;
+
+            const el = document.createElement('div');
+            el.style.cssText = `width:${bodySize}px; height:${tailLen}px; position:relative;`;
+
+            const trail = document.createElement('div');
+            trail.style.cssText = `
+                position:absolute; left:50%; top:0; width:${bodySize * 0.4}px; height:100%;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg, transparent, ${c}55 40%, #00f0ffaa 100%);
+                filter: blur(${1 * s}px);
+            `;
+            el.appendChild(trail);
+
+            const scale2 = document.createElement('div');
+            scale2.style.cssText = `
+                position:absolute; left:50%; bottom:0; width:${bodySize}px; height:${bodySize}px;
+                background: radial-gradient(circle at 35% 30%, #fff 0%, #00f0ff 30%, ${c} 60%, #2a085c 90%);
+                clip-path: polygon(50% 0%, 100% 35%, 80% 100%, 20% 100%, 0% 35%);
+                animation: pkmDragon1Tumble ${0.65 + Math.random() * 0.35}s linear infinite;
+                box-shadow: 0 0 ${8 * s}px ${c};
+                filter: drop-shadow(0 0 ${4 * s}px #00f0ff);
+            `;
+            el.appendChild(scale2);
+            return el;
+        };
+
+        const buildDraconicSky = (arenaRect) => {
+            if (!document.getElementById('pkm-dragon1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-dragon1-sky-style';
+                style.textContent = `
+                    @keyframes pkmDragon1Pulse { 0%,100%{opacity:0.4;} 50%{opacity:0.7;} }
+                    @keyframes pkmDragon1StarDrift { 0%{background-position:0px 0px;} 100%{background-position:130px -160px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '1';
+            skyRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(112,56,248,0.35) 0%, rgba(20,10,50,0.4) 55%, transparent 85%);
+                animation: pkmDragon1Pulse 1.4s ease-in-out infinite;
+            `;
+            skyRoot.appendChild(wash);
+
+            const star = document.createElement('div');
+            star.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 2px, rgba(230,210,255,0.85) 0%, transparent 70%);
+                background-size: 95px 100px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmDragon1StarDrift 2.6s linear infinite;
+                opacity: 0.8;
+            `;
+            skyRoot.appendChild(star);
+
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildScaleShard,
+            buildFrame: buildDraconicSky,
+            color: '#7038f8',
+            direction: 'sky',
+            bigRatio: 0.15,
+            mediumRatio: 0.35,
+            fallDuration: 440,
+            strikeIntervalMs: 92,
+            sfxType: 'dragon',
+        });
+    },
+
+    // ══════════════════════════════════════════════════════════
+    // HỆ TIÊN — spawnFairy1 (Stardust Descent) — sao băng cổ tích RƠI
+    // TỪ TRỜI, khác hẳn Fairy Onslaught (cánh hoa bay ngang) và
+    // Celestial Spirit Rush/Starlight Requiem (bản thể/16 sao vàng).
+    // ══════════════════════════════════════════════════════════
+    async spawnFairy1(startEl, endEl, count, scale, damage) {
+        const buildStardust = (tier, s, c) => {
+            if (!document.getElementById('pkm-fairy1-star-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-fairy1-star-style';
+                style.textContent = `
+                    @keyframes pkmFairy1Twinkle { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(360deg); } }
+                `;
+                document.head.appendChild(style);
+            }
+            const w = (tier === 'big' ? 30 : tier === 'medium' ? 19 : 11) * s;
+            const tailLen = (tier === 'big' ? 165 : tier === 'medium' ? 112 : 72) * s;
+
+            const el = document.createElement('div');
+            el.style.cssText = `width:${w * 1.6}px; height:${tailLen}px; position:relative;`;
+
+            const trail = document.createElement('div');
+            trail.style.cssText = `
+                position:absolute; left:50%; top:0; width:${w * 0.5}px; height:100%;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg, transparent, #ffd1e666 40%, #fff 100%);
+                filter: blur(${1 * s}px);
+            `;
+            el.appendChild(trail);
+
+            const star = document.createElement('div');
+            star.style.cssText = `
+                position:absolute; left:50%; bottom:0; width:${w}px; height:${w}px;
+                background: ${c};
+                clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+                animation: pkmFairy1Twinkle ${0.5 + Math.random() * 0.3}s linear infinite;
+                box-shadow: 0 0 ${7 * s}px #fff;
+                filter: drop-shadow(0 0 ${5 * s}px ${c});
+            `;
+            el.appendChild(star);
+            return el;
+        };
+
+        const buildFairySky = (arenaRect) => {
+            if (!document.getElementById('pkm-fairy1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-fairy1-sky-style';
+                style.textContent = `
+                    @keyframes pkmFairy1Glow { 0%,100%{opacity:0.45;} 50%{opacity:0.75;} }
+                    @keyframes pkmFairy1SparkleDrift { 0%{background-position:0px 0px;} 100%{background-position:110px -150px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '1';
+            skyRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(238,153,172,0.38) 0%, rgba(70,30,55,0.35) 55%, transparent 85%);
+                animation: pkmFairy1Glow 1.3s ease-in-out infinite;
+            `;
+            skyRoot.appendChild(wash);
+
+            const sparkle = document.createElement('div');
+            sparkle.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 2px, rgba(255,255,255,0.9) 0%, transparent 70%);
+                background-size: 90px 95px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmFairy1SparkleDrift 2.4s linear infinite;
+                opacity: 0.85;
+            `;
+            skyRoot.appendChild(sparkle);
+
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildStardust,
+            buildFrame: buildFairySky,
+            color: '#ee99ac',
+            direction: 'sky',
+            bigRatio: 0.14,
+            mediumRatio: 0.35,
+            fallDuration: 410,
+            strikeIntervalMs: 88,
+            sfxType: 'fairy',
+        });
+    },
+    // ══════════════════════════════════════════════════════════
+    // HỆ THƯỜNG — spawnNormal1 (Meteoric Judgment) — khối năng lượng
+    // trắng-vàng đa giác RƠI TỪ TRỜI, khác hẳn Resonant Wavefront (vành
+    // sóng âm ngang) và Radiant Spirit Rush/Cosmic Judgment (bản thể/
+    // 16 ngôi sao hội tụ). Đây là khối THUẦN KHIẾT, không hoa văn cầu kỳ.
+    // ══════════════════════════════════════════════════════════
+    async spawnNormal1(startEl, endEl, count, scale, damage) {
+        const buildEnergyBlock = (tier, s, c) => {
+            if (!document.getElementById('pkm-normal1-block-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-normal1-block-style';
+                style.textContent = `
+                    @keyframes pkmNormal1Tumble { from { transform: translateX(-50%) rotate(0deg); } to { transform: translateX(-50%) rotate(300deg); } }
+                `;
+                document.head.appendChild(style);
+            }
+            const bodySize = (tier === 'big' ? 32 : tier === 'medium' ? 20 : 12) * s;
+            const tailLen  = (tier === 'big' ? 175 : tier === 'medium' ? 118 : 76) * s;
+
+            const el = document.createElement('div');
+            el.style.cssText = `width:${bodySize}px; height:${tailLen}px; position:relative;`;
+
+            const trail = document.createElement('div');
+            trail.style.cssText = `
+                position:absolute; left:50%; top:0; width:${bodySize * 0.42}px; height:100%;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg, transparent, ${c}44 40%, #fff 100%);
+                filter: blur(${1 * s}px);
+            `;
+            el.appendChild(trail);
+
+            const block = document.createElement('div');
+            block.style.cssText = `
+                position:absolute; left:50%; bottom:0; width:${bodySize}px; height:${bodySize}px;
+                background: radial-gradient(circle at 35% 30%, #fff 0%, #fff8dc 35%, ${c} 65%, #9a7d0a 90%);
+                clip-path: polygon(50% 0%, 90% 30%, 78% 90%, 22% 90%, 10% 30%);
+                animation: pkmNormal1Tumble ${0.7 + Math.random() * 0.4}s linear infinite;
+                box-shadow: 0 0 ${8 * s}px #fff, 0 0 ${12 * s}px ${c}aa;
+                filter: drop-shadow(0 0 ${4 * s}px #fff);
+            `;
+            el.appendChild(block);
+            return el;
+        };
+
+        const buildRadiantSky = (arenaRect) => {
+            if (!document.getElementById('pkm-normal1-sky-style')) {
+                const style = document.createElement('style');
+                style.id = 'pkm-normal1-sky-style';
+                style.textContent = `
+                    @keyframes pkmNormal1Glow { 0%,100%{opacity:0.4;} 50%{opacity:0.68;} }
+                    @keyframes pkmNormal1SparkDrift { 0%{background-position:0px 0px;} 100%{background-position:130px -160px;} }
+                `;
+                document.head.appendChild(style);
+            }
+            const arena = document.getElementById('battle-arena') || document.body;
+            const skyRoot = document.createElement('div');
+            skyRoot.dataset.targetOpacity = '1';
+            skyRoot.style.cssText = `position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; opacity:0;`;
+
+            const wash = document.createElement('div');
+            wash.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(ellipse 90% 70% at 50% 20%, rgba(255,248,220,0.35) 0%, rgba(60,55,40,0.35) 55%, transparent 85%);
+                animation: pkmNormal1Glow 1.3s ease-in-out infinite;
+            `;
+            skyRoot.appendChild(wash);
+
+            const spark = document.createElement('div');
+            spark.style.cssText = `
+                position:absolute; inset:-10%;
+                background: radial-gradient(circle 2px, rgba(255,255,255,0.85) 0%, transparent 70%);
+                background-size: 100px 110px;
+                background-repeat: repeat;
+                mix-blend-mode: screen;
+                animation: pkmNormal1SparkDrift 2.4s linear infinite;
+                opacity: 0.75;
+            `;
+            skyRoot.appendChild(spark);
+
+            arena.appendChild(skyRoot);
+            return [skyRoot];
+        };
+
+        await this.playCelestialStrikeBarrage(startEl, endEl, count, scale, damage, {
+            itemBuilder: buildEnergyBlock,
+            buildFrame: buildRadiantSky,
+            color: '#e8e2c0',
+            direction: 'sky',
+            bigRatio: 0.14,
+            mediumRatio: 0.35,
+            fallDuration: 420,
+            strikeIntervalMs: 90,
+            sfxType: 'normal',
+        });
+    },
+
+
+
+
+
+
+
+
+
+
+
+
     
-
-
     // ══════════════════════════════════════════════
     // FALLBACK CHUNG — dùng cho MỌI hệ CHƯA có chiêu riêng.
     // Khi viết chiêu thật cho 1 hệ, chỉ cần thêm spawn<Hệ> +
