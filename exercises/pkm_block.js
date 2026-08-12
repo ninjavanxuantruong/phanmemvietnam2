@@ -753,20 +753,25 @@ window.BlockGame = {
     // ═══════════════════════════════════════════════════════════
     // THU PHỤC POKÉMON (popup + dải "Đã thu phục")
     // ═══════════════════════════════════════════════════════════
+    // mới — gộp toàn bộ Pokémon thu phục trong CÙNG 1 lần xoá hàng/cột thành
+    // 1 lần hiển thị duy nhất (kiểu "Combo xN") thay vì đợi tuần tự ~950ms/con.
+    // Máy yếu xoá nhiều hàng/cột cùng lúc trước đây phải chờ dồn nhiều giây liền,
+    // đây là nguyên nhân chính gây cảm giác đơ.
     async processCaptures(list) {
         this.captureQueue = (this.captureQueue || []).concat(list);
         if (this.captureBusy) return;
         this.captureBusy = true;
         while (this.captureQueue.length > 0) {
-            const pokemon = this.captureQueue.shift();
-            await this.showCaptureEvent(pokemon);
+            const batch = this.captureQueue;
+            this.captureQueue = [];
+            await this.showCaptureEvent(batch);
         }
         this.captureBusy = false;
     },
 
-    showCaptureEvent(pokemon) {
+    showCaptureEvent(pokemonList) {
         return new Promise((resolve) => {
-            this.collectedList.push(pokemon); // chỉ log trong bộ nhớ, không vẽ ra UI nữa
+            pokemonList.forEach(p => this.collectedList.push(p));
 
             this.playCaptureSound();
 
@@ -777,20 +782,44 @@ window.BlockGame = {
                 this.PRAISE_WORDS[
                     Math.floor(Math.random() * this.PRAISE_WORDS.length)
                 ];
-            if (praiseEl) praiseEl.innerText = praiseWord;
-            if (imgEl) imgEl.src = pokemon.url;
-            this.speakPraise(praiseWord);
+
+            const isCombo = pokemonList.length > 1;
+            if (praiseEl) praiseEl.innerText = isCombo ? `${praiseWord} Combo x${pokemonList.length}!` : praiseWord;
+            if (imgEl) imgEl.src = pokemonList[0].url;
+            this.speakPraise(isCombo ? `${praiseWord} Combo` : praiseWord);
+
+            // Nhiều con cùng lúc -> tự chèn thêm icon nhỏ cạnh ảnh chính (không cần
+            // sửa HTML), tự dọn dẹp ngay sau khi popup ẩn.
+            let extraRow = null;
+            if (isCombo && imgEl && imgEl.parentElement) {
+                extraRow = document.createElement("div");
+                extraRow.style.cssText = "display:flex;gap:4px;justify-content:center;margin-top:6px;flex-wrap:wrap;";
+                pokemonList.slice(1, 6).forEach(p => {
+                    const mini = document.createElement("img");
+                    mini.src = p.url;
+                    mini.style.cssText = "width:28px;height:28px;object-fit:contain;";
+                    extraRow.appendChild(mini);
+                });
+                if (pokemonList.length > 6) {
+                    const more = document.createElement("span");
+                    more.style.cssText = "font-size:12px;color:#fff;align-self:center;";
+                    more.textContent = `+${pokemonList.length - 6}`;
+                    extraRow.appendChild(more);
+                }
+                imgEl.parentElement.appendChild(extraRow);
+            }
 
             if (popup) {
                 popup.classList.remove("show");
                 void popup.offsetWidth; // ép reflow để restart animation
                 popup.classList.add("show");
-                // Hiện 1 nhịp rồi tự ẩn — KHÔNG bay vào dải thu phục nữa,
-                // thu phục xong là biến mất luôn, không tích luỹ DOM.
-                setTimeout(() => popup.classList.remove("show"), 900);
+                setTimeout(() => popup.classList.remove("show"), isCombo ? 1100 : 900);
             }
 
-            setTimeout(resolve, 950);
+            setTimeout(() => {
+                if (extraRow) extraRow.remove();
+                resolve();
+            }, isCombo ? 1150 : 950);
         });
     },
 
