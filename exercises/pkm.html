@@ -288,6 +288,7 @@
 
         const DOOR_CONFIG = { top: '30%', left: '50%', width: '7%' };
         const MAP_CONFIG  = { top: '75%', left: '50%', width: '16%' };
+        const KEY_CONFIG  = { top: '30%', left: '10%', width: '6%' }; // ← tự chỉnh top/left/width cho khớp ảnh nền
 
         const TRAINER_URL = name => `https://play.pokemonshowdown.com/sprites/trainers/${name}.png`;
         const POKEMON_URL  = name => `https://play.pokemonshowdown.com/sprites/ani/${name}.gif`;
@@ -303,7 +304,7 @@
             const sceneW = scene.clientWidth;
             const sceneH = scene.clientHeight;
             let w = sceneW, h = sceneW / ratio;
-            if (h > sceneH) { h = sceneH; w = sceneH * ratio; }
+            if (h < sceneH) { h = sceneH; w = sceneH * ratio; } // COVER: luôn phủ đầy màn hình, mép dư bị cắt (đã có overflow:hidden ở .hall-scene)
             stage.style.width = w + 'px';
             stage.style.height = h + 'px';
         }
@@ -391,6 +392,18 @@
                         <circle cx="50" cy="50" r="16" fill="#f4f4f4" stroke="#111" stroke-width="5"/>
                      </svg>`);
             }
+        });
+        /* ---------- Chìa khoá (mở bài tập / hỗ trợ học sinh) ---------- */
+        placeElement({
+            top: KEY_CONFIG.top, left: KEY_CONFIG.left, width: KEY_CONFIG.width,
+            extraClass: 'hs-key',
+            imgSrc: 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="46" fill="#3a2f0d" stroke="#ffcb05" stroke-width="5"/>
+                    <text x="50" y="66" font-size="46" text-anchor="middle">🔑</text>
+                 </svg>`),
+            label: 'Chìa khoá',
+            onClick: openKeyDialogue
         });
 
         /* ---------- Dialogue box dùng chung ---------- */
@@ -489,6 +502,45 @@
 
             dlgChoices.appendChild(saveBtn);
             dlgChoices.appendChild(exitBtn);
+
+            dlgOverlay.classList.add('open');
+            speakEnglish(qEn);
+        }
+        function openKeyDialogue() {
+            dlgPortrait.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                    <rect width="100" height="100" fill="#3a2f0d"/>
+                    <text x="50" y="66" font-size="46" text-anchor="middle">🔑</text>
+                 </svg>`);
+            dlgPortrait.onerror = null;
+            dlgName.textContent = 'Chìa Khoá';
+            const qEn = 'Do you want to see your studying results, or get support?';
+            const qVn = 'Bạn muốn xem kết quả học tập, hay cần hỗ trợ?';
+            dlgQEn.textContent = qEn;
+            dlgQVn.textContent = qVn;
+
+            dlgChoices.innerHTML = '';
+            const exerciseBtn = document.createElement('a');
+            exerciseBtn.href = '../exercise1.html';
+            exerciseBtn.className = 'dlg-choice-btn confirm';
+            exerciseBtn.innerHTML = `<span class="dlg-choice-en">A. See studying results</span><span class="dlg-choice-vn">Xem kết quả học tập</span>`;
+
+            const supportBtn = document.createElement('div');
+            supportBtn.className = 'dlg-choice-btn';
+            supportBtn.innerHTML = `<span class="dlg-choice-en">B. Get Support</span><span class="dlg-choice-vn">Hỗ trợ học sinh</span>`;
+            supportBtn.addEventListener('click', () => {
+                const pass = prompt('Nhập mật khẩu để vào trang Hỗ trợ học sinh:');
+                if (pass === null) return; // bấm Hủy
+                if (pass === '260794') {
+                    closeDialogue();
+                    window.location.href = 'hotrohocsinh.html';
+                } else {
+                    alert('Sai mật khẩu!');
+                }
+            });
+
+            dlgChoices.appendChild(exerciseBtn);
+            dlgChoices.appendChild(supportBtn);
 
             dlgOverlay.classList.add('open');
             speakEnglish(qEn);
