@@ -20,8 +20,10 @@
  * damage bay lên), toàn bộ dùng Element.animate() (Web Animations API,
  * chỉ animate transform/opacity — chạy trên GPU, không ép trình duyệt tính
  * lại layout liên tục), và tự gỡ khỏi DOM ngay khi animate xong
- * (.onfinish). KHÔNG setInterval, KHÔNG setTimeout lồng nhau nhiều tầng,
- * KHÔNG phát âm thanh (bớt tải khi bắn dồn dập).
+ * (.onfinish). KHÔNG setInterval, KHÔNG setTimeout lồng nhau nhiều tầng.
+ * Âm thanh phát ra bằng Web Audio API TỰ TỔNG HỢP (oscillator, không cần
+ * file mp3 — giống cách SoundEngine trong pkm_skill_aoe.js đã làm), rất
+ * nhẹ, dùng chung 1 AudioContext cho cả trận.
  *
  * MÀU theo hệ Pokémon — chỉ để hiệu ứng có chút khác biệt giữa các con,
  * không ảnh hưởng gì tới cách hoạt động. Muốn đổi màu 1 hệ chỉ sửa 1 dòng.
@@ -39,6 +41,51 @@ window.TowerSkill = {
 
     colorFor(type) {
         return this.TYPE_COLORS[type] || this.TYPE_COLORS.normal;
+    },
+
+    // ══════════════════════════════════════════════════════
+    // ÂM THANH — tự tổng hợp bằng Web Audio API (không cần file mp3),
+    // dùng chung 1 AudioContext cho cả trận để đỡ tốn tài nguyên.
+    // ══════════════════════════════════════════════════════
+    _audioCtx: null,
+    getAudioCtx() {
+        if (!this._audioCtx) this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this._audioCtx.state === 'suspended') this._audioCtx.resume();
+        return this._audioCtx;
+    },
+
+    // Tiếng "tách/zap" điện tử ngắn — dùng cho tháp TẦM XA
+    playRangedSfx() {
+        try {
+            const ctx = this.getAudioCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(900, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.12);
+            gain.gain.setValueAtTime(0.12, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+        } catch (e) { /* im lặng nếu trình duyệt chặn audio */ }
+    },
+
+    // Tiếng "huỵch" đấm trực diện — dùng cho tháp CẬN CHIẾN
+    playMeleeSfx() {
+        try {
+            const ctx = this.getAudioCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(160, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.18, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+            osc.connect(gain).connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.13);
+        } catch (e) { /* im lặng nếu trình duyệt chặn audio */ }
     },
 
     // ══════════════════════════════════════════════════════
@@ -68,13 +115,15 @@ window.TowerSkill = {
         const dist = Math.max(1, Math.hypot(dx, dy));
         const duration = Math.min(420, Math.max(160, dist * 0.5)); // xa hơn thì bay lâu hơn 1 chút, có trần
 
-        const anim = bolt.animate([
-            { transform: `translate(${sx}px, ${sy}px) scale(0.5)`, opacity: 0 },
-            { transform: `translate(${sx + dx * 0.15}px, ${sy + dy * 0.15}px) scale(1)`, opacity: 1, offset: 0.15 },
-            { transform: `translate(${ex}px, ${ey}px) scale(1)`, opacity: 1 },
-        ], { duration, easing: 'linear' });
+            this.playRangedSfx();
 
-        anim.onfinish = () => {
+            const anim = bolt.animate([
+                { transform: `translate(${sx}px, ${sy}px) scale(0.5)`, opacity: 0 },
+                { transform: `translate(${sx + dx * 0.15}px, ${sy + dy * 0.15}px) scale(1)`, opacity: 1, offset: 0.15 },
+                { transform: `translate(${ex}px, ${ey}px) scale(1)`, opacity: 1 },
+            ], { duration, easing: 'linear' });
+
+            anim.onfinish = () => {
             bolt.remove();
             this.impactFlash(ex, ey, color);
             this.floatDamage(targetEl, damage, color);
@@ -100,6 +149,8 @@ window.TowerSkill = {
                 { transform: baseTransform || 'none' },
             ], { duration: 160, easing: 'ease-out' });
         }
+
+    this.playMeleeSfx();
 
         const rectT = targetEl.getBoundingClientRect();
         const ex = rectT.left + rectT.width / 2, ey = rectT.top + rectT.height / 2;
