@@ -46,7 +46,8 @@ window.TowerGame = {
     WAVE_COUNT_STEP: 2,
     SPAWN_INTERVAL_MS: 1700, // giãn cách giữa 2 lần quái xuất hiện — tăng lên cho thưa, đỡ dày đặc
 
-    QUIZ_INTERVAL_MS: 20000,
+    QUIZ_EVERY_N_ENEMIES: 10, // cứ 10 con quái xuất hiện (spawn) thì gọi 1 lần quiz — tự co giãn theo
+                              // độ dài round, không phụ thuộc học sinh chơi nhanh hay chậm
     WRONG_STUN_MS: 3000,
     MIN_QUESTIONS: 6,
 
@@ -72,9 +73,12 @@ window.TowerGame = {
     SHOP_SIZE: 10,
 
     MONSTER_BASE: {
-        slime:    { hp: 70, speed: 4.6, gold: 8,  label: 'Slime' },
-        skeleton: { hp: 45, speed: 7.2, gold: 12, label: 'Xương Khô' },
-        bat:      { hp: 26, speed: 11,  gold: 15, label: 'Dơi' },
+        slime:     { hp: 70, speed: 4.6, gold: 12, label: 'Slime' },
+        skeleton:  { hp: 45, speed: 7.2, gold: 18, label: 'Xương Khô' },
+        bat:       { hp: 26, speed: 11,  gold: 22, label: 'Dơi' },
+        spider:    { hp: 38, speed: 8.5, gold: 16, label: 'Nhện' },
+        mushroom:  { hp: 95, speed: 3.5, gold: 20, label: 'Nấm Độc' },
+        ghostling: { hp: 30, speed: 9.5, gold: 25, label: 'Ma Nhỏ' },
     },
 
     // ================= STATE PHIÊN CHƠI (không lưu) =================
@@ -216,6 +220,7 @@ window.TowerGame = {
             paused: true,
             gameOverWiped: false,
             towerStunUntil: 0,
+            enemiesSinceQuiz: 0, // đếm số quái đã spawn kể từ lần quiz gần nhất
         };
 
         if (wasReset || !this.session.persisted.roster) {
@@ -385,7 +390,6 @@ window.TowerGame = {
     // ================= 6. MÀN SẮP XẾP ĐỘI HÌNH (đầu mỗi round) =================
     openArrangeScreen() {
         this.session.paused = true;
-        clearTimeout(this._quizTimer);
         const overlay = document.getElementById('arrange-overlay');
         overlay.style.display = 'flex';
         this._selectedBenchUid = null;
@@ -525,16 +529,22 @@ window.TowerGame = {
         s.wave.targetThisWave = this.WAVE_BASE_COUNT + (round - 1) * this.WAVE_COUNT_STEP;
         s.wave.lastSpawnTs = 0;
         s.wave.spawning = true;
+        // LƯU Ý: KHÔNG reset s.enemiesSinceQuiz ở đây — để số quái dồn XUYÊN
+        // QUA nhiều round. Round đầu chỉ 6 quái (chưa tới mốc 10), nếu reset
+        // mỗi round thì 2 round đầu sẽ KHÔNG BAO GIỜ có quiz. Bộ đếm chỉ được
+        // đưa về 0 đúng lúc vừa gọi quiz xong (xem spawnEnemy()).
         s.paused = false;
         this.log(`🌊 Đợt ${round} — ${s.wave.targetThisWave} quái!`);
         this.updateHud();
-        this.scheduleNextQuiz();
     },
 
     roundMonsterPool(round) {
         if (round <= 2) return ['slime'];
         if (round <= 4) return ['slime', 'skeleton'];
-        return ['slime', 'skeleton', 'bat'];
+        if (round <= 6) return ['slime', 'skeleton', 'bat'];
+        if (round <= 8) return ['skeleton', 'bat', 'spider'];
+        if (round <= 10) return ['bat', 'spider', 'mushroom'];
+        return ['skeleton', 'spider', 'mushroom', 'ghostling'];
     },
 
     maybeSpawnEnemy(ts) {
@@ -568,6 +578,16 @@ window.TowerGame = {
         container.appendChild(el);
 
         s.enemies.push({ uid, el, lane, type, hp, maxHp: hp, speed, gold, y: this.SPAWN_Y, alive: true, frozen: false, hasBeenStunned: false, stunElapsed: 0, stunDuration: 0 });
+
+        // Cứ đủ QUIZ_EVERY_N_ENEMIES con xuất hiện thì gọi 1 lần quiz — tự co
+        // giãn theo độ dài round (round nhiều quái hơn thì nhiều quiz hơn),
+        // và KHÔNG phụ thuộc học sinh giết quái nhanh hay chậm (quái vẫn phải
+        // spawn lần lượt theo SPAWN_INTERVAL_MS dù có bị giết ngay tức khắc).
+        s.enemiesSinceQuiz++;
+        if (s.enemiesSinceQuiz >= this.QUIZ_EVERY_N_ENEMIES) {
+            s.enemiesSinceQuiz = 0;
+            this.triggerQuiz();
+        }
     },
 
     // ================= 9. QUÁI VẼ CSS =================
@@ -582,6 +602,10 @@ window.TowerGame = {
             @keyframes towerWingFlapL { 0%,100%{transform:rotate(18deg);} 50%{transform:rotate(-38deg);} }
             @keyframes towerWingFlapR { 0%,100%{transform:rotate(-18deg);} 50%{transform:rotate(38deg);} }
             @keyframes towerBatFloat { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);} }
+            @keyframes towerSpiderSkitter { 0%,100%{transform:translateX(0) rotate(0deg);} 25%{transform:translateX(-2px) rotate(-3deg);} 75%{transform:translateX(2px) rotate(3deg);} }
+            @keyframes towerLegSwingFast { 0%,100%{transform:rotate(-22deg);} 50%{transform:rotate(22deg);} }
+            @keyframes towerMushroomBounce { 0%,100%{transform:scaleY(1) translateY(0);} 40%{transform:scaleY(0.88) translateY(2px);} 60%{transform:scaleY(1.06) translateY(-3px);} }
+            @keyframes towerGhostSway { 0%,100%{transform:translate(0,0) rotate(0deg); opacity:0.85;} 50%{transform:translate(3px,-5px) rotate(4deg); opacity:1;} }
 
             .mon-slime .slime-body {
                 width:34px; height:26px; border-radius:50% 50% 45% 45% / 65% 65% 35% 35%;
@@ -614,6 +638,51 @@ window.TowerGame = {
             .mon-bat .bat-wing { position:absolute; top:8px; width:16px; height:12px; background:linear-gradient(160deg,#5a4a72,#2a2038); }
             .mon-bat .bat-wing-l { left:0; clip-path:polygon(100% 0%, 0% 40%, 60% 100%, 100% 60%); transform-origin: 100% 30%; animation: towerWingFlapL .35s ease-in-out infinite; }
             .mon-bat .bat-wing-r { right:0; clip-path:polygon(0% 0%, 100% 40%, 40% 100%, 0% 60%); transform-origin: 0% 30%; animation: towerWingFlapR .35s ease-in-out infinite; }
+
+            .mon-spider { position:relative; width:32px; height:26px; animation: towerSpiderSkitter .3s ease-in-out infinite; }
+            .mon-spider .sp-body {
+                position:absolute; left:50%; top:6px; transform:translateX(-50%);
+                width:16px; height:14px; border-radius:50%;
+                background:radial-gradient(circle at 35% 30%,#5a4a6a,#221a2e 75%); border:1px solid #120c1a;
+            }
+            .mon-spider .sp-body::before, .mon-spider .sp-body::after {
+                content:''; position:absolute; top:4px; width:2px; height:2px; border-radius:50%; background:#ff4d4d;
+            }
+            .mon-spider .sp-body::before { left:4px; } .mon-spider .sp-body::after { right:4px; }
+            .mon-spider .sp-leg { position:absolute; top:10px; width:14px; height:2px; background:#221a2e; transform-origin: 0 50%; }
+            .mon-spider .sp-leg-1 { left:16px; transform:rotate(-25deg); animation: towerLegSwingFast .28s ease-in-out infinite; }
+            .mon-spider .sp-leg-2 { left:16px; transform:rotate(5deg); animation: towerLegSwingFast .28s ease-in-out infinite reverse; }
+            .mon-spider .sp-leg-3 { right:16px; transform:rotate(205deg); animation: towerLegSwingFast .28s ease-in-out infinite; }
+            .mon-spider .sp-leg-4 { right:16px; transform:rotate(175deg); animation: towerLegSwingFast .28s ease-in-out infinite reverse; }
+
+            .mon-mushroom { position:relative; width:32px; height:34px; animation: towerMushroomBounce 1.3s ease-in-out infinite; transform-origin: center bottom; }
+            .mon-mushroom .mr-cap {
+                position:absolute; left:50%; top:0; transform:translateX(-50%);
+                width:32px; height:18px; border-radius:16px 16px 3px 3px;
+                background:radial-gradient(circle at 35% 30%,#ff8a8a,#c0392b 75%); border:2px solid #7a1f14;
+            }
+            .mon-mushroom .mr-cap::before, .mon-mushroom .mr-cap::after {
+                content:''; position:absolute; top:4px; width:5px; height:5px; border-radius:50%; background:#fff4e0;
+            }
+            .mon-mushroom .mr-cap::before { left:5px; } .mon-mushroom .mr-cap::after { right:6px; top:8px; }
+            .mon-mushroom .mr-stem {
+                position:absolute; left:50%; top:15px; transform:translateX(-50%);
+                width:12px; height:16px; border-radius:2px 2px 4px 4px;
+                background:linear-gradient(180deg,#fff4e0,#d8c8a8); border:1px solid #b0a080;
+            }
+
+            .mon-ghostling { position:relative; width:28px; height:32px; animation: towerGhostSway 1.1s ease-in-out infinite; }
+            .mon-ghostling .gh-body {
+                position:absolute; inset:0;
+                background:radial-gradient(circle at 40% 30%, rgba(255,255,255,0.95), rgba(160,210,255,0.55) 70%, transparent 90%);
+                border-radius:50% 50% 45% 45% / 55% 55% 45% 45%;
+                clip-path: polygon(0% 0%, 100% 0%, 100% 78%, 85% 92%, 70% 78%, 55% 96%, 40% 78%, 25% 96%, 10% 78%, 0% 92%);
+                filter: blur(0.3px);
+            }
+            .mon-ghostling .gh-body::before, .mon-ghostling .gh-body::after {
+                content:''; position:absolute; top:36%; width:3px; height:4px; border-radius:50%; background:#2a2a3a;
+            }
+            .mon-ghostling .gh-body::before { left:32%; } .mon-ghostling .gh-body::after { right:32%; }
         `;
         document.head.appendChild(style);
     },
@@ -621,7 +690,11 @@ window.TowerGame = {
     buildMonsterHTML(type) {
         if (type === 'slime') return `<div class="mon mon-slime"><div class="slime-body"></div></div>`;
         if (type === 'skeleton') return `<div class="mon mon-skeleton"><div class="sk-head"></div><div class="sk-body"></div><div class="sk-leg sk-leg-l"></div><div class="sk-leg sk-leg-r"></div></div>`;
-        return `<div class="mon mon-bat"><div class="bat-wing bat-wing-l"></div><div class="bat-wing bat-wing-r"></div><div class="bat-body"></div></div>`;
+        if (type === 'bat') return `<div class="mon mon-bat"><div class="bat-wing bat-wing-l"></div><div class="bat-wing bat-wing-r"></div><div class="bat-body"></div></div>`;
+        if (type === 'spider') return `<div class="mon mon-spider"><div class="sp-leg sp-leg-1"></div><div class="sp-leg sp-leg-2"></div><div class="sp-leg sp-leg-3"></div><div class="sp-leg sp-leg-4"></div><div class="sp-body"></div></div>`;
+        if (type === 'mushroom') return `<div class="mon mon-mushroom"><div class="mr-stem"></div><div class="mr-cap"></div></div>`;
+        if (type === 'ghostling') return `<div class="mon mon-ghostling"><div class="gh-body"></div></div>`;
+        return `<div class="mon mon-slime"><div class="slime-body"></div></div>`; // fallback an toàn nếu lỡ gõ sai tên loại
     },
 
     // ================= 10. VÒNG LẶP CHÍNH =================
@@ -629,7 +702,7 @@ window.TowerGame = {
         const dt = Math.min(0.05, (ts - (this._lastTs || ts)) / 1000);
         this._lastTs = ts;
         if (this.session && !this.session.paused && !this.session.gameOverWiped) {
-            this.maybeSpawnEnemy(ts);
+            this.maybeSpawnEnemy(ts); // mỗi con spawn ra sẽ tự đếm + tự gọi triggerQuiz() khi đủ mốc (xem spawnEnemy())
             this.updateEnemies(dt);
             this.updateTowers(ts);
         }
@@ -655,7 +728,7 @@ window.TowerGame = {
 
             const meleeKey = `${e.lane}-0`;
             const meleeTower = s.towers[meleeKey];
-            if (meleeTower && !e.hasBeenStunned && e.y >= this.SLOT_Y[0]) {
+                if (meleeTower && !e.hasBeenStunned && e.y >= this.SLOT_Y[0] - 20) {
                 e.frozen = true; e.hasBeenStunned = true; e.stunElapsed = 0;
                 e.stunDuration = this.towerStunMs(meleeTower.entry);
             }
@@ -746,7 +819,6 @@ window.TowerGame = {
         if (s.gameOverWiped) return;
         if (!s.wave.spawning && s.enemies.length === 0 && s.wave.spawnedThisWave >= s.wave.targetThisWave) {
             s.paused = true;
-            clearTimeout(this._quizTimer);
             setTimeout(() => {
                 s.persisted.round++;
                 this.savePersisted();
@@ -756,39 +828,32 @@ window.TowerGame = {
         }
     },
 
-    // ================= 11. QUIZ MỖI ~10s =================
-    scheduleNextQuiz() {
-        clearTimeout(this._quizTimer);
-        this._quizTimer = setTimeout(() => this.triggerQuiz(), this.QUIZ_INTERVAL_MS);
+    // ================= 11. QUIZ — chỉ tính thời gian CHƠI, không tính lúc trả lời =================
+    triggerQuiz() {
+        if (this.session.gameOverWiped) return;
+        this.session.paused = true; // quiz hiện -> khựng toàn bộ (quái/tháp/đếm giờ quiz đều dừng theo)
+        const overlay = document.getElementById('quiz-overlay');
+        if (overlay) overlay.style.display = 'flex';
+        if (window.QuizManager) window.QuizManager.ask((isCorrect) => this.onQuizAnswered(isCorrect));
+        else this.onQuizAnswered(true);
     },
 
-        triggerQuiz() {
-            if (this.session.gameOverWiped) return;
-            this.session.paused = true; // câu hỏi xuất hiện -> quái/tháp/mọi thứ tạm dừng hoàn toàn
-            const overlay = document.getElementById('quiz-overlay');
-            if (overlay) overlay.style.display = 'flex';
-            if (window.QuizManager) window.QuizManager.ask((isCorrect) => this.onQuizAnswered(isCorrect));
-            else this.onQuizAnswered(true);
-        },
+    onQuizAnswered(isCorrect) {
+        const s = this.session;
+        if (window.PkmScore) window.PkmScore.recordAnswer(isCorrect);
+        s.totalCount++;
+        if (isCorrect) s.correctCount++; else s.wrongCount++;
+        this.updateHud();
 
-        onQuizAnswered(isCorrect) {
-            const s = this.session;
-            if (window.PkmScore) window.PkmScore.recordAnswer(isCorrect);
-            s.totalCount++;
-            if (isCorrect) s.correctCount++; else s.wrongCount++;
-            this.updateHud();
-
-            const overlay = document.getElementById('quiz-overlay');
-            if (overlay) overlay.style.display = 'none';
-            s.paused = false; // trả lời xong -> chạy tiếp
+        const overlay = document.getElementById('quiz-overlay');
+        if (overlay) overlay.style.display = 'none';
+        s.paused = false; // trả lời xong -> chạy lại, quái tiếp tục spawn và tự đếm cho lần quiz kế tiếp
 
         if (!isCorrect) {
             s.towerStunUntil = performance.now() + this.WRONG_STUN_MS;
             document.querySelectorAll('.tower-unit').forEach(el => el.classList.add('tower-stunned'));
             setTimeout(() => document.querySelectorAll('.tower-unit').forEach(el => el.classList.remove('tower-stunned')), this.WRONG_STUN_MS);
         }
-
-        if (!s.gameOverWiped) this.scheduleNextQuiz();
     },
 
     // ================= 12. THUA — RESET TOÀN BỘ =================
@@ -796,7 +861,6 @@ window.TowerGame = {
         const s = this.session;
         s.gameOverWiped = true;
         s.paused = true;
-        clearTimeout(this._quizTimer);
         if (window.PkmScore) window.PkmScore.finishMatch({ won: false, minQuestions: this.MIN_QUESTIONS });
         this.wipeAndRestart();
 
