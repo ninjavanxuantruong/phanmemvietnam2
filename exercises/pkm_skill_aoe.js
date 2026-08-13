@@ -932,8 +932,14 @@ window.SkillManager = {
             // (trừ skill vừa chọn), chạy ĐỒNG THỜI với skill chính. Skill
             // đồng hành KHÔNG bị rút khỏi pool — chỉ mượn hình ảnh chạy kèm,
             // không ảnh hưởng vòng xoay 1-5 của skill chính.
+            // 50% COMBO: ghép thêm 1 skill "đồng hành" chạy ĐỒNG THỜI với
+            // skill chính. CHỈ áp dụng trên PC — trên mobile luôn chạy
+            // đúng 1 skill để tránh giật/đơ do render 2 hiệu ứng cùng lúc.
+            const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent)
+                || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
             let companionMethod = null;
-            if (Math.random() < 0.5) {
+            if (!isMobileDevice && Math.random() < 0.5) {
                 const remaining = (this.skillPools[baseMethodName] || []).filter(m => m !== chosenMethod);
                 if (remaining.length > 0) {
                     companionMethod = remaining[Math.floor(Math.random() * remaining.length)];
