@@ -207,6 +207,7 @@ window.TowerGame = {
     // ================= 4. KHỞI TẠO =================
     async init() {
         this.injectMonsterStyles();
+        if (window.TowerBackground) window.TowerBackground.injectStyles();
 
         const { state, wasReset } = this.loadPersisted();
         this.session = {
@@ -534,6 +535,7 @@ window.TowerGame = {
         // mỗi round thì 2 round đầu sẽ KHÔNG BAO GIỜ có quiz. Bộ đếm chỉ được
         // đưa về 0 đúng lúc vừa gọi quiz xong (xem spawnEnemy()).
         s.paused = false;
+        if (window.TowerBackground) window.TowerBackground.applyTheme(round);
         this.log(`🌊 Đợt ${round} — ${s.wave.targetThisWave} quái!`);
         this.updateHud();
     },
@@ -576,6 +578,7 @@ window.TowerGame = {
         el.style.cssText = `position:absolute; left:${this.LANE_X[lane]}%; top:${this.SPAWN_Y}%; transform:translate(-50%,-50%); z-index:3;`;
         el.innerHTML = `${this.buildMonsterHTML(type)}<div class="enemy-hp-bg"><div class="enemy-hp-fill" id="enemy-hp-${uid}"></div></div>`;
         container.appendChild(el);
+        if (window.TowerBackground) window.TowerBackground.spawnFadeIn(el);
 
         s.enemies.push({ uid, el, lane, type, hp, maxHp: hp, speed, gold, y: this.SPAWN_Y, alive: true, frozen: false, hasBeenStunned: false, stunElapsed: 0, stunDuration: 0 });
 
