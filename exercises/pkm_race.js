@@ -10,8 +10,17 @@
  * khởi động game là `window.startPokemonBattle` (dù thực chất nó khởi động
  * Temple Dash) để không phải đụng vào file gốc.
  *
- * KHÁC BIỆT SO VỚI pkm_block.js: pkm_block.js gọi quiz theo SỐ LƯỢT ĐẶT KHỐI
- * (3-4 lượt/câu). Ở đây quiz được gọi theo SỐ VÀNG ĐÃ ĂN (6-8 đồng/câu).
+ * KHÁC BIỆT SO VỚI pkm_block.js: pkm_block.js gọi quiz theo SỐ LƯỢT ĐẶT KHỐI.
+ * Ở đây quiz được gọi theo SỐ VÀNG ĐÃ ĂN (randomCoinThreshold()).
+ *
+ * HỆ THỐNG KHU VỰC (MỚI): bản đồ được chia thành nhiều KHU VỰC (ZONES) khác
+ * nhau — mỗi khu vực có bầu trời/đường/vật trang trí 2 bên/chướng ngại vật
+ * riêng. Ăn đủ số vàng trong 1 khu vực (randomZoneTarget()) sẽ xuất hiện 1
+ * CỔNG DỊCH CHUYỂN (portal) — chạy xuyên qua cổng sẽ đổi sang khu vực TIẾP
+ * THEO, hết danh sách thì quay vòng lại khu vực đầu (this.ZONES.length).
+ * MUỐN THÊM KHU VỰC MỚI: chỉ cần thêm 1 object vào mảng `ZONES` bên dưới,
+ * không cần sửa logic — mọi thứ (sky/road/props/obstacles/ambient) đều đọc
+ * động từ object khu vực hiện tại qua this.zone().
  *
  * Phần ghi điểm theo 4 kỹ năng + tổng điểm "Trò chơi" + EXP/DV nay dùng chung
  * window.PkmScore (file pkm_score.js, nạp TRƯỚC file này trong HTML) — Y HỆT
@@ -20,7 +29,7 @@
 
 window.RaceGame = {
     // ═══════════════════════════════════════════════════════════
-    // CẤU HÌNH & KHÔNG GIAN ẢO (virtual resolution — luôn 720x1280 rồi co giãn bằng CSS)
+    // CẤU HÌNH & KHÔNG GIAN ẢO (virtual resolution — co giãn động theo máy, xem resize())
     // ═══════════════════════════════════════════════════════════
     VW: 720,
     VH: 1280,
@@ -28,18 +37,125 @@ window.RaceGame = {
     MIN_QUESTIONS: 8,
     COLLIDE_T: 0.05,
 
-    // 6 loại chướng ngại vật, 3 kiểu né khác nhau:
-    //  - "jump"  : rock (đá tảng), spike (bẫy gai kim loại), chasm (hố lava)
-    //  - "slide" : branch (cành cây/cổng gỗ), swarm (đàn quái bay)
+    // 7 loại chướng ngại vật, 3 kiểu né khác nhau — dùng chung mọi khu vực,
+    // mỗi khu vực chỉ chọn ra 1 TẬP CON phù hợp bối cảnh (xem ZONES.obstacleTypes):
+    //  - "jump"  : rock (đá tảng), spike (gai kim loại), chasm (hố/vực sâu), pendulum (cân/lưỡi chém đong đưa)
+    //  - "slide" : branch (cành cây/cổng gỗ), swarm (đàn quái bay ngang qua)
     //  - "dodge" : wall (bức tường chắn 2/3 làn) — KHÔNG né được bằng nhảy/trượt,
     //              bắt buộc phải đứng đúng làn còn trống.
-    OBSTACLE_ACTIONS: { rock: "jump", spike: "jump", chasm: "jump", branch: "slide", swarm: "slide", wall: "dodge" },
+    OBSTACLE_ACTIONS: { rock: "jump", spike: "jump", chasm: "jump", pendulum: "jump", branch: "slide", swarm: "slide", wall: "dodge" },
 
     HORIZON_Y: 430,
     ROAD_BOTTOM_Y: 1120,
     LANE_OFFSET_BOTTOM: 190,
     LANE_OFFSET_TOP: 24,
     PLAYER_Y: 1080,
+
+    // ═══════════════════════════════════════════════════════════
+    // CÁC KHU VỰC (ZONES) — thêm khu vực mới chỉ cần thêm 1 object vào đây
+    // ═══════════════════════════════════════════════════════════
+    ZONES: [
+        {
+            id: "temple", label: "🏛️ Đền Cổ",
+            sky: ["#160a2e", "#4c2270", "#a4477a", "#ff8c42"],
+            roadTop: "#3a3350", roadBottom: "#5b5270", roadStyle: "stone",
+            laneColor: "rgba(255,213,79,0.55)", edgeColor: "rgba(255,203,5,0.35)",
+            orb: { color: "#fff6d8", glow: "rgba(255,240,190,0.9)" },
+            silhouette: "temple", silhouetteColor: "#241132",
+            propKinds: ["pillar", "statue", "lantern"],
+            propPalette: {
+                pillar: { body: "#4a3f6e", body2: "#2c2440", gem: "#ffcb05" },
+                statue: { body: "#5a5068", eye: "#ffcb05" },
+                lantern: { body: "#2c2440", flame: "#ffcb05", glow: "rgba(255,203,5,0.5)" },
+            },
+            ambient: "firefly", ambientColor: "rgba(255,224,130,0.85)",
+            structureColor: ["#5a4a7a", "#3a2c58", "#241a3d"],
+            obstacleTypes: ["rock", "spike", "chasm", "branch", "swarm", "pendulum"],
+            obstacleAccent: "#ffcb05", obstacleFlourish: "glyph",
+            wallEnabled: true, portalColor: "#ffcb05",
+        },
+        {
+            id: "forest", label: "🌳 Rừng Rậm",
+            sky: ["#062818", "#0c4a2e", "#2e7d4f", "#a8e063"],
+            roadTop: "#3a2c1c", roadBottom: "#5a4530", roadStyle: "dirt",
+            laneColor: "rgba(200,255,140,0.5)", edgeColor: "rgba(120,90,50,0.5)",
+            orb: { color: "#fff3c4", glow: "rgba(255,240,150,0.8)" },
+            silhouette: "forest", silhouetteColor: "#0a2e1c",
+            propKinds: ["bigtree", "vine", "mushroom"],
+            propPalette: {
+                bigtree: { fill: "#0f4a24", fill2: "#166030", trunk: "#3a2612" },
+                vine: { body: "#2e7d4f", leaf: "#a8e063" },
+                mushroom: { stem: "#e8dcc0", cap: "#e0524f", spot: "#fff6e0", glow: "rgba(180,255,120,0.5)" },
+            },
+            ambient: "pollen", ambientColor: "rgba(220,255,180,0.8)",
+            structureColor: ["#4a6b3a", "#2e4a26", "#1c3018"],
+            obstacleTypes: ["rock", "branch", "swarm", "wall", "pendulum"],
+            obstacleAccent: "#a8e063", obstacleFlourish: "vine",
+            wallEnabled: true, portalColor: "#a8e063",
+        },
+        {
+            id: "ocean", label: "🌊 Bờ Biển",
+            sky: ["#031c30", "#0a3a5c", "#1f7ba8", "#7fd8e8"],
+            roadTop: "#c9b896", roadBottom: "#e8dcb8", roadStyle: "sand",
+            laneColor: "rgba(30,80,100,0.35)", edgeColor: "rgba(255,255,255,0.55)",
+            orb: { color: "#fff0c0", glow: "rgba(255,235,180,0.85)" },
+            silhouette: "ocean", silhouetteColor: "#0a2e40",
+            propKinds: ["palm", "coral", "driftwood"],
+            propPalette: {
+                palm: { trunk: "#7a5a3a", frond: "#1f8a5a" },
+                coral: { body: "#ff7f6b", body2: "#ff4f81", glow: "rgba(255,180,200,0.5)" },
+                driftwood: { body: "#8a6a48", moss: "rgba(160,240,255,0.5)" },
+            },
+            ambient: "bubble", ambientColor: "rgba(200,245,255,0.75)",
+            structureColor: ["#2e6e80", "#1c4a5a", "#0f2e3a"],
+            obstacleTypes: ["rock", "chasm", "branch", "swarm"],
+            obstacleAccent: "#7fd8e8", obstacleFlourish: "barnacle",
+            wallEnabled: false, portalColor: "#7fd8e8",
+        },
+        {
+            id: "sky", label: "☁️ Trên Mây",
+            sky: ["#1a2a6c", "#3a5aa8", "#7ea8e0", "#dff0ff"],
+            roadTop: "#ffffff", roadBottom: "#c9def8", roadStyle: "cloud",
+            laneColor: "rgba(255,255,255,0.85)", edgeColor: "rgba(255,255,255,0.6)",
+            orb: { color: "#fffde0", glow: "rgba(255,253,220,0.95)" },
+            silhouette: "sky", silhouetteColor: "#c9def0",
+            propKinds: ["cloudpuff", "floatisle", "starcluster"],
+            propPalette: {
+                cloudpuff: { fill: "#ffffff", shade: "#c9def8" },
+                floatisle: { body: "#8aa0d0", grass: "#7ee6a0" },
+                starcluster: { body: "#fffde0", glow: "rgba(255,255,200,0.6)" },
+            },
+            ambient: "cloudwisp", ambientColor: "rgba(255,255,255,0.85)",
+            structureColor: ["#8aa0d0", "#6a82b8", "#4a629a"],
+            obstacleTypes: ["chasm", "swarm", "wall", "pendulum"],
+            obstacleAccent: "#dff0ff", obstacleFlourish: "sparkle",
+            wallEnabled: true, portalColor: "#dff0ff",
+        },
+        {
+            id: "underground", label: "💎 Hang Động",
+            sky: ["#080308", "#1a0a20", "#2e0f28", "#4a1020"],
+            roadTop: "#241825", roadBottom: "#3f2c46", roadStyle: "cave",
+            laneColor: "rgba(255,140,80,0.55)", edgeColor: "rgba(180,110,255,0.4)",
+            orb: { color: "#c9a6ff", glow: "rgba(160,110,255,0.9)" },
+            silhouette: "underground", silhouetteColor: "#180a1e",
+            propKinds: ["stalagmite", "crystal", "fungus"],
+            propPalette: {
+                stalagmite: { body: "#3a2a3e", body2: "#241622", vein: "rgba(255,140,60,0.6)" },
+                crystal: { body: "#8a4ecf", body2: "#4a1e5a", glow: "rgba(180,110,255,0.65)" },
+                fungus: { stem: "#2a1420", cap: "#b088ff", glow: "rgba(180,110,255,0.55)" },
+            },
+            ambient: "ember", ambientColor: "rgba(255,150,60,0.85)",
+            structureColor: ["#5a2c3a", "#3a1c26", "#241016"],
+            obstacleTypes: ["rock", "spike", "chasm", "wall", "pendulum"],
+            obstacleAccent: "#b088ff", obstacleFlourish: "crystal",
+            wallEnabled: true, portalColor: "#b088ff",
+        },
+    ],
+    currentZoneIndex: 0,
+    zone() { return this.ZONES[this.currentZoneIndex] || this.ZONES[0]; },
+    zoneCoins: 0,
+    zoneCoinsTarget: 24,
+    portalPending: false,
 
     canvas: null,
     ctx: null,
@@ -73,9 +189,10 @@ window.RaceGame = {
     spawnTimer: 0.9,
     propTimer: 0.4,
 
-    objects: [], // {kind:'coin'|'obstacle', lane, t, type, resolved, spin, overBarrier}
+    objects: [], // {kind:'coin'|'obstacle'|'portal', lane, t, type, resolved, spin, overBarrier}
     sideProps: [], // {lane, t, kind}
     particles: [], // {x,y,vx,vy,life,maxLife,color,size,text}
+    ambientParticles: [], // hiệu ứng bầu không khí theo khu vực (đom đóm/bong bóng/mây/tro lửa...)
 
     player: {
         lane: 0,
@@ -99,6 +216,9 @@ window.RaceGame = {
 
     cachedSkyGrad: null,
     cachedRoadGrad: null,
+    cachedOrbGlow: null,
+    cachedVignette: null,
+    cachedPlayerGlow: null,
 
     // ═══════════════════════════════════════════════════════════
     // ÂM THANH (Web Audio API tự tạo — copy phong cách pkm_block.js)
@@ -132,6 +252,12 @@ window.RaceGame = {
     playQuizChime() { this.playTone(784, 0.1, "sine", 0.22, 0); this.playTone(988, 0.1, "sine", 0.22, 0.09); this.playTone(1318, 0.18, "sine", 0.25, 0.18); },
     playGoSound() { this.playTone(523, 0.12, "sine", 0.25, 0); this.playTone(659, 0.12, "sine", 0.25, 0.12); this.playTone(784, 0.2, "sine", 0.28, 0.24); },
     playGameOverSound() { this.playTone(392, 0.2, "sawtooth", 0.2, 0); this.playTone(330, 0.2, "sawtooth", 0.2, 0.18); this.playTone(220, 0.35, "sawtooth", 0.2, 0.36); },
+    playZoneChangeSound() {
+        this.playTone(392, 0.15, "sine", 0.22, 0);
+        this.playTone(523, 0.15, "sine", 0.24, 0.12);
+        this.playTone(659, 0.2, "sine", 0.26, 0.24);
+        this.playTone(880, 0.32, "sine", 0.28, 0.36);
+    },
 
     // ═══════════════════════════════════════════════════════════
     // KHỞI TẠO
@@ -161,13 +287,13 @@ window.RaceGame = {
                 ];
                 container.innerHTML = `
                     <div style="text-align:center;">
-                        <div style="font-size:17px;color:#FFCB05;font-weight:800;margin-bottom:18px;text-shadow:2px 2px 0 #000;">🏃 Chọn cấp độ Temple Dash!</div>
-                        <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+                        <div class="race-level-select-title">🏃 Chọn cấp độ Temple Dash!</div>
+                        <div class="race-level-row">
                             ${LEVELS.map((lv) => `
                                 <div class="race-level-card" data-level="${lv.key}">
-                                    <div style="font-size:38px;">${lv.emoji}</div>
-                                    <div style="font-weight:800;color:#FFCB05;margin-top:6px;font-size:16px;">${lv.label}</div>
-                                    <div style="font-size:12px;color:#bbb;margin-top:4px;">${lv.sub}</div>
+                                    <div class="lv-emoji">${lv.emoji}</div>
+                                    <div class="lv-label">${lv.label}</div>
+                                    <div class="lv-sub">${lv.sub}</div>
                                 </div>`).join("")}
                         </div>
                     </div>`;
@@ -242,7 +368,7 @@ window.RaceGame = {
     },
 
     // ═══════════════════════════════════════════════════════════
-    // CANVAS RESIZE (giữ tỉ lệ 720:1280 luôn khớp mọi màn hình)
+    // CANVAS RESIZE (full-bleed, co giãn động theo tỉ lệ máy thật — PC/mobile khác nhau)
     // ═══════════════════════════════════════════════════════════
     resize() {
         const stage = document.getElementById("race-stage");
@@ -280,29 +406,33 @@ window.RaceGame = {
         this.buildCachedGradients();
     },
 
+    // Dựng lại toàn bộ gradient cache theo KHU VỰC HIỆN TẠI — gọi lại mỗi khi
+    // resize() HOẶC mỗi khi đổi khu vực (changeZone()), vì màu sắc phụ thuộc
+    // this.zone(). Các gradient này KHÔNG đổi hình dạng giữa các khung hình
+    // (chỉ tịnh tiến theo translate) -> dựng sẵn 1 LẦN, tránh gọi
+    // createRadialGradient()/createLinearGradient() 60 lần/giây — đây chính
+    // là 1 nguyên nhân lớn gây giật/lag trên điện thoại yếu.
     buildCachedGradients() {
         const ctx = this.ctx;
+        const z = this.zone();
+
         const sky = ctx.createLinearGradient(0, 0, 0, this.HORIZON_Y + 60);
-        sky.addColorStop(0, "#160a2e");
-        sky.addColorStop(0.45, "#4c2270");
-        sky.addColorStop(0.8, "#a4477a");
-        sky.addColorStop(1, "#ff8c42");
+        sky.addColorStop(0, z.sky[0]);
+        sky.addColorStop(0.45, z.sky[1]);
+        sky.addColorStop(0.8, z.sky[2]);
+        sky.addColorStop(1, z.sky[3]);
         this.cachedSkyGrad = sky;
 
         const road = ctx.createLinearGradient(0, this.HORIZON_Y, 0, this.ROAD_BOTTOM_Y + 120);
-        road.addColorStop(0, "#3a3350");
-        road.addColorStop(1, "#5b5270");
+        road.addColorStop(0, z.roadTop);
+        road.addColorStop(1, z.roadBottom);
         this.cachedRoadGrad = road;
 
-        // Các gradient toả sáng này KHÔNG đổi hình dạng giữa các khung hình
-        // (chỉ tịnh tiến theo translate) -> dựng sẵn 1 LẦN ở đây, tránh gọi
-        // createRadialGradient() 60 lần/giây — đây chính là 1 nguyên nhân
-        // lớn gây giật/lag trên điện thoại yếu.
-        const moonX = this.VW * 0.78, moonY = 150;
-        const moonGlow = ctx.createRadialGradient(moonX, moonY, 4, moonX, moonY, 90);
-        moonGlow.addColorStop(0, "rgba(255,240,190,0.9)");
-        moonGlow.addColorStop(1, "rgba(255,240,190,0)");
-        this.cachedMoonGlow = moonGlow;
+        const orbX = this.VW * 0.78, orbY = 150;
+        const orbGlow = ctx.createRadialGradient(orbX, orbY, 4, orbX, orbY, 90);
+        orbGlow.addColorStop(0, z.orb.glow);
+        orbGlow.addColorStop(1, z.orb.glow.replace(/[\d.]+\)$/, "0)"));
+        this.cachedOrbGlow = orbGlow;
 
         const vign = ctx.createRadialGradient(this.VW / 2, this.VH * 0.42, this.VH * 0.35, this.VW / 2, this.VH * 0.42, this.VH * 0.75);
         vign.addColorStop(0, "rgba(0,0,0,0)");
@@ -325,6 +455,7 @@ window.RaceGame = {
             <div id="tapStartCard">
                 <div id="tapStartBtn"></div>
                 <div class="tap-label">Chạm để bắt đầu!</div>
+                <div class="tap-sub">Vượt chướng ngại · Ăn vàng · Khám phá 5 khu vực</div>
             </div>`;
         this.renderIdleFrame();
         document.getElementById("tapStartBtn").onclick = () => {
@@ -380,6 +511,12 @@ window.RaceGame = {
         this.objects = [];
         this.sideProps = [];
         this.particles = [];
+        this.currentZoneIndex = 0;
+        this.zoneCoins = 0;
+        this.zoneCoinsTarget = this.randomZoneTarget();
+        this.portalPending = false;
+        this.initAmbientParticles();
+        this.buildCachedGradients();
         this.spawnTimer = 0.6;
         this.propTimer = 0.2;
     },
@@ -399,11 +536,21 @@ window.RaceGame = {
         this.coinsSinceQuiz = 0;
         this.coinsUntilQuiz = this.randomCoinThreshold();
         this.updateHUD();
+        this.updateHeartsUI();
         document.getElementById("race-controls").classList.remove("locked");
+        this.flashObstacleLegend();
 
         this.lastTs = performance.now();
         if (!this._boundLoop) this._boundLoop = this.gameLoopStep.bind(this);
         this.rafId = requestAnimationFrame(this._boundLoop);
+    },
+
+    flashObstacleLegend() {
+        const el = document.getElementById("obstacle-legend");
+        if (!el) return;
+        el.classList.remove("show");
+        void el.offsetWidth;
+        el.classList.add("show");
     },
 
     // Vòng lặp chính. QUAN TRỌNG: khi this.paused = true (đang mở quiz) thì
@@ -427,7 +574,8 @@ window.RaceGame = {
         // requestAnimationFrame(this._boundLoop) ở nơi khác (xem onQuizAnswered()).
     },
 
-    randomCoinThreshold() { return 20; }, // số vàng gọi quiz
+    randomCoinThreshold() { return 18; },
+    randomZoneTarget() { return 18; },
 
     // ═══════════════════════════════════════════════════════════
     // CẬP NHẬT MỖI KHUNG HÌNH
@@ -443,6 +591,7 @@ window.RaceGame = {
         this.updateObjects(dt);
         this.updateSideProps(dt);
         this.updateParticles(dt);
+        this.updateAmbientParticles(dt);
 
         if (this.shake.t > 0) { this.shake.t -= dt; if (this.shake.t < 0) this.shake.t = 0; }
 
@@ -484,7 +633,7 @@ window.RaceGame = {
 
     spawnSideProp() {
         const lane = Math.random() < 0.5 ? -1 : 1;
-        const kinds = ["tree", "pillar", "crystal"];
+        const kinds = this.zone().propKinds || ["pillar"];
         this.sideProps.push({
             lane: lane * (1.75 + Math.random() * 0.5),
             t: 1.08,
@@ -493,8 +642,12 @@ window.RaceGame = {
         });
     },
 
+    // Đang chờ người chơi chạy tới cổng dịch chuyển -> KHÔNG sinh thêm
+    // chướng ngại/vàng mới, để đường tới cổng luôn quang đãng, an toàn.
     spawnWave() {
+        if (this.portalPending) return;
         const roll = Math.random();
+        const wallOK = this.zone().wallEnabled;
         if (roll < 0.28) {
             this.spawnCoinLine();
         } else if (roll < 0.42) {
@@ -502,7 +655,7 @@ window.RaceGame = {
             this.spawnSingleObstacle();
         } else if (roll < 0.66) {
             this.spawnSingleObstacle();
-        } else if (roll < 0.85) {
+        } else if (roll < 0.85 || !wallOK) {
             this.spawnBarrier();
         } else {
             this.spawnWallGap();
@@ -519,7 +672,7 @@ window.RaceGame = {
 
     spawnSingleObstacle() {
         const lane = this.LANES[Math.floor(Math.random() * this.LANES.length)];
-        const pool = ["rock", "spike", "branch", "swarm"];
+        const pool = this.zone().obstacleTypes;
         const type = pool[Math.floor(Math.random() * pool.length)];
         this.objects.push({ kind: "obstacle", lane, t: 1.08, type, resolved: false, spanAll: false, spin: Math.random() * 10 });
         // thưởng vàng ở 1 lane an toàn bên cạnh để khuyến khích đổi lane
@@ -533,7 +686,7 @@ window.RaceGame = {
     },
 
     spawnBarrier() {
-        const pool = ["rock", "spike", "chasm", "branch", "swarm"];
+        const pool = this.zone().obstacleTypes;
         const type = pool[Math.floor(Math.random() * pool.length)];
         const action = this.OBSTACLE_ACTIONS[type];
         this.objects.push({ kind: "obstacle", lane: 0, t: 1.1, type, resolved: false, spanAll: true, spin: Math.random() * 10 });
@@ -547,9 +700,10 @@ window.RaceGame = {
         });
     },
 
-    // Chướng ngại MỚI: bức tường cổ chắn 2/3 làn, chỉ chừa lại đúng 1 làn
+    // Chướng ngại: bức tường cổ chắn 2/3 làn, chỉ chừa lại đúng 1 làn
     // trống — không né được bằng nhảy/trượt, buộc người chơi phải ĐỔI LÀN
-    // sang đúng chỗ trống trước khi va tới.
+    // sang đúng chỗ trống trước khi va tới. (Chỉ xuất hiện ở khu vực có
+    // zone.wallEnabled === true — xem spawnWave()).
     spawnWallGap() {
         const freeLane = this.LANES[Math.floor(Math.random() * this.LANES.length)];
         const blockedLanes = this.LANES.filter((l) => l !== freeLane);
@@ -560,13 +714,20 @@ window.RaceGame = {
         }
     },
 
+    // Cổng dịch chuyển sang khu vực TIẾP THEO (quay vòng hết danh sách ZONES).
+    spawnPortal() {
+        const nextIndex = (this.currentZoneIndex + 1) % this.ZONES.length;
+        this.objects.push({ kind: "portal", lane: 0, t: 1.25, resolved: false, nextIndex, spin: 0 });
+    },
+
     updateObjects(dt) {
         const remain = [];
         for (const obj of this.objects) {
             obj.t -= this.speed * dt;
             if (obj.spin !== undefined) obj.spin += dt * 6;
             if (!obj.resolved && Math.abs(obj.t) < this.COLLIDE_T) {
-                this.resolveCollision(obj);
+                if (obj.kind === "portal") this.resolvePortal(obj);
+                else this.resolveCollision(obj);
             }
             if (obj.t > -0.12) remain.push(obj);
         }
@@ -592,6 +753,54 @@ window.RaceGame = {
             if (pt.life > 0) remain.push(pt);
         }
         this.particles = remain;
+    },
+
+    // ═══════════════════════════════════════════════════════════
+    // BẦU KHÔNG KHÍ THEO KHU VỰC (đom đóm/phấn hoa/bong bóng/mây/tro lửa)
+    // ═══════════════════════════════════════════════════════════
+    initAmbientParticles() {
+        this.ambientParticles = [];
+        for (let i = 0; i < 16; i++) this.ambientParticles.push(this.makeAmbientParticle(true));
+    },
+
+    makeAmbientParticle(randomY) {
+        const ember = this.zone().ambient === "ember";
+        return {
+            x: Math.random() * this.VW,
+            y: randomY ? Math.random() * this.HORIZON_Y * 1.3 : (ember ? this.HORIZON_Y * 1.25 : -10),
+            vx: (Math.random() - 0.5) * 14,
+            vy: 6 + Math.random() * 14,
+            size: 1.4 + Math.random() * 2.6,
+            phase: Math.random() * Math.PI * 2,
+        };
+    },
+
+    updateAmbientParticles(dt) {
+        const ember = this.zone().ambient === "ember";
+        for (const p of this.ambientParticles) {
+            p.phase += dt;
+            p.x += (p.vx + Math.sin(p.phase) * 8) * dt;
+            p.y += (ember ? -p.vy : p.vy) * dt;
+            if (p.y > this.HORIZON_Y * 1.4 || p.y < -20 || p.x < -20 || p.x > this.VW + 20) {
+                Object.assign(p, this.makeAmbientParticle(false));
+            }
+        }
+    },
+
+    drawAmbientParticles() {
+        const ctx = this.ctx;
+        const z = this.zone();
+        ctx.save();
+        ctx.fillStyle = z.ambientColor;
+        this.ambientParticles.forEach((p) => {
+            ctx.globalAlpha = z.ambient === "firefly" ? (0.35 + 0.65 * Math.abs(Math.sin(p.phase * 2))) : 0.8;
+            if (z.ambient === "cloudwisp") {
+                ctx.beginPath(); ctx.ellipse(p.x, p.y, p.size * 3, p.size * 1.3, 0, 0, Math.PI * 2); ctx.fill();
+            } else {
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+            }
+        });
+        ctx.restore();
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -624,9 +833,15 @@ window.RaceGame = {
         if (!avoided) this.hitObstacle(obj);
     },
 
+    resolvePortal(obj) {
+        obj.resolved = true;
+        this.changeZone(obj.nextIndex);
+    },
+
     collectCoin(obj) {
         this.coinsCollected++;
         this.coinsSinceQuiz++;
+        this.zoneCoins++;
         this.playCoinSound();
         const pos = this.projectPlayerPoint();
         this.spawnBurst(pos.x, pos.y - 20, "#ffd54f", 8);
@@ -636,6 +851,11 @@ window.RaceGame = {
             this.coinsSinceQuiz = 0;
             this.coinsUntilQuiz = this.randomCoinThreshold();
             this.triggerQuiz();
+        }
+
+        if (!this.portalPending && this.zoneCoins >= this.zoneCoinsTarget) {
+            this.portalPending = true;
+            this.spawnPortal();
         }
     },
 
@@ -651,6 +871,32 @@ window.RaceGame = {
         this.updateHeartsUI();
         setTimeout(() => { this.player.hit = false; }, 260);
         this.checkGameOver();
+    },
+
+    // Đổi sang khu vực mới: cập nhật chỉ số + dựng lại gradient theo màu khu
+    // vực mới + hiệu ứng chào mừng (banner tên khu vực, chớp hạt sáng, âm
+    // thanh). Quay vòng hết ZONES.length thì lại về khu vực đầu tiên.
+    changeZone(nextIndex) {
+        this.currentZoneIndex = nextIndex;
+        this.zoneCoins = 0;
+        this.zoneCoinsTarget = this.randomZoneTarget();
+        this.portalPending = false;
+        this.buildCachedGradients();
+        this.spawnBurst(this.VW / 2, this.HORIZON_Y * 0.7, this.zone().portalColor, 34);
+        this.showZoneBanner();
+        this.playZoneChangeSound();
+    },
+
+    showZoneBanner() {
+        const el = document.getElementById("zone-banner");
+        if (!el) return;
+        const txt = el.querySelector(".zone-banner-txt");
+        if (txt) txt.textContent = this.zone().label;
+        el.classList.remove("show");
+        void el.offsetWidth;
+        el.classList.add("show");
+        clearTimeout(this._zoneBannerTimer);
+        this._zoneBannerTimer = setTimeout(() => el.classList.remove("show"), 2400);
     },
 
     spawnBurst(x, y, color, count) {
@@ -800,6 +1046,8 @@ window.RaceGame = {
         if (scoreEl) scoreEl.innerText = this.score;
         const stats = document.getElementById("quiz-stats");
         if (stats) stats.innerHTML = `✅ ${this.correctCount} &nbsp; ❌ ${this.wrongCount} &nbsp; 📊 ${this.totalCount} câu`;
+        const zoneEl = document.getElementById("zoneChip");
+        if (zoneEl) zoneEl.textContent = (this.zone().label || "").split(" ")[0] || "🏛️";
     },
 
     updateHeartsUI() {
@@ -905,7 +1153,7 @@ window.RaceGame = {
                     <div style="color:#aaa; font-size:12px;">Tổng: ${result.newEXP} KN | ${result.newDV} DV</div>
                 </div>
                 <div style="color:#aaa; font-size:12px; margin-bottom:4px;">
-                    🪙 Vàng thu được: ${this.coinsCollected} &nbsp; | &nbsp; 🏁 Quãng đường: ${Math.floor(this.distance)}m &nbsp; | &nbsp; ⭐ Điểm: ${this.score}
+                    🪙 Vàng thu được: ${this.coinsCollected} &nbsp; | &nbsp; 🗺️ Khu vực đã qua: ${this.currentZoneIndex + 1} &nbsp; | &nbsp; 🏁 Quãng đường: ${Math.floor(this.distance)}m &nbsp; | &nbsp; ⭐ Điểm: ${this.score}
                 </div>
                 <div style="color:#aaa; font-size:12px; margin-bottom:8px;">
                     📊 Tổng: ✅ ${this.correctCount} đúng / ❌ ${this.wrongCount} sai / ${this.totalCount} câu
@@ -952,6 +1200,7 @@ window.RaceGame = {
         }
 
         this.drawSky();
+        this.drawAmbientParticles();
         this.drawRoad();
 
         // gộp props + objects rồi vẽ theo thứ tự xa->gần
@@ -973,38 +1222,230 @@ window.RaceGame = {
 
     drawSky() {
         const ctx = this.ctx;
+        const z = this.zone();
         ctx.fillStyle = this.cachedSkyGrad || "#241143";
         ctx.fillRect(0, 0, this.VW, this.HORIZON_Y + 40);
 
-        // vầng trăng phát sáng
-        const moonX = this.VW * 0.78, moonY = 150;
-        ctx.fillStyle = this.cachedMoonGlow || "rgba(255,240,190,0.5)";
-        ctx.beginPath(); ctx.arc(moonX, moonY, 90, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#fff6d8";
-        ctx.beginPath(); ctx.arc(moonX, moonY, 34, 0, Math.PI * 2); ctx.fill();
+        // vầng sáng (mặt trăng/mặt trời/tinh thể tuỳ khu vực)
+        const orbX = this.VW * 0.78, orbY = 150;
+        ctx.fillStyle = this.cachedOrbGlow || "rgba(255,240,190,0.5)";
+        ctx.beginPath(); ctx.arc(orbX, orbY, 90, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = z.orb.color;
+        ctx.beginPath(); ctx.arc(orbX, orbY, 34, 0, Math.PI * 2); ctx.fill();
 
-        // dãy đền cổ xa xa (silhouette)
-        ctx.fillStyle = "#241132";
+        this.drawZoneSilhouette(z);
+    },
+
+    // Cảnh nền — MỖI KHU VỰC có 2 LỚP hoàn toàn riêng: lớp XA (đường chân
+    // trời) + lớp GẦN (tiền cảnh 2 bên đường, mới thêm — đây chính là
+    // "khung cảnh bên ngoài đường" mà trước đây chưa có).
+    //   temple      = đền tháp cổ xa  + hàng trụ đá/đuốc lửa gần
+    //   forest      = tán rừng xa     + dây leo rủ từ trên + tia nắng xuyên tán lá
+    //   ocean       = sóng+đảo xa     + hải âu bay + thuyền buồm xa + vệt nắng lấp lánh trên biển
+    //   sky         = mây tầng xa     + đảo mây trôi có thác nước nhỏ + cầu vồng
+    //   underground = thạch nhũ trần xa + măng đá 2 bên + giọt nước lấp lánh rơi
+    drawZoneSilhouette(z) {
+        const ctx = this.ctx;
         const baseY = this.HORIZON_Y - 10;
-        for (let i = 0; i < 6; i++) {
-            const bx = (i * 140 - 60 + (this.distance * 6) % 140) % (this.VW + 200) - 100;
-            const bh = 60 + (i % 3) * 30;
-            ctx.fillRect(bx, baseY - bh, 46, bh);
+        const t = this.distance;
+
+        if (z.silhouette === "forest") {
+            // lớp xa: tán rừng trập trùng
+            ctx.fillStyle = z.silhouetteColor;
+            for (let i = 0; i < 8; i++) {
+                const bx = (i * 100 - 60 + (t * 5) % 100) % (this.VW + 160) - 80;
+                const r = 46 + (i % 3) * 18;
+                ctx.beginPath(); ctx.arc(bx, baseY - r * 0.6, r, 0, Math.PI * 2); ctx.fill();
+            }
+            // lớp gần: dây leo rủ từ mép trên màn hình xuống
+            ctx.strokeStyle = "rgba(20,60,30,0.65)";
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 4; i++) {
+                const vx = ((i * 190 + (t * 14) % 190) % (this.VW + 100)) - 40;
+                const vlen = 60 + (i % 3) * 30;
+                ctx.beginPath();
+                ctx.moveTo(vx, -4);
+                ctx.quadraticCurveTo(vx + 14, vlen * 0.5, vx - 6, vlen);
+                ctx.stroke();
+                ctx.fillStyle = "rgba(40,110,60,0.75)";
+                ctx.beginPath(); ctx.ellipse(vx - 6, vlen, 9, 6, 0.4, 0, Math.PI * 2); ctx.fill();
+            }
+            // tia nắng xuyên tán lá
+            ctx.save();
+            ctx.globalAlpha = 0.12;
+            ctx.fillStyle = "#fff3c4";
+            for (let i = 0; i < 3; i++) {
+                const sx = ((i * 240 + (t * 3) % 240) % (this.VW + 200)) - 100;
+                ctx.save();
+                ctx.translate(sx, 0);
+                ctx.rotate(0.25);
+                ctx.fillRect(-18, 0, 36, this.HORIZON_Y);
+                ctx.restore();
+            }
+            ctx.restore();
+        } else if (z.silhouette === "ocean") {
+            // lớp xa: sóng + đảo nhỏ
+            ctx.fillStyle = z.silhouetteColor;
             ctx.beginPath();
-            ctx.moveTo(bx - 6, baseY - bh);
-            ctx.lineTo(bx + 23, baseY - bh - 26);
-            ctx.lineTo(bx + 52, baseY - bh);
-            ctx.closePath();
-            ctx.fill();
-            // ánh đèn cửa sổ
-            ctx.fillStyle = "rgba(255,203,5,0.55)";
-            ctx.fillRect(bx + 16, baseY - bh + 14, 10, 12);
-            ctx.fillStyle = "#241132";
+            ctx.moveTo(-10, baseY);
+            for (let x = -10; x <= this.VW + 10; x += 26) {
+                const wOff = (t * 8) % 52;
+                const yy = baseY - 10 - 8 * Math.sin((x + wOff) * 0.06);
+                ctx.lineTo(x, yy);
+            }
+            ctx.lineTo(this.VW + 10, baseY + 40);
+            ctx.lineTo(-10, baseY + 40);
+            ctx.closePath(); ctx.fill();
+            for (let i = 0; i < 3; i++) {
+                const bx = (i * 220 - 40 + (t * 4) % 220) % (this.VW + 260) - 130;
+                ctx.beginPath(); ctx.ellipse(bx, baseY - 6, 60, 16, 0, 0, Math.PI * 2); ctx.fill();
+            }
+            // thuyền buồm xa
+            const boatX = (this.VW * 0.3 + (t * 2) % (this.VW + 300)) % (this.VW + 300) - 150;
+            ctx.fillStyle = "rgba(10,20,30,0.6)";
+            ctx.beginPath(); ctx.moveTo(boatX - 16, baseY - 8); ctx.lineTo(boatX + 16, baseY - 8); ctx.lineTo(boatX + 10, baseY); ctx.lineTo(boatX - 10, baseY); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(boatX, baseY - 8); ctx.lineTo(boatX, baseY - 30); ctx.lineTo(boatX + 14, baseY - 8); ctx.closePath(); ctx.fill();
+            // hải âu bay ngang qua
+            ctx.strokeStyle = "rgba(20,20,30,0.7)"; ctx.lineWidth = 2;
+            for (let i = 0; i < 3; i++) {
+                const gx = ((i * 160 + (t * 22) % 160) % (this.VW + 120)) - 60;
+                const gy = 80 + (i % 3) * 40 + Math.sin(t * 0.05 + i) * 6;
+                ctx.beginPath();
+                ctx.moveTo(gx - 9, gy); ctx.quadraticCurveTo(gx, gy - 7, gx + 9, gy);
+                ctx.moveTo(gx + 1, gy); ctx.quadraticCurveTo(gx + 10, gy - 7, gx + 19, gy);
+                ctx.stroke();
+            }
+            // vệt nắng lấp lánh trên mặt biển
+            ctx.save();
+            ctx.globalAlpha = 0.2 + 0.08 * Math.sin(t * 0.1);
+            ctx.fillStyle = "#ffe9b0";
+            ctx.beginPath();
+            ctx.moveTo(this.VW * 0.78, baseY - 20);
+            ctx.lineTo(this.VW * 0.78 + 30, baseY - 20);
+            ctx.lineTo(this.VW * 0.5, this.HORIZON_Y + 30);
+            ctx.lineTo(this.VW * 0.44, this.HORIZON_Y + 30);
+            ctx.closePath(); ctx.fill();
+            ctx.restore();
+        } else if (z.silhouette === "sky") {
+            // lớp xa: các cụm mây bồng bềnh
+            ctx.fillStyle = z.silhouetteColor;
+            ctx.globalAlpha = 0.85;
+            for (let i = 0; i < 7; i++) {
+                const bx = (i * 130 - 60 + (t * 5) % 130) % (this.VW + 200) - 100;
+                const cy = baseY - 30 - (i % 3) * 20;
+                ctx.beginPath();
+                ctx.ellipse(bx, cy, 46, 20, 0, 0, Math.PI * 2);
+                ctx.ellipse(bx + 30, cy + 6, 32, 15, 0, 0, Math.PI * 2);
+                ctx.ellipse(bx - 28, cy + 8, 30, 14, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            // cầu vồng xa
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const rColors = ["#ff6b6b", "#ffd166", "#7ee6a0", "#7ee6ff", "#a78bfa"];
+            rColors.forEach((c, i) => {
+                ctx.strokeStyle = c; ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.arc(this.VW * 0.18, this.HORIZON_Y + 40, 130 - i * 7, Math.PI, Math.PI * 1.5);
+                ctx.stroke();
+            });
+            ctx.restore();
+            // đảo mây trôi có thác nước nhỏ (lớp gần)
+            for (let i = 0; i < 2; i++) {
+                const ix = ((i * 260 + (t * 6) % 260) % (this.VW + 200)) - 100;
+                const iy = baseY - 50 + i * 20;
+                ctx.fillStyle = "#e9f2ff";
+                ctx.beginPath(); ctx.ellipse(ix, iy, 42, 14, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#7ee6a0";
+                ctx.beginPath(); ctx.ellipse(ix, iy - 8, 30, 8, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(ix - 10, iy + 8); ctx.lineTo(ix - 12, iy + 40); ctx.stroke();
+            }
+        } else if (z.silhouette === "underground") {
+            ctx.fillStyle = z.silhouetteColor;
+            // thạch nhũ rủ từ trần hang
+            for (let i = 0; i < 9; i++) {
+                const bx = (i * 90 - 40 + (t * 6) % 90) % (this.VW + 140) - 70;
+                const h = 40 + (i % 4) * 22;
+                ctx.beginPath();
+                ctx.moveTo(bx - 16, 0);
+                ctx.lineTo(bx + 16, 0);
+                ctx.lineTo(bx, h);
+                ctx.closePath(); ctx.fill();
+                // giọt nước lấp lánh nhỏ giọt từ đầu nhũ đá
+                const dripPhase = (t * 0.6 + i * 37) % 60;
+                if (dripPhase < 40) {
+                    ctx.fillStyle = "rgba(180,220,255,0.7)";
+                    ctx.beginPath(); ctx.arc(bx, h + dripPhase, 2.4, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = z.silhouetteColor;
+                }
+            }
+            // tinh thể phát sáng rải rác gần chân trời
+            ctx.fillStyle = "rgba(180,110,255,0.5)";
+            for (let i = 0; i < 5; i++) {
+                const bx = (i * 160 - 30 + (t * 4) % 160) % (this.VW + 200) - 100;
+                ctx.beginPath(); ctx.arc(bx, baseY - 10, 6, 0, Math.PI * 2); ctx.fill();
+            }
+            // măng đá dựng lên 2 bên khung hình như miệng hang
+            ctx.fillStyle = "#100810";
+            [-1, 1].forEach((side) => {
+                ctx.beginPath();
+                ctx.moveTo(this.VW / 2 + side * (this.VW * 0.56), this.HORIZON_Y + 60);
+                ctx.lineTo(this.VW / 2 + side * (this.VW * 0.62), this.HORIZON_Y - 70);
+                ctx.lineTo(this.VW / 2 + side * (this.VW * 0.68), this.HORIZON_Y + 60);
+                ctx.closePath(); ctx.fill();
+            });
+        } else {
+            // temple (mặc định): đền tháp cổ xa + hàng trụ đá/đuốc lửa gần
+            for (let i = 0; i < 6; i++) {
+                const bx = (i * 140 - 60 + (t * 6) % 140) % (this.VW + 200) - 100;
+                const bh = 60 + (i % 3) * 30;
+                ctx.fillStyle = z.silhouetteColor;
+                ctx.fillRect(bx, baseY - bh, 46, bh);
+                ctx.beginPath();
+                ctx.moveTo(bx - 6, baseY - bh);
+                ctx.lineTo(bx + 23, baseY - bh - 26);
+                ctx.lineTo(bx + 52, baseY - bh);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = "rgba(255,203,5,0.55)";
+                ctx.fillRect(bx + 16, baseY - bh + 14, 10, 12);
+            }
+            // hàng trụ đá + đuốc lửa gần 2 bên (lớp gần)
+            [-1, 1].forEach((side) => {
+                for (let i = 0; i < 2; i++) {
+                    const px = this.VW / 2 + side * (this.VW * 0.42 + i * this.VW * 0.1);
+                    const py = baseY + 26;
+                    ctx.fillStyle = "#2c2440";
+                    ctx.fillRect(px - 7, py - 46, 14, 46);
+                    const flick = 0.6 + 0.4 * Math.abs(Math.sin(t * 0.2 + i + side));
+                    const glow = ctx.createRadialGradient(px, py - 52, 2, px, py - 52, 22);
+                    glow.addColorStop(0, `rgba(255,180,60,${0.7 * flick})`);
+                    glow.addColorStop(1, "rgba(255,140,40,0)");
+                    ctx.fillStyle = glow;
+                    ctx.beginPath(); ctx.arc(px, py - 52, 22, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = `rgba(255,203,5,${0.85 * flick})`;
+                    ctx.beginPath(); ctx.arc(px, py - 52, 5, 0, Math.PI * 2); ctx.fill();
+                }
+            });
         }
+    },
+
+    // Toạ độ 1 điểm trên MẶT ĐƯỜNG tại độ sâu t, lệch ngang `frac` lần nửa bề
+    // rộng đường (frac=0 giữa đường, frac=±1 ≈ mép đường) — dùng để vẽ kết
+    // cấu mặt đường (gạch/rễ cây/cát/mây/dung nham) khớp đúng phối cảnh.
+    roadPointAt(t, frac) {
+        const f = Math.max(0, Math.min(1, t)) ** 1.6;
+        const off = this.LANE_OFFSET_BOTTOM + (this.LANE_OFFSET_TOP - this.LANE_OFFSET_BOTTOM) * f;
+        const x = this.VW / 2 + frac * off * 1.5;
+        const y = this.ROAD_BOTTOM_Y + (this.HORIZON_Y - this.ROAD_BOTTOM_Y) * f;
+        return { x, y, f };
     },
 
     drawRoad() {
         const ctx = this.ctx;
+        const z = this.zone();
         const centerX = this.VW / 2;
         const topHalf = this.LANE_OFFSET_TOP * 1.5 + 10;
         const botHalf = this.LANE_OFFSET_BOTTOM * 1.5 + 40;
@@ -1018,14 +1459,28 @@ window.RaceGame = {
         ctx.fillStyle = this.cachedRoadGrad || "#4a4058";
         ctx.fill();
 
+        // Kết cấu mặt đường RIÊNG theo từng khu vực — vẽ giới hạn trong đúng
+        // vùng hình thang của con đường (clip lại để không tràn ra ngoài).
+        ctx.save();
+        ctx.clip();
+        switch (z.roadStyle) {
+            case "dirt": this.drawRoadTextureDirt(); break;
+            case "sand": this.drawRoadTextureSand(); break;
+            case "cloud": this.drawRoadTextureCloud(); break;
+            case "cave": this.drawRoadTextureCave(); break;
+            case "stone":
+            default: this.drawRoadTextureStone(); break;
+        }
+        ctx.restore();
+
         // viền đá 2 bên
-        ctx.strokeStyle = "rgba(255,203,5,0.35)";
+        ctx.strokeStyle = z.edgeColor;
         ctx.lineWidth = 3;
         ctx.stroke();
 
         // vạch chia lane chạy (hiệu ứng chuyển động)
         const scrollOffset = (this.distance * 3.2) % 60;
-        ctx.strokeStyle = "rgba(255,213,79,0.55)";
+        ctx.strokeStyle = z.laneColor;
         [-0.5, 0.5].forEach((laneEdge) => {
             ctx.beginPath();
             for (let t = 1; t >= 0; t -= 0.02) {
@@ -1041,39 +1496,375 @@ window.RaceGame = {
         });
     },
 
+    // ── Kết cấu 1: GẠCH ĐÁ CỔ (temple) — mạch vữa ngang + vài viên rêu phong ──
+    drawRoadTextureStone() {
+        const ctx = this.ctx;
+        const N = 16;
+        const scroll = (this.distance * 0.09) % 1;
+        ctx.strokeStyle = "rgba(20,14,30,0.4)";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < N; i++) {
+            const tt = (i / N + scroll / N) % 1;
+            const L = this.roadPointAt(tt, -1.05), R = this.roadPointAt(tt, 1.05);
+            ctx.beginPath(); ctx.moveTo(L.x, L.y); ctx.lineTo(R.x, R.y); ctx.stroke();
+        }
+        ctx.fillStyle = "rgba(70,140,80,0.25)";
+        [[0.68, -0.5], [0.35, 0.55], [0.12, -0.3]].forEach(([tt, side]) => {
+            const p = this.roadPointAt(tt, side);
+            const r = 14 * Math.max(0.25, p.f);
+            ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r * 0.5, 0.3, 0, Math.PI * 2); ctx.fill();
+        });
+    },
+
+    // ── Kết cấu 2: ĐẤT + RỄ CÂY (forest) — rễ cây bò ngang đường + lá rụng ──
+    drawRoadTextureDirt() {
+        const ctx = this.ctx;
+        const scroll = (this.distance * 0.07) % 1;
+        ctx.strokeStyle = "rgba(60,40,20,0.55)";
+        for (let i = 0; i < 5; i++) {
+            const tt = (i / 5 + scroll) % 1;
+            const base = this.roadPointAt(tt, i % 2 === 0 ? -0.3 : 0.35);
+            const mid = this.roadPointAt(Math.max(0, tt - 0.06), i % 2 === 0 ? 0.05 : -0.1);
+            const end = this.roadPointAt(Math.max(0, tt - 0.12), i % 2 === 0 ? 0.3 : 0.4);
+            ctx.lineWidth = 3 * Math.max(0.3, base.f);
+            ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.quadraticCurveTo(mid.x, mid.y, end.x, end.y); ctx.stroke();
+        }
+        ctx.fillStyle = "rgba(220,140,60,0.55)";
+        for (let i = 0; i < 10; i++) {
+            const tt = (i / 10 + scroll * 1.3) % 1;
+            const side = ((i * 37) % 100) / 100 * 1.6 - 0.8;
+            const p = this.roadPointAt(tt, side);
+            const r = 5 * Math.max(0.3, p.f);
+            ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r * 0.6, i, 0, Math.PI * 2); ctx.fill();
+        }
+    },
+
+    // ── Kết cấu 3: CÁT ƯỚT (ocean) — ánh nước lấp lánh + bọt sóng viền ──
+    drawRoadTextureSand() {
+        const ctx = this.ctx;
+        const scroll = (this.distance * 0.1) % 1;
+        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+            const tt = (i / 6 + scroll) % 1;
+            ctx.beginPath();
+            for (let s = -0.9; s <= 0.9; s += 0.3) {
+                const p = this.roadPointAt(tt + Math.sin(s * 4) * 0.01, s);
+                s === -0.9 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+            }
+            const f = this.roadPointAt(tt, 0).f;
+            ctx.globalAlpha = 0.2 + 0.2 * f;
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        for (let i = 0; i < 8; i++) {
+            const tt = (i / 8 + scroll * 1.5) % 1;
+            [-1, 1].forEach((side) => {
+                const p = this.roadPointAt(tt, side * 0.92);
+                const r = 6 * Math.max(0.3, p.f);
+                ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+            });
+        }
+    },
+
+    // ── Kết cấu 4: MÂY PHÁT SÁNG (sky) — hạt lấp lánh + vệt ánh sáng dọc đường ──
+    drawRoadTextureCloud() {
+        const ctx = this.ctx;
+        const scroll = (this.distance * 0.08) % 1;
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        for (let i = 0; i < 12; i++) {
+            const tt = (i / 12 + scroll) % 1;
+            const side = ((i * 53) % 100) / 100 * 1.7 - 0.85;
+            const p = this.roadPointAt(tt, side);
+            const r = 2.4 * Math.max(0.3, p.f);
+            ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(this.distance * 0.05 + i));
+            ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = "rgba(255,255,255,0.3)";
+        ctx.lineWidth = 3;
+        [-0.15, 0.2].forEach((side) => {
+            ctx.beginPath();
+            for (let t = 1; t >= 0; t -= 0.05) {
+                const p = this.roadPointAt(t, side);
+                t === 1 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+        });
+    },
+
+    // ── Kết cấu 5: NỀN HANG ĐỘNG (underground) — khe dung nham phát sáng + mảnh tinh thể ──
+    drawRoadTextureCave() {
+        const ctx = this.ctx;
+        const scroll = (this.distance * 0.08) % 1;
+        ctx.strokeStyle = "rgba(255,120,40,0.65)";
+        ctx.lineWidth = 2;
+        ctx.shadowColor = "rgba(255,120,40,0.6)"; ctx.shadowBlur = 6;
+        for (let i = 0; i < 4; i++) {
+            const tt = (i / 4 + scroll) % 1;
+            ctx.beginPath();
+            for (let k = 0; k <= 4; k++) {
+                const localT = Math.max(0, tt - k * 0.03);
+                const side = (i % 2 === 0 ? -0.4 : 0.3) + Math.sin(k + i) * 0.15;
+                const p = this.roadPointAt(localT, side);
+                k === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+        }
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "rgba(180,110,255,0.7)";
+        for (let i = 0; i < 6; i++) {
+            const tt = (i / 6 + scroll * 1.4) % 1;
+            const side = ((i * 61) % 100) / 100 * 1.7 - 0.85;
+            const p = this.roadPointAt(tt, side);
+            const r = 3.4 * Math.max(0.3, p.f);
+            ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+        }
+    },
+
+    // Vật trang trí 2 bên đường — MỖI KHU VỰC 3 dạng HOÀN TOÀN riêng biệt
+    // (không còn dùng chung 3 khuôn blob/pillar/orb như trước).
     drawSideProp(sp) {
         const ctx = this.ctx;
         const proj = this.project(sp.lane, sp.t);
-        const w = 46 * proj.scale, h = (sp.kind === "pillar" ? 140 : 100) * proj.scale;
         const x = proj.x + sp.jitter * proj.scale, y = proj.y;
+        const s = proj.scale;
+        const pal = (this.zone().propPalette && this.zone().propPalette[sp.kind]) || {};
         ctx.save();
         ctx.globalAlpha = Math.min(1, proj.f * 3 + 0.15);
-        if (sp.kind === "tree") {
-            ctx.fillStyle = "#12331f";
-            ctx.beginPath(); ctx.ellipse(x, y - h * 0.7, w * 0.55, h * 0.5, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#2a1c12";
-            ctx.fillRect(x - w * 0.08, y - h * 0.3, w * 0.16, h * 0.3);
-        } else if (sp.kind === "pillar") {
-            ctx.fillStyle = "#2c2440";
-            ctx.fillRect(x - w * 0.22, y - h, w * 0.44, h);
-            ctx.fillStyle = "rgba(255,203,5,0.4)";
-            ctx.fillRect(x - w * 0.1, y - h * 0.55, w * 0.2, w * 0.2);
-        } else {
-            ctx.fillStyle = "#3a2560";
-            ctx.beginPath();
-            ctx.moveTo(x, y - h);
-            ctx.lineTo(x + w * 0.35, y - h * 0.3);
-            ctx.lineTo(x - w * 0.35, y - h * 0.3);
-            ctx.closePath(); ctx.fill();
-            ctx.fillStyle = "rgba(120,200,255,0.5)";
-            ctx.beginPath(); ctx.ellipse(x, y - h * 0.55, w * 0.12, h * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+
+        switch (sp.kind) {
+            // ── TEMPLE ──
+            case "pillar": {
+                const w = 34 * s, h = 150 * s;
+                ctx.fillStyle = pal.body2 || "#2c2440";
+                ctx.fillRect(x - w * 0.55, y - h, w * 1.1, h);
+                ctx.fillStyle = pal.body || "#4a3f6e";
+                ctx.fillRect(x - w * 0.5, y - h, w, h * 0.9);
+                ctx.fillRect(x - w * 0.7, y - h - 10 * s, w * 1.4, 10 * s);
+                ctx.fillStyle = pal.gem || "#ffcb05";
+                ctx.globalAlpha *= 0.6;
+                ctx.fillRect(x - w * 0.15, y - h * 0.55, w * 0.3, w * 0.3);
+                break;
+            }
+            case "statue": {
+                const w = 40 * s, h = 130 * s;
+                ctx.fillStyle = pal.body || "#5a5068";
+                ctx.beginPath(); ctx.ellipse(x, y - h * 0.94, w * 0.22, w * 0.24, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(x - w * 0.3, y);
+                ctx.lineTo(x - w * 0.34, y - h * 0.6);
+                ctx.lineTo(x, y - h * 0.85);
+                ctx.lineTo(x + w * 0.34, y - h * 0.6);
+                ctx.lineTo(x + w * 0.3, y);
+                ctx.closePath(); ctx.fill();
+                ctx.fillStyle = pal.eye || "#ffcb05";
+                ctx.globalAlpha *= 0.8;
+                ctx.beginPath(); ctx.arc(x - 6 * s, y - h * 0.95, 2.4 * s, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(x + 6 * s, y - h * 0.95, 2.4 * s, 0, Math.PI * 2); ctx.fill();
+                break;
+            }
+            case "lantern": {
+                const h = 90 * s;
+                ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 1.5 * s;
+                ctx.beginPath(); ctx.moveTo(x, y - h); ctx.lineTo(x, y - h * 0.55); ctx.stroke();
+                const glow = ctx.createRadialGradient(x, y - h * 0.5, 2, x, y - h * 0.5, 26 * s);
+                glow.addColorStop(0, pal.glow || "rgba(255,203,5,0.5)");
+                glow.addColorStop(1, "rgba(255,203,5,0)");
+                ctx.fillStyle = glow;
+                ctx.beginPath(); ctx.arc(x, y - h * 0.5, 26 * s, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = pal.body || "#2c2440";
+                ctx.fillRect(x - 10 * s, y - h * 0.62, 20 * s, 20 * s);
+                ctx.fillStyle = pal.flame || "#ffcb05";
+                ctx.beginPath(); ctx.arc(x, y - h * 0.5, 6 * s, 0, Math.PI * 2); ctx.fill();
+                break;
+            }
+
+            // ── FOREST ──
+            case "bigtree": {
+                const w = 60 * s, h = 130 * s;
+                ctx.fillStyle = pal.trunk || "#3a2612";
+                ctx.beginPath();
+                ctx.moveTo(x - w * 0.1, y); ctx.lineTo(x - w * 0.16, y - h * 0.32); ctx.lineTo(x + w * 0.16, y - h * 0.32); ctx.lineTo(x + w * 0.1, y);
+                ctx.closePath(); ctx.fill();
+                ctx.fillStyle = pal.fill || "#0f4a24";
+                ctx.beginPath(); ctx.ellipse(x, y - h * 0.65, w * 0.6, h * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = pal.fill2 || "#166030";
+                ctx.beginPath(); ctx.ellipse(x - w * 0.2, y - h * 0.78, w * 0.36, h * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(x + w * 0.24, y - h * 0.7, w * 0.3, h * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+                break;
+            }
+            case "vine": {
+                const h = 110 * s;
+                ctx.strokeStyle = pal.body || "#2e7d4f"; ctx.lineWidth = 3 * s;
+                ctx.beginPath();
+                ctx.moveTo(x, y - h);
+                ctx.quadraticCurveTo(x + 14 * s, y - h * 0.5, x - 8 * s, y);
+                ctx.stroke();
+                ctx.fillStyle = pal.leaf || "#a8e063";
+                for (let i = 0; i < 4; i++) {
+                    const lt = i / 3;
+                    const lx = x + Math.sin(lt * Math.PI) * 10 * s - 4 * s * lt;
+                    const ly = y - h + h * lt;
+                    ctx.beginPath(); ctx.ellipse(lx, ly, 7 * s, 4 * s, lt, 0, Math.PI * 2); ctx.fill();
+                }
+                break;
+            }
+            case "mushroom": {
+                const h = 40 * s;
+                ctx.fillStyle = pal.stem || "#e8dcc0";
+                ctx.fillRect(x - 5 * s, y - h, 10 * s, h);
+                ctx.fillStyle = pal.glow || "rgba(180,255,120,0.5)";
+                ctx.beginPath(); ctx.ellipse(x, y - h, 26 * s, 12 * s, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = pal.cap || "#e0524f";
+                ctx.beginPath(); ctx.ellipse(x, y - h, 20 * s, 14 * s, 0, Math.PI, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = pal.spot || "#fff6e0";
+                [[-8, -2], [8, -3], [0, -8]].forEach(([dx, dy]) => {
+                    ctx.beginPath(); ctx.arc(x + dx * s, y - h + dy * s, 2.4 * s, 0, Math.PI * 2); ctx.fill();
+                });
+                break;
+            }
+
+            // ── OCEAN ──
+            case "palm": {
+                const h = 120 * s;
+                ctx.strokeStyle = pal.trunk || "#7a5a3a"; ctx.lineWidth = 8 * s; ctx.lineCap = "round";
+                ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 16 * s, y - h * 0.55, x, y - h); ctx.stroke();
+                ctx.fillStyle = pal.frond || "#1f8a5a";
+                for (let i = 0; i < 5; i++) {
+                    const ang = -Math.PI / 2 + (i - 2) * 0.5;
+                    ctx.save();
+                    ctx.translate(x, y - h); ctx.rotate(ang);
+                    ctx.beginPath(); ctx.ellipse(24 * s, 0, 26 * s, 8 * s, 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.restore();
+                }
+                break;
+            }
+            case "coral": {
+                const h = 55 * s;
+                ctx.fillStyle = pal.glow || "rgba(255,180,200,0.4)";
+                ctx.beginPath(); ctx.ellipse(x, y, 30 * s, 12 * s, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = pal.body || "#ff7f6b"; ctx.lineWidth = 6 * s; ctx.lineCap = "round";
+                [[-1, 0.9], [0, 1], [1, 0.85]].forEach(([dir, len], i) => {
+                    ctx.strokeStyle = i % 2 === 0 ? (pal.body || "#ff7f6b") : (pal.body2 || "#ff4f81");
+                    ctx.beginPath();
+                    ctx.moveTo(x + dir * 6 * s, y);
+                    ctx.quadraticCurveTo(x + dir * 18 * s, y - h * 0.6, x + dir * 10 * s, y - h * len);
+                    ctx.stroke();
+                });
+                break;
+            }
+            case "driftwood": {
+                const w = 70 * s;
+                ctx.fillStyle = pal.body || "#8a6a48";
+                ctx.save(); ctx.translate(x, y); ctx.rotate(-0.18);
+                ctx.fillRect(-w / 2, -8 * s, w, 14 * s);
+                ctx.restore();
+                ctx.fillStyle = pal.moss || "rgba(160,240,255,0.5)";
+                ctx.beginPath(); ctx.arc(x - w * 0.2, y - 4 * s, 5 * s, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(x + w * 0.15, y - 8 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
+                break;
+            }
+
+            // ── SKY ──
+            case "cloudpuff": {
+                ctx.fillStyle = pal.fill || "#ffffff";
+                [[0, 0, 24], [-16, 6, 16], [16, 6, 16], [0, -10, 14]].forEach(([dx, dy, r]) => {
+                    ctx.beginPath(); ctx.ellipse(x + dx * s, y + dy * s, r * s, r * 0.7 * s, 0, 0, Math.PI * 2); ctx.fill();
+                });
+                ctx.fillStyle = pal.shade || "#c9def8";
+                ctx.globalAlpha *= 0.5;
+                ctx.beginPath(); ctx.ellipse(x, y + 10 * s, 26 * s, 8 * s, 0, 0, Math.PI * 2); ctx.fill();
+                break;
+            }
+            case "floatisle": {
+                const w = 60 * s;
+                ctx.fillStyle = pal.body || "#8aa0d0";
+                ctx.beginPath();
+                ctx.ellipse(x, y, w * 0.5, 14 * s, 0, 0, Math.PI);
+                ctx.fill();
+                ctx.fillStyle = pal.grass || "#7ee6a0";
+                ctx.beginPath(); ctx.ellipse(x, y - 6 * s, w * 0.46, 9 * s, 0, 0, Math.PI * 2); ctx.fill();
+                break;
+            }
+            case "starcluster": {
+                ctx.fillStyle = pal.glow || "rgba(255,255,200,0.5)";
+                ctx.beginPath(); ctx.arc(x, y - 30 * s, 26 * s, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = pal.body || "#fffde0";
+                [[0, -40, 5], [-14, -20, 3], [12, -26, 3.4]].forEach(([dx, dy, r]) => {
+                    this.drawStarShape(x + dx * s, y + dy * s, r * s);
+                });
+                break;
+            }
+
+            // ── UNDERGROUND ──
+            case "stalagmite": {
+                const w = 34 * s, h = 100 * s;
+                const grad = ctx.createLinearGradient(x, y - h, x, y);
+                grad.addColorStop(0, pal.body2 || "#241622");
+                grad.addColorStop(1, pal.body || "#3a2a3e");
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(x - w / 2, y); ctx.lineTo(x - w * 0.1, y - h); ctx.lineTo(x + w * 0.14, y - h * 0.8); ctx.lineTo(x + w / 2, y);
+                ctx.closePath(); ctx.fill();
+                ctx.strokeStyle = pal.vein || "rgba(255,140,60,0.6)"; ctx.lineWidth = 1.6 * s;
+                ctx.beginPath(); ctx.moveTo(x - 4 * s, y); ctx.lineTo(x + 2 * s, y - h * 0.5); ctx.lineTo(x - 2 * s, y - h * 0.8); ctx.stroke();
+                break;
+            }
+            case "crystal": {
+                const h = 60 * s;
+                ctx.fillStyle = pal.glow || "rgba(180,110,255,0.45)";
+                ctx.beginPath(); ctx.ellipse(x, y - h * 0.4, 26 * s, 30 * s, 0, 0, Math.PI * 2); ctx.fill();
+                [[-1, 0.7], [0, 1], [1, 0.75]].forEach(([dir, len]) => {
+                    const grad = ctx.createLinearGradient(x, y - h * len, x, y);
+                    grad.addColorStop(0, pal.body || "#8a4ecf");
+                    grad.addColorStop(1, pal.body2 || "#4a1e5a");
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.moveTo(x + dir * 4 * s, y);
+                    ctx.lineTo(x + dir * 16 * s, y - h * len * 0.5);
+                    ctx.lineTo(x + dir * 6 * s, y - h * len);
+                    ctx.lineTo(x + dir * -2 * s, y - h * len * 0.5);
+                    ctx.closePath(); ctx.fill();
+                });
+                break;
+            }
+            case "fungus": {
+                const h = 34 * s;
+                ctx.fillStyle = pal.stem || "#2a1420";
+                ctx.fillRect(x - 4 * s, y - h, 8 * s, h);
+                ctx.fillStyle = pal.glow || "rgba(180,110,255,0.55)";
+                ctx.beginPath(); ctx.arc(x, y - h, 20 * s, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = pal.cap || "#b088ff";
+                ctx.beginPath(); ctx.arc(x, y - h, 12 * s, 0, Math.PI * 2); ctx.fill();
+                break;
+            }
+
+            default: {
+                ctx.fillStyle = "#3a2560";
+                ctx.beginPath(); ctx.arc(x, y - 40 * s, 16 * s, 0, Math.PI * 2); ctx.fill();
+            }
         }
         ctx.restore();
     },
 
+    // Helper vẽ 1 ngôi sao nhỏ 4 cánh (dùng cho hoạ tiết lấp lánh khu vực "sky"/"sparkle")
+    drawStarShape(cx, cy, r) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.beginPath();
+        ctx.moveTo(0, -r); ctx.lineTo(r * 0.28, -r * 0.28); ctx.lineTo(r, 0);
+        ctx.lineTo(r * 0.28, r * 0.28); ctx.lineTo(0, r); ctx.lineTo(-r * 0.28, r * 0.28);
+        ctx.lineTo(-r, 0); ctx.lineTo(-r * 0.28, -r * 0.28);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+    },
+
     // Tính toạ độ chiếu cho 1 vật thể tại (lane, t) — tách riêng thành helper
-    // để dùng lại được cho cả obstacle 'wall' (chặn NHIỀU làn cùng lúc, cần
-    // chiếu riêng từng làn) lẫn coin/obstacle bình thường (1 làn).
+    // để dùng lại được cho cả obstacle 'wall'/'portal' (chặn/che NHIỀU làn
+    // cùng lúc, cần chiếu riêng từng làn) lẫn coin/obstacle bình thường (1 làn).
     renderProjFor(lane, t) {
         if (t >= 0) return this.project(lane, t);
         // Đã lướt qua khỏi camera -> phóng to nhanh & rơi khỏi màn hình dưới,
@@ -1084,6 +1875,7 @@ window.RaceGame = {
     },
 
     drawObject(obj) {
+        if (obj.kind === "portal") { this.drawPortal(obj); return; }
         if (obj.type === "wall") { this.drawWallGap(obj); return; }
         const proj = this.renderProjFor(obj.lane, obj.t);
         if (obj.kind === "coin") this.drawCoin(proj, obj);
@@ -1126,6 +1918,7 @@ window.RaceGame = {
             case "chasm": return this.drawChasmObstacle(proj, obj);
             case "swarm": return this.drawSwarmObstacle(proj, obj);
             case "branch": return this.drawBranchObstacle(proj, obj);
+            case "pendulum": return this.drawPendulumObstacle(proj, obj);
             case "rock":
             default: return this.drawRockObstacle(proj, obj);
         }
@@ -1189,7 +1982,6 @@ window.RaceGame = {
             ctx.closePath();
             ctx.fill();
         }
-        // đèn cảnh báo đỏ nhấp nháy theo obj.spin
         const pulse = 0.5 + 0.5 * Math.sin((obj.spin || 0) * 3);
         ctx.fillStyle = `rgba(255,60,60,${0.4 + pulse * 0.5})`;
         ctx.beginPath(); ctx.arc(0, -8 * proj.scale, 5 * proj.scale, 0, Math.PI * 2); ctx.fill();
@@ -1197,7 +1989,7 @@ window.RaceGame = {
         ctx.restore();
     },
 
-    // ── Loại 3: HỐ LAVA (né bằng nhảy, nằm sát mặt đất) ──
+    // ── Loại 3: HỐ/VỰC SÂU (né bằng nhảy, nằm sát mặt đất) ──
     drawChasmObstacle(proj, obj) {
         const ctx = this.ctx;
         const spanW = obj.spanAll ? (this.LANE_OFFSET_BOTTOM * 2.6 * proj.scale) : (78 * proj.scale);
@@ -1281,11 +2073,52 @@ window.RaceGame = {
         ctx.restore();
     },
 
-    // ── Loại 6 (MỚI): BỨC TƯỜNG CỔ chắn 2/3 làn — bắt buộc ĐỔI LÀN, không
-    // né được bằng nhảy/trượt. Vẽ riêng từng làn bị chặn (không dùng proj
-    // truyền vào vì mỗi làn chiếu ra 1 vị trí khác nhau).
+    // ── Loại 6: CÂN/LƯỠI CHÉM ĐONG ĐƯA (né bằng nhảy) — giống Temple Run,
+    // treo ngang trên 1 xà gỗ, đong đưa qua lại theo obj.spin. ──
+    drawPendulumObstacle(proj, obj) {
+        const ctx = this.ctx;
+        const spanW = obj.spanAll ? (this.LANE_OFFSET_BOTTOM * 2.6 * proj.scale) : (90 * proj.scale);
+        const swing = Math.sin((obj.spin || 0) * 1.4) * 0.55;
+        ctx.save();
+        ctx.translate(proj.x, proj.y);
+        this.drawGroundShadow(spanW * 0.4, 20 * proj.scale, 10 * proj.scale, 0.3);
+
+        const beamY = -172 * proj.scale;
+        ctx.fillStyle = "#3a2c20";
+        ctx.fillRect(-spanW / 2, beamY - 8 * proj.scale, spanW, 10 * proj.scale);
+        ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 1;
+        ctx.strokeRect(-spanW / 2, beamY - 8 * proj.scale, spanW, 10 * proj.scale);
+
+        const armLen = 130 * proj.scale;
+        const bladeX = Math.sin(swing) * armLen;
+        const bladeY = beamY + Math.cos(swing) * armLen;
+        ctx.strokeStyle = "#8a8a94"; ctx.lineWidth = 3 * proj.scale;
+        ctx.beginPath(); ctx.moveTo(0, beamY); ctx.lineTo(bladeX, bladeY); ctx.stroke();
+
+        ctx.save();
+        ctx.translate(bladeX, bladeY);
+        ctx.rotate(swing);
+        const grad = ctx.createLinearGradient(-34 * proj.scale, 0, 34 * proj.scale, 0);
+        grad.addColorStop(0, "#e8e8f0"); grad.addColorStop(0.5, "#aab0c0"); grad.addColorStop(1, "#666e80");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(-34 * proj.scale, -6 * proj.scale);
+        ctx.lineTo(34 * proj.scale, -6 * proj.scale);
+        ctx.lineTo(0, 30 * proj.scale);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.restore();
+
+        this.drawActionLabel("⤒ NHẢY", 0, beamY - 14 * proj.scale, proj.scale, "#ffd54f");
+        ctx.restore();
+    },
+
+    // ── Loại 7: BỨC TƯỜNG CỔ chắn 2/3 làn — bắt buộc ĐỔI LÀN, không né được
+    // bằng nhảy/trượt. Vẽ riêng từng làn bị chặn (không dùng proj truyền vào
+    // vì mỗi làn chiếu ra 1 vị trí khác nhau). Màu theo zone.structureColor. ──
     drawWallGap(obj) {
         const ctx = this.ctx;
+        const sc = this.zone().structureColor || ["#5a4a7a", "#3a2c58", "#241a3d"];
         (obj.blockedLanes || []).forEach((lane) => {
             const proj = this.renderProjFor(lane, obj.t);
             const w = 132 * proj.scale, h = 150 * proj.scale;
@@ -1294,9 +2127,7 @@ window.RaceGame = {
             this.drawGroundShadow(w * 0.5, 22 * proj.scale, 20 * proj.scale);
 
             const grad = ctx.createLinearGradient(-w / 2, -h, w / 2, 0);
-            grad.addColorStop(0, "#5a4a7a");
-            grad.addColorStop(0.5, "#3a2c58");
-            grad.addColorStop(1, "#241a3d");
+            grad.addColorStop(0, sc[0]); grad.addColorStop(0.5, sc[1]); grad.addColorStop(1, sc[2]);
             ctx.fillStyle = grad;
             ctx.fillRect(-w / 2, -h, w, h);
             ctx.strokeStyle = "rgba(255,203,5,0.4)"; ctx.lineWidth = 2;
@@ -1322,6 +2153,57 @@ window.RaceGame = {
         ctx.restore();
     },
 
+    // ── CỔNG DỊCH CHUYỂN sang khu vực tiếp theo — vòm ánh sáng phủ hết bề
+    // rộng đường, xoáy theo obj.spin, hiện tên khu vực sắp tới phía trên. ──
+    drawPortal(obj) {
+        const ctx = this.ctx;
+        const proj = this.renderProjFor(0, obj.t);
+        const nextZone = this.ZONES[obj.nextIndex] || this.zone();
+        const halfW = (this.LANE_OFFSET_BOTTOM * 1.6 + 60) * proj.scale;
+        const archH = 260 * proj.scale;
+        ctx.save();
+        ctx.translate(proj.x, proj.y);
+
+        // 2 trụ cổng
+        ctx.fillStyle = "rgba(20,16,32,0.9)";
+        ctx.fillRect(-halfW, -archH, 22 * proj.scale, archH);
+        ctx.fillRect(halfW - 22 * proj.scale, -archH, 22 * proj.scale, archH);
+
+        // vòm năng lượng phát sáng
+        const glowAlpha = 0.55 + 0.25 * Math.sin(obj.spin || 0);
+        ctx.strokeStyle = nextZone.portalColor;
+        ctx.lineWidth = 10 * proj.scale;
+        ctx.globalAlpha = glowAlpha;
+        ctx.beginPath();
+        ctx.moveTo(-halfW, 0);
+        ctx.lineTo(-halfW, -archH);
+        ctx.quadraticCurveTo(0, -archH - 70 * proj.scale, halfW, -archH);
+        ctx.lineTo(halfW, 0);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        // mặt cổng lấp lánh xoáy nhẹ
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(-halfW + 22 * proj.scale, 0);
+        ctx.lineTo(-halfW + 22 * proj.scale, -archH);
+        ctx.quadraticCurveTo(0, -archH - 60 * proj.scale, halfW - 22 * proj.scale, -archH);
+        ctx.lineTo(halfW - 22 * proj.scale, 0);
+        ctx.closePath();
+        ctx.clip();
+        const swirl = ctx.createRadialGradient(0, -archH * 0.5, 4, 0, -archH * 0.5, halfW);
+        swirl.addColorStop(0, nextZone.portalColor);
+        swirl.addColorStop(0.6, "rgba(255,255,255,0.15)");
+        swirl.addColorStop(1, "rgba(0,0,0,0.35)");
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = swirl;
+        ctx.fillRect(-halfW, -archH - 70 * proj.scale, halfW * 2, archH + 70 * proj.scale);
+        ctx.restore();
+
+        this.drawActionLabel(`➜ ${nextZone.label}`, 0, -archH - 84 * proj.scale, proj.scale, nextZone.portalColor);
+        ctx.restore();
+    },
+
     // Helper dùng chung: bóng đổ hình elip dưới chân chướng ngại vật
     drawGroundShadow(rx, ry, offsetY, alpha = 0.4) {
         const ctx = this.ctx;
@@ -1332,7 +2214,7 @@ window.RaceGame = {
         ctx.restore();
     },
 
-    // Helper dùng chung: nhãn chữ nhắc hành động ("⤒ NHẢY" / "⤓ TRƯỢT" / "↔ ĐỔI LÀN")
+    // Helper dùng chung: nhãn chữ nhắc hành động ("⤒ NHẢY" / "⤓ TRƯỢT" / "↔ ĐỔI LÀN" / tên khu vực)
     drawActionLabel(text, x, y, scale, color) {
         const ctx = this.ctx;
         ctx.save();
