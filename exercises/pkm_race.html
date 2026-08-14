@@ -30,7 +30,7 @@
             overscroll-behavior: none;
         }
 
-        /* ============ NỀN TRANG TRÍ NGOÀI VIỀN (chỉ lộ ra khi tỉ lệ máy khác canvas) ============ */
+        /* ============ NỀN TRANG TRÍ NGOÀI VIỀN ============ */
         body::before {
             content: "";
             position: fixed; inset: 0; z-index: 0;
@@ -61,7 +61,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: clamp(6px, 2vw, 14px);
+            gap: clamp(5px, 1.6vw, 12px);
             padding: clamp(8px, 1.6vh, 12px) clamp(10px, 3vw, 22px);
             background: linear-gradient(180deg, rgba(20,14,38,0.92) 0%, rgba(14,10,26,0.78) 100%);
             border-bottom: 1.5px solid rgba(255,203,5,0.4);
@@ -80,7 +80,7 @@
             display: flex; align-items: center; gap: 6px;
             font-family: 'Baloo 2', sans-serif;
             font-weight: 700;
-            font-size: clamp(11px, 2.2vw, 14px);
+            font-size: clamp(10px, 2vw, 14px);
             color: var(--gold);
             text-shadow: 0 0 12px rgba(255,203,5,0.5);
             letter-spacing: 0.3px;
@@ -98,26 +98,28 @@
         .hud-chip {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             font-family: 'Baloo 2', sans-serif;
             font-weight: 700;
-            font-size: clamp(13px, 2.6vw, 17px);
+            font-size: clamp(12px, 2.3vw, 17px);
             background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,203,5,0.32);
-            padding: clamp(4px,1vh,7px) clamp(10px,2.4vw,16px);
+            padding: clamp(4px,1vh,7px) clamp(8px,2vw,16px);
             border-radius: 20px;
             white-space: nowrap;
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 3px 10px rgba(0,0,0,0.3);
         }
-        .hud-chip .icon { font-size: clamp(14px, 2.8vw, 18px); filter: drop-shadow(0 0 4px rgba(0,0,0,.5)); }
+        .hud-chip .icon { font-size: clamp(13px, 2.5vw, 18px); filter: drop-shadow(0 0 4px rgba(0,0,0,.5)); }
         .hud-chip.coins { color: #ffe38a; }
         .hud-chip.coins .icon { animation: coinSpinIcon 2.6s linear infinite; display: inline-block; }
         @keyframes coinSpinIcon { 0%{transform:rotateY(0);} 100%{transform:rotateY(360deg);} }
         .hud-chip.score { color: var(--sky-cyan); }
+        .hud-chip.zone { color: #d7c4ff; padding: clamp(4px,1vh,7px) clamp(8px,1.6vw,12px); }
+        .hud-chip.zone .icon { font-size: clamp(15px, 2.8vw, 20px); animation: none; }
 
-        #heartsBox { display: flex; gap: 2px; align-items: center; }
+        #heartsBox { display: flex; gap: 1.5px; align-items: center; flex-wrap: wrap; justify-content: center; max-width: 30vw; }
         #heartsBox .heart-icon {
-            font-size: clamp(12px, 2.3vw, 16px);
+            font-size: clamp(9px, 1.9vw, 14px);
             filter: drop-shadow(0 0 5px rgba(255,90,90,.75));
             transition: opacity .25s ease, filter .25s ease, transform .25s ease;
             animation: heartBeat 1.8s ease-in-out infinite;
@@ -149,6 +151,44 @@
             box-shadow: inset 0 0 0 1px rgba(255,203,5,0.08), inset 0 120px 140px -120px rgba(0,0,0,0.7), inset 0 -160px 160px -120px rgba(0,0,0,0.65);
         }
 
+        /* ============ KHUNG TRANG TRÍ 2 BÊN (dây leo + đuốc, kiểu Temple Run) ============ */
+        .stage-deco {
+            position: absolute; top: 0; bottom: 0; width: clamp(13px, 2.6vw, 24px);
+            z-index: 26; pointer-events: none;
+            background:
+                repeating-linear-gradient(180deg, rgba(46,125,79,0.6) 0 16px, rgba(28,84,52,0.6) 16px 32px),
+                linear-gradient(180deg, rgba(255,203,5,0.3), transparent 12%, transparent 88%, rgba(255,203,5,0.3));
+            box-shadow: inset 0 0 14px rgba(0,0,0,0.55), 2px 0 10px rgba(0,0,0,0.35);
+            transform-origin: top center;
+            animation: vineSway 4.6s ease-in-out infinite;
+            opacity: 0.9;
+        }
+        .stage-deco.left { left: 0; border-radius: 0 8px 8px 0; }
+        .stage-deco.right { right: 0; border-radius: 8px 0 0 8px; animation-delay: -2.3s; }
+        @keyframes vineSway { 0%,100%{ transform: rotate(-1deg);} 50%{ transform: rotate(1deg);} }
+        .stage-deco::before, .stage-deco::after {
+            content: "🍃"; position: absolute; font-size: 12px; left: 50%; transform: translateX(-50%);
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,.6));
+        }
+        .stage-deco::before { top: 20%; }
+        .stage-deco::after { top: 58%; }
+        .stage-deco.right::before { content: "🌿"; top: 30%; }
+        .stage-deco.right::after { content: "🌿"; top: 70%; }
+
+        .stage-corner-torch {
+            position: absolute; top: 8px; z-index: 27; pointer-events: none;
+            width: 26px; height: 26px;
+        }
+        .stage-corner-torch.left { left: 6px; }
+        .stage-corner-torch.right { right: 6px; }
+        .stage-corner-torch::before {
+            content: ""; position: absolute; inset: -12px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,170,60,0.55), transparent 70%);
+            animation: torchFlicker 1.4s ease-in-out infinite;
+        }
+        .stage-corner-torch::after { content: "🔥"; font-size: 16px; position: relative; z-index: 1; }
+        @keyframes torchFlicker { 0%,100%{ opacity: .75; transform: scale(1);} 50%{ opacity: 1; transform: scale(1.14);} }
+
         /* ============ NÚT ĐIỀU KHIỂN NỔI ============ */
         #race-controls {
             position: absolute;
@@ -156,7 +196,7 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
-            padding: 0 clamp(12px, 4vw, 30px);
+            padding: 0 clamp(16px, 4.5vw, 34px);
             pointer-events: none;
             z-index: 30;
         }
@@ -176,10 +216,8 @@
         .ctrl-btn:active { transform: scale(0.86); background: rgba(255,203,5,0.28); box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12); }
         .ctrl-btn.jump { width: clamp(54px, 10.5vw, 68px); height: clamp(54px, 10.5vw, 68px); font-size: clamp(22px, 4.6vw, 27px); border-color: var(--mint); color: #9dffc0; }
         .ctrl-btn.slide { width: clamp(54px, 10.5vw, 68px); height: clamp(54px, 10.5vw, 68px); font-size: clamp(22px, 4.6vw, 27px); border-color: var(--ember); color: #ffb3b3; }
-        .ctrl-btn .btn-label { display: none; }
         #race-controls.locked { opacity: 0.3; pointer-events: none; filter: grayscale(0.7); transform: translateY(4px); }
 
-        /* Trên máy có chuột thật (PC): hiện gợi ý phím tắt, thu nhỏ nút chạm 1 chút */
         @media (hover: hover) and (pointer: fine) {
             #keyboard-hint {
                 position: absolute; top: 14px; right: 16px; z-index: 30;
@@ -311,11 +349,34 @@
             background: rgba(14,10,26,0.65); border: 1px solid rgba(255,203,5,0.28);
             backdrop-filter: blur(5px);
             font-size: 11px; font-weight: 700; color: #d7d2f0;
+            flex-wrap: wrap; justify-content: center; max-width: 92%;
             animation: legendFade 5s ease forwards;
         }
         #obstacle-legend.show { display: flex; }
         #obstacle-legend span { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
         @keyframes legendFade { 0%,75%{ opacity: 1; } 100%{ opacity: 0; } }
+
+        /* ============ BANNER ĐỔI KHU VỰC ============ */
+        #zone-banner {
+            position: fixed; left: 50%; top: 20%; transform: translate(-50%, -18px);
+            z-index: 4998; pointer-events: none; opacity: 0;
+            transition: opacity .4s ease, transform .4s ease;
+        }
+        #zone-banner.show { opacity: 1; transform: translate(-50%, 0); }
+        .zone-banner-txt {
+            font-family: 'Baloo 2', sans-serif; font-weight: 800; font-size: clamp(18px, 4.6vw, 30px);
+            color: #fff;
+            background: linear-gradient(135deg, rgba(20,14,38,0.9), rgba(48,32,80,0.9));
+            border: 2px solid rgba(255,203,5,0.6); border-radius: 30px; padding: 10px 30px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.55), 0 0 34px rgba(255,203,5,0.28);
+            text-shadow: 0 2px 4px rgba(0,0,0,.6);
+            white-space: nowrap;
+        }
+        .zone-banner-sub {
+            text-align: center; margin-top: 6px; font-size: 11px; font-weight: 700;
+            color: #d7c4ff; text-shadow: 0 1px 3px rgba(0,0,0,.8);
+            letter-spacing: .5px; text-transform: uppercase;
+        }
 
         /* ============ THỐNG KÊ QUIZ (góc trái trên) ============ */
         #quiz-stats {
@@ -439,6 +500,7 @@
     <div class="game-viewport">
         <div id="top-bar">
             <div class="brand-badge"><span class="pika-dot"></span>Temple&nbsp;Dash</div>
+            <div class="hud-chip zone"><span class="icon" id="zoneChip">🏛️</span></div>
             <div class="hud-chip coins"><span class="icon">🪙</span><span id="coinsValue">0</span></div>
             <div id="heartsBox">
                 <span class="heart-icon" data-i="0">❤️</span>
@@ -451,8 +513,6 @@
                 <span class="heart-icon" data-i="7">❤️</span>
                 <span class="heart-icon" data-i="8">❤️</span>
                 <span class="heart-icon" data-i="9">❤️</span>
-                <span class="heart-icon" data-i="10">❤️</span>
-              
             </div>
             <div class="hud-chip score"><span class="icon">⭐</span><span id="scoreValue">0</span></div>
         </div>
@@ -460,8 +520,13 @@
         <div id="race-stage">
             <canvas id="raceCanvas"></canvas>
 
+            <div class="stage-deco left"></div>
+            <div class="stage-deco right"></div>
+            <div class="stage-corner-torch left"></div>
+            <div class="stage-corner-torch right"></div>
+
             <div id="obstacle-legend">
-                <span>⤒ NHẢY: đá / gai / hố lava</span>
+                <span>⤒ NHẢY: đá / gai / hố / cân lắc</span>
                 <span>⤓ TRƯỢT: cành cây / quái bay</span>
                 <span>↔ ĐỔI LÀN: tường chắn</span>
             </div>
@@ -488,6 +553,11 @@
     </div>
 
     <div id="quiz-stats">✅ 0 &nbsp; ❌ 0 &nbsp; 📊 0 câu</div>
+
+    <div id="zone-banner">
+        <div class="zone-banner-txt">🏛️ Đền Cổ</div>
+        <div class="zone-banner-sub">Khu vực mới!</div>
+    </div>
 
     <div id="quiz-intro-banner">
         <div class="banner-wrap">
