@@ -133,7 +133,48 @@ function buildLessonPreviewByCode(rows, colID, colWord, code) {
   const namePart = fullId.includes(" ") ? fullId.substring(fullId.indexOf(" ") + 1) : "";
   return { fullId, lessonName: namePart.trim() || fullId, words };
 }
+// Tính "mã bài lớn nhất" theo ĐÚNG cách schedule.js đang định nghĩa: lớn nhất
+// trong các bài loại "new" đã từng được lên lịch cho lớp này — không dùng
+// nguồn khác để tránh lệch với các nơi khác trong hệ thống.
+function getMaxNewLessonCode(lichData) {
+  let max = 0;
+  Object.values(lichData || {}).forEach(entry => {
+    if (entry && entry.type === "new" && entry.code) {
+      const n = parseInt(entry.code, 10);
+      if (!isNaN(n) && n > max) max = n;
+    }
+  });
+  return max;
+}
 
+// Đề xuất CÁ NHÂN HOÁ cho 1 ngày trống: chọn ngẫu nhiên 1 bài học sinh này
+// CHƯA hoàn thành (không có trong pkm_passed_maps) và nhỏ hơn mã bài mới nhất
+// — mỗi học sinh nhận bài khác nhau tuỳ lực học, không random chung cả lớp
+// như cách cũ (đã bỏ khỏi schedule.js).
+function pickPersonalizedFillLesson(rows, colID, colWord, lichData, passedMaps) {
+  const maxCode = getMaxNewLessonCode(lichData);
+  if (!maxCode) return null;
+
+  const uniqueIds = [...new Set(
+    rows.map(r => rowsToArr(r)[colID]?.toString().trim())
+        .filter(id => id && id.startsWith(realTrainerClass + "-"))
+  )];
+
+  const candidates = uniqueIds.filter(id => {
+    const code = extractCodeFromTitle(id);
+    const n = parseInt(code, 10);
+    return code && !isNaN(n) && n < maxCode && !passedMaps.includes(id);
+  });
+
+  const pool = candidates.length > 0 ? candidates : uniqueIds.filter(id => !passedMaps.includes(id));
+  if (pool.length === 0) return null;
+
+  const pickedId = pool[Math.floor(Math.random() * pool.length)];
+  const namePart = pickedId.includes(" ") ? pickedId.substring(pickedId.indexOf(" ") + 1) : "";
+  const words = rows.filter(r => rowsToArr(r)[colID]?.toString().trim() === pickedId)
+                     .map(r => rowsToArr(r)[colWord]).filter(Boolean);
+  return { fullId: pickedId, lessonName: namePart.trim() || pickedId, words };
+}
 async function loadQuestBoard() {
   const questRow = document.getElementById("questRow");
   if (!questRow) return;
@@ -164,11 +205,32 @@ async function loadQuestBoard() {
     const card = document.createElement("div");
     card.className = "quest-card" + (slot.offset === 0 ? " quest-today" : "");
 
+    // mới
     if (!entry || !entry.code) {
-      card.classList.add("quest-empty");
+      const fillPreview = pickPersonalizedFillLesson(rows, colID, colWord, lichData, passedMaps);
+
+      if (!fillPreview) {
+        card.classList.add("quest-empty");
+        card.innerHTML = `
+          <div class="quest-daylabel">${slot.label} · ${formatDateVN(iso)}</div>
+          <div class="quest-emptytext">Chưa có lịch</div>`;
+        questRow.appendChild(card);
+        return;
+      }
+
       card.innerHTML = `
+        <div class="quest-ribbon" style="background:#7f8c8d;">Ôn tự do</div>
         <div class="quest-daylabel">${slot.label} · ${formatDateVN(iso)}</div>
-        <div class="quest-emptytext">Chưa có lịch</div>`;
+        <div class="quest-title">${fillPreview.lessonName}</div>
+        <div class="quest-words">${fillPreview.words.length} từ${fillPreview.words.length ? ": " + fillPreview.words.slice(0, 3).join(", ") + (fillPreview.words.length > 3 ? "..." : "") : ""}</div>
+      `;
+      card.onclick = () => {
+        localStorage.setItem("selected_lesson_name", fillPreview.lessonName);
+        localStorage.setItem("current_mission", JSON.stringify({
+          id: fillPreview.fullId, type: "quest_fill", class: realTrainerClass
+        }));
+        window.handleNodeClick(fillPreview.lessonName, fillPreview.words, "pkm_mode_select.html");
+      };
       questRow.appendChild(card);
       return;
     }
@@ -236,7 +298,6 @@ let currentRegion = null;
 function enterRegion(region) {
   currentRegion = region;
   showScreen("map");
-  document.getElementById("regionBgLayer").style.backgroundImage = `url('${MAP_IMG_BASE}${region.img}')`;
   document.getElementById("regionMapTitle").textContent = `${region.name} · Lớp ${region.classNum}`;
   document.documentElement.style.setProperty("--region-accent", region.accent);
   document.documentElement.style.setProperty("--region-accent2", region.accent2);
@@ -265,7 +326,66 @@ function groupIntoChapters(pathData) {
   if (current.items.length > 0) chapters.push(current);
   return chapters;
 }
+// Cắt ảnh nguồn (lưới 3 cột x 2 hàng: Mảnh1..6 theo đúng bảng bố trí) thành
+// 6 dải, XẾP LẠI THÀNH 1 CỘT DỌC LIÊN TỤC bên trong #map-canvas — vì đây
+// là phần tử absolute NẰM TRONG khu vực cuộn (không phải fixed), nó tự
+// động "chạy" theo đúng 1:1 khi vuốt danh sách bài học, không cần JS lắng
+// nghe scroll. Thứ tự ghép: Mảnh1→2 (cột trái), Mảnh3→4 (cột giữa),
+// Mảnh5→6 (cột phải) — nếu bố trí ảnh gốc của bạn khác, chỉ cần đổi lại
+// thứ tự mảng piecePositions bên dưới.
+// Cache kích thước thật (naturalWidth/naturalHeight) của từng ảnh vùng —
+// chỉ đo 1 lần mỗi ảnh, các lần vào lại vùng đó sau này dùng lại luôn.
+const _bgImageDimsCache = {};
+function getImageDims(url) {
+  if (_bgImageDimsCache[url]) return Promise.resolve(_bgImageDimsCache[url]);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const dims = { w: img.naturalWidth, h: img.naturalHeight };
+      _bgImageDimsCache[url] = dims;
+      resolve(dims);
+    };
+    img.onerror = () => resolve({ w: 1536, h: 1024 }); // fallback nếu tải lỗi
+    img.src = url;
+  });
+}
 
+// Phủ nền bằng lưới 3 cột x 2 hàng (6 mảnh, đúng thứ tự Mảnh1..6 theo bảng:
+// cột trái = Mảnh1(trên)/Mảnh2(dưới), cột giữa = Mảnh3/Mảnh4, cột phải =
+// Mảnh5/Mảnh6). MỖI MẢNH được gán chiều cao PIXEL THẬT tính theo đúng tỉ lệ
+// khung hình gốc so với chiều rộng màn hình — KHÔNG BAO GIỜ bị kéo dãn méo,
+// bất kể lớp có ít hay nhiều bài. Nếu danh sách bài dài hơn 1 vòng 6 mảnh,
+// tự động LẶP LẠI vòng 1→6 thêm nhiều lần cho tới khi phủ hết chiều cao.
+async function renderSixPieceBackground(mapCanvas, region) {
+  const cols = 2, rows = 1; // lưới nguồn: 3 cột x 2 hàng = 6 mảnh
+  const imgUrl = `${MAP_IMG_BASE}${region.img}`;
+  const dims = await getImageDims(imgUrl);
+
+  const containerW = mapCanvas.clientWidth || mapCanvas.offsetWidth || 1;
+  const pieceHeightPx = containerW * (dims.h / rows) / (dims.w / cols);
+  const contentHeight = mapCanvas.scrollHeight || containerW;
+  const totalPieces = Math.max(cols * rows, Math.ceil(contentHeight / pieceHeightPx));
+
+  const wrap = document.createElement("div");
+  wrap.id = "regionBgLayer";
+
+  const piecePositions = ["0% 0%", "0% 100%", "50% 0%", "50% 100%", "100% 0%", "100% 100%"];
+  let cursorTop = 0;
+  for (let i = 0; i < totalPieces; i++) {
+    const pos = piecePositions[i % piecePositions.length];
+    const band = document.createElement("div");
+    band.className = "region-bg-band";
+    band.style.top = `${cursorTop}px`;
+    band.style.height = `${pieceHeightPx}px`;
+    band.style.backgroundImage = `url('${imgUrl}')`;
+    band.style.backgroundSize = `${cols * 100}% ${rows * 100}%`;
+    band.style.backgroundPosition = pos;
+    wrap.appendChild(band);
+    cursorTop += pieceHeightPx;
+  }
+
+  mapCanvas.appendChild(wrap);
+}
 async function loadRegionMap(region) {
   const mapCanvas = document.getElementById("map-canvas");
   const scrollWrapper = document.getElementById("region-scroll-wrapper");
@@ -370,6 +490,7 @@ async function loadRegionMap(region) {
       }
     });
 
+    renderSixPieceBackground(mapCanvas, region); // gọi SAU khi mọi bài/chương đã render, để đo đúng chiều cao thật
     setTimeout(() => drawLines(), 200);
     if (scrollWrapper) setTimeout(() => { scrollWrapper.scrollTop = scrollWrapper.scrollHeight; }, 150);
   } catch (e) {
