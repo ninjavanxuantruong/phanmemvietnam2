@@ -156,12 +156,19 @@
   /* ============ SCREEN 2: BẢN ĐỒ TRONG VÙNG ============ */
   #screenRegionMap { background: #05070d; }
   #regionBgLayer {
-    position: fixed; inset: 0; z-index: 0;
-    background-size: cover; background-position: center;
+    position: absolute; inset: 0; z-index: -1;
+    pointer-events: none; overflow: hidden;
   }
   #regionBgLayer::after {
     content: ""; position: absolute; inset: 0;
     background: linear-gradient(180deg, rgba(5,7,13,0.55) 0%, rgba(5,7,13,0.72) 60%, rgba(5,7,13,0.88) 100%);
+    pointer-events: none;
+  }
+  .region-bg-band {
+    position: absolute; left: 0; width: 100%;
+    background-repeat: no-repeat;
+    /* height và background-size giờ JS tính động theo pixel thật (đúng tỉ lệ
+       ảnh gốc) — không còn dùng % cố định nữa, xem renderSixPieceBackground() */
   }
 
   #region-scroll-wrapper {
@@ -169,7 +176,10 @@
     overflow-y: auto; overflow-x: hidden;
     padding-top: 80px; padding-bottom: 60px;
   }
-  #map-canvas { display: flex; flex-direction: column; align-items: center; min-height: 100%; width: 100%; }
+  #map-canvas {
+    display: flex; flex-direction: column; align-items: center; min-height: 100%; width: 100%;
+    position: relative; /* mốc để 6 dải nền absolute bám đúng chiều cao nội dung, cuộn cùng nội dung */
+  }
 
   .chapter-block { width: 100%; display: flex; flex-direction: column; align-items: center; }
   .chapter-header {
@@ -283,7 +293,7 @@
 
   <!-- ============ SCREEN 2: BẢN ĐỒ TRONG VÙNG ============ -->
   <div id="screenRegionMap" class="screen">
-    <div id="regionBgLayer"></div>
+    
     <div class="top-header">
       <div class="back-pill" onclick="backToRegionSelect()">◀ VÙNG KHÁC</div>
       <div class="htitle" id="regionMapTitle">Vùng đất</div>
