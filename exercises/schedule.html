@@ -39,6 +39,14 @@
       margin-top: 30px;
     }
 
+    .note {
+      max-width: 640px;
+      margin: 16px auto 0;
+      font-size: 13px;
+      color: #667;
+      line-height: 1.6;
+    }
+
     table {
       margin: 40px auto;
       border-collapse: collapse;
@@ -58,6 +66,14 @@
 
     td {
       text-align: center;
+    }
+
+    #scheduleTable tbody:empty::after {
+      content: "Chưa có bài mới/ôn tập/liên quan nào được lên lịch cho lớp này.";
+      display: block;
+      padding: 16px;
+      color: #999;
+      font-style: italic;
     }
   </style>
 </head>
@@ -80,7 +96,13 @@
 
   <button id="btnLearnSuggested" disabled>🎯 Học bài đề xuất</button>
 
-  
+  <p class="note">
+    Bảng dưới đây chỉ hiển thị <b>bài mới</b>, <b>ôn tập</b> và <b>bài liên quan</b> theo đúng lịch từ Google Sheet.
+    Các ngày không có trong bảng sẽ được từng học sinh tự nhận đề xuất riêng
+    (dựa trên các bài em đó đã hoàn thành) ngay trong bản đồ học tập, không
+    còn random chung cho cả lớp như trước.
+  </p>
+
   <h3>Bài học hôm nay</h3>
   <div id="lessonList"></div>
 
