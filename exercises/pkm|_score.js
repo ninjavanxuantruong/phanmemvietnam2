@@ -260,4 +260,85 @@ window.PkmScore = {
             breakdown,
         };
     },
+
+    // ==========================================
+    // KẾT THÚC 1 BUỔI HỌC 5-MODULE (all-shared.html) — không có thắng/thua
+    // như Battle, luôn coi là hoàn thành khi được gọi (orchestrator chỉ gọi
+    // sau khi chạy xong đủ cả 5 module). Dùng lại công thức thưởng của
+    // finishMatch() + cộng thêm điểm "Trò chơi" cố định vì buổi học không
+    // có mini-game riêng để tự sinh điểm phần đó.
+    // ==========================================
+    finishStudySession(opts = {}) {
+        const {
+            correctCount, totalCount,
+            unlockThreshold = 80,
+            answerBonusDivisor = 2,
+            fixedGameScore = 10,
+        } = opts;
+
+        if (!totalCount || totalCount <= 0) {
+            return { skipped: true, bonusEXP: 0, bonusDV: 0, breakdown: [] };
+        }
+
+        try {
+            const prevGame = JSON.parse(localStorage.getItem("result_game")) || { score: 0, total: 0 };
+            localStorage.setItem("result_game", JSON.stringify({
+                score: (prevGame.score || 0) + fixedGameScore,
+                total: (prevGame.total || 0) + fixedGameScore,
+            }));
+        } catch (e) { console.error("❌ [PkmScore] Lỗi ghi result_game:", e); }
+
+        const missionData = localStorage.getItem("current_mission");
+        const currentLessonId = missionData ? JSON.parse(missionData).id : null;
+        let passedMaps = JSON.parse(localStorage.getItem("pkm_passed_maps")) || [];
+        const currentEXP = parseInt(localStorage.getItem("pkm_global_exp")) || 0;
+        const currentDV = parseInt(localStorage.getItem("pkm_global_dv")) || 0;
+        const accuracy = Math.round((correctCount / totalCount) * 100);
+
+        let bonusEXP = 0, bonusDV = 0;
+        let isNewLesson = false, newLessonUnlocked = false;
+        const breakdown = [];
+
+        isNewLesson = !!(currentLessonId && !passedMaps.includes(currentLessonId));
+        if (isNewLesson) {
+            if (accuracy >= unlockThreshold) {
+                bonusEXP += 5; bonusDV += 5;
+                passedMaps.push(currentLessonId);
+                localStorage.setItem("pkm_passed_maps", JSON.stringify(passedMaps));
+                newLessonUnlocked = true;
+                breakdown.push({ type: "new_lesson", exp: 5, dv: 5, accuracy });
+            } else {
+                breakdown.push({ type: "new_lesson_failed", accuracy, requiredAccuracy: unlockThreshold });
+            }
+        }
+
+        const reward2 = Math.round(correctCount / answerBonusDivisor);
+        if (reward2 > 0) {
+            bonusEXP += reward2; bonusDV += reward2;
+            breakdown.push({ type: "correct_answers", correctCount, divisor: answerBonusDivisor, exp: reward2, dv: reward2 });
+        }
+
+        const streak = this.updateStreak();
+        let streakBonus = 0;
+        if (streak >= 30) streakBonus = 3;
+        else if (streak >= 10) streakBonus = 2;
+        else if (streak >= 4) streakBonus = 1;
+        if (streakBonus > 0) { bonusEXP += streakBonus; bonusDV += streakBonus; }
+        breakdown.push({ type: "streak", streak, exp: streakBonus, dv: streakBonus });
+
+        const newEXP = currentEXP + bonusEXP;
+        const newDV = currentDV + bonusDV;
+        localStorage.setItem("pkm_global_exp", newEXP);
+        localStorage.setItem("pkm_global_dv", newDV);
+
+        console.log("🎓 [PkmScore] finishStudySession:", { accuracy, bonusEXP, bonusDV, newEXP, newDV, breakdown });
+
+        return {
+            skipped: false,
+            accuracy, correctCount, totalCount,
+            bonusEXP, bonusDV, newEXP, newDV,
+            isNewLesson, newLessonUnlocked, streak,
+            breakdown,
+        };
+    },
 };
