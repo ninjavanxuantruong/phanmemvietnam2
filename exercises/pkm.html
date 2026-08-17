@@ -20,7 +20,6 @@
         color: var(--text);
     }
 
-    /* ===================== HEADER BAR ===================== */
     .header-bar {
         position: fixed; top: 0; left: 0; right: 0; height: 56px;
         background: rgba(10, 15, 30, 0.92);
@@ -50,7 +49,6 @@
     .pill.exp { border-color: #ffd700; color: #ffd700; }
     .pill.dv  { border-color: #7ec8ff; color: #7ec8ff; }
 
-    /* ===================== HALL SCENE (nền ảnh thật) ===================== */
     .hall-scene {
         position: fixed; top: 56px; left: 0; right: 0; bottom: 0;
         display: flex; align-items: center; justify-content: center;
@@ -58,8 +56,6 @@
         overflow: hidden;
     }
 
-    /* .hall-stage được JS set width/height chính xác theo tỉ lệ ảnh nền
-       (1536x1024) để mọi offset % luôn khớp đúng trên PC lẫn mobile */
     .hall-stage {
         position: relative;
         background-image: url('https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/sanh1.png');
@@ -67,10 +63,9 @@
         background-repeat: no-repeat;
     }
 
-    /* ===================== PHẦN TỬ CÓ THỂ BẤM (trainer / pokemon / cửa / quả cầu) ===================== */
     .hs-el {
         position: absolute;
-        transform: translate(-50%, -100%); /* neo theo điểm chân (bottom-center) */
+        transform: translate(-50%, -100%);
         cursor: pointer;
     }
     .hs-el img {
@@ -84,7 +79,6 @@
     .hs-el:active img { transform: scale(0.93); }
     .hs-el.flip:active img { transform: scaleX(-1) scale(0.93); }
 
-    /* Nhịp thở cho trainer (ảnh tĩnh) */
     .hs-trainer img {
         transform-origin: bottom center;
         animation: breathe 2.6s ease-in-out infinite;
@@ -118,14 +112,12 @@
         pointer-events: none;
     }
 
-    /* Quả cầu Pokémon (World Map) */
     .hs-map img { animation: orbFloat 3.2s ease-in-out infinite; }
     @keyframes orbFloat {
         0%, 100% { transform: translateY(0) rotate(-4deg); }
         50%      { transform: translateY(-10px) rotate(4deg); }
     }
 
-    /* ===================== DIALOGUE BOX (RPG style) ===================== */
     .dlg-overlay {
         position: fixed; inset: 0; background: rgba(0,0,0,0);
         z-index: 2000; display: flex; align-items: flex-end; justify-content: center;
@@ -174,7 +166,6 @@
     .dlg-choice-btn.danger { border-color: rgba(231,76,60,0.4); background: rgba(231,76,60,0.08); }
     .dlg-choice-btn.danger:hover { background: rgba(231,76,60,0.15); border-color: #e74c3c; }
 
-    /* ===================== TOAST ===================== */
     #toast {
         position: fixed; top: 66px; left: 50%; transform: translateX(-50%);
         background: rgba(0,0,0,0.85); color: white; padding: 8px 20px; border-radius: 20px;
@@ -185,7 +176,6 @@
 </head>
 <body>
 
-    <!-- HEADER BAR -->
     <div class="header-bar">
         <div class="trainer-avatar">🧢</div>
         <div class="trainer-info">
@@ -198,12 +188,10 @@
         </div>
     </div>
 
-    <!-- HALL SCENE -->
     <div class="hall-scene" id="hall-scene">
         <div class="hall-stage" id="hall-stage"></div>
     </div>
 
-    <!-- DIALOGUE BOX OVERLAY (dùng chung cho mọi NPC + Map) -->
     <div class="dlg-overlay" id="dlg-overlay">
         <div class="dlg-box" id="dlg-box">
             <div class="dlg-head">
@@ -220,21 +208,9 @@
     <div id="toast"></div>
 
     <script>
-        /* =========================================================
-           KÍCH THƯỚC ẢNH NỀN GỐC — dùng để tính tỉ lệ khung sảnh.
-           Đổi nếu bạn thay ảnh nền khác kích thước.
-           ========================================================= */
         const BG_WIDTH = 1536;
         const BG_HEIGHT = 1024;
 
-        /* =========================================================
-           CẤU HÌNH VỊ TRÍ — TẤT CẢ offset top/left tính theo % CHIỀU
-           RỘNG/CAO CỦA KHUNG SẢNH (khớp đúng ảnh nền trên mọi máy).
-           width cũng tính theo % chiều rộng khung sảnh.
-           Mỗi trainer & pokemon có top/left/width RIÊNG để bạn tự
-           sắp cho khớp với ảnh nền. Toạ độ neo là ĐIỂM CHÂN
-           (bottom-center) của từng ảnh — dễ đặt "đứng" trên sàn.
-           ========================================================= */
         const NPC_CONFIG = [
             {
                 id: 'list-team',
@@ -288,7 +264,7 @@
 
         const DOOR_CONFIG = { top: '30%', left: '50%', width: '7%' };
         const MAP_CONFIG  = { top: '75%', left: '50%', width: '16%' };
-        const KEY_CONFIG  = { top: '30%', left: '10%', width: '6%' }; // ← tự chỉnh top/left/width cho khớp ảnh nền
+        const KEY_CONFIG  = { top: '30%', left: '10%', width: '6%' };
 
         const TRAINER_URL = name => `https://play.pokemonshowdown.com/sprites/trainers/${name}.png`;
         const POKEMON_URL  = name => `https://play.pokemonshowdown.com/sprites/ani/${name}.gif`;
@@ -296,7 +272,6 @@
         const DOOR_ICON = '🚪';
         const FALLBACK_TRAINER = 'https://play.pokemonshowdown.com/sprites/trainers/acetrainer.png';
 
-        /* ---------- Fit khung sảnh đúng tỉ lệ ảnh nền trên mọi màn hình ---------- */
         const scene = document.getElementById('hall-scene');
         const stage = document.getElementById('hall-stage');
         function fitStage() {
@@ -304,7 +279,7 @@
             const sceneW = scene.clientWidth;
             const sceneH = scene.clientHeight;
             let w = sceneW, h = sceneW / ratio;
-            if (h < sceneH) { h = sceneH; w = sceneH * ratio; } // COVER: luôn phủ đầy màn hình, mép dư bị cắt (đã có overflow:hidden ở .hall-scene)
+            if (h < sceneH) { h = sceneH; w = sceneH * ratio; }
             stage.style.width = w + 'px';
             stage.style.height = h + 'px';
         }
@@ -312,7 +287,6 @@
         window.addEventListener('orientationchange', fitStage);
         fitStage();
 
-        /* ---------- Helper tạo 1 phần tử đặt trên sảnh ---------- */
         function placeElement({ top, left, width, flip, imgSrc, imgClass, extraClass, onError, label, onClick }) {
             const el = document.createElement('div');
             el.className = 'hs-el' + (flip ? ' flip' : '') + (extraClass ? ' ' + extraClass : '');
@@ -343,7 +317,6 @@
             return el;
         }
 
-        /* ---------- Dựng NPC (trainer + pokémon riêng biệt, cùng mở 1 hộp thoại) ---------- */
         NPC_CONFIG.forEach(npc => {
             const openDlg = () => openNpcDialogue(npc);
 
@@ -362,7 +335,6 @@
             });
         });
 
-        /* ---------- Cửa Exit ---------- */
         placeElement({
             top: DOOR_CONFIG.top, left: DOOR_CONFIG.left, width: DOOR_CONFIG.width,
             extraClass: 'hs-door',
@@ -375,7 +347,6 @@
             onClick: openDoorDialogue
         });
 
-        /* ---------- Quả cầu Pokémon (World Map) ---------- */
         placeElement({
             top: MAP_CONFIG.top, left: MAP_CONFIG.left, width: MAP_CONFIG.width,
             extraClass: 'hs-map',
@@ -393,7 +364,6 @@
                      </svg>`);
             }
         });
-        /* ---------- Chìa khoá (mở bài tập / hỗ trợ học sinh) ---------- */
         placeElement({
             top: KEY_CONFIG.top, left: KEY_CONFIG.left, width: KEY_CONFIG.width,
             extraClass: 'hs-key',
@@ -406,7 +376,6 @@
             onClick: openKeyDialogue
         });
 
-        /* ---------- Dialogue box dùng chung ---------- */
         const dlgOverlay = document.getElementById('dlg-overlay');
         const dlgPortrait = document.getElementById('dlg-portrait');
         const dlgName = document.getElementById('dlg-name');
@@ -423,7 +392,7 @@
                 u.lang = 'en-US';
                 u.rate = 0.95;
                 window.speechSynthesis.speak(u);
-            } catch (e) { /* im lặng nếu trình duyệt không hỗ trợ */ }
+            } catch (e) { }
         }
 
         function closeDialogue() {
@@ -525,19 +494,10 @@
             exerciseBtn.className = 'dlg-choice-btn confirm';
             exerciseBtn.innerHTML = `<span class="dlg-choice-en">A. See studying results</span><span class="dlg-choice-vn">Xem kết quả học tập</span>`;
 
-            const supportBtn = document.createElement('div');
+            const supportBtn = document.createElement('a');
+            supportBtn.href = 'hotrohocsinh.html';
             supportBtn.className = 'dlg-choice-btn';
             supportBtn.innerHTML = `<span class="dlg-choice-en">B. Get Support</span><span class="dlg-choice-vn">Hỗ trợ học sinh</span>`;
-            supportBtn.addEventListener('click', () => {
-                const pass = prompt('Nhập mật khẩu để vào trang Hỗ trợ học sinh:');
-                if (pass === null) return; // bấm Hủy
-                if (pass === '260794') {
-                    closeDialogue();
-                    window.location.href = 'hotrohocsinh.html';
-                } else {
-                    alert('Sai mật khẩu!');
-                }
-            });
 
             dlgChoices.appendChild(exerciseBtn);
             dlgChoices.appendChild(supportBtn);
@@ -624,12 +584,24 @@
     </script>
     <!-- ✅ nạp file đồng bộ điểm học tập (bao gồm cả Battle) -->
     <script type="module" src="pkm_sync_score.js"></script>
+    <!-- ✅ nạp file đồng bộ EXP/Danh vọng/kho đồ (trước đây chỉ có ở pkm_results.html,
+         giờ nút Thoát ở đây gọi luôn để không phải tự vào đó bấm nút nữa) -->
+    <script type="module" src="pkm_sync_progress.js"></script>
     <script>
-            window.__pkmGoExit = function () {
-                const href = '../index.html';
+        // Bấm "Thoát" giờ lưu CẢ 2 nơi cùng lúc: điểm học tập (như cũ) VÀ
+        // EXP/Danh vọng/kho đồ (trước đây phải tự vào pkm_results.html bấm nút
+        // mới lưu). Dùng Promise.allSettled để dù 1 trong 2 lỗi/mạng chậm, cái
+        // còn lại vẫn được thử, và vẫn thoát ra bình thường sau đó.
+        window.__pkmGoExit = function () {
+            const href = '../index.html';
             const goNow = () => window.location.href = href;
-            if (window.syncLearningResultToFirebase) {
-                window.syncLearningResultToFirebase().finally(goNow);
+
+            const tasks = [];
+            if (window.syncLearningResultToFirebase) tasks.push(window.syncLearningResultToFirebase());
+            if (window.savePkmProgressToFirebase) tasks.push(window.savePkmProgressToFirebase());
+
+            if (tasks.length > 0) {
+                Promise.allSettled(tasks).finally(goNow);
             } else {
                 goNow();
             }
