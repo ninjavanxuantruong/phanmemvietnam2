@@ -312,6 +312,49 @@
         .field-row .check { color: var(--green); font-size: 16px; }
         .field-row .field-name { flex: 1; color: #ccc; }
         .field-row .field-val { color: var(--yellow); font-weight: 700; font-size: 12px; }
+
+        /* ===== KẾT QUẢ HỌC TẬP (đem từ summary.html sang) ===== */
+        .learn-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--card);
+            border-radius: 12px;
+            overflow: hidden;
+            font-size: 13px;
+        }
+        .learn-table th, .learn-table td {
+            padding: 10px 8px;
+            text-align: center;
+            border-bottom: 1px solid #2a3f5f;
+        }
+        .learn-table th {
+            background: rgba(255,203,5,0.1);
+            color: var(--yellow);
+            font-weight: 800;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .learn-table tfoot td {
+            font-weight: 900;
+            background: rgba(255,203,5,0.06);
+            color: var(--yellow);
+        }
+        .learn-overall {
+            text-align: center;
+            font-size: 13px;
+            color: #ccc;
+            margin-top: 10px;
+            padding: 10px;
+            background: var(--card);
+            border-radius: 10px;
+        }
+        .learn-empty {
+            text-align: center;
+            color: #667;
+            font-style: italic;
+            font-size: 13px;
+            padding: 16px;
+        }
     </style>
 </head>
 <body>
@@ -324,6 +367,41 @@
         </div>
         <div class="trainer-badge" id="trainer-badge">TRAINER</div>
     </div>
+
+    <!-- KẾT QUẢ HỌC TẬP (đem từ summary.html sang) -->
+    <div class="section">
+        <div class="section-title">📘 Kết Quả Học Tập Hôm Nay</div>
+        <table class="learn-table" id="todayLearnTable">
+            <thead>
+                <tr><th>Phần</th><th>Điểm</th><th>Tổng</th><th>%</th><th>Đánh giá</th></tr>
+            </thead>
+            <tbody id="todayLearnBody"></tbody>
+            <tfoot>
+                <tr>
+                    <td>Tổng cộng</td>
+                    <td id="todayLearnScore">0</td>
+                    <td id="todayLearnMax">0</td>
+                    <td id="todayLearnPercent">0%</td>
+                    <td id="todayLearnRating">...</td>
+                </tr>
+            </tfoot>
+        </table>
+        <div class="learn-overall" id="todayLearnOverall"></div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📅 Kết Quả Các Ngày Gần Đây</div>
+        <table class="learn-table" id="weekLearnTable">
+            <thead>
+                <tr><th>Ngày</th><th>Điểm</th><th>Tổng</th><th>Đánh giá</th></tr>
+            </thead>
+            <tbody id="weekLearnBody">
+                <tr><td colspan="4" class="learn-empty">Đang tải...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="divider"></div>
 
     <!-- SAVE STATUS -->
     <div id="save-status" class="idle">
@@ -615,5 +693,143 @@
     </script>
 
     <script src="global-config.js"></script>
+    <script type="module">
+        import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+
+        // Firebase RIÊNG cho điểm học tập (project "lop-hoc-thay-tinh") — khác
+        // hẳn Firebase "pokemon-capture-10d03" mà phần EXP/DV/kho đồ ở trên dùng.
+        // Đặt tên app "lessonApp" giống hệt pkm_sync_score.js để không khởi tạo
+        // trùng nếu 2 nơi cùng có mặt trên trang.
+        const LESSON_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyBQ1pPmSdBV8M8YdVbpKhw_DOetmzIMwXU",
+            authDomain: "lop-hoc-thay-tinh.firebaseapp.com",
+            projectId: "lop-hoc-thay-tinh",
+            storageBucket: "lop-hoc-thay-tinh.firebasestorage.app",
+            messagingSenderId: "391812475288",
+            appId: "1:391812475288:web:ca4c275ac776d69deb23ed"
+        };
+        const lessonApp = getApps().find(a => a.name === "lessonApp")
+            || initializeApp(LESSON_FIREBASE_CONFIG, "lessonApp");
+        const lessonDb = getFirestore(lessonApp);
+
+        // ✅ PHẢI giống hệt GROUPS trong summary.js — chỉ ĐỌC, không tự lưu gì
+        const GROUPS = [
+            { label: "🎯 Giới thiệu", legacyKeys: ["vocabulary", "image"], skillKey: "intro" },
+            { label: "🎧 Nghe",       legacyKeys: ["listening"],                            skillKey: "listening" },
+            { label: "🗣️ Nói",        legacyKeys: ["speaking", "phonics", "communication"], skillKey: "speaking" },
+            { label: "📖 Đọc",        legacyKeys: [],                                       skillKey: "reading" },
+            { label: "✍️ Viết",       legacyKeys: ["overview"],                            skillKey: "writing" },
+            { label: "🎮 Trò chơi",   legacyKeys: ["game", "battle"] },
+        ];
+
+        function getLegacyResult(key) {
+            const r = JSON.parse(localStorage.getItem(`result_${key}`)) || {};
+            return { score: r.score || 0, total: r.total || 0 };
+        }
+        function getSkillResult(skillKey) {
+            const skills = JSON.parse(localStorage.getItem("pkm_skill_scores")) || {};
+            const s = skills[skillKey] || {};
+            return { score: s.correct || 0, total: s.total || 0 };
+        }
+        function computeGroup(group) {
+            let score = 0, total = 0;
+            group.legacyKeys.forEach(key => {
+                const r = getLegacyResult(key);
+                score += r.score; total += r.total;
+            });
+            if (group.skillKey) {
+                const r = getSkillResult(group.skillKey);
+                score += r.score; total += r.total;
+            }
+            return { score, total };
+        }
+        function ratingFromPercent(percent) {
+            if (percent < 50) return "😕 Cần cố gắng";
+            if (percent < 70) return "🙂 Khá";
+            if (percent < 90) return "😃 Tốt";
+            return "🏆 Tuyệt vời";
+        }
+
+        function renderTodayResult() {
+            const tbody = document.getElementById("todayLearnBody");
+            const overallEl = document.getElementById("todayLearnOverall");
+            if (!tbody) return;
+
+            tbody.innerHTML = "";
+            let totalScore = 0, totalMax = 0, anyData = false;
+
+            GROUPS.forEach(group => {
+                const { score, total } = computeGroup(group);
+                const percent = total > 0 ? Math.round((score / total) * 100) : 0;
+                if (total > 0) { anyData = true; totalScore += score; totalMax += total; }
+                const rating = total > 0 ? ratingFromPercent(percent) : "—";
+                tbody.innerHTML += `
+                    <tr${total === 0 ? ' style="opacity:.4;"' : ''}>
+                        <td style="text-align:left;">${group.label}</td>
+                        <td>${score}</td><td>${total}</td><td>${percent}%</td><td>${rating}</td>
+                    </tr>`;
+            });
+
+            const finalPercent = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+            document.getElementById("todayLearnScore").textContent = totalScore;
+            document.getElementById("todayLearnMax").textContent = totalMax;
+            document.getElementById("todayLearnPercent").textContent = finalPercent + "%";
+            document.getElementById("todayLearnRating").textContent = totalMax > 0 ? ratingFromPercent(finalPercent) : "—";
+
+            overallEl.textContent = anyData
+                ? `Hôm nay đã học và đạt ${finalPercent}% độ chính xác.`
+                : "Chưa có kết quả học tập nào hôm nay.";
+        }
+
+        async function renderWeeklyResult() {
+            const tbody = document.getElementById("weekLearnBody");
+            if (!tbody) return;
+
+            const name = localStorage.getItem("trainerName") || "";
+            const cls  = localStorage.getItem("trainerClass") || "0";
+            if (!name) {
+                tbody.innerHTML = `<tr><td colspan="4" class="learn-empty">Không xác định được học sinh.</td></tr>`;
+                return;
+            }
+
+            try {
+                const ref = doc(lessonDb, "tonghop", `summary-${cls}-recent`);
+                const snap = await getDoc(ref);
+                if (!snap.exists()) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="learn-empty">Chưa có dữ liệu tuần qua.</td></tr>`;
+                    return;
+                }
+
+                const data = snap.data();
+                const allDates = [...(data.days || [])].sort((a, b) => b.localeCompare(a));
+                const dayData = data.dayData || {};
+
+                const entries = [];
+                for (const dateCode of allDates) {
+                    const students = dayData[dateCode] || {};
+                    if (students[name]) entries.push({ date: dateCode, ...students[name] });
+                }
+
+                const recent = entries.slice(0, 7);
+                if (recent.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="learn-empty">Chưa có dữ liệu những ngày gần đây.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = recent.map(e => {
+                    const d = e.date; // "ddmmyy"
+                    const dateDisplay = `${d.slice(0,2)}/${d.slice(2,4)}/${d.slice(4)}`;
+                    return `<tr><td>${dateDisplay}</td><td>${e.score ?? 0}</td><td>${e.max ?? 0}</td><td>${e.rating || "—"}</td></tr>`;
+                }).join("");
+            } catch (err) {
+                console.error("❌ Lỗi tải kết quả tuần qua:", err);
+                tbody.innerHTML = `<tr><td colspan="4" class="learn-empty">Lỗi khi tải dữ liệu.</td></tr>`;
+            }
+        }
+
+        renderTodayResult();
+        renderWeeklyResult();
+    </script>
 </body>
 </html>
