@@ -38,6 +38,41 @@
         color: #8fa3d1;
         margin-bottom: 28px;
     }
+    #backToMap {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        z-index: 50;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 13px;
+        font-weight: 900;
+        color: #1a1a2e;
+        text-decoration: none;
+        padding: 10px 16px 10px 12px;
+        border-radius: 30px;
+        background: linear-gradient(135deg, #ffcb05, #ffb300);
+        box-shadow: 0 6px 18px rgba(255,203,5,0.45), 0 0 0 1px rgba(255,255,255,0.15) inset;
+        transition: transform .18s ease, box-shadow .18s ease;
+        animation: backToMapPulse 2.4s ease-in-out infinite;
+    }
+    #backToMap:hover {
+        transform: translateY(-2px) scale(1.04);
+        box-shadow: 0 8px 22px rgba(255,203,5,0.6), 0 0 0 1px rgba(255,255,255,0.2) inset;
+    }
+    #backToMap:active { transform: scale(0.96); }
+    .backToMap-icon { font-size: 17px; line-height: 1; }
+
+    @keyframes backToMapPulse {
+        0%, 100% { box-shadow: 0 6px 18px rgba(255,203,5,0.45), 0 0 0 1px rgba(255,255,255,0.15) inset; }
+        50%      { box-shadow: 0 6px 24px rgba(255,203,5,0.75), 0 0 0 1px rgba(255,255,255,0.25) inset; }
+    }
+
+    /* tránh nút fixed đè lên nội dung trên màn hình rất hẹp */
+    @media (max-width: 380px) {
+        #backToMap { top: 10px; left: 10px; padding: 8px 13px 8px 10px; font-size: 12px; }
+    }
 
     .mode-cards {
         display: flex;
@@ -100,6 +135,10 @@
 </head>
 <body>
     <div class="mode-wrap">
+        <a id="backToMap" href="pkm_map.html">
+            <span class="backToMap-icon">🗺️</span>
+            <span>Bản Đồ</span>
+        </a>
         <div class="mode-title">🎮 Chọn cách chơi</div>
         <div class="mode-lesson" id="lessonLabel">Đang tải bài học...</div>
 
