@@ -357,7 +357,7 @@ function getImageDims(url) {
 // bất kể lớp có ít hay nhiều bài. Nếu danh sách bài dài hơn 1 vòng 6 mảnh,
 // tự động LẶP LẠI vòng 1→6 thêm nhiều lần cho tới khi phủ hết chiều cao.
 async function renderSixPieceBackground(mapCanvas, region) {
-  const cols = 2, rows = 1; // lưới nguồn: 3 cột x 2 hàng = 6 mảnh
+  const cols = 3, rows = 2; // lưới nguồn: 3 cột x 2 hàng = 6 mảnh
   const imgUrl = `${MAP_IMG_BASE}${region.img}`;
   const dims = await getImageDims(imgUrl);
 
@@ -370,18 +370,23 @@ async function renderSixPieceBackground(mapCanvas, region) {
   wrap.id = "regionBgLayer";
 
   const piecePositions = ["0% 0%", "0% 100%", "50% 0%", "50% 100%", "100% 0%", "100% 100%"];
-  let cursorTop = 0;
+  // Bài 1 nằm DƯỚI CÙNG trang (xem comment "bài 1 hiển thị trước (dưới cùng
+  // khi cuộn)" ở loadRegionMap) — nên Mảnh 1 phải neo vào ĐÁY canvas, các
+  // mảnh sau nối dần LÊN TRÊN (không phải từ đỉnh đi xuống như trước).
+  let cursorBottom = contentHeight;
   for (let i = 0; i < totalPieces; i++) {
-    const pos = piecePositions[i % piecePositions.length];
+    const pieceNum = i % piecePositions.length;
+    const pos = piecePositions[pieceNum];
+    const bandTop = cursorBottom - pieceHeightPx;
     const band = document.createElement("div");
     band.className = "region-bg-band";
-    band.style.top = `${cursorTop}px`;
+    band.style.top = `${bandTop}px`;
     band.style.height = `${pieceHeightPx}px`;
     band.style.backgroundImage = `url('${imgUrl}')`;
     band.style.backgroundSize = `${cols * 100}% ${rows * 100}%`;
     band.style.backgroundPosition = pos;
     wrap.appendChild(band);
-    cursorTop += pieceHeightPx;
+    cursorBottom -= pieceHeightPx;
   }
 
   mapCanvas.appendChild(wrap);
