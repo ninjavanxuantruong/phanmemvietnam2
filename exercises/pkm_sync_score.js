@@ -79,6 +79,21 @@ function buildEntryFromLocalStorage() {
         if ((r?.total || 0) > 0) completedParts.push(label);
     });
 
+    // ✅ Cộng thêm điểm theo kỹ năng (pkm_skill_scores) — nguồn dùng chung giữa
+    // Battle/Block và buổi học 5-module (all-shared.html), y hệt cách
+    // summary.js đang cộng gộp 2 nguồn (legacy result_* + pkm_skill_scores).
+    const skillScores = JSON.parse(localStorage.getItem("pkm_skill_scores") || "null") || {};
+    const SKILL_TO_PART_LABEL = {
+        intro: "Từ vựng", listening: "Bài tập nghe", speaking: "Bài tập nói",
+        reading: "Đọc hiểu", writing: "Bài viết",
+    };
+    Object.entries(skillScores).forEach(([skillKey, s]) => {
+        totalScore += s?.correct || 0;
+        totalMax   += s?.total || 0;
+        const label = SKILL_TO_PART_LABEL[skillKey];
+        if (label && (s?.total || 0) > 0 && !completedParts.includes(label)) completedParts.push(label);
+    });
+
     const battlePlayed = (JSON.parse(localStorage.getItem('result_battle'))?.total || 0) > 0;
     if (battlePlayed) {
         BATTLE_EQUIVALENT_LABELS.forEach(l => { if (!completedParts.includes(l)) completedParts.push(l); });
@@ -89,6 +104,16 @@ function buildEntryFromLocalStorage() {
         const r = JSON.parse(localStorage.getItem(`result_${key}`) || "null");
         if (r?.total > 0 && SKILL_GROUPS[key]) learnedGroups.add(SKILL_GROUPS[key]);
     });
+
+    // ✅ Cộng thêm nhóm kỹ năng đã học từ pkm_skill_scores vào learnedGroups
+    const SKILL_TO_GROUP_NAME = {
+        intro: "Từ vựng", listening: "Nghe", speaking: "Nói",
+        reading: "Đọc hiểu", writing: "Viết",
+    };
+    Object.entries(skillScores).forEach(([skillKey, s]) => {
+        if ((s?.total || 0) > 0 && SKILL_TO_GROUP_NAME[skillKey]) learnedGroups.add(SKILL_TO_GROUP_NAME[skillKey]);
+    });
+
     if (battlePlayed) BATTLE_EQUIVALENT_SKILLS.forEach(g => learnedGroups.add(g));
 
     const { overall } = getFullEvaluation({ totalScore, totalMax, completedParts, learnedGroups });
