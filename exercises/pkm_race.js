@@ -43,7 +43,15 @@ window.RaceGame = {
     //  - "slide" : branch (cành cây/cổng gỗ), swarm (đàn quái bay ngang qua)
     //  - "dodge" : wall (bức tường chắn 2/3 làn) — KHÔNG né được bằng nhảy/trượt,
     //              bắt buộc phải đứng đúng làn còn trống.
-    OBSTACLE_ACTIONS: { rock: "jump", spike: "jump", chasm: "jump", pendulum: "jump", branch: "slide", swarm: "slide", wall: "dodge" },
+    OBSTACLE_ACTIONS: {
+        rock: "jump",
+        spike: "jump",
+        chasm: "jump",
+        pendulum: "jump",
+        branch: "slide",
+        swarm: "slide",
+        wall: "dodge",
+    },
 
     HORIZON_Y: 430,
     ROAD_BOTTOM_Y: 1120,
@@ -52,107 +60,15 @@ window.RaceGame = {
     PLAYER_Y: 1080,
 
     // ═══════════════════════════════════════════════════════════
-    // CÁC KHU VỰC (ZONES) — thêm khu vực mới chỉ cần thêm 1 object vào đây
+    // CÁC KHU VỰC — dữ liệu + hình ảnh nay do pkm_race_background.js quản lý
+    // hoàn toàn (window.RaceBackground.ZONES). Ở đây chỉ giữ CHỈ SỐ khu vực
+    // hiện tại + hàm tiện ích zone() để phần logic game (spawn/va chạm/HUD)
+    // không phải sửa gì thêm.
     // ═══════════════════════════════════════════════════════════
-    ZONES: [
-        {
-            id: "temple", label: "🏛️ Đền Cổ",
-            sky: ["#160a2e", "#4c2270", "#a4477a", "#ff8c42"],
-            roadTop: "#3a3350", roadBottom: "#5b5270", roadStyle: "stone",
-            laneColor: "rgba(255,213,79,0.55)", edgeColor: "rgba(255,203,5,0.35)",
-            orb: { color: "#fff6d8", glow: "rgba(255,240,190,0.9)" },
-            silhouette: "temple", silhouetteColor: "#241132",
-            propKinds: ["pillar", "statue", "lantern"],
-            propPalette: {
-                pillar: { body: "#4a3f6e", body2: "#2c2440", gem: "#ffcb05" },
-                statue: { body: "#5a5068", eye: "#ffcb05" },
-                lantern: { body: "#2c2440", flame: "#ffcb05", glow: "rgba(255,203,5,0.5)" },
-            },
-            ambient: "firefly", ambientColor: "rgba(255,224,130,0.85)",
-            structureColor: ["#5a4a7a", "#3a2c58", "#241a3d"],
-            obstacleTypes: ["rock", "spike", "chasm", "branch", "swarm", "pendulum"],
-            obstacleAccent: "#ffcb05", obstacleFlourish: "glyph",
-            wallEnabled: true, portalColor: "#ffcb05",
-        },
-        {
-            id: "forest", label: "🌳 Rừng Rậm",
-            sky: ["#062818", "#0c4a2e", "#2e7d4f", "#a8e063"],
-            roadTop: "#3a2c1c", roadBottom: "#5a4530", roadStyle: "dirt",
-            laneColor: "rgba(200,255,140,0.5)", edgeColor: "rgba(120,90,50,0.5)",
-            orb: { color: "#fff3c4", glow: "rgba(255,240,150,0.8)" },
-            silhouette: "forest", silhouetteColor: "#0a2e1c",
-            propKinds: ["bigtree", "vine", "mushroom"],
-            propPalette: {
-                bigtree: { fill: "#0f4a24", fill2: "#166030", trunk: "#3a2612" },
-                vine: { body: "#2e7d4f", leaf: "#a8e063" },
-                mushroom: { stem: "#e8dcc0", cap: "#e0524f", spot: "#fff6e0", glow: "rgba(180,255,120,0.5)" },
-            },
-            ambient: "pollen", ambientColor: "rgba(220,255,180,0.8)",
-            structureColor: ["#4a6b3a", "#2e4a26", "#1c3018"],
-            obstacleTypes: ["rock", "branch", "swarm", "wall", "pendulum"],
-            obstacleAccent: "#a8e063", obstacleFlourish: "vine",
-            wallEnabled: true, portalColor: "#a8e063",
-        },
-        {
-            id: "ocean", label: "🌊 Bờ Biển",
-            sky: ["#031c30", "#0a3a5c", "#1f7ba8", "#7fd8e8"],
-            roadTop: "#c9b896", roadBottom: "#e8dcb8", roadStyle: "sand",
-            laneColor: "rgba(30,80,100,0.35)", edgeColor: "rgba(255,255,255,0.55)",
-            orb: { color: "#fff0c0", glow: "rgba(255,235,180,0.85)" },
-            silhouette: "ocean", silhouetteColor: "#0a2e40",
-            propKinds: ["palm", "coral", "driftwood"],
-            propPalette: {
-                palm: { trunk: "#7a5a3a", frond: "#1f8a5a" },
-                coral: { body: "#ff7f6b", body2: "#ff4f81", glow: "rgba(255,180,200,0.5)" },
-                driftwood: { body: "#8a6a48", moss: "rgba(160,240,255,0.5)" },
-            },
-            ambient: "bubble", ambientColor: "rgba(200,245,255,0.75)",
-            structureColor: ["#2e6e80", "#1c4a5a", "#0f2e3a"],
-            obstacleTypes: ["rock", "chasm", "branch", "swarm"],
-            obstacleAccent: "#7fd8e8", obstacleFlourish: "barnacle",
-            wallEnabled: false, portalColor: "#7fd8e8",
-        },
-        {
-            id: "sky", label: "☁️ Trên Mây",
-            sky: ["#1a2a6c", "#3a5aa8", "#7ea8e0", "#dff0ff"],
-            roadTop: "#ffffff", roadBottom: "#c9def8", roadStyle: "cloud",
-            laneColor: "rgba(255,255,255,0.85)", edgeColor: "rgba(255,255,255,0.6)",
-            orb: { color: "#fffde0", glow: "rgba(255,253,220,0.95)" },
-            silhouette: "sky", silhouetteColor: "#c9def0",
-            propKinds: ["cloudpuff", "floatisle", "starcluster"],
-            propPalette: {
-                cloudpuff: { fill: "#ffffff", shade: "#c9def8" },
-                floatisle: { body: "#8aa0d0", grass: "#7ee6a0" },
-                starcluster: { body: "#fffde0", glow: "rgba(255,255,200,0.6)" },
-            },
-            ambient: "cloudwisp", ambientColor: "rgba(255,255,255,0.85)",
-            structureColor: ["#8aa0d0", "#6a82b8", "#4a629a"],
-            obstacleTypes: ["chasm", "swarm", "wall", "pendulum"],
-            obstacleAccent: "#dff0ff", obstacleFlourish: "sparkle",
-            wallEnabled: true, portalColor: "#dff0ff",
-        },
-        {
-            id: "underground", label: "💎 Hang Động",
-            sky: ["#080308", "#1a0a20", "#2e0f28", "#4a1020"],
-            roadTop: "#241825", roadBottom: "#3f2c46", roadStyle: "cave",
-            laneColor: "rgba(255,140,80,0.55)", edgeColor: "rgba(180,110,255,0.4)",
-            orb: { color: "#c9a6ff", glow: "rgba(160,110,255,0.9)" },
-            silhouette: "underground", silhouetteColor: "#180a1e",
-            propKinds: ["stalagmite", "crystal", "fungus"],
-            propPalette: {
-                stalagmite: { body: "#3a2a3e", body2: "#241622", vein: "rgba(255,140,60,0.6)" },
-                crystal: { body: "#8a4ecf", body2: "#4a1e5a", glow: "rgba(180,110,255,0.65)" },
-                fungus: { stem: "#2a1420", cap: "#b088ff", glow: "rgba(180,110,255,0.55)" },
-            },
-            ambient: "ember", ambientColor: "rgba(255,150,60,0.85)",
-            structureColor: ["#5a2c3a", "#3a1c26", "#241016"],
-            obstacleTypes: ["rock", "spike", "chasm", "wall", "pendulum"],
-            obstacleAccent: "#b088ff", obstacleFlourish: "crystal",
-            wallEnabled: true, portalColor: "#b088ff",
-        },
-    ],
     currentZoneIndex: 0,
-    zone() { return this.ZONES[this.currentZoneIndex] || this.ZONES[0]; },
+    zone() {
+        return window.RaceBackground.zoneAt(this.currentZoneIndex);
+    },
     zoneCoins: 0,
     zoneCoinsTarget: 24,
     portalPending: false,
@@ -211,21 +127,18 @@ window.RaceGame = {
 
     shake: { t: 0, mag: 0 },
 
-    characterUrl: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/back/25.gif",
+    characterUrl:
+        "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/back/25.gif",
     characterImg: null,
-
-    cachedSkyGrad: null,
-    cachedRoadGrad: null,
-    cachedOrbGlow: null,
-    cachedVignette: null,
-    cachedPlayerGlow: null,
 
     // ═══════════════════════════════════════════════════════════
     // ÂM THANH (Web Audio API tự tạo — copy phong cách pkm_block.js)
     // ═══════════════════════════════════════════════════════════
     _audioCtx: null,
     ensureAudioCtx() {
-        if (!this._audioCtx) this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (!this._audioCtx)
+            this._audioCtx = new (window.AudioContext ||
+                window.webkitAudioContext)();
         if (this._audioCtx.state === "suspended") this._audioCtx.resume();
         return this._audioCtx;
     },
@@ -243,15 +156,41 @@ window.RaceGame = {
             gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
             osc.start(startTime);
             osc.stop(startTime + duration + 0.02);
-        } catch (e) { /* im lặng nếu trình duyệt chặn audio */ }
+        } catch (e) {
+            /* im lặng nếu trình duyệt chặn audio */
+        }
     },
-    playCoinSound() { this.playTone(880, 0.1, "triangle", 0.3, 0); this.playTone(1320, 0.12, "triangle", 0.28, 0.05); this.playTone(1760, 0.14, "sine", 0.22, 0.1); },
-    playJumpSound() { this.playTone(440, 0.08, "square", 0.15, 0); this.playTone(660, 0.1, "square", 0.15, 0.06); },
-    playSlideSound() { this.playTone(220, 0.14, "sawtooth", 0.14, 0); },
-    playHitSound() { this.playTone(140, 0.22, "square", 0.28, 0); this.playTone(90, 0.25, "sawtooth", 0.22, 0.05); },
-    playQuizChime() { this.playTone(784, 0.1, "sine", 0.22, 0); this.playTone(988, 0.1, "sine", 0.22, 0.09); this.playTone(1318, 0.18, "sine", 0.25, 0.18); },
-    playGoSound() { this.playTone(523, 0.12, "sine", 0.25, 0); this.playTone(659, 0.12, "sine", 0.25, 0.12); this.playTone(784, 0.2, "sine", 0.28, 0.24); },
-    playGameOverSound() { this.playTone(392, 0.2, "sawtooth", 0.2, 0); this.playTone(330, 0.2, "sawtooth", 0.2, 0.18); this.playTone(220, 0.35, "sawtooth", 0.2, 0.36); },
+    playCoinSound() {
+        this.playTone(880, 0.1, "triangle", 0.3, 0);
+        this.playTone(1320, 0.12, "triangle", 0.28, 0.05);
+        this.playTone(1760, 0.14, "sine", 0.22, 0.1);
+    },
+    playJumpSound() {
+        this.playTone(440, 0.08, "square", 0.15, 0);
+        this.playTone(660, 0.1, "square", 0.15, 0.06);
+    },
+    playSlideSound() {
+        this.playTone(220, 0.14, "sawtooth", 0.14, 0);
+    },
+    playHitSound() {
+        this.playTone(140, 0.22, "square", 0.28, 0);
+        this.playTone(90, 0.25, "sawtooth", 0.22, 0.05);
+    },
+    playQuizChime() {
+        this.playTone(784, 0.1, "sine", 0.22, 0);
+        this.playTone(988, 0.1, "sine", 0.22, 0.09);
+        this.playTone(1318, 0.18, "sine", 0.25, 0.18);
+    },
+    playGoSound() {
+        this.playTone(523, 0.12, "sine", 0.25, 0);
+        this.playTone(659, 0.12, "sine", 0.25, 0.12);
+        this.playTone(784, 0.2, "sine", 0.28, 0.24);
+    },
+    playGameOverSound() {
+        this.playTone(392, 0.2, "sawtooth", 0.2, 0);
+        this.playTone(330, 0.2, "sawtooth", 0.2, 0.18);
+        this.playTone(220, 0.35, "sawtooth", 0.2, 0.36);
+    },
     playZoneChangeSound() {
         this.playTone(392, 0.15, "sine", 0.22, 0);
         this.playTone(523, 0.15, "sine", 0.24, 0.12);
@@ -281,28 +220,50 @@ window.RaceGame = {
         const renderLevelSelect = (container) => {
             return new Promise((resolve) => {
                 const LEVELS = [
-                    { key: "de", emoji: "🟢", label: "Dễ", sub: "Hội thoại/đoạn văn ngắn" },
-                    { key: "trung_binh", emoji: "🟡", label: "Trung bình", sub: "Độ dài vừa phải" },
-                    { key: "kho", emoji: "🔴", label: "Khó", sub: "Hội thoại/đoạn văn dài" },
+                    {
+                        key: "de",
+                        emoji: "🟢",
+                        label: "Dễ",
+                        sub: "Hội thoại/đoạn văn ngắn",
+                    },
+                    {
+                        key: "trung_binh",
+                        emoji: "🟡",
+                        label: "Trung bình",
+                        sub: "Độ dài vừa phải",
+                    },
+                    {
+                        key: "kho",
+                        emoji: "🔴",
+                        label: "Khó",
+                        sub: "Hội thoại/đoạn văn dài",
+                    },
                 ];
                 container.innerHTML = `
-                    <div style="text-align:center;">
-                        <div class="race-level-select-title">🏃 Chọn cấp độ Temple Dash!</div>
-                        <div class="race-level-row">
-                            ${LEVELS.map((lv) => `
-                                <div class="race-level-card" data-level="${lv.key}">
-                                    <div class="lv-emoji">${lv.emoji}</div>
-                                    <div class="lv-label">${lv.label}</div>
-                                    <div class="lv-sub">${lv.sub}</div>
-                                </div>`).join("")}
-                        </div>
-                    </div>`;
-                container.querySelectorAll(".race-level-card").forEach((card) => {
-                    card.onclick = () => {
-                        localStorage.setItem("selected_level", card.dataset.level);
-                        resolve(card.dataset.level);
-                    };
-                });
+                            <div style="text-align:center;">
+                                <div class="race-level-select-title">🏃 Chọn cấp độ Temple Dash!</div>
+                                <div class="race-level-row">
+                                    ${LEVELS.map(
+                                        (lv) => `
+                                        <div class="race-level-card" data-level="${lv.key}">
+                                            <div class="lv-emoji">${lv.emoji}</div>
+                                            <div class="lv-label">${lv.label}</div>
+                                            <div class="lv-sub">${lv.sub}</div>
+                                        </div>`,
+                                    ).join("")}
+                                </div>
+                            </div>`;
+                container
+                    .querySelectorAll(".race-level-card")
+                    .forEach((card) => {
+                        card.onclick = () => {
+                            localStorage.setItem(
+                                "selected_level",
+                                card.dataset.level,
+                            );
+                            resolve(card.dataset.level);
+                        };
+                    });
             });
         };
 
@@ -317,11 +278,11 @@ window.RaceGame = {
                 document.body.appendChild(mainCard);
             }
             mainCard.style.cssText = `
-                position: fixed; top:0; left:0; width:100vw; height:100dvh;
-                background: radial-gradient(circle, #241143 0%, #0a0616 100%);
-                z-index: 99999; display:flex; align-items:center; justify-content:center;
-                padding:20px; box-sizing:border-box;
-            `;
+                        position: fixed; top:0; left:0; width:100vw; height:100dvh;
+                        background: radial-gradient(circle, #241143 0%, #0a0616 100%);
+                        z-index: 99999; display:flex; align-items:center; justify-content:center;
+                        padding:20px; box-sizing:border-box;
+                    `;
             mainCard.style.display = "flex";
 
             await renderLevelSelect(mainCard);
@@ -336,11 +297,18 @@ window.RaceGame = {
             this.showTapToStart();
         };
 
-        if (window.VocabularyModule && typeof window.VocabularyModule.start === "function") {
-            console.log("📘 [Race] Gọi VocabularyModule chạy phần học từ vựng...");
+        if (
+            window.VocabularyModule &&
+            typeof window.VocabularyModule.start === "function"
+        ) {
+            console.log(
+                "📘 [Race] Gọi VocabularyModule chạy phần học từ vựng...",
+            );
             await window.VocabularyModule.start();
         } else {
-            console.warn("⚠️ Không tìm thấy VocabularyModule, tự động vào thẳng Temple Dash!");
+            console.warn(
+                "⚠️ Không tìm thấy VocabularyModule, tự động vào thẳng Temple Dash!",
+            );
             window.startPokemonBattle();
         }
     },
@@ -350,16 +318,21 @@ window.RaceGame = {
         let id = 25;
         try {
             const inv = JSON.parse(localStorage.getItem("pkm_inventory")) || [];
-            const team = inv.filter((p) => p.inTeam).sort((a, b) => a.position - b.position);
+            const team = inv
+                .filter((p) => p.inTeam)
+                .sort((a, b) => a.position - b.position);
             if (team.length > 0) id = team[0].id;
-        } catch (e) { /* dùng fallback Pikachu */ }
+        } catch (e) {
+            /* dùng fallback Pikachu */
+        }
         this.characterUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/back/${id}.gif`;
         this.characterImg = new Image();
         this.characterImg.crossOrigin = "anonymous";
         await new Promise((resolve) => {
             this.characterImg.onload = resolve;
             this.characterImg.onerror = () => {
-                this.characterUrl = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/back/25.gif";
+                this.characterUrl =
+                    "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/back/25.gif";
                 this.characterImg.src = this.characterUrl;
                 resolve();
             };
@@ -382,7 +355,8 @@ window.RaceGame = {
         // hề bị kéo méo. Kết quả: điện thoại (dọc, hẹp) thấy đường chạy gần
         // và chật, còn PC/màn ngang (rộng) thấy thêm khung cảnh 2 bên đường
         // — đúng cảm giác "PC khác, mobile khác" mà vẫn luôn full màn hình.
-        this.cssW = wrapW; this.cssH = wrapH;
+        this.cssW = wrapW;
+        this.cssH = wrapH;
         this.canvas.style.width = wrapW + "px";
         this.canvas.style.height = wrapH + "px";
 
@@ -403,46 +377,23 @@ window.RaceGame = {
         this.canvas.width = Math.round(this.VW * this.dpr);
         this.canvas.height = Math.round(this.VH * this.dpr);
         this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-        this.buildCachedGradients();
+        window.RaceBackground.rebuildGradients(this.ctx, this.raceState());
     },
 
-    // Dựng lại toàn bộ gradient cache theo KHU VỰC HIỆN TẠI — gọi lại mỗi khi
-    // resize() HOẶC mỗi khi đổi khu vực (changeZone()), vì màu sắc phụ thuộc
-    // this.zone(). Các gradient này KHÔNG đổi hình dạng giữa các khung hình
-    // (chỉ tịnh tiến theo translate) -> dựng sẵn 1 LẦN, tránh gọi
-    // createRadialGradient()/createLinearGradient() 60 lần/giây — đây chính
-    // là 1 nguyên nhân lớn gây giật/lag trên điện thoại yếu.
-    buildCachedGradients() {
-        const ctx = this.ctx;
-        const z = this.zone();
-
-        const sky = ctx.createLinearGradient(0, 0, 0, this.HORIZON_Y + 60);
-        sky.addColorStop(0, z.sky[0]);
-        sky.addColorStop(0.45, z.sky[1]);
-        sky.addColorStop(0.8, z.sky[2]);
-        sky.addColorStop(1, z.sky[3]);
-        this.cachedSkyGrad = sky;
-
-        const road = ctx.createLinearGradient(0, this.HORIZON_Y, 0, this.ROAD_BOTTOM_Y + 120);
-        road.addColorStop(0, z.roadTop);
-        road.addColorStop(1, z.roadBottom);
-        this.cachedRoadGrad = road;
-
-        const orbX = this.VW * 0.78, orbY = 150;
-        const orbGlow = ctx.createRadialGradient(orbX, orbY, 4, orbX, orbY, 90);
-        orbGlow.addColorStop(0, z.orb.glow);
-        orbGlow.addColorStop(1, z.orb.glow.replace(/[\d.]+\)$/, "0)"));
-        this.cachedOrbGlow = orbGlow;
-
-        const vign = ctx.createRadialGradient(this.VW / 2, this.VH * 0.42, this.VH * 0.35, this.VW / 2, this.VH * 0.42, this.VH * 0.75);
-        vign.addColorStop(0, "rgba(0,0,0,0)");
-        vign.addColorStop(1, "rgba(0,0,0,0.45)");
-        this.cachedVignette = vign;
-
-        const pGlow = ctx.createRadialGradient(0, 20, 10, 0, 20, 90);
-        pGlow.addColorStop(0, "rgba(255,203,5,0.35)");
-        pGlow.addColorStop(1, "rgba(255,203,5,0)");
-        this.cachedPlayerGlow = pGlow;
+    // Đóng gói mọi thông số hình học/trạng thái mà pkm_race_background.js
+    // cần để vẽ — truyền 1 object duy nhất cho gọn thay vì nhiều tham số rời.
+    raceState() {
+        return {
+            VW: this.VW,
+            VH: this.VH,
+            HORIZON_Y: this.HORIZON_Y,
+            ROAD_BOTTOM_Y: this.ROAD_BOTTOM_Y,
+            LANE_OFFSET_BOTTOM: this.LANE_OFFSET_BOTTOM,
+            LANE_OFFSET_TOP: this.LANE_OFFSET_TOP,
+            distance: this.distance,
+            zoneIndex: this.currentZoneIndex,
+            renderProjFor: (lane, t) => this.renderProjFor(lane, t),
+        };
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -452,11 +403,11 @@ window.RaceGame = {
         const layer = document.getElementById("race-overlay-layer");
         layer.className = "show";
         layer.innerHTML = `
-            <div id="tapStartCard">
-                <div id="tapStartBtn"></div>
-                <div class="tap-label">Chạm để bắt đầu!</div>
-                <div class="tap-sub">Vượt chướng ngại · Ăn vàng · Khám phá 5 khu vực</div>
-            </div>`;
+                    <div id="tapStartCard">
+                        <div id="tapStartBtn"></div>
+                        <div class="tap-label">Chạm để bắt đầu!</div>
+                        <div class="tap-sub">Vượt chướng ngại · Ăn vàng · Khám phá 5 khu vực</div>
+                    </div>`;
         this.renderIdleFrame();
         document.getElementById("tapStartBtn").onclick = () => {
             this.ensureAudioCtx();
@@ -504,10 +455,14 @@ window.RaceGame = {
     resetRunState() {
         this.player.lane = 0;
         this.player.xOff = 0;
-        this.player.jumping = false; this.player.jumpT = 0;
-        this.player.sliding = false; this.player.slideT = 0;
-        this.player.hit = false; this.player.invulnT = 0;
-        this.player.runCycle = 0; this.player.squash = 1;
+        this.player.jumping = false;
+        this.player.jumpT = 0;
+        this.player.sliding = false;
+        this.player.slideT = 0;
+        this.player.hit = false;
+        this.player.invulnT = 0;
+        this.player.runCycle = 0;
+        this.player.squash = 1;
         this.objects = [];
         this.sideProps = [];
         this.particles = [];
@@ -516,7 +471,7 @@ window.RaceGame = {
         this.zoneCoinsTarget = this.randomZoneTarget();
         this.portalPending = false;
         this.initAmbientParticles();
-        this.buildCachedGradients();
+        window.RaceBackground.rebuildGradients(this.ctx, this.raceState());
         this.spawnTimer = 0.6;
         this.propTimer = 0.2;
     },
@@ -532,7 +487,9 @@ window.RaceGame = {
         this.lives = 10;
         this.distance = 0;
         this.speed = this.BASE_SPEED;
-        this.correctCount = 0; this.wrongCount = 0; this.totalCount = 0;
+        this.correctCount = 0;
+        this.wrongCount = 0;
+        this.totalCount = 0;
         this.coinsSinceQuiz = 0;
         this.coinsUntilQuiz = this.randomCoinThreshold();
         this.updateHUD();
@@ -574,8 +531,12 @@ window.RaceGame = {
         // requestAnimationFrame(this._boundLoop) ở nơi khác (xem onQuizAnswered()).
     },
 
-    randomCoinThreshold() { return 18; },
-    randomZoneTarget() { return 18; },
+    randomCoinThreshold() {
+        return 6 + Math.floor(Math.random() * 3);
+    }, // 6..8
+    randomZoneTarget() {
+        return 40;
+    },
 
     // ═══════════════════════════════════════════════════════════
     // CẬP NHẬT MỖI KHUNG HÌNH
@@ -583,7 +544,10 @@ window.RaceGame = {
     update(dt) {
         // tăng dần độ khó theo quãng đường
         this.distance += this.speed * dt * 40;
-        this.speed = Math.min(this.MAX_SPEED, this.BASE_SPEED + this.distance * 0.00035);
+        this.speed = Math.min(
+            this.MAX_SPEED,
+            this.BASE_SPEED + this.distance * 0.00035,
+        );
         this.score = this.coinsCollected * 10 + Math.floor(this.distance);
 
         this.updatePlayer(dt);
@@ -593,7 +557,10 @@ window.RaceGame = {
         this.updateParticles(dt);
         this.updateAmbientParticles(dt);
 
-        if (this.shake.t > 0) { this.shake.t -= dt; if (this.shake.t < 0) this.shake.t = 0; }
+        if (this.shake.t > 0) {
+            this.shake.t -= dt;
+            if (this.shake.t < 0) this.shake.t = 0;
+        }
 
         this.updateHUD();
     },
@@ -608,13 +575,22 @@ window.RaceGame = {
 
         if (p.jumping) {
             p.jumpT += dt / p.JUMP_DUR;
-            if (p.jumpT >= 1) { p.jumpT = 0; p.jumping = false; }
+            if (p.jumpT >= 1) {
+                p.jumpT = 0;
+                p.jumping = false;
+            }
         }
         if (p.sliding) {
             p.slideT += dt / p.SLIDE_DUR;
-            if (p.slideT >= 1) { p.slideT = 0; p.sliding = false; }
+            if (p.slideT >= 1) {
+                p.slideT = 0;
+                p.sliding = false;
+            }
         }
-        if (p.invulnT > 0) { p.invulnT -= dt; if (p.invulnT < 0) p.invulnT = 0; }
+        if (p.invulnT > 0) {
+            p.invulnT -= dt;
+            if (p.invulnT < 0) p.invulnT = 0;
+        }
     },
 
     updateSpawns(dt) {
@@ -666,7 +642,13 @@ window.RaceGame = {
         const lane = this.LANES[Math.floor(Math.random() * this.LANES.length)];
         const count = 4 + Math.floor(Math.random() * 3);
         for (let i = 0; i < count; i++) {
-            this.objects.push({ kind: "coin", lane, t: 1.05 + i * 0.055, resolved: false, spin: Math.random() * 10 });
+            this.objects.push({
+                kind: "coin",
+                lane,
+                t: 1.05 + i * 0.055,
+                resolved: false,
+                spin: Math.random() * 10,
+            });
         }
     },
 
@@ -674,13 +656,28 @@ window.RaceGame = {
         const lane = this.LANES[Math.floor(Math.random() * this.LANES.length)];
         const pool = this.zone().obstacleTypes;
         const type = pool[Math.floor(Math.random() * pool.length)];
-        this.objects.push({ kind: "obstacle", lane, t: 1.08, type, resolved: false, spanAll: false, spin: Math.random() * 10 });
+        this.objects.push({
+            kind: "obstacle",
+            lane,
+            t: 1.08,
+            type,
+            resolved: false,
+            spanAll: false,
+            spin: Math.random() * 10,
+        });
         // thưởng vàng ở 1 lane an toàn bên cạnh để khuyến khích đổi lane
         if (Math.random() < 0.6) {
             const safeLanes = this.LANES.filter((l) => l !== lane);
-            const safeLane = safeLanes[Math.floor(Math.random() * safeLanes.length)];
+            const safeLane =
+                safeLanes[Math.floor(Math.random() * safeLanes.length)];
             for (let i = 0; i < 3; i++) {
-                this.objects.push({ kind: "coin", lane: safeLane, t: 1.08 + i * 0.05, resolved: false, spin: Math.random() * 10 });
+                this.objects.push({
+                    kind: "coin",
+                    lane: safeLane,
+                    t: 1.08 + i * 0.05,
+                    resolved: false,
+                    spin: Math.random() * 10,
+                });
             }
         }
     },
@@ -689,11 +686,23 @@ window.RaceGame = {
         const pool = this.zone().obstacleTypes;
         const type = pool[Math.floor(Math.random() * pool.length)];
         const action = this.OBSTACLE_ACTIONS[type];
-        this.objects.push({ kind: "obstacle", lane: 0, t: 1.1, type, resolved: false, spanAll: true, spin: Math.random() * 10 });
+        this.objects.push({
+            kind: "obstacle",
+            lane: 0,
+            t: 1.1,
+            type,
+            resolved: false,
+            spanAll: true,
+            spin: Math.random() * 10,
+        });
         // vàng thưởng ngay tại chỗ, chỉ ăn được nếu thực hiện đúng động tác (nhảy/trượt)
         this.LANES.forEach((lane) => {
             this.objects.push({
-                kind: "coin", lane, t: 1.1, resolved: false, spin: Math.random() * 10,
+                kind: "coin",
+                lane,
+                t: 1.1,
+                resolved: false,
+                spin: Math.random() * 10,
                 overBarrier: action === "jump",
                 underBarrier: action === "slide",
             });
@@ -705,19 +714,42 @@ window.RaceGame = {
     // sang đúng chỗ trống trước khi va tới. (Chỉ xuất hiện ở khu vực có
     // zone.wallEnabled === true — xem spawnWave()).
     spawnWallGap() {
-        const freeLane = this.LANES[Math.floor(Math.random() * this.LANES.length)];
+        const freeLane =
+            this.LANES[Math.floor(Math.random() * this.LANES.length)];
         const blockedLanes = this.LANES.filter((l) => l !== freeLane);
-        this.objects.push({ kind: "obstacle", type: "wall", lane: freeLane, blockedLanes, t: 1.12, resolved: false, spanAll: false });
+        this.objects.push({
+            kind: "obstacle",
+            type: "wall",
+            lane: freeLane,
+            blockedLanes,
+            t: 1.12,
+            resolved: false,
+            spanAll: false,
+        });
         // vàng dẫn đường ngay tại làn trống để gợi ý hướng né
         for (let i = 0; i < 3; i++) {
-            this.objects.push({ kind: "coin", lane: freeLane, t: 1.12 + i * 0.05, resolved: false, spin: Math.random() * 10 });
+            this.objects.push({
+                kind: "coin",
+                lane: freeLane,
+                t: 1.12 + i * 0.05,
+                resolved: false,
+                spin: Math.random() * 10,
+            });
         }
     },
 
     // Cổng dịch chuyển sang khu vực TIẾP THEO (quay vòng hết danh sách ZONES).
     spawnPortal() {
-        const nextIndex = (this.currentZoneIndex + 1) % this.ZONES.length;
-        this.objects.push({ kind: "portal", lane: 0, t: 1.25, resolved: false, nextIndex, spin: 0 });
+        const nextIndex =
+            (this.currentZoneIndex + 1) % window.RaceBackground.ZONES.length;
+        this.objects.push({
+            kind: "portal",
+            lane: 0,
+            t: 1.25,
+            resolved: false,
+            nextIndex,
+            spin: 0,
+        });
     },
 
     updateObjects(dt) {
@@ -760,14 +792,19 @@ window.RaceGame = {
     // ═══════════════════════════════════════════════════════════
     initAmbientParticles() {
         this.ambientParticles = [];
-        for (let i = 0; i < 16; i++) this.ambientParticles.push(this.makeAmbientParticle(true));
+        for (let i = 0; i < 16; i++)
+            this.ambientParticles.push(this.makeAmbientParticle(true));
     },
 
     makeAmbientParticle(randomY) {
         const ember = this.zone().ambient === "ember";
         return {
             x: Math.random() * this.VW,
-            y: randomY ? Math.random() * this.HORIZON_Y * 1.3 : (ember ? this.HORIZON_Y * 1.25 : -10),
+            y: randomY
+                ? Math.random() * this.HORIZON_Y * 1.3
+                : ember
+                  ? this.HORIZON_Y * 1.25
+                  : -10,
             vx: (Math.random() - 0.5) * 14,
             vy: 6 + Math.random() * 14,
             size: 1.4 + Math.random() * 2.6,
@@ -781,7 +818,12 @@ window.RaceGame = {
             p.phase += dt;
             p.x += (p.vx + Math.sin(p.phase) * 8) * dt;
             p.y += (ember ? -p.vy : p.vy) * dt;
-            if (p.y > this.HORIZON_Y * 1.4 || p.y < -20 || p.x < -20 || p.x > this.VW + 20) {
+            if (
+                p.y > this.HORIZON_Y * 1.4 ||
+                p.y < -20 ||
+                p.x < -20 ||
+                p.x > this.VW + 20
+            ) {
                 Object.assign(p, this.makeAmbientParticle(false));
             }
         }
@@ -793,11 +835,26 @@ window.RaceGame = {
         ctx.save();
         ctx.fillStyle = z.ambientColor;
         this.ambientParticles.forEach((p) => {
-            ctx.globalAlpha = z.ambient === "firefly" ? (0.35 + 0.65 * Math.abs(Math.sin(p.phase * 2))) : 0.8;
+            ctx.globalAlpha =
+                z.ambient === "firefly"
+                    ? 0.35 + 0.65 * Math.abs(Math.sin(p.phase * 2))
+                    : 0.8;
             if (z.ambient === "cloudwisp") {
-                ctx.beginPath(); ctx.ellipse(p.x, p.y, p.size * 3, p.size * 1.3, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(
+                    p.x,
+                    p.y,
+                    p.size * 3,
+                    p.size * 1.3,
+                    0,
+                    0,
+                    Math.PI * 2,
+                );
+                ctx.fill();
             } else {
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
             }
         });
         ctx.restore();
@@ -810,17 +867,33 @@ window.RaceGame = {
         const p = this.player;
 
         if (obj.kind === "coin") {
-            if (obj.lane !== p.lane) { obj.resolved = true; return; }
-            if (obj.overBarrier && !p.jumping) { obj.resolved = true; return; }
-            if (obj.underBarrier && !p.sliding) { obj.resolved = true; return; }
+            if (obj.lane !== p.lane) {
+                obj.resolved = true;
+                return;
+            }
+            if (obj.overBarrier && !p.jumping) {
+                obj.resolved = true;
+                return;
+            }
+            if (obj.underBarrier && !p.sliding) {
+                obj.resolved = true;
+                return;
+            }
             obj.resolved = true;
             this.collectCoin(obj);
             return;
         }
 
         // obstacle — "covered" = người chơi đang ở làn bị chướng ngại này che
-        const covered = obj.spanAll || (obj.blockedLanes ? obj.blockedLanes.includes(p.lane) : obj.lane === p.lane);
-        if (!covered) { obj.resolved = true; return; }
+        const covered =
+            obj.spanAll ||
+            (obj.blockedLanes
+                ? obj.blockedLanes.includes(p.lane)
+                : obj.lane === p.lane);
+        if (!covered) {
+            obj.resolved = true;
+            return;
+        }
         obj.resolved = true;
         if (p.invulnT > 0) return; // đang bất tử sau va chạm trước đó
 
@@ -863,13 +936,16 @@ window.RaceGame = {
         this.lives = Math.max(0, this.lives - 1);
         this.player.hit = true;
         this.player.invulnT = 1.3;
-        this.shake.t = 0.35; this.shake.mag = 16;
+        this.shake.t = 0.35;
+        this.shake.mag = 16;
         this.playHitSound();
         const pos = this.projectPlayerPoint();
         this.spawnBurst(pos.x, pos.y - 30, "#ff6b6b", 12);
         this.spawnFloatText(pos.x, pos.y - 50, "-1 ❤️", "#ff6b6b");
         this.updateHeartsUI();
-        setTimeout(() => { this.player.hit = false; }, 260);
+        setTimeout(() => {
+            this.player.hit = false;
+        }, 260);
         this.checkGameOver();
     },
 
@@ -881,8 +957,13 @@ window.RaceGame = {
         this.zoneCoins = 0;
         this.zoneCoinsTarget = this.randomZoneTarget();
         this.portalPending = false;
-        this.buildCachedGradients();
-        this.spawnBurst(this.VW / 2, this.HORIZON_Y * 0.7, this.zone().portalColor, 34);
+        window.RaceBackground.rebuildGradients(this.ctx, this.raceState());
+        this.spawnBurst(
+            this.VW / 2,
+            this.HORIZON_Y * 0.7,
+            this.zone().portalColor,
+            34,
+        );
         this.showZoneBanner();
         this.playZoneChangeSound();
     },
@@ -896,7 +977,10 @@ window.RaceGame = {
         void el.offsetWidth;
         el.classList.add("show");
         clearTimeout(this._zoneBannerTimer);
-        this._zoneBannerTimer = setTimeout(() => el.classList.remove("show"), 2400);
+        this._zoneBannerTimer = setTimeout(
+            () => el.classList.remove("show"),
+            2400,
+        );
     },
 
     spawnBurst(x, y, color, count) {
@@ -904,15 +988,32 @@ window.RaceGame = {
             const ang = Math.random() * Math.PI * 2;
             const spd = 60 + Math.random() * 120;
             this.particles.push({
-                x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 40,
-                gravity: 260, life: 0.5 + Math.random() * 0.3, maxLife: 0.8,
-                color, size: 3 + Math.random() * 3,
+                x,
+                y,
+                vx: Math.cos(ang) * spd,
+                vy: Math.sin(ang) * spd - 40,
+                gravity: 260,
+                life: 0.5 + Math.random() * 0.3,
+                maxLife: 0.8,
+                color,
+                size: 3 + Math.random() * 3,
             });
         }
     },
 
     spawnFloatText(x, y, text, color) {
-        this.particles.push({ x, y, vx: 0, vy: -55, gravity: 40, life: 0.9, maxLife: 0.9, color, text, size: 20 });
+        this.particles.push({
+            x,
+            y,
+            vx: 0,
+            vy: -55,
+            gravity: 40,
+            life: 0.9,
+            maxLife: 0.9,
+            color,
+            text,
+            size: 20,
+        });
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -927,11 +1028,15 @@ window.RaceGame = {
 
         const banner = document.getElementById("quiz-intro-banner");
         banner.classList.add("show");
-        setTimeout(() => { banner.classList.remove("show"); }, 900);
+        setTimeout(() => {
+            banner.classList.remove("show");
+        }, 900);
 
         setTimeout(() => {
             if (window.QuizManager) {
-                window.QuizManager.ask((isCorrect) => this.onQuizAnswered(isCorrect));
+                window.QuizManager.ask((isCorrect) =>
+                    this.onQuizAnswered(isCorrect),
+                );
             } else {
                 this.onQuizAnswered(true);
             }
@@ -942,7 +1047,8 @@ window.RaceGame = {
         if (window.PkmScore) window.PkmScore.recordAnswer(isCorrect);
 
         this.totalCount++;
-        if (isCorrect) this.correctCount++; else this.wrongCount++;
+        if (isCorrect) this.correctCount++;
+        else this.wrongCount++;
         this.updateHUD();
 
         this.paused = false;
@@ -987,30 +1093,47 @@ window.RaceGame = {
             if (this.controlsLocked || !this.running || this.gameOver) return;
             if (e.key === "ArrowLeft" || e.key === "a") doLeft();
             else if (e.key === "ArrowRight" || e.key === "d") doRight();
-            else if (e.key === "ArrowUp" || e.key === " " || e.key === "w") doJump();
+            else if (e.key === "ArrowUp" || e.key === " " || e.key === "w")
+                doJump();
             else if (e.key === "ArrowDown" || e.key === "s") doSlide();
         });
 
         // Cử chỉ vuốt trên canvas
-        let touchStartX = 0, touchStartY = 0, touchActive = false;
-        const stage = document.getElementById("race-stage");
-        stage.addEventListener("touchstart", (e) => {
-            if (this.controlsLocked) return;
-            const t = e.changedTouches[0];
-            touchStartX = t.clientX; touchStartY = t.clientY; touchActive = true;
-        }, { passive: true });
-        stage.addEventListener("touchend", (e) => {
-            if (!touchActive || this.controlsLocked) return;
+        let touchStartX = 0,
+            touchStartY = 0,
             touchActive = false;
-            const t = e.changedTouches[0];
-            const dx = t.clientX - touchStartX;
-            const dy = t.clientY - touchStartY;
-            const absX = Math.abs(dx), absY = Math.abs(dy);
-            const THRESH = 28;
-            if (Math.max(absX, absY) < THRESH) return;
-            if (absX > absY) { dx > 0 ? doRight() : doLeft(); }
-            else { dy > 0 ? doSlide() : doJump(); }
-        }, { passive: true });
+        const stage = document.getElementById("race-stage");
+        stage.addEventListener(
+            "touchstart",
+            (e) => {
+                if (this.controlsLocked) return;
+                const t = e.changedTouches[0];
+                touchStartX = t.clientX;
+                touchStartY = t.clientY;
+                touchActive = true;
+            },
+            { passive: true },
+        );
+        stage.addEventListener(
+            "touchend",
+            (e) => {
+                if (!touchActive || this.controlsLocked) return;
+                touchActive = false;
+                const t = e.changedTouches[0];
+                const dx = t.clientX - touchStartX;
+                const dy = t.clientY - touchStartY;
+                const absX = Math.abs(dx),
+                    absY = Math.abs(dy);
+                const THRESH = 28;
+                if (Math.max(absX, absY) < THRESH) return;
+                if (absX > absY) {
+                    dx > 0 ? doRight() : doLeft();
+                } else {
+                    dy > 0 ? doSlide() : doJump();
+                }
+            },
+            { passive: true },
+        );
     },
 
     moveLane(dir) {
@@ -1045,9 +1168,12 @@ window.RaceGame = {
         if (coinsEl) coinsEl.innerText = this.coinsCollected;
         if (scoreEl) scoreEl.innerText = this.score;
         const stats = document.getElementById("quiz-stats");
-        if (stats) stats.innerHTML = `✅ ${this.correctCount} &nbsp; ❌ ${this.wrongCount} &nbsp; 📊 ${this.totalCount} câu`;
+        if (stats)
+            stats.innerHTML = `✅ ${this.correctCount} &nbsp; ❌ ${this.wrongCount} &nbsp; 📊 ${this.totalCount} câu`;
         const zoneEl = document.getElementById("zoneChip");
-        if (zoneEl) zoneEl.textContent = (this.zone().label || "").split(" ")[0] || "🏛️";
+        if (zoneEl)
+            zoneEl.textContent =
+                (this.zone().label || "").split(" ")[0] || "🏛️";
     },
 
     updateHeartsUI() {
@@ -1075,15 +1201,22 @@ window.RaceGame = {
     async getRewardImage() {
         try {
             const inv = JSON.parse(localStorage.getItem("pkm_inventory")) || [];
-            const team = inv.filter((p) => p.inTeam).sort((a, b) => a.position - b.position);
-            if (team.length > 0) return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${team[0].id}.png`;
-        } catch (e) { /* ignore */ }
+            const team = inv
+                .filter((p) => p.inTeam)
+                .sort((a, b) => a.position - b.position);
+            if (team.length > 0)
+                return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${team[0].id}.png`;
+        } catch (e) {
+            /* ignore */
+        }
         return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png`;
     },
 
     handleMatchEnd() {
         if (!window.PkmScore) {
-            console.error('❌ PkmScore chưa được nạp — thiếu <script src="pkm_score.js"> trong pkm_race.html (phải đặt TRƯỚC thẻ <script src="pkm_race.js">)?');
+            console.error(
+                '❌ PkmScore chưa được nạp — thiếu <script src="pkm_score.js"> trong pkm_race.html (phải đặt TRƯỚC thẻ <script src="pkm_race.js">)?',
+            );
             return;
         }
 
@@ -1099,7 +1232,10 @@ window.RaceGame = {
         if (result.skipped) {
             this.getRewardImage().then((src) => {
                 const img = document.getElementById("victory-pkm-img");
-                if (img) { img.src = src; img.style.filter = "grayscale(100%) opacity(0.7)"; }
+                if (img) {
+                    img.src = src;
+                    img.style.filter = "grayscale(100%) opacity(0.7)";
+                }
             });
             if (titleEl) {
                 titleEl.innerText = "💥 HẾT MẠNG RỒI!";
@@ -1108,12 +1244,12 @@ window.RaceGame = {
             }
             if (expText) {
                 expText.innerHTML = `
-                    <div style="color:#ccc; margin-bottom:14px;">Chuyến chạy kết thúc quá sớm!</div>
-                    <div style="font-size:13px; color:#ff9f43; margin-bottom:10px;">
-                        Ván này mới trả lời ${this.totalCount}/${this.MIN_QUESTIONS} câu tối thiểu nên
-                        chưa được tính điểm hay thưởng.
-                    </div>
-                    <div style="font-size:12px; color:#ffbc00;">Chơi lại và trả lời đủ ${this.MIN_QUESTIONS} câu để được ghi nhận nhé!</div>`;
+                            <div style="color:#ccc; margin-bottom:14px;">Chuyến chạy kết thúc quá sớm!</div>
+                            <div style="font-size:13px; color:#ff9f43; margin-bottom:10px;">
+                                Ván này mới trả lời ${this.totalCount}/${this.MIN_QUESTIONS} câu tối thiểu nên
+                                chưa được tính điểm hay thưởng.
+                            </div>
+                            <div style="font-size:12px; color:#ffbc00;">Chơi lại và trả lời đủ ${this.MIN_QUESTIONS} câu để được ghi nhận nhé!</div>`;
             }
             const overlay = document.getElementById("victory-overlay");
             if (overlay) overlay.style.display = "flex";
@@ -1127,40 +1263,55 @@ window.RaceGame = {
 
         if (titleEl) titleEl.innerText = "🏆 VỀ ĐÍCH!";
 
-        const messages = (result.breakdown || []).map((b) => {
-            if (b.type === "new_lesson") return `🌟 BÀI MỚI HOÀN THÀNH (${b.accuracy}% đúng): <b>+${b.exp} KN +${b.dv} DV</b>`;
-            if (b.type === "new_lesson_failed") return `⚠️ Bài mới nhưng chỉ ${b.accuracy}% đúng — cần ≥${b.requiredAccuracy}% để mở khoá!`;
-            if (b.type === "correct_answers") return `📝 ${b.correctCount} câu đúng ÷ ${b.divisor} = <b>+${b.exp} KN +${b.dv} DV</b>`;
-            if (b.type === "streak") return b.exp > 0 ? `🔥 Chuỗi ${b.streak} ngày liên tục: <b>+${b.exp} KN +${b.dv} DV</b>` : `📅 Chuỗi hiện tại: <b>${b.streak} ngày</b>`;
-            return "";
-        }).filter(Boolean);
+        const messages = (result.breakdown || [])
+            .map((b) => {
+                if (b.type === "new_lesson")
+                    return `🌟 BÀI MỚI HOÀN THÀNH (${b.accuracy}% đúng): <b>+${b.exp} KN +${b.dv} DV</b>`;
+                if (b.type === "new_lesson_failed")
+                    return `⚠️ Bài mới nhưng chỉ ${b.accuracy}% đúng — cần ≥${b.requiredAccuracy}% để mở khoá!`;
+                if (b.type === "correct_answers")
+                    return `📝 ${b.correctCount} câu đúng ÷ ${b.divisor} = <b>+${b.exp} KN +${b.dv} DV</b>`;
+                if (b.type === "streak")
+                    return b.exp > 0
+                        ? `🔥 Chuỗi ${b.streak} ngày liên tục: <b>+${b.exp} KN +${b.dv} DV</b>`
+                        : `📅 Chuỗi hiện tại: <b>${b.streak} ngày</b>`;
+                return "";
+            })
+            .filter(Boolean);
 
         const skillOrder = window.PkmScore.SKILL_ORDER;
         const skillStatsNow = window.PkmScore.session.skillStats;
-        const skillLines = skillOrder.map((s) => {
-            const st = skillStatsNow[s] || { correct: 0, total: 0 };
-            const label = { listening: "🎧 Nghe", speaking: "🗣️ Nói", reading: "📖 Đọc", writing: "✍️ Viết" }[s];
-            return `<div>${label}: ${st.correct}/${st.total}</div>`;
-        }).join("");
+        const skillLines = skillOrder
+            .map((s) => {
+                const st = skillStatsNow[s] || { correct: 0, total: 0 };
+                const label = {
+                    listening: "🎧 Nghe",
+                    speaking: "🗣️ Nói",
+                    reading: "📖 Đọc",
+                    writing: "✍️ Viết",
+                }[s];
+                return `<div>${label}: ${st.correct}/${st.total}</div>`;
+            })
+            .join("");
 
         if (expText) {
             expText.innerHTML = `
-                <div style="font-size:13px; text-align:left; margin-bottom:12px; line-height:2;">
-                    ${messages.map((m) => `<div>${m}</div>`).join("")}
-                </div>
-                <div style="border-top:1px solid #444; padding-top:10px; margin-bottom:12px;">
-                    <div style="color:#4caf50; font-size:16px; font-weight:bold;">+${result.bonusEXP} KN &nbsp; +${result.bonusDV} DV</div>
-                    <div style="color:#aaa; font-size:12px;">Tổng: ${result.newEXP} KN | ${result.newDV} DV</div>
-                </div>
-                <div style="color:#aaa; font-size:12px; margin-bottom:4px;">
-                    🪙 Vàng thu được: ${this.coinsCollected} &nbsp; | &nbsp; 🗺️ Khu vực đã qua: ${this.currentZoneIndex + 1} &nbsp; | &nbsp; 🏁 Quãng đường: ${Math.floor(this.distance)}m &nbsp; | &nbsp; ⭐ Điểm: ${this.score}
-                </div>
-                <div style="color:#aaa; font-size:12px; margin-bottom:8px;">
-                    📊 Tổng: ✅ ${this.correctCount} đúng / ❌ ${this.wrongCount} sai / ${this.totalCount} câu
-                </div>
-                <div style="color:#8fa3d1; font-size:11px; text-align:left;">
-                    ${skillLines}
-                </div>`;
+                        <div style="font-size:13px; text-align:left; margin-bottom:12px; line-height:2;">
+                            ${messages.map((m) => `<div>${m}</div>`).join("")}
+                        </div>
+                        <div style="border-top:1px solid #444; padding-top:10px; margin-bottom:12px;">
+                            <div style="color:#4caf50; font-size:16px; font-weight:bold;">+${result.bonusEXP} KN &nbsp; +${result.bonusDV} DV</div>
+                            <div style="color:#aaa; font-size:12px;">Tổng: ${result.newEXP} KN | ${result.newDV} DV</div>
+                        </div>
+                        <div style="color:#aaa; font-size:12px; margin-bottom:4px;">
+                            🪙 Vàng thu được: ${this.coinsCollected} &nbsp; | &nbsp; 🗺️ Khu vực đã qua: ${this.currentZoneIndex + 1} &nbsp; | &nbsp; 🏁 Quãng đường: ${Math.floor(this.distance)}m &nbsp; | &nbsp; ⭐ Điểm: ${this.score}
+                        </div>
+                        <div style="color:#aaa; font-size:12px; margin-bottom:8px;">
+                            📊 Tổng: ✅ ${this.correctCount} đúng / ❌ ${this.wrongCount} sai / ${this.totalCount} câu
+                        </div>
+                        <div style="color:#8fa3d1; font-size:11px; text-align:left;">
+                            ${skillLines}
+                        </div>`;
         }
 
         const overlay = document.getElementById("victory-overlay");
@@ -1173,9 +1324,18 @@ window.RaceGame = {
     project(lane, t) {
         const f = Math.max(0, Math.min(1, t)) ** 1.6;
         const centerX = this.VW / 2;
-        const laneOffset = this.LANE_OFFSET_BOTTOM + (this.LANE_OFFSET_TOP - this.LANE_OFFSET_BOTTOM) * f;
-        const x = centerX + lane * laneOffset;
-        const y = this.ROAD_BOTTOM_Y + (this.HORIZON_Y - this.ROAD_BOTTOM_Y) * f;
+        const laneOffset =
+            this.LANE_OFFSET_BOTTOM +
+            (this.LANE_OFFSET_TOP - this.LANE_OFFSET_BOTTOM) * f;
+        const zone = this.zone();
+        const x =
+            centerX +
+            lane * laneOffset +
+            window.RaceBackground.pathOffsetX(zone, t, this.distance);
+        const y =
+            this.ROAD_BOTTOM_Y +
+            (this.HORIZON_Y - this.ROAD_BOTTOM_Y) * f +
+            window.RaceBackground.pathOffsetY(zone, t, this.distance);
         const scale = 1 + (0.12 - 1) * f;
         return { x, y, scale, f };
     },
@@ -1199,17 +1359,22 @@ window.RaceGame = {
             ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
         }
 
-        this.drawSky();
+        const state = this.raceState();
+        window.RaceBackground.drawSky(ctx, state);
         this.drawAmbientParticles();
-        this.drawRoad();
+        window.RaceBackground.drawGroundFill(ctx, state);
+        window.RaceBackground.drawRoad(ctx, state);
 
         // gộp props + objects rồi vẽ theo thứ tự xa->gần
         const drawList = [];
-        this.sideProps.forEach((sp) => drawList.push({ ref: sp, isProp: true }));
+        this.sideProps.forEach((sp) =>
+            drawList.push({ ref: sp, isProp: true }),
+        );
         this.objects.forEach((o) => drawList.push({ ref: o, isProp: false }));
         drawList.sort((a, b) => b.ref.t - a.ref.t);
         drawList.forEach((item) => {
-            if (item.isProp) this.drawSideProp(item.ref);
+            if (item.isProp)
+                window.RaceBackground.drawSideProp(ctx, item.ref, state);
             else this.drawObject(item.ref);
         });
 
@@ -1217,648 +1382,6 @@ window.RaceGame = {
         this.drawParticles();
         this.drawVignette();
 
-        ctx.restore();
-    },
-
-    drawSky() {
-        const ctx = this.ctx;
-        const z = this.zone();
-        ctx.fillStyle = this.cachedSkyGrad || "#241143";
-        ctx.fillRect(0, 0, this.VW, this.HORIZON_Y + 40);
-
-        // vầng sáng (mặt trăng/mặt trời/tinh thể tuỳ khu vực)
-        const orbX = this.VW * 0.78, orbY = 150;
-        ctx.fillStyle = this.cachedOrbGlow || "rgba(255,240,190,0.5)";
-        ctx.beginPath(); ctx.arc(orbX, orbY, 90, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = z.orb.color;
-        ctx.beginPath(); ctx.arc(orbX, orbY, 34, 0, Math.PI * 2); ctx.fill();
-
-        this.drawZoneSilhouette(z);
-    },
-
-    // Cảnh nền — MỖI KHU VỰC có 2 LỚP hoàn toàn riêng: lớp XA (đường chân
-    // trời) + lớp GẦN (tiền cảnh 2 bên đường, mới thêm — đây chính là
-    // "khung cảnh bên ngoài đường" mà trước đây chưa có).
-    //   temple      = đền tháp cổ xa  + hàng trụ đá/đuốc lửa gần
-    //   forest      = tán rừng xa     + dây leo rủ từ trên + tia nắng xuyên tán lá
-    //   ocean       = sóng+đảo xa     + hải âu bay + thuyền buồm xa + vệt nắng lấp lánh trên biển
-    //   sky         = mây tầng xa     + đảo mây trôi có thác nước nhỏ + cầu vồng
-    //   underground = thạch nhũ trần xa + măng đá 2 bên + giọt nước lấp lánh rơi
-    drawZoneSilhouette(z) {
-        const ctx = this.ctx;
-        const baseY = this.HORIZON_Y - 10;
-        const t = this.distance;
-
-        if (z.silhouette === "forest") {
-            // lớp xa: tán rừng trập trùng
-            ctx.fillStyle = z.silhouetteColor;
-            for (let i = 0; i < 8; i++) {
-                const bx = (i * 100 - 60 + (t * 5) % 100) % (this.VW + 160) - 80;
-                const r = 46 + (i % 3) * 18;
-                ctx.beginPath(); ctx.arc(bx, baseY - r * 0.6, r, 0, Math.PI * 2); ctx.fill();
-            }
-            // lớp gần: dây leo rủ từ mép trên màn hình xuống
-            ctx.strokeStyle = "rgba(20,60,30,0.65)";
-            ctx.lineWidth = 3;
-            for (let i = 0; i < 4; i++) {
-                const vx = ((i * 190 + (t * 14) % 190) % (this.VW + 100)) - 40;
-                const vlen = 60 + (i % 3) * 30;
-                ctx.beginPath();
-                ctx.moveTo(vx, -4);
-                ctx.quadraticCurveTo(vx + 14, vlen * 0.5, vx - 6, vlen);
-                ctx.stroke();
-                ctx.fillStyle = "rgba(40,110,60,0.75)";
-                ctx.beginPath(); ctx.ellipse(vx - 6, vlen, 9, 6, 0.4, 0, Math.PI * 2); ctx.fill();
-            }
-            // tia nắng xuyên tán lá
-            ctx.save();
-            ctx.globalAlpha = 0.12;
-            ctx.fillStyle = "#fff3c4";
-            for (let i = 0; i < 3; i++) {
-                const sx = ((i * 240 + (t * 3) % 240) % (this.VW + 200)) - 100;
-                ctx.save();
-                ctx.translate(sx, 0);
-                ctx.rotate(0.25);
-                ctx.fillRect(-18, 0, 36, this.HORIZON_Y);
-                ctx.restore();
-            }
-            ctx.restore();
-        } else if (z.silhouette === "ocean") {
-            // lớp xa: sóng + đảo nhỏ
-            ctx.fillStyle = z.silhouetteColor;
-            ctx.beginPath();
-            ctx.moveTo(-10, baseY);
-            for (let x = -10; x <= this.VW + 10; x += 26) {
-                const wOff = (t * 8) % 52;
-                const yy = baseY - 10 - 8 * Math.sin((x + wOff) * 0.06);
-                ctx.lineTo(x, yy);
-            }
-            ctx.lineTo(this.VW + 10, baseY + 40);
-            ctx.lineTo(-10, baseY + 40);
-            ctx.closePath(); ctx.fill();
-            for (let i = 0; i < 3; i++) {
-                const bx = (i * 220 - 40 + (t * 4) % 220) % (this.VW + 260) - 130;
-                ctx.beginPath(); ctx.ellipse(bx, baseY - 6, 60, 16, 0, 0, Math.PI * 2); ctx.fill();
-            }
-            // thuyền buồm xa
-            const boatX = (this.VW * 0.3 + (t * 2) % (this.VW + 300)) % (this.VW + 300) - 150;
-            ctx.fillStyle = "rgba(10,20,30,0.6)";
-            ctx.beginPath(); ctx.moveTo(boatX - 16, baseY - 8); ctx.lineTo(boatX + 16, baseY - 8); ctx.lineTo(boatX + 10, baseY); ctx.lineTo(boatX - 10, baseY); ctx.closePath(); ctx.fill();
-            ctx.beginPath(); ctx.moveTo(boatX, baseY - 8); ctx.lineTo(boatX, baseY - 30); ctx.lineTo(boatX + 14, baseY - 8); ctx.closePath(); ctx.fill();
-            // hải âu bay ngang qua
-            ctx.strokeStyle = "rgba(20,20,30,0.7)"; ctx.lineWidth = 2;
-            for (let i = 0; i < 3; i++) {
-                const gx = ((i * 160 + (t * 22) % 160) % (this.VW + 120)) - 60;
-                const gy = 80 + (i % 3) * 40 + Math.sin(t * 0.05 + i) * 6;
-                ctx.beginPath();
-                ctx.moveTo(gx - 9, gy); ctx.quadraticCurveTo(gx, gy - 7, gx + 9, gy);
-                ctx.moveTo(gx + 1, gy); ctx.quadraticCurveTo(gx + 10, gy - 7, gx + 19, gy);
-                ctx.stroke();
-            }
-            // vệt nắng lấp lánh trên mặt biển
-            ctx.save();
-            ctx.globalAlpha = 0.2 + 0.08 * Math.sin(t * 0.1);
-            ctx.fillStyle = "#ffe9b0";
-            ctx.beginPath();
-            ctx.moveTo(this.VW * 0.78, baseY - 20);
-            ctx.lineTo(this.VW * 0.78 + 30, baseY - 20);
-            ctx.lineTo(this.VW * 0.5, this.HORIZON_Y + 30);
-            ctx.lineTo(this.VW * 0.44, this.HORIZON_Y + 30);
-            ctx.closePath(); ctx.fill();
-            ctx.restore();
-        } else if (z.silhouette === "sky") {
-            // lớp xa: các cụm mây bồng bềnh
-            ctx.fillStyle = z.silhouetteColor;
-            ctx.globalAlpha = 0.85;
-            for (let i = 0; i < 7; i++) {
-                const bx = (i * 130 - 60 + (t * 5) % 130) % (this.VW + 200) - 100;
-                const cy = baseY - 30 - (i % 3) * 20;
-                ctx.beginPath();
-                ctx.ellipse(bx, cy, 46, 20, 0, 0, Math.PI * 2);
-                ctx.ellipse(bx + 30, cy + 6, 32, 15, 0, 0, Math.PI * 2);
-                ctx.ellipse(bx - 28, cy + 8, 30, 14, 0, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-            // cầu vồng xa
-            ctx.save();
-            ctx.globalAlpha = 0.3;
-            const rColors = ["#ff6b6b", "#ffd166", "#7ee6a0", "#7ee6ff", "#a78bfa"];
-            rColors.forEach((c, i) => {
-                ctx.strokeStyle = c; ctx.lineWidth = 6;
-                ctx.beginPath();
-                ctx.arc(this.VW * 0.18, this.HORIZON_Y + 40, 130 - i * 7, Math.PI, Math.PI * 1.5);
-                ctx.stroke();
-            });
-            ctx.restore();
-            // đảo mây trôi có thác nước nhỏ (lớp gần)
-            for (let i = 0; i < 2; i++) {
-                const ix = ((i * 260 + (t * 6) % 260) % (this.VW + 200)) - 100;
-                const iy = baseY - 50 + i * 20;
-                ctx.fillStyle = "#e9f2ff";
-                ctx.beginPath(); ctx.ellipse(ix, iy, 42, 14, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = "#7ee6a0";
-                ctx.beginPath(); ctx.ellipse(ix, iy - 8, 30, 8, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 3;
-                ctx.beginPath(); ctx.moveTo(ix - 10, iy + 8); ctx.lineTo(ix - 12, iy + 40); ctx.stroke();
-            }
-        } else if (z.silhouette === "underground") {
-            ctx.fillStyle = z.silhouetteColor;
-            // thạch nhũ rủ từ trần hang
-            for (let i = 0; i < 9; i++) {
-                const bx = (i * 90 - 40 + (t * 6) % 90) % (this.VW + 140) - 70;
-                const h = 40 + (i % 4) * 22;
-                ctx.beginPath();
-                ctx.moveTo(bx - 16, 0);
-                ctx.lineTo(bx + 16, 0);
-                ctx.lineTo(bx, h);
-                ctx.closePath(); ctx.fill();
-                // giọt nước lấp lánh nhỏ giọt từ đầu nhũ đá
-                const dripPhase = (t * 0.6 + i * 37) % 60;
-                if (dripPhase < 40) {
-                    ctx.fillStyle = "rgba(180,220,255,0.7)";
-                    ctx.beginPath(); ctx.arc(bx, h + dripPhase, 2.4, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = z.silhouetteColor;
-                }
-            }
-            // tinh thể phát sáng rải rác gần chân trời
-            ctx.fillStyle = "rgba(180,110,255,0.5)";
-            for (let i = 0; i < 5; i++) {
-                const bx = (i * 160 - 30 + (t * 4) % 160) % (this.VW + 200) - 100;
-                ctx.beginPath(); ctx.arc(bx, baseY - 10, 6, 0, Math.PI * 2); ctx.fill();
-            }
-            // măng đá dựng lên 2 bên khung hình như miệng hang
-            ctx.fillStyle = "#100810";
-            [-1, 1].forEach((side) => {
-                ctx.beginPath();
-                ctx.moveTo(this.VW / 2 + side * (this.VW * 0.56), this.HORIZON_Y + 60);
-                ctx.lineTo(this.VW / 2 + side * (this.VW * 0.62), this.HORIZON_Y - 70);
-                ctx.lineTo(this.VW / 2 + side * (this.VW * 0.68), this.HORIZON_Y + 60);
-                ctx.closePath(); ctx.fill();
-            });
-        } else {
-            // temple (mặc định): đền tháp cổ xa + hàng trụ đá/đuốc lửa gần
-            for (let i = 0; i < 6; i++) {
-                const bx = (i * 140 - 60 + (t * 6) % 140) % (this.VW + 200) - 100;
-                const bh = 60 + (i % 3) * 30;
-                ctx.fillStyle = z.silhouetteColor;
-                ctx.fillRect(bx, baseY - bh, 46, bh);
-                ctx.beginPath();
-                ctx.moveTo(bx - 6, baseY - bh);
-                ctx.lineTo(bx + 23, baseY - bh - 26);
-                ctx.lineTo(bx + 52, baseY - bh);
-                ctx.closePath();
-                ctx.fill();
-                ctx.fillStyle = "rgba(255,203,5,0.55)";
-                ctx.fillRect(bx + 16, baseY - bh + 14, 10, 12);
-            }
-            // hàng trụ đá + đuốc lửa gần 2 bên (lớp gần)
-            [-1, 1].forEach((side) => {
-                for (let i = 0; i < 2; i++) {
-                    const px = this.VW / 2 + side * (this.VW * 0.42 + i * this.VW * 0.1);
-                    const py = baseY + 26;
-                    ctx.fillStyle = "#2c2440";
-                    ctx.fillRect(px - 7, py - 46, 14, 46);
-                    const flick = 0.6 + 0.4 * Math.abs(Math.sin(t * 0.2 + i + side));
-                    const glow = ctx.createRadialGradient(px, py - 52, 2, px, py - 52, 22);
-                    glow.addColorStop(0, `rgba(255,180,60,${0.7 * flick})`);
-                    glow.addColorStop(1, "rgba(255,140,40,0)");
-                    ctx.fillStyle = glow;
-                    ctx.beginPath(); ctx.arc(px, py - 52, 22, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = `rgba(255,203,5,${0.85 * flick})`;
-                    ctx.beginPath(); ctx.arc(px, py - 52, 5, 0, Math.PI * 2); ctx.fill();
-                }
-            });
-        }
-    },
-
-    // Toạ độ 1 điểm trên MẶT ĐƯỜNG tại độ sâu t, lệch ngang `frac` lần nửa bề
-    // rộng đường (frac=0 giữa đường, frac=±1 ≈ mép đường) — dùng để vẽ kết
-    // cấu mặt đường (gạch/rễ cây/cát/mây/dung nham) khớp đúng phối cảnh.
-    roadPointAt(t, frac) {
-        const f = Math.max(0, Math.min(1, t)) ** 1.6;
-        const off = this.LANE_OFFSET_BOTTOM + (this.LANE_OFFSET_TOP - this.LANE_OFFSET_BOTTOM) * f;
-        const x = this.VW / 2 + frac * off * 1.5;
-        const y = this.ROAD_BOTTOM_Y + (this.HORIZON_Y - this.ROAD_BOTTOM_Y) * f;
-        return { x, y, f };
-    },
-
-    drawRoad() {
-        const ctx = this.ctx;
-        const z = this.zone();
-        const centerX = this.VW / 2;
-        const topHalf = this.LANE_OFFSET_TOP * 1.5 + 10;
-        const botHalf = this.LANE_OFFSET_BOTTOM * 1.5 + 40;
-
-        ctx.beginPath();
-        ctx.moveTo(centerX - topHalf, this.HORIZON_Y);
-        ctx.lineTo(centerX + topHalf, this.HORIZON_Y);
-        ctx.lineTo(centerX + botHalf, this.ROAD_BOTTOM_Y + 130);
-        ctx.lineTo(centerX - botHalf, this.ROAD_BOTTOM_Y + 130);
-        ctx.closePath();
-        ctx.fillStyle = this.cachedRoadGrad || "#4a4058";
-        ctx.fill();
-
-        // Kết cấu mặt đường RIÊNG theo từng khu vực — vẽ giới hạn trong đúng
-        // vùng hình thang của con đường (clip lại để không tràn ra ngoài).
-        ctx.save();
-        ctx.clip();
-        switch (z.roadStyle) {
-            case "dirt": this.drawRoadTextureDirt(); break;
-            case "sand": this.drawRoadTextureSand(); break;
-            case "cloud": this.drawRoadTextureCloud(); break;
-            case "cave": this.drawRoadTextureCave(); break;
-            case "stone":
-            default: this.drawRoadTextureStone(); break;
-        }
-        ctx.restore();
-
-        // viền đá 2 bên
-        ctx.strokeStyle = z.edgeColor;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-
-        // vạch chia lane chạy (hiệu ứng chuyển động)
-        const scrollOffset = (this.distance * 3.2) % 60;
-        ctx.strokeStyle = z.laneColor;
-        [-0.5, 0.5].forEach((laneEdge) => {
-            ctx.beginPath();
-            for (let t = 1; t >= 0; t -= 0.02) {
-                const f = t ** 1.6;
-                const off = this.LANE_OFFSET_BOTTOM + (this.LANE_OFFSET_TOP - this.LANE_OFFSET_BOTTOM) * f;
-                const x = centerX + laneEdge * off * 2;
-                const y = this.ROAD_BOTTOM_Y + (this.HORIZON_Y - this.ROAD_BOTTOM_Y) * f;
-                const dashPhase = Math.floor((t * 400 + scrollOffset) / 30) % 2;
-                if (dashPhase === 0) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-            }
-            ctx.lineWidth = 4;
-            ctx.stroke();
-        });
-    },
-
-    // ── Kết cấu 1: GẠCH ĐÁ CỔ (temple) — mạch vữa ngang + vài viên rêu phong ──
-    drawRoadTextureStone() {
-        const ctx = this.ctx;
-        const N = 16;
-        const scroll = (this.distance * 0.09) % 1;
-        ctx.strokeStyle = "rgba(20,14,30,0.4)";
-        ctx.lineWidth = 2;
-        for (let i = 0; i < N; i++) {
-            const tt = (i / N + scroll / N) % 1;
-            const L = this.roadPointAt(tt, -1.05), R = this.roadPointAt(tt, 1.05);
-            ctx.beginPath(); ctx.moveTo(L.x, L.y); ctx.lineTo(R.x, R.y); ctx.stroke();
-        }
-        ctx.fillStyle = "rgba(70,140,80,0.25)";
-        [[0.68, -0.5], [0.35, 0.55], [0.12, -0.3]].forEach(([tt, side]) => {
-            const p = this.roadPointAt(tt, side);
-            const r = 14 * Math.max(0.25, p.f);
-            ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r * 0.5, 0.3, 0, Math.PI * 2); ctx.fill();
-        });
-    },
-
-    // ── Kết cấu 2: ĐẤT + RỄ CÂY (forest) — rễ cây bò ngang đường + lá rụng ──
-    drawRoadTextureDirt() {
-        const ctx = this.ctx;
-        const scroll = (this.distance * 0.07) % 1;
-        ctx.strokeStyle = "rgba(60,40,20,0.55)";
-        for (let i = 0; i < 5; i++) {
-            const tt = (i / 5 + scroll) % 1;
-            const base = this.roadPointAt(tt, i % 2 === 0 ? -0.3 : 0.35);
-            const mid = this.roadPointAt(Math.max(0, tt - 0.06), i % 2 === 0 ? 0.05 : -0.1);
-            const end = this.roadPointAt(Math.max(0, tt - 0.12), i % 2 === 0 ? 0.3 : 0.4);
-            ctx.lineWidth = 3 * Math.max(0.3, base.f);
-            ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.quadraticCurveTo(mid.x, mid.y, end.x, end.y); ctx.stroke();
-        }
-        ctx.fillStyle = "rgba(220,140,60,0.55)";
-        for (let i = 0; i < 10; i++) {
-            const tt = (i / 10 + scroll * 1.3) % 1;
-            const side = ((i * 37) % 100) / 100 * 1.6 - 0.8;
-            const p = this.roadPointAt(tt, side);
-            const r = 5 * Math.max(0.3, p.f);
-            ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r * 0.6, i, 0, Math.PI * 2); ctx.fill();
-        }
-    },
-
-    // ── Kết cấu 3: CÁT ƯỚT (ocean) — ánh nước lấp lánh + bọt sóng viền ──
-    drawRoadTextureSand() {
-        const ctx = this.ctx;
-        const scroll = (this.distance * 0.1) % 1;
-        ctx.strokeStyle = "rgba(255,255,255,0.35)";
-        ctx.lineWidth = 2;
-        for (let i = 0; i < 6; i++) {
-            const tt = (i / 6 + scroll) % 1;
-            ctx.beginPath();
-            for (let s = -0.9; s <= 0.9; s += 0.3) {
-                const p = this.roadPointAt(tt + Math.sin(s * 4) * 0.01, s);
-                s === -0.9 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
-            }
-            const f = this.roadPointAt(tt, 0).f;
-            ctx.globalAlpha = 0.2 + 0.2 * f;
-            ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = "rgba(255,255,255,0.6)";
-        for (let i = 0; i < 8; i++) {
-            const tt = (i / 8 + scroll * 1.5) % 1;
-            [-1, 1].forEach((side) => {
-                const p = this.roadPointAt(tt, side * 0.92);
-                const r = 6 * Math.max(0.3, p.f);
-                ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
-            });
-        }
-    },
-
-    // ── Kết cấu 4: MÂY PHÁT SÁNG (sky) — hạt lấp lánh + vệt ánh sáng dọc đường ──
-    drawRoadTextureCloud() {
-        const ctx = this.ctx;
-        const scroll = (this.distance * 0.08) % 1;
-        ctx.fillStyle = "rgba(255,255,255,0.85)";
-        for (let i = 0; i < 12; i++) {
-            const tt = (i / 12 + scroll) % 1;
-            const side = ((i * 53) % 100) / 100 * 1.7 - 0.85;
-            const p = this.roadPointAt(tt, side);
-            const r = 2.4 * Math.max(0.3, p.f);
-            ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(this.distance * 0.05 + i));
-            ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = "rgba(255,255,255,0.3)";
-        ctx.lineWidth = 3;
-        [-0.15, 0.2].forEach((side) => {
-            ctx.beginPath();
-            for (let t = 1; t >= 0; t -= 0.05) {
-                const p = this.roadPointAt(t, side);
-                t === 1 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
-            }
-            ctx.stroke();
-        });
-    },
-
-    // ── Kết cấu 5: NỀN HANG ĐỘNG (underground) — khe dung nham phát sáng + mảnh tinh thể ──
-    drawRoadTextureCave() {
-        const ctx = this.ctx;
-        const scroll = (this.distance * 0.08) % 1;
-        ctx.strokeStyle = "rgba(255,120,40,0.65)";
-        ctx.lineWidth = 2;
-        ctx.shadowColor = "rgba(255,120,40,0.6)"; ctx.shadowBlur = 6;
-        for (let i = 0; i < 4; i++) {
-            const tt = (i / 4 + scroll) % 1;
-            ctx.beginPath();
-            for (let k = 0; k <= 4; k++) {
-                const localT = Math.max(0, tt - k * 0.03);
-                const side = (i % 2 === 0 ? -0.4 : 0.3) + Math.sin(k + i) * 0.15;
-                const p = this.roadPointAt(localT, side);
-                k === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
-            }
-            ctx.stroke();
-        }
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = "rgba(180,110,255,0.7)";
-        for (let i = 0; i < 6; i++) {
-            const tt = (i / 6 + scroll * 1.4) % 1;
-            const side = ((i * 61) % 100) / 100 * 1.7 - 0.85;
-            const p = this.roadPointAt(tt, side);
-            const r = 3.4 * Math.max(0.3, p.f);
-            ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
-        }
-    },
-
-    // Vật trang trí 2 bên đường — MỖI KHU VỰC 3 dạng HOÀN TOÀN riêng biệt
-    // (không còn dùng chung 3 khuôn blob/pillar/orb như trước).
-    drawSideProp(sp) {
-        const ctx = this.ctx;
-        const proj = this.project(sp.lane, sp.t);
-        const x = proj.x + sp.jitter * proj.scale, y = proj.y;
-        const s = proj.scale;
-        const pal = (this.zone().propPalette && this.zone().propPalette[sp.kind]) || {};
-        ctx.save();
-        ctx.globalAlpha = Math.min(1, proj.f * 3 + 0.15);
-
-        switch (sp.kind) {
-            // ── TEMPLE ──
-            case "pillar": {
-                const w = 34 * s, h = 150 * s;
-                ctx.fillStyle = pal.body2 || "#2c2440";
-                ctx.fillRect(x - w * 0.55, y - h, w * 1.1, h);
-                ctx.fillStyle = pal.body || "#4a3f6e";
-                ctx.fillRect(x - w * 0.5, y - h, w, h * 0.9);
-                ctx.fillRect(x - w * 0.7, y - h - 10 * s, w * 1.4, 10 * s);
-                ctx.fillStyle = pal.gem || "#ffcb05";
-                ctx.globalAlpha *= 0.6;
-                ctx.fillRect(x - w * 0.15, y - h * 0.55, w * 0.3, w * 0.3);
-                break;
-            }
-            case "statue": {
-                const w = 40 * s, h = 130 * s;
-                ctx.fillStyle = pal.body || "#5a5068";
-                ctx.beginPath(); ctx.ellipse(x, y - h * 0.94, w * 0.22, w * 0.24, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath();
-                ctx.moveTo(x - w * 0.3, y);
-                ctx.lineTo(x - w * 0.34, y - h * 0.6);
-                ctx.lineTo(x, y - h * 0.85);
-                ctx.lineTo(x + w * 0.34, y - h * 0.6);
-                ctx.lineTo(x + w * 0.3, y);
-                ctx.closePath(); ctx.fill();
-                ctx.fillStyle = pal.eye || "#ffcb05";
-                ctx.globalAlpha *= 0.8;
-                ctx.beginPath(); ctx.arc(x - 6 * s, y - h * 0.95, 2.4 * s, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(x + 6 * s, y - h * 0.95, 2.4 * s, 0, Math.PI * 2); ctx.fill();
-                break;
-            }
-            case "lantern": {
-                const h = 90 * s;
-                ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 1.5 * s;
-                ctx.beginPath(); ctx.moveTo(x, y - h); ctx.lineTo(x, y - h * 0.55); ctx.stroke();
-                const glow = ctx.createRadialGradient(x, y - h * 0.5, 2, x, y - h * 0.5, 26 * s);
-                glow.addColorStop(0, pal.glow || "rgba(255,203,5,0.5)");
-                glow.addColorStop(1, "rgba(255,203,5,0)");
-                ctx.fillStyle = glow;
-                ctx.beginPath(); ctx.arc(x, y - h * 0.5, 26 * s, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = pal.body || "#2c2440";
-                ctx.fillRect(x - 10 * s, y - h * 0.62, 20 * s, 20 * s);
-                ctx.fillStyle = pal.flame || "#ffcb05";
-                ctx.beginPath(); ctx.arc(x, y - h * 0.5, 6 * s, 0, Math.PI * 2); ctx.fill();
-                break;
-            }
-
-            // ── FOREST ──
-            case "bigtree": {
-                const w = 60 * s, h = 130 * s;
-                ctx.fillStyle = pal.trunk || "#3a2612";
-                ctx.beginPath();
-                ctx.moveTo(x - w * 0.1, y); ctx.lineTo(x - w * 0.16, y - h * 0.32); ctx.lineTo(x + w * 0.16, y - h * 0.32); ctx.lineTo(x + w * 0.1, y);
-                ctx.closePath(); ctx.fill();
-                ctx.fillStyle = pal.fill || "#0f4a24";
-                ctx.beginPath(); ctx.ellipse(x, y - h * 0.65, w * 0.6, h * 0.42, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = pal.fill2 || "#166030";
-                ctx.beginPath(); ctx.ellipse(x - w * 0.2, y - h * 0.78, w * 0.36, h * 0.26, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(x + w * 0.24, y - h * 0.7, w * 0.3, h * 0.22, 0, 0, Math.PI * 2); ctx.fill();
-                break;
-            }
-            case "vine": {
-                const h = 110 * s;
-                ctx.strokeStyle = pal.body || "#2e7d4f"; ctx.lineWidth = 3 * s;
-                ctx.beginPath();
-                ctx.moveTo(x, y - h);
-                ctx.quadraticCurveTo(x + 14 * s, y - h * 0.5, x - 8 * s, y);
-                ctx.stroke();
-                ctx.fillStyle = pal.leaf || "#a8e063";
-                for (let i = 0; i < 4; i++) {
-                    const lt = i / 3;
-                    const lx = x + Math.sin(lt * Math.PI) * 10 * s - 4 * s * lt;
-                    const ly = y - h + h * lt;
-                    ctx.beginPath(); ctx.ellipse(lx, ly, 7 * s, 4 * s, lt, 0, Math.PI * 2); ctx.fill();
-                }
-                break;
-            }
-            case "mushroom": {
-                const h = 40 * s;
-                ctx.fillStyle = pal.stem || "#e8dcc0";
-                ctx.fillRect(x - 5 * s, y - h, 10 * s, h);
-                ctx.fillStyle = pal.glow || "rgba(180,255,120,0.5)";
-                ctx.beginPath(); ctx.ellipse(x, y - h, 26 * s, 12 * s, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = pal.cap || "#e0524f";
-                ctx.beginPath(); ctx.ellipse(x, y - h, 20 * s, 14 * s, 0, Math.PI, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = pal.spot || "#fff6e0";
-                [[-8, -2], [8, -3], [0, -8]].forEach(([dx, dy]) => {
-                    ctx.beginPath(); ctx.arc(x + dx * s, y - h + dy * s, 2.4 * s, 0, Math.PI * 2); ctx.fill();
-                });
-                break;
-            }
-
-            // ── OCEAN ──
-            case "palm": {
-                const h = 120 * s;
-                ctx.strokeStyle = pal.trunk || "#7a5a3a"; ctx.lineWidth = 8 * s; ctx.lineCap = "round";
-                ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 16 * s, y - h * 0.55, x, y - h); ctx.stroke();
-                ctx.fillStyle = pal.frond || "#1f8a5a";
-                for (let i = 0; i < 5; i++) {
-                    const ang = -Math.PI / 2 + (i - 2) * 0.5;
-                    ctx.save();
-                    ctx.translate(x, y - h); ctx.rotate(ang);
-                    ctx.beginPath(); ctx.ellipse(24 * s, 0, 26 * s, 8 * s, 0, 0, Math.PI * 2); ctx.fill();
-                    ctx.restore();
-                }
-                break;
-            }
-            case "coral": {
-                const h = 55 * s;
-                ctx.fillStyle = pal.glow || "rgba(255,180,200,0.4)";
-                ctx.beginPath(); ctx.ellipse(x, y, 30 * s, 12 * s, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.strokeStyle = pal.body || "#ff7f6b"; ctx.lineWidth = 6 * s; ctx.lineCap = "round";
-                [[-1, 0.9], [0, 1], [1, 0.85]].forEach(([dir, len], i) => {
-                    ctx.strokeStyle = i % 2 === 0 ? (pal.body || "#ff7f6b") : (pal.body2 || "#ff4f81");
-                    ctx.beginPath();
-                    ctx.moveTo(x + dir * 6 * s, y);
-                    ctx.quadraticCurveTo(x + dir * 18 * s, y - h * 0.6, x + dir * 10 * s, y - h * len);
-                    ctx.stroke();
-                });
-                break;
-            }
-            case "driftwood": {
-                const w = 70 * s;
-                ctx.fillStyle = pal.body || "#8a6a48";
-                ctx.save(); ctx.translate(x, y); ctx.rotate(-0.18);
-                ctx.fillRect(-w / 2, -8 * s, w, 14 * s);
-                ctx.restore();
-                ctx.fillStyle = pal.moss || "rgba(160,240,255,0.5)";
-                ctx.beginPath(); ctx.arc(x - w * 0.2, y - 4 * s, 5 * s, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.arc(x + w * 0.15, y - 8 * s, 4 * s, 0, Math.PI * 2); ctx.fill();
-                break;
-            }
-
-            // ── SKY ──
-            case "cloudpuff": {
-                ctx.fillStyle = pal.fill || "#ffffff";
-                [[0, 0, 24], [-16, 6, 16], [16, 6, 16], [0, -10, 14]].forEach(([dx, dy, r]) => {
-                    ctx.beginPath(); ctx.ellipse(x + dx * s, y + dy * s, r * s, r * 0.7 * s, 0, 0, Math.PI * 2); ctx.fill();
-                });
-                ctx.fillStyle = pal.shade || "#c9def8";
-                ctx.globalAlpha *= 0.5;
-                ctx.beginPath(); ctx.ellipse(x, y + 10 * s, 26 * s, 8 * s, 0, 0, Math.PI * 2); ctx.fill();
-                break;
-            }
-            case "floatisle": {
-                const w = 60 * s;
-                ctx.fillStyle = pal.body || "#8aa0d0";
-                ctx.beginPath();
-                ctx.ellipse(x, y, w * 0.5, 14 * s, 0, 0, Math.PI);
-                ctx.fill();
-                ctx.fillStyle = pal.grass || "#7ee6a0";
-                ctx.beginPath(); ctx.ellipse(x, y - 6 * s, w * 0.46, 9 * s, 0, 0, Math.PI * 2); ctx.fill();
-                break;
-            }
-            case "starcluster": {
-                ctx.fillStyle = pal.glow || "rgba(255,255,200,0.5)";
-                ctx.beginPath(); ctx.arc(x, y - 30 * s, 26 * s, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = pal.body || "#fffde0";
-                [[0, -40, 5], [-14, -20, 3], [12, -26, 3.4]].forEach(([dx, dy, r]) => {
-                    this.drawStarShape(x + dx * s, y + dy * s, r * s);
-                });
-                break;
-            }
-
-            // ── UNDERGROUND ──
-            case "stalagmite": {
-                const w = 34 * s, h = 100 * s;
-                const grad = ctx.createLinearGradient(x, y - h, x, y);
-                grad.addColorStop(0, pal.body2 || "#241622");
-                grad.addColorStop(1, pal.body || "#3a2a3e");
-                ctx.fillStyle = grad;
-                ctx.beginPath();
-                ctx.moveTo(x - w / 2, y); ctx.lineTo(x - w * 0.1, y - h); ctx.lineTo(x + w * 0.14, y - h * 0.8); ctx.lineTo(x + w / 2, y);
-                ctx.closePath(); ctx.fill();
-                ctx.strokeStyle = pal.vein || "rgba(255,140,60,0.6)"; ctx.lineWidth = 1.6 * s;
-                ctx.beginPath(); ctx.moveTo(x - 4 * s, y); ctx.lineTo(x + 2 * s, y - h * 0.5); ctx.lineTo(x - 2 * s, y - h * 0.8); ctx.stroke();
-                break;
-            }
-            case "crystal": {
-                const h = 60 * s;
-                ctx.fillStyle = pal.glow || "rgba(180,110,255,0.45)";
-                ctx.beginPath(); ctx.ellipse(x, y - h * 0.4, 26 * s, 30 * s, 0, 0, Math.PI * 2); ctx.fill();
-                [[-1, 0.7], [0, 1], [1, 0.75]].forEach(([dir, len]) => {
-                    const grad = ctx.createLinearGradient(x, y - h * len, x, y);
-                    grad.addColorStop(0, pal.body || "#8a4ecf");
-                    grad.addColorStop(1, pal.body2 || "#4a1e5a");
-                    ctx.fillStyle = grad;
-                    ctx.beginPath();
-                    ctx.moveTo(x + dir * 4 * s, y);
-                    ctx.lineTo(x + dir * 16 * s, y - h * len * 0.5);
-                    ctx.lineTo(x + dir * 6 * s, y - h * len);
-                    ctx.lineTo(x + dir * -2 * s, y - h * len * 0.5);
-                    ctx.closePath(); ctx.fill();
-                });
-                break;
-            }
-            case "fungus": {
-                const h = 34 * s;
-                ctx.fillStyle = pal.stem || "#2a1420";
-                ctx.fillRect(x - 4 * s, y - h, 8 * s, h);
-                ctx.fillStyle = pal.glow || "rgba(180,110,255,0.55)";
-                ctx.beginPath(); ctx.arc(x, y - h, 20 * s, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = pal.cap || "#b088ff";
-                ctx.beginPath(); ctx.arc(x, y - h, 12 * s, 0, Math.PI * 2); ctx.fill();
-                break;
-            }
-
-            default: {
-                ctx.fillStyle = "#3a2560";
-                ctx.beginPath(); ctx.arc(x, y - 40 * s, 16 * s, 0, Math.PI * 2); ctx.fill();
-            }
-        }
-        ctx.restore();
-    },
-
-    // Helper vẽ 1 ngôi sao nhỏ 4 cánh (dùng cho hoạ tiết lấp lánh khu vực "sky"/"sparkle")
-    drawStarShape(cx, cy, r) {
-        const ctx = this.ctx;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.beginPath();
-        ctx.moveTo(0, -r); ctx.lineTo(r * 0.28, -r * 0.28); ctx.lineTo(r, 0);
-        ctx.lineTo(r * 0.28, r * 0.28); ctx.lineTo(0, r); ctx.lineTo(-r * 0.28, r * 0.28);
-        ctx.lineTo(-r, 0); ctx.lineTo(-r * 0.28, -r * 0.28);
-        ctx.closePath(); ctx.fill();
         ctx.restore();
     },
 
@@ -1871,15 +1394,27 @@ window.RaceGame = {
         // tránh hiện tượng "đứng khựng" ở đúng vị trí người chơi vài khung hình.
         const base = this.project(lane, 0);
         const k = -t; // 0 -> 0.12
-        return { x: base.x, y: base.y + k * 3200, scale: base.scale + k * 10, f: 0 };
+        return {
+            x: base.x,
+            y: base.y + k * 3200,
+            scale: base.scale + k * 10,
+            f: 0,
+        };
     },
 
     drawObject(obj) {
-        if (obj.kind === "portal") { this.drawPortal(obj); return; }
-        if (obj.type === "wall") { this.drawWallGap(obj); return; }
+        const state = this.raceState();
+        if (obj.kind === "portal") {
+            window.RaceBackground.drawPortal(this.ctx, obj, state);
+            return;
+        }
+        if (obj.type === "wall") {
+            window.RaceBackground.drawWallGap(this.ctx, obj, state);
+            return;
+        }
         const proj = this.renderProjFor(obj.lane, obj.t);
         if (obj.kind === "coin") this.drawCoin(proj, obj);
-        else this.drawObstacle(proj, obj);
+        else window.RaceBackground.drawObstacle(this.ctx, proj, obj, state);
     },
 
     drawCoin(proj, obj) {
@@ -1893,337 +1428,35 @@ window.RaceGame = {
         ctx.translate(0, 14 * proj.scale);
         ctx.scale(1, 0.3);
         ctx.fillStyle = "rgba(0,0,0,0.35)";
-        ctx.beginPath(); ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
 
         ctx.scale(Math.max(0.15, squish), 1);
-        const grad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+        const grad = ctx.createRadialGradient(
+            -r * 0.3,
+            -r * 0.3,
+            r * 0.1,
+            0,
+            0,
+            r,
+        );
         grad.addColorStop(0, "#fff6c9");
         grad.addColorStop(0.5, "#ffd54f");
         grad.addColorStop(1, "#e08e00");
         ctx.fillStyle = grad;
-        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#a85f00"; ctx.lineWidth = Math.max(1, 2 * proj.scale);
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#a85f00";
+        ctx.lineWidth = Math.max(1, 2 * proj.scale);
         ctx.stroke();
         ctx.fillStyle = "rgba(160,90,0,0.85)";
         ctx.font = `bold ${r * 1.05}px Baloo 2, sans-serif`;
-        ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText("₽", 0, 1);
-        ctx.restore();
-    },
-
-    drawObstacle(proj, obj) {
-        switch (obj.type) {
-            case "spike": return this.drawSpikeObstacle(proj, obj);
-            case "chasm": return this.drawChasmObstacle(proj, obj);
-            case "swarm": return this.drawSwarmObstacle(proj, obj);
-            case "branch": return this.drawBranchObstacle(proj, obj);
-            case "pendulum": return this.drawPendulumObstacle(proj, obj);
-            case "rock":
-            default: return this.drawRockObstacle(proj, obj);
-        }
-    },
-
-    // ── Loại 1: ĐÁ TẢNG (né bằng nhảy) ──
-    drawRockObstacle(proj, obj) {
-        const ctx = this.ctx;
-        const spanW = obj.spanAll ? (this.LANE_OFFSET_BOTTOM * 2.6 * proj.scale) : (70 * proj.scale);
-        const h = 62 * proj.scale;
-        ctx.save();
-        ctx.translate(proj.x, proj.y);
-        this.drawGroundShadow(spanW * 0.55, 26 * proj.scale, 20 * proj.scale);
-
-        const grad = ctx.createLinearGradient(-spanW / 2, -h, spanW / 2, 0);
-        grad.addColorStop(0, "#8b8a9c");
-        grad.addColorStop(0.5, "#5b5a6d");
-        grad.addColorStop(1, "#3f3f4d");
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(-spanW * 0.5, 4);
-        ctx.lineTo(-spanW * 0.38, -h * 0.65);
-        ctx.lineTo(-spanW * 0.12, -h);
-        ctx.lineTo(spanW * 0.2, -h * 0.82);
-        ctx.lineTo(spanW * 0.48, -h * 0.25);
-        ctx.lineTo(spanW * 0.5, 6);
-        ctx.closePath();
-        ctx.fill();
-        ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 2; ctx.stroke();
-        // rêu xanh điểm nhấn
-        ctx.fillStyle = "rgba(80,160,90,0.55)";
-        ctx.beginPath(); ctx.ellipse(-spanW * 0.1, -h * 0.55, spanW * 0.16, h * 0.12, 0.3, 0, Math.PI * 2); ctx.fill();
-        this.drawActionLabel("⤒ NHẢY", 0, -h - 10 * proj.scale, proj.scale, "#ffcb05");
-        ctx.restore();
-    },
-
-    // ── Loại 2: GAI KIM LOẠI (né bằng nhảy) ──
-    drawSpikeObstacle(proj, obj) {
-        const ctx = this.ctx;
-        const spanW = obj.spanAll ? (this.LANE_OFFSET_BOTTOM * 2.6 * proj.scale) : (66 * proj.scale);
-        const h = 56 * proj.scale;
-        const spikeCount = obj.spanAll ? 7 : 3;
-        const spikeW = spanW / spikeCount;
-        ctx.save();
-        ctx.translate(proj.x, proj.y);
-        this.drawGroundShadow(spanW * 0.55, 22 * proj.scale, 12 * proj.scale);
-
-        ctx.fillStyle = "#2c2a38";
-        ctx.fillRect(-spanW / 2, -10 * proj.scale, spanW, 14 * proj.scale);
-        for (let i = 0; i < spikeCount; i++) {
-            const cx = -spanW / 2 + spikeW * (i + 0.5);
-            const grad = ctx.createLinearGradient(cx, -h, cx, 0);
-            grad.addColorStop(0, "#f4f4f8");
-            grad.addColorStop(0.55, "#9a9aa8");
-            grad.addColorStop(1, "#45454f");
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.moveTo(cx - spikeW * 0.32, 0);
-            ctx.lineTo(cx, -h);
-            ctx.lineTo(cx + spikeW * 0.32, 0);
-            ctx.closePath();
-            ctx.fill();
-        }
-        const pulse = 0.5 + 0.5 * Math.sin((obj.spin || 0) * 3);
-        ctx.fillStyle = `rgba(255,60,60,${0.4 + pulse * 0.5})`;
-        ctx.beginPath(); ctx.arc(0, -8 * proj.scale, 5 * proj.scale, 0, Math.PI * 2); ctx.fill();
-        this.drawActionLabel("⤒ NHẢY", 0, -h - 10 * proj.scale, proj.scale, "#ff6b6b");
-        ctx.restore();
-    },
-
-    // ── Loại 3: HỐ/VỰC SÂU (né bằng nhảy, nằm sát mặt đất) ──
-    drawChasmObstacle(proj, obj) {
-        const ctx = this.ctx;
-        const spanW = obj.spanAll ? (this.LANE_OFFSET_BOTTOM * 2.6 * proj.scale) : (78 * proj.scale);
-        const depth = 30 * proj.scale;
-        ctx.save();
-        ctx.translate(proj.x, proj.y);
-
-        ctx.fillStyle = "#0c0814";
-        ctx.beginPath(); ctx.ellipse(0, 8 * proj.scale, spanW * 0.55, depth, 0, 0, Math.PI * 2); ctx.fill();
-        const grad = ctx.createRadialGradient(0, 8 * proj.scale, 4, 0, 8 * proj.scale, spanW * 0.5);
-        grad.addColorStop(0, "rgba(255,150,40,0.9)");
-        grad.addColorStop(0.55, "rgba(255,80,20,0.4)");
-        grad.addColorStop(1, "rgba(255,80,20,0)");
-        ctx.fillStyle = grad;
-        ctx.beginPath(); ctx.ellipse(0, 8 * proj.scale, spanW * 0.46, depth * 0.75, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "rgba(255,203,5,0.55)"; ctx.lineWidth = 2 * proj.scale;
-        ctx.beginPath(); ctx.ellipse(0, 8 * proj.scale, spanW * 0.55, depth, 0, 0, Math.PI * 2); ctx.stroke();
-        this.drawActionLabel("⤒ NHẢY", 0, -34 * proj.scale, proj.scale, "#ff9f43");
-        ctx.restore();
-    },
-
-    // ── Loại 4: CÀNH CÂY / CỔNG GỖ (né bằng trượt) ──
-    drawBranchObstacle(proj, obj) {
-        const ctx = this.ctx;
-        const spanW = obj.spanAll ? (this.LANE_OFFSET_BOTTOM * 2.6 * proj.scale) : (70 * proj.scale);
-        const h = 30 * proj.scale;
-        const yTop = -110 * proj.scale;
-        ctx.save();
-        ctx.translate(proj.x, proj.y);
-        this.drawGroundShadow(spanW * 0.55, 26 * proj.scale, 20 * proj.scale);
-
-        const grad = ctx.createLinearGradient(0, yTop, 0, yTop + h);
-        grad.addColorStop(0, "#a9702f");
-        grad.addColorStop(1, "#6b4419");
-        ctx.fillStyle = grad;
-        ctx.fillRect(-spanW / 2, yTop, spanW, h);
-        ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 2;
-        ctx.strokeRect(-spanW / 2, yTop, spanW, h);
-        ctx.fillStyle = "#3f8f4f";
-        ctx.beginPath(); ctx.ellipse(-spanW / 2 + 8, yTop, 14 * proj.scale, 9 * proj.scale, 0.4, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(spanW / 2 - 8, yTop + h, 14 * proj.scale, 9 * proj.scale, -0.4, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#4a2f12";
-        ctx.fillRect(-spanW / 2 + 4, yTop + h, 8 * proj.scale, 110 * proj.scale);
-        ctx.fillRect(spanW / 2 - 12, yTop + h, 8 * proj.scale, 110 * proj.scale);
-        this.drawActionLabel("⤓ TRƯỢT", 0, yTop - 8 * proj.scale, proj.scale, "#7ee6ff");
-        ctx.restore();
-    },
-
-    // ── Loại 5: ĐÀN QUÁI BAY (né bằng trượt, lơ lửng ngang đầu) ──
-    drawSwarmObstacle(proj, obj) {
-        const ctx = this.ctx;
-        const spanW = obj.spanAll ? (this.LANE_OFFSET_BOTTOM * 2.6 * proj.scale) : (80 * proj.scale);
-        const yTop = -128 * proj.scale;
-        const spin = obj.spin || 0;
-        const flap = Math.sin(spin * 3);
-        ctx.save();
-        ctx.translate(proj.x, proj.y);
-        this.drawGroundShadow(spanW * 0.42, 16 * proj.scale, 8 * proj.scale, 0.24);
-
-        const count = obj.spanAll ? 5 : 3;
-        for (let i = 0; i < count; i++) {
-            const cx = -spanW / 2 + (spanW / Math.max(1, count - 1)) * i;
-            const cy = yTop + Math.sin(spin + i * 1.7) * 8 * proj.scale;
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.fillStyle = "#5a3f80";
-            ctx.beginPath();
-            ctx.moveTo(0, 0); ctx.lineTo(-16 * proj.scale, -6 * proj.scale - flap * 9 * proj.scale); ctx.lineTo(-4 * proj.scale, 3 * proj.scale);
-            ctx.closePath(); ctx.fill();
-            ctx.beginPath();
-            ctx.moveTo(0, 0); ctx.lineTo(16 * proj.scale, -6 * proj.scale - flap * 9 * proj.scale); ctx.lineTo(4 * proj.scale, 3 * proj.scale);
-            ctx.closePath(); ctx.fill();
-            ctx.fillStyle = "#3a2a55";
-            ctx.beginPath(); ctx.ellipse(0, 0, 9 * proj.scale, 7 * proj.scale, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#ff5555";
-            ctx.beginPath(); ctx.arc(-2.4 * proj.scale, -1 * proj.scale, 1.6 * proj.scale, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(2.4 * proj.scale, -1 * proj.scale, 1.6 * proj.scale, 0, Math.PI * 2); ctx.fill();
-            ctx.restore();
-        }
-        this.drawActionLabel("⤓ TRƯỢT", 0, yTop - 30 * proj.scale, proj.scale, "#c9a8ff");
-        ctx.restore();
-    },
-
-    // ── Loại 6: CÂN/LƯỠI CHÉM ĐONG ĐƯA (né bằng nhảy) — giống Temple Run,
-    // treo ngang trên 1 xà gỗ, đong đưa qua lại theo obj.spin. ──
-    drawPendulumObstacle(proj, obj) {
-        const ctx = this.ctx;
-        const spanW = obj.spanAll ? (this.LANE_OFFSET_BOTTOM * 2.6 * proj.scale) : (90 * proj.scale);
-        const swing = Math.sin((obj.spin || 0) * 1.4) * 0.55;
-        ctx.save();
-        ctx.translate(proj.x, proj.y);
-        this.drawGroundShadow(spanW * 0.4, 20 * proj.scale, 10 * proj.scale, 0.3);
-
-        const beamY = -172 * proj.scale;
-        ctx.fillStyle = "#3a2c20";
-        ctx.fillRect(-spanW / 2, beamY - 8 * proj.scale, spanW, 10 * proj.scale);
-        ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 1;
-        ctx.strokeRect(-spanW / 2, beamY - 8 * proj.scale, spanW, 10 * proj.scale);
-
-        const armLen = 130 * proj.scale;
-        const bladeX = Math.sin(swing) * armLen;
-        const bladeY = beamY + Math.cos(swing) * armLen;
-        ctx.strokeStyle = "#8a8a94"; ctx.lineWidth = 3 * proj.scale;
-        ctx.beginPath(); ctx.moveTo(0, beamY); ctx.lineTo(bladeX, bladeY); ctx.stroke();
-
-        ctx.save();
-        ctx.translate(bladeX, bladeY);
-        ctx.rotate(swing);
-        const grad = ctx.createLinearGradient(-34 * proj.scale, 0, 34 * proj.scale, 0);
-        grad.addColorStop(0, "#e8e8f0"); grad.addColorStop(0.5, "#aab0c0"); grad.addColorStop(1, "#666e80");
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(-34 * proj.scale, -6 * proj.scale);
-        ctx.lineTo(34 * proj.scale, -6 * proj.scale);
-        ctx.lineTo(0, 30 * proj.scale);
-        ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.restore();
-
-        this.drawActionLabel("⤒ NHẢY", 0, beamY - 14 * proj.scale, proj.scale, "#ffd54f");
-        ctx.restore();
-    },
-
-    // ── Loại 7: BỨC TƯỜNG CỔ chắn 2/3 làn — bắt buộc ĐỔI LÀN, không né được
-    // bằng nhảy/trượt. Vẽ riêng từng làn bị chặn (không dùng proj truyền vào
-    // vì mỗi làn chiếu ra 1 vị trí khác nhau). Màu theo zone.structureColor. ──
-    drawWallGap(obj) {
-        const ctx = this.ctx;
-        const sc = this.zone().structureColor || ["#5a4a7a", "#3a2c58", "#241a3d"];
-        (obj.blockedLanes || []).forEach((lane) => {
-            const proj = this.renderProjFor(lane, obj.t);
-            const w = 132 * proj.scale, h = 150 * proj.scale;
-            ctx.save();
-            ctx.translate(proj.x, proj.y);
-            this.drawGroundShadow(w * 0.5, 22 * proj.scale, 20 * proj.scale);
-
-            const grad = ctx.createLinearGradient(-w / 2, -h, w / 2, 0);
-            grad.addColorStop(0, sc[0]); grad.addColorStop(0.5, sc[1]); grad.addColorStop(1, sc[2]);
-            ctx.fillStyle = grad;
-            ctx.fillRect(-w / 2, -h, w, h);
-            ctx.strokeStyle = "rgba(255,203,5,0.4)"; ctx.lineWidth = 2;
-            ctx.strokeRect(-w / 2, -h, w, h);
-            ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 1.5;
-            for (let row = 1; row < 4; row++) {
-                ctx.beginPath();
-                ctx.moveTo(-w / 2, -h + (h / 4) * row);
-                ctx.lineTo(w / 2, -h + (h / 4) * row);
-                ctx.stroke();
-            }
-            ctx.fillStyle = "rgba(255,80,80,0.85)";
-            ctx.beginPath(); ctx.arc(0, -h * 0.55, 6 * proj.scale, 0, Math.PI * 2); ctx.fill();
-            ctx.restore();
-        });
-
-        // nhãn nhắc đổi làn, đặt tại đúng vị trí làn còn TRỐNG
-        const freeLane = this.LANES.find((l) => !(obj.blockedLanes || []).includes(l));
-        const lp = this.renderProjFor(freeLane != null ? freeLane : 0, obj.t);
-        ctx.save();
-        ctx.translate(lp.x, lp.y);
-        this.drawActionLabel("↔ ĐỔI LÀN", 0, -168 * lp.scale, lp.scale, "#7ee6ff");
-        ctx.restore();
-    },
-
-    // ── CỔNG DỊCH CHUYỂN sang khu vực tiếp theo — vòm ánh sáng phủ hết bề
-    // rộng đường, xoáy theo obj.spin, hiện tên khu vực sắp tới phía trên. ──
-    drawPortal(obj) {
-        const ctx = this.ctx;
-        const proj = this.renderProjFor(0, obj.t);
-        const nextZone = this.ZONES[obj.nextIndex] || this.zone();
-        const halfW = (this.LANE_OFFSET_BOTTOM * 1.6 + 60) * proj.scale;
-        const archH = 260 * proj.scale;
-        ctx.save();
-        ctx.translate(proj.x, proj.y);
-
-        // 2 trụ cổng
-        ctx.fillStyle = "rgba(20,16,32,0.9)";
-        ctx.fillRect(-halfW, -archH, 22 * proj.scale, archH);
-        ctx.fillRect(halfW - 22 * proj.scale, -archH, 22 * proj.scale, archH);
-
-        // vòm năng lượng phát sáng
-        const glowAlpha = 0.55 + 0.25 * Math.sin(obj.spin || 0);
-        ctx.strokeStyle = nextZone.portalColor;
-        ctx.lineWidth = 10 * proj.scale;
-        ctx.globalAlpha = glowAlpha;
-        ctx.beginPath();
-        ctx.moveTo(-halfW, 0);
-        ctx.lineTo(-halfW, -archH);
-        ctx.quadraticCurveTo(0, -archH - 70 * proj.scale, halfW, -archH);
-        ctx.lineTo(halfW, 0);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-
-        // mặt cổng lấp lánh xoáy nhẹ
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(-halfW + 22 * proj.scale, 0);
-        ctx.lineTo(-halfW + 22 * proj.scale, -archH);
-        ctx.quadraticCurveTo(0, -archH - 60 * proj.scale, halfW - 22 * proj.scale, -archH);
-        ctx.lineTo(halfW - 22 * proj.scale, 0);
-        ctx.closePath();
-        ctx.clip();
-        const swirl = ctx.createRadialGradient(0, -archH * 0.5, 4, 0, -archH * 0.5, halfW);
-        swirl.addColorStop(0, nextZone.portalColor);
-        swirl.addColorStop(0.6, "rgba(255,255,255,0.15)");
-        swirl.addColorStop(1, "rgba(0,0,0,0.35)");
-        ctx.globalAlpha = 0.5;
-        ctx.fillStyle = swirl;
-        ctx.fillRect(-halfW, -archH - 70 * proj.scale, halfW * 2, archH + 70 * proj.scale);
-        ctx.restore();
-
-        this.drawActionLabel(`➜ ${nextZone.label}`, 0, -archH - 84 * proj.scale, proj.scale, nextZone.portalColor);
-        ctx.restore();
-    },
-
-    // Helper dùng chung: bóng đổ hình elip dưới chân chướng ngại vật
-    drawGroundShadow(rx, ry, offsetY, alpha = 0.4) {
-        const ctx = this.ctx;
-        ctx.save();
-        ctx.scale(1, 0.28);
-        ctx.fillStyle = `rgba(0,0,0,${alpha})`;
-        ctx.beginPath(); ctx.ellipse(0, offsetY / 0.28, rx, ry / 0.28 * 0.28, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
-    },
-
-    // Helper dùng chung: nhãn chữ nhắc hành động ("⤒ NHẢY" / "⤓ TRƯỢT" / "↔ ĐỔI LÀN" / tên khu vực)
-    drawActionLabel(text, x, y, scale, color) {
-        const ctx = this.ctx;
-        ctx.save();
-        ctx.fillStyle = color;
-        ctx.font = `bold ${14 * scale}px Baloo 2, sans-serif`;
         ctx.textAlign = "center";
-        ctx.shadowColor = "rgba(0,0,0,0.8)";
-        ctx.shadowBlur = 4 * scale;
-        ctx.fillText(text, x, y);
+        ctx.textBaseline = "middle";
+        ctx.fillText("₽", 0, 1);
         ctx.restore();
     },
 
@@ -2239,7 +1472,8 @@ window.RaceGame = {
             y -= arc * 190;
             scale = 1 + arc * 0.05;
         }
-        let squashY = 1, squashX = 1;
+        let squashY = 1,
+            squashX = 1;
         if (p.sliding) {
             const s = Math.sin(Math.PI * Math.min(1, p.slideT * 1.6));
             squashY = 1 - s * 0.42;
@@ -2253,14 +1487,21 @@ window.RaceGame = {
         ctx.scale(1, 0.28);
         const shadowAlpha = p.jumping ? 0.18 : 0.4;
         ctx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
-        ctx.beginPath(); ctx.arc(0, 0, 56, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, 0, 56, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
 
         // hào quang vàng phía sau
         ctx.save();
         ctx.translate(x, y);
-        ctx.fillStyle = this.cachedPlayerGlow || "rgba(255,203,5,0.2)";
-        ctx.beginPath(); ctx.arc(0, 20, 90, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle =
+            (window.RaceBackground._gradCache &&
+                window.RaceBackground._gradCache.playerGlow) ||
+            "rgba(255,203,5,0.2)";
+        ctx.beginPath();
+        ctx.arc(0, 20, 90, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
 
         // vệt tốc độ phía sau khi chạy nhanh
@@ -2288,14 +1529,20 @@ window.RaceGame = {
         ctx.scale(squashX * scale, squashY * scale);
 
         const size = 118;
-        if (this.characterImg && this.characterImg.complete && this.characterImg.naturalWidth > 0) {
+        if (
+            this.characterImg &&
+            this.characterImg.complete &&
+            this.characterImg.naturalWidth > 0
+        ) {
             ctx.save();
             if (p.hit) ctx.filter = "brightness(1.8) saturate(0.4)";
             ctx.drawImage(this.characterImg, -size / 2, -size, size, size);
             ctx.restore();
         } else {
             ctx.fillStyle = "#ffcb05";
-            ctx.beginPath(); ctx.arc(0, -size / 2, size * 0.4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath();
+            ctx.arc(0, -size / 2, size * 0.4, 0, Math.PI * 2);
+            ctx.fill();
         }
         ctx.restore();
     },
@@ -2310,12 +1557,15 @@ window.RaceGame = {
                 ctx.fillStyle = pt.color;
                 ctx.font = `bold ${pt.size}px Baloo 2, sans-serif`;
                 ctx.textAlign = "center";
-                ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 3;
+                ctx.strokeStyle = "rgba(0,0,0,0.6)";
+                ctx.lineWidth = 3;
                 ctx.strokeText(pt.text, pt.x, pt.y);
                 ctx.fillText(pt.text, pt.x, pt.y);
             } else {
                 ctx.fillStyle = pt.color;
-                ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+                ctx.fill();
             }
             ctx.restore();
         });
@@ -2323,7 +1573,10 @@ window.RaceGame = {
 
     drawVignette() {
         const ctx = this.ctx;
-        ctx.fillStyle = this.cachedVignette || "rgba(0,0,0,0.25)";
+        ctx.fillStyle =
+            (window.RaceBackground._gradCache &&
+                window.RaceBackground._gradCache.vign) ||
+            "rgba(0,0,0,0.25)";
         ctx.fillRect(0, 0, this.VW, this.VH);
     },
 };
