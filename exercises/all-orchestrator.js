@@ -19,7 +19,7 @@
 import {
   initTTSVoice, injectSharedStyles, getWordBank, loadSessionData,
   renderLevelSelect, renderEndOfSessionPrompt, resetInstructionMemory,
-  showTransition,
+  showTransition, PkmGameNavigating,
 } from "./all-shared.js";
 
 import { runIntroModule } from "./module-1-intro.js";
@@ -233,4 +233,7 @@ async function main() {
   if (mini) mini.textContent = "🏆 Xong!";
 }
 
-main();
+main().catch(e => {
+  if (e?.pkmNavigating) return; // đang điều hướng sang 1 game full-screen — không phải lỗi
+  console.error("Lỗi không mong muốn trong buổi học:", e);
+});
