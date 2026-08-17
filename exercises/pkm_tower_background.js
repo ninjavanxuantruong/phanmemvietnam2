@@ -50,6 +50,7 @@ window.TowerBackground = {
             portalColor: '#ff8a3d', portalGlow: 'rgba(255,138,61,0.65)', portalShape: 'hole',
             skyGlow: 'radial-gradient(circle, rgba(255,210,140,0.55), transparent 70%)',
             ambient: { shape: 'firefly', color: '#d8ff8a', glow: '#eaff9a', motion: 'drift-glow', sizeMin: 3, sizeMax: 6 },
+            bgDeep: '#0b1710', bgMid: '#16301f', chrome1: '#1c3322', chrome2: '#0e1e14',
         },
         sea: {
             label: 'Vùng Biển',
@@ -62,6 +63,7 @@ window.TowerBackground = {
             portalColor: '#4fc3f7', portalGlow: 'rgba(79,195,247,0.65)', portalShape: 'whirlpool',
             skyGlow: 'radial-gradient(circle, rgba(180,230,255,0.5), transparent 70%)',
             ambient: { shape: 'bubble', color: '#bdeeff', glow: '#eafcff', motion: 'rise', sizeMin: 4, sizeMax: 9 },
+            bgDeep: '#051620', bgMid: '#0c2a38', chrome1: '#123a4a', chrome2: '#051620',
         },
         mountain: {
             label: 'Vùng Núi',
@@ -74,6 +76,7 @@ window.TowerBackground = {
             portalColor: '#cfe8ff', portalGlow: 'rgba(207,232,255,0.6)', portalShape: 'cave',
             skyGlow: 'radial-gradient(circle, rgba(255,255,255,0.5), transparent 70%)',
             ambient: { shape: 'snow', color: '#ffffff', glow: '#eaf4ff', motion: 'fall', sizeMin: 3, sizeMax: 6 },
+            bgDeep: '#0c1014', bgMid: '#1c242c', chrome1: '#2e3844', chrome2: '#0c1014',
         },
         jungle: {
             label: 'Rừng Nhiệt Đới',
@@ -86,6 +89,7 @@ window.TowerBackground = {
             portalColor: '#8fe870', portalGlow: 'rgba(143,232,112,0.65)', portalShape: 'vines',
             skyGlow: 'radial-gradient(circle, rgba(255,235,170,0.5), transparent 70%)',
             ambient: { shape: 'pollen', color: '#e9ffb0', glow: '#f6ffd9', motion: 'drift-glow', sizeMin: 2, sizeMax: 5 },
+            bgDeep: '#061505', bgMid: '#123018', chrome1: '#1f4a20', chrome2: '#061505',
         },
         sky: {
             label: 'Vùng Trời',
@@ -98,6 +102,7 @@ window.TowerBackground = {
             portalColor: '#ffffff', portalGlow: 'rgba(255,255,255,0.75)', portalShape: 'cloudrift',
             skyGlow: 'radial-gradient(circle, rgba(255,255,255,0.65), transparent 70%)',
             ambient: { shape: 'star', color: '#ffffff', glow: '#dceeff', motion: 'twinkle', sizeMin: 2, sizeMax: 4 },
+            bgDeep: '#0c1830', bgMid: '#1c3454', chrome1: '#274668', chrome2: '#0c1830',
         },
     },
 
@@ -241,11 +246,20 @@ window.TowerBackground = {
         const arena = document.getElementById('tower-arena');
         if (arena) arena.style.background = theme.background;
 
-        // Đổi màu đường-lát-đá có sẵn trong HTML (dùng chung biến CSS
-        // --path-stone/--path-stone-dark mà pkm_tower.html đã khai báo) —
-        // không cần sửa gì trong HTML, chỉ ghi đè biến ở đây.
+        // Đổi màu đường-lát-đá + nền chung (body/màn sắp xếp) qua biến CSS
+        // có sẵn trong HTML — không cần sửa gì trong HTML, chỉ ghi đè biến.
         document.documentElement.style.setProperty('--path-stone', theme.pathStone);
         document.documentElement.style.setProperty('--path-stone-dark', theme.pathStoneDark);
+        document.documentElement.style.setProperty('--bg-deep', theme.bgDeep);
+        document.documentElement.style.setProperty('--bg-mid', theme.bgMid);
+
+        // #top-bar và .quiz-card trong pkm_tower.html KHÔNG dùng biến CSS
+        // (màu viết cứng trong file) — set thẳng inline style ở đây để
+        // chúng đổi màu theo đúng theme, không cần sửa HTML.
+        const topBar = document.getElementById('top-bar');
+        if (topBar) topBar.style.background = `linear-gradient(180deg, ${theme.chrome1} 0%, ${theme.chrome2} 100%)`;
+        const quizCard = document.querySelector('.quiz-card');
+        if (quizCard) quizCard.style.background = `linear-gradient(180deg, ${theme.chrome1} 0%, ${theme.chrome2} 100%)`;
 
         this.renderSkyGlow(theme);
         this.renderPortals(theme);
