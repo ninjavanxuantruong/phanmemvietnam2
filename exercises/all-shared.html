@@ -111,11 +111,8 @@
     }
   </style>
 
-  <!-- Live2D — chỉ dùng bởi mascot ở Module 1 (Giới thiệu) -->
-  <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.3.2/dist/pixi.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/RaSan147/pixi-live2d-display@v0.5.0-ls-8/dist/index.min.js"></script>
+  <!-- Live2D ĐÃ BỎ — Module 1 giờ dùng pkm_minigame_flipbook.html (trang riêng),
+       không còn avatar Live2D trong all-shared.html nữa. -->
 </head>
 <body>
 
@@ -149,11 +146,12 @@
   <script src="tacham.js"></script>
   <script src="imagecache2.js"></script>
 
-  <!-- MINIGAME TRẢ LỜI TRẮC NGHIỆM — PHẢI nạp TRƯỚC all-orchestrator.js để
-       window.PkmMinigameRouter sẵn sàng lúc askMCQ() chạy. Thêm game mới thì
-       chỉ cần thêm 1 dòng <script> ở đây, game tự đăng ký vào router. -->
-  <script src="pkm_minigame_router.js"></script>
-  <script src="pkm_minigame_race.js"></script>
+  <!-- GAME FULL-SCREEN THEO TỪNG MODULE — PHẢI nạp TRƯỚC all-orchestrator.js
+       để window.PkmGameSession sẵn sàng lúc module bắt đầu chạy. Thêm scene
+       mới thì chỉ cần thêm 1 dòng <script> ở đây, scene tự đăng ký vào
+       session (xem hướng dẫn đầu file pkm_game_session.js). -->
+  <script src="pkm_game_session.js"></script>
+  <script src="pkm_scene_race.js"></script>
 
   <!-- ĐIỀU PHỐI CHÍNH (module) -->
   <!-- thêm -->
