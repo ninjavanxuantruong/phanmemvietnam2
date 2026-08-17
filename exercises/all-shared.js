@@ -492,20 +492,17 @@ export function askMCQ(cfg) {
       const reveal = shouldRevealAnswer(tracker);
       container.innerHTML = `
         <div class="pkl-mcq-question">${questionHTML}</div>
-        <div id="pklMcqStage"></div>
+        <div class="pkl-mcq-options ${hasImages ? "pkl-img-mode" : ""}" id="pklMcqOptions"></div>
         <div class="pkl-mcq-feedback" id="pklMcqFeedback"></div>
       `;
-      const stage = container.querySelector("#pklMcqStage");
+      const optWrap = container.querySelector("#pklMcqOptions");
       const feedback = container.querySelector("#pklMcqFeedback");
       let locked = false;
 
-      // ─── Xử lý 1 lượt chọn đáp án — DÙNG CHUNG cho cả nút bấm thường lẫn
-      // minigame (đua xe, bắn bóng...) bên dưới, để feedback/attempt/reveal
-      // luôn nhất quán bất kể học sinh chọn kiểu gì. `pickedEl` (tuỳ chọn)
-      // là phần tử đại diện cho lựa chọn đó, dùng để gắn hiệu ứng đúng/sai.
       const handlePick = async (value, pickedEl) => {
         if (locked) return;
         locked = true;
+        optWrap.querySelectorAll(".pkl-mcq-btn").forEach(b => b.classList.add("pkl-locked"));
 
         const opt = options.find(o => o.value === value) || {};
         await speakByLang(opt.speakText || opt.label || value, optionLang, rate);
@@ -531,44 +528,22 @@ export function askMCQ(cfg) {
         }
       };
 
-      // ─── Ưu tiên MINIGAME nếu có sẵn game hợp với số lượng đáp án hiện
-      // tại (2/3/4/5 đều tự lọc qua PkmMinigameRouter) — không thì fallback
-      // về nút bấm A/B/C/D như cũ, KHÔNG game nào chơi được cũng không sao.
-      const useMinigame = !!(
-        window.PkmMinigameRouter && window.PkmMinigameRouter.hasSupportedGame(options)
-      );
+      options.forEach(opt => {
+        const btn = document.createElement(opt.imageUrl ? "div" : "button");
+        btn.className = "pkl-mcq-btn" + (opt.imageUrl ? " pkl-mcq-img" : "");
+        btn.dataset.value = opt.value;
+        btn.innerHTML = opt.imageUrl
+          ? `<div class="img-wrap">
+               <img src="${opt.imageUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/>
+               <div class="img-fallback" style="display:none;">🖼️</div>
+             </div>
+             <div class="lbl">${opt.label}</div>`
+          : `<span>${opt.label}</span>`;
+        if (reveal && opt.value === correctValue) btn.classList.add("pkl-reveal");
 
-      if (useMinigame) {
-        window.PkmMinigameRouter.play({
-          stage, options, correctValue, reveal, hasImages,
-          onAnswer: (value, el) => handlePick(value, el),
-        });
-      } else {
-        const optWrap = document.createElement("div");
-        optWrap.className = "pkl-mcq-options " + (hasImages ? "pkl-img-mode" : "");
-        optWrap.id = "pklMcqOptions";
-        stage.appendChild(optWrap);
-
-        options.forEach(opt => {
-          const btn = document.createElement(opt.imageUrl ? "div" : "button");
-          btn.className = "pkl-mcq-btn" + (opt.imageUrl ? " pkl-mcq-img" : "");
-          btn.dataset.value = opt.value;
-          btn.innerHTML = opt.imageUrl
-            ? `<div class="img-wrap">
-                 <img src="${opt.imageUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/>
-                 <div class="img-fallback" style="display:none;">🖼️</div>
-               </div>
-               <div class="lbl">${opt.label}</div>`
-            : `<span>${opt.label}</span>`;
-          if (reveal && opt.value === correctValue) btn.classList.add("pkl-reveal");
-
-          btn.onclick = () => {
-            optWrap.querySelectorAll(".pkl-mcq-btn").forEach(b => b.classList.add("pkl-locked"));
-            handlePick(opt.value, btn);
-          };
-          optWrap.appendChild(btn);
-        });
-      }
+        btn.onclick = () => handlePick(opt.value, btn);
+        optWrap.appendChild(btn);
+      });
 
       await speakInstructionOnce(instructionKey, instructionText);
       if (speakPromptText) await speakByLang(speakPromptText, promptLang, rate);
@@ -1099,3 +1074,97 @@ export function updateMiniScore(displayScore, total) {
   const el = document.getElementById("miniScore");
   if (el) el.textContent = `🎯 ${displayScore}/${total}`;
 }
+// ============================================================================
+// 12. PKM GAME LAUNCHER — điều phối CHUYỂN HẲN TRANG sang 1 game full-màn-hình
+// ============================================================================
+/**
+ * Vì mỗi game giờ là 1 trang HTML riêng biệt (không dùng chung DOM với
+ * all-shared.html nữa), không thể `await` xuyên trang như code thường —
+ * nên dùng lại đúng cơ chế "lưu localStorage rồi reload" đã có sẵn cho
+ * tính năng nhảy module. Luồng:
+ *
+ *   1. Module chuẩn bị `rounds` (data thuần: câu hỏi/đáp án đúng...) rồi
+ *      gọi PkmGameLauncher.launch({ moduleId, category, rounds }).
+ *   2. launch() lưu rounds vào localStorage, chọn 1 game hợp với `category`
+ *      (không lặp game vừa dùng lần trước), CHUYỂN HẲN TRANG sang game đó.
+ *   3. Trang game (HTML/JS độc lập) tự đọc rounds qua getLaunchPayload(),
+ *      tự vẽ + tự chấm (dùng lại các hàm chấm điểm thuần export ở trên,
+ *      import thẳng từ all-shared.js), chơi xong gọi finishAndReturn(results)
+ *      — lưu kết quả rồi CHUYỂN HẲN TRANG quay lại all-shared.html.
+ *   4. all-shared.html load lại từ đầu, module đó chạy lại, nhưng lần này
+ *      consumeResult(moduleId) thấy có kết quả chờ sẵn -> dùng luôn, KHÔNG
+ *      hỏi lại từ đầu.
+ *
+ * Module nào gọi launch() mà nó thực sự điều hướng đi thì hàm gọi PHẢI
+ * dừng thực thi ngay (không chạy tiếp code sau đó, kẻo lỡ tay ghi điểm/hiện
+ * transition trong khoảnh khắc trước khi trang unload) — launch() tự ném
+ * ra 1 "tín hiệu điều hướng" (PkmGameNavigating) để dừng ngay lập tức; nơi
+ * gọi KHÔNG cần tự try/catch — main() ở all-orchestrator.js đã bắt sẵn.
+ */
+
+const PKM_LAUNCH_KEY = "pkl_game_launch";
+const PKM_RESULT_KEY = "pkl_game_result";
+const PKM_LAST_GAME_PREFIX = "pkl_last_game_"; // + category, sessionStorage
+
+export class PkmGameNavigating extends Error {
+  constructor() { super("PkmGameNavigating"); this.pkmNavigating = true; }
+}
+
+export const PkmGameLauncher = {
+  // Bảng game theo nhóm — SỬA Ở ĐÂY khi thêm game mới (chỉ cần thêm tên
+  // file .html vào đúng mảng, không cần sửa gì khác trong hệ thống).
+  GAMES: {
+    answer: ["pkm_minigame_race.html", "pkm_minigame_race_alone.html", "pkm_minigame_shooting.html"], // sau này thêm: balloon, treasure
+    introPresent: ["pkm_minigame_flipbook.html", "pkm_minigame_maze.html"], // sau này thêm game khác cho Stage A
+    speaking: ["pkm_minigame_ballcatching.html"], // chỉ Module 3 dùng — round shape khác hẳn "answer" (promptHTML/speakBeforeText/matchType, không phải questionHTML/options)
+  },
+
+  // Gọi bởi MODULE lúc chuẩn bị xong dữ liệu câu hỏi. Trả về false nếu
+  // nhóm này chưa có game nào (nơi gọi tự fallback chạy UI cũ trong trang).
+  // Nếu CÓ game, hàm này KHÔNG return bình thường — nó điều hướng đi rồi
+  // ném PkmGameNavigating để dừng thực thi ngay tại chỗ gọi.
+  launch({ moduleId, category, rounds }) {
+    const games = this.GAMES[category] || [];
+    if (!games.length) return false;
+
+    const lastKey = PKM_LAST_GAME_PREFIX + category;
+    const lastGame = sessionStorage.getItem(lastKey);
+    const pool = games.length > 1 ? games.filter(g => g !== lastGame) : games;
+    const chosen = (pool.length > 0 ? pool : games)[Math.floor(Math.random() * (pool.length > 0 ? pool.length : games.length))];
+    sessionStorage.setItem(lastKey, chosen);
+
+    localStorage.setItem(PKM_LAUNCH_KEY, JSON.stringify({ moduleId, category, rounds }));
+    localStorage.removeItem(PKM_RESULT_KEY); // dọn kết quả cũ (nếu có) trước khi sang game mới
+    location.href = chosen;
+    throw new PkmGameNavigating();
+  },
+
+  // Gọi bởi TRANG GAME lúc khởi động, để lấy dữ liệu câu hỏi cần chơi.
+  getLaunchPayload() {
+    try { return JSON.parse(localStorage.getItem(PKM_LAUNCH_KEY)); }
+    catch (e) { return null; }
+  },
+
+  // Gọi bởi TRANG GAME khi đã chơi xong hết `rounds`, TRƯỚC khi quay lại.
+  // `results`: mảng cùng thứ tự `rounds`, mỗi phần tử là attemptsUsed
+  // (số nguyên >=1, 1 = đúng ngay lần đầu) — đúng shape recordQuestionPassed() cần.
+  finishAndReturn(moduleId, results) {
+    localStorage.setItem(PKM_RESULT_KEY, JSON.stringify({ moduleId, results }));
+    localStorage.removeItem(PKM_LAUNCH_KEY);
+    location.href = "all-shared.html";
+  },
+
+  // Gọi bởi MODULE lúc bắt đầu chạy lại, để biết có đang "vừa quay về từ
+  // game" hay không. Trả về mảng results nếu có (và tự xoá luôn, dùng 1
+  // lần), null nếu không phải đang quay về.
+  consumeResult(moduleId) {
+    try {
+      const raw = localStorage.getItem(PKM_RESULT_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (data.moduleId !== moduleId) return null; // kết quả của module khác, bỏ qua
+      localStorage.removeItem(PKM_RESULT_KEY);
+      return data.results;
+    } catch (e) { return null; }
+  },
+};
