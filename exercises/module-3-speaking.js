@@ -1,24 +1,33 @@
 /**
  * ============================================================================
- * module-3-speaking.js — MODULE 3: NÓI (bản viết lại — chơi qua minigame đua
- * thú, dùng chung engine với Module 2)
+ * module-3-speaking.js — MODULE 3: NÓI (bản viết lại — chơi qua minigame
+ * pkm_minigame_ballcatching.html, KHÔNG dùng chung engine đua với Module 2)
  * ============================================================================
- * Giống Module 2: module này KHÔNG tự vẽ UI ghi âm vào rootEl nữa. Mỗi dạng
- * bài (Mầm non, Dễ A/B, TB A/B, Khó A/B) chỉ soạn mảng `rounds` — mỗi round
- * dạng "speaking" LUÔN kèm sẵn `fallbackRound` (dạng mcq/image-mcq) — rồi gọi
- * PkmGameLauncher.launch({ moduleId: "speaking", category: "answer", rounds })
- * để chuyển hẳn trang sang minigame (pkm_minigame_race.js).
+ * Module này KHÔNG tự vẽ UI ghi âm vào rootEl nữa. Mỗi dạng bài (Mầm non, Dễ
+ * A/B, TB A/B, Khó A/B) chỉ soạn mảng `rounds` — mỗi round dạng "speaking"
+ * LUÔN kèm sẵn `fallbackRound` (dạng mcq/image-mcq) — rồi gọi
+ * PkmGameLauncher.launch({ moduleId: "speaking", category: "speaking", rounds })
+ * để chuyển hẳn trang sang pkm_minigame_ballcatching.html (bắt bóng Poké bay
+ * ngẫu nhiên trên màn hình, bắt 1 quả -> hiện flashcard ghi âm/luyện nói).
  *
- * MIC HỎNG GIỮA CHỪNG: engine (không phải module này) chịu trách nhiệm đếm
- * lỗi kỹ thuật liên tiếp, hỏi "mic có hoạt động không?", và tự chuyển các
- * round "speaking" còn lại sang `fallbackRound` tương ứng — xem chi tiết ở
- * đầu file pkm_minigame_race.js. Module này chỉ cần LUÔN soạn sẵn fallback
- * cho mọi round speaking, không cần biết/xử lý gì thêm về mic nữa.
+ * category "speaking" TÁCH RIÊNG khỏi "answer" (nhóm race/race_alone/
+ * shooting/fish của Module 2/4/5) vì ballcatching có luồng chơi hoàn toàn
+ * khác: không có nhịp "đề bài hiện 5s rồi ẩn" hay khung giờ trả lời cố định —
+ * mọi round hiện SONG SONG dưới dạng bóng bay, học sinh bắt theo thứ tự tuỳ
+ * ý, mỗi lần bắt hiện flashcard với promptHTML hiển thị LIÊN TỤC suốt lúc ghi
+ * âm (không ẩn đi như dạng nghe).
+ *
+ * MIC HỎNG GIỮA CHỪNG: pkm_minigame_ballcatching.js tự đếm lỗi kỹ thuật liên
+ * tiếp (2 lần) rồi hỏi "mic có hoạt động không?" — chọn "Chuyển bài khác" thì
+ * từ đó mọi round speaking còn lại tự dùng `fallbackRound`. Module này chỉ
+ * cần LUÔN soạn sẵn fallback cho mọi round speaking, không cần xử lý gì thêm.
  *
  * SO KHỚP GIỌNG NÓI: vì `rounds` bị JSON.stringify() để lưu localStorage
  * trước khi chuyển trang, KHÔNG thể truyền hàm matchFn như bản gốc — thay
  * bằng `matchType` + `matchThreshold`/`matchKeywords` (dữ liệu thuần), engine
- * tự diễn giải thành logic so khớp.
+ * tự diễn giải thành logic so khớp (bản ballcatching mặc định ngưỡng percent
+ * là 70 nếu không truyền `matchThreshold` — module này LUÔN truyền tường minh
+ * cho các round matchType:"percent" nên không phụ thuộc giá trị mặc định đó).
  * ============================================================================
  */
 
@@ -299,8 +308,11 @@ export async function runSpeakingModule(ctx) {
     await showTransition("🎙️", "Speaking Time!", "Let's practice speaking English!");
     const rounds = buildRoundsForLevel(level, sessionVocab, poolData);
     // launch() CHUYỂN HẲN TRANG sang minigame — ném PkmGameNavigating để dừng
-    // thực thi ngay, all-orchestrator.js đã bắt sẵn.
-    PkmGameLauncher.launch({ moduleId: "speaking", category: "answer", rounds });
+    // thực thi ngay, all-orchestrator.js đã bắt sẵn. category "speaking" ->
+    // GAMES.speaking (pkm_minigame_ballcatching.html), KHÔNG dùng chung nhóm
+    // "answer" với race/race_alone/shooting/fish nữa, vì ballcatching có luồng
+    // chơi riêng (bắt bóng ngẫu nhiên, không theo nhịp prompt-flash 5s).
+    PkmGameLauncher.launch({ moduleId: "speaking", category: "speaking", rounds });
   }
 
   saveSpeakingResult(tracker.assessScore, tracker.total);
