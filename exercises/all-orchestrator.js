@@ -160,12 +160,19 @@ async function main() {
     localStorage.removeItem(JUMP_KEY);
   }
 
-  // 1. Cấp độ: nếu đang nhảy module và đã có cấp độ chọn từ trước -> dùng lại,
-  //    KHÔNG hỏi lại (tránh làm gián đoạn trải nghiệm khi chỉ đang chuyển module)
+  // 1. Cấp độ: CHỈ hỏi đúng 1 lần cho cả buổi học. Hễ đã có selected_level
+  //    trong localStorage -> dùng lại, không hỏi lại, dù đang jump module
+  //    hay vừa quay về (reload thường) từ 1 minigame.
   let level;
   const savedLevel = localStorage.getItem("selected_level");
-  if (isJumping && savedLevel) {
+  if (savedLevel) {
     level = savedLevel;
+    if (!isJumping) {
+      // Không phải do bấm nhảy module -> đây là lượt reload do minigame vừa
+      // finishAndReturn() xong -> tiếp tục ĐÚNG module đang dở dang (lưu ở
+      // sessionStorage lúc trước khi phóng sang minigame), không phải module 0.
+      startIdx = parseInt(sessionStorage.getItem(CURRENT_IDX_SESSION_KEY) || "0", 10);
+    }
   } else {
     setCard(`<div style="text-align:center;padding:20px;color:#aaa;">Đang tải...</div>`);
     level = await renderLevelSelect(document.getElementById("mainCard"));
@@ -225,9 +232,9 @@ async function main() {
       <div style="font-size:64px;">🏆</div>
       <h2 style="color:var(--poke-yellow);">Xuất sắc! Hoàn thành bài học hôm nay!</h2>
       <p style="color:#aaa;font-size:16px;">Điểm đã được lưu tự động.</p>
-      <a href="summary.html" style="display:inline-block;margin-top:20px;padding:14px 28px;
+      <a href="pkm_mode_select.html" style="display:inline-block;margin-top:20px;padding:14px 28px;
         background:var(--poke-yellow);color:#333;font-weight:bold;border-radius:14px;
-        text-decoration:none;font-size:18px;">📊 Xem tổng kết</a>
+        text-decoration:none;font-size:18px;">🎮 Chơi trò chơi khác</a>
     </div>`);
   const mini = document.getElementById("miniScore");
   if (mini) mini.textContent = "🏆 Xong!";
