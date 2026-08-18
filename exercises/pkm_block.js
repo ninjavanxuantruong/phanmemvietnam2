@@ -475,10 +475,30 @@ window.BlockGame = {
         );
     },
 
+    // Cache tham chiếu DOM của 64 ô ngay khi tạo, tránh gọi document.querySelector
+    // (duyệt lại toàn bộ DOM) hàng chục-hàng trăm lần mỗi lượt chơi — đây là
+    // nguyên nhân chính gây giật/lag trên máy yếu, đặc biệt lúc phá nhiều hàng/cột.
+    cellEls: [],
+
+    // Máy cảm ứng (điện thoại) không thực sự có "hover" theo kiểu chuột, nên
+    // bỏ hẳn 2 listener mouseenter/mouseleave trên mỗi ô khi thiết bị chỉ có
+    // con trỏ "coarse" (chạm) — đỡ 128 listener vô ích + tránh việc trình
+    // duyệt di động đôi khi bắn nhầm sự kiện hover khi chạm, gây thêm việc
+    // cho main thread.
+    _isCoarsePointer:
+        typeof window !== "undefined" &&
+        window.matchMedia &&
+        window.matchMedia("(pointer: coarse)").matches,
+
     renderBoard() {
         const board = document.getElementById("block-board");
         if (!board) return;
         board.innerHTML = "";
+        this.cellEls = Array.from({ length: this.GRID_SIZE }, () =>
+            new Array(this.GRID_SIZE).fill(null),
+        );
+        const frag = document.createDocumentFragment();
+        const attachHover = !this._isCoarsePointer;
         for (let r = 0; r < this.GRID_SIZE; r++) {
             for (let c = 0; c < this.GRID_SIZE; c++) {
                 const cell = document.createElement("div");
@@ -488,19 +508,23 @@ window.BlockGame = {
                 cell.addEventListener("click", () =>
                     this.handleCellClick(r, c),
                 );
-                cell.addEventListener("mouseenter", () =>
-                    this.handleCellHover(r, c),
-                );
-                cell.addEventListener("mouseleave", () => this.clearPreview());
-                board.appendChild(cell);
+                if (attachHover) {
+                    cell.addEventListener("mouseenter", () =>
+                        this.handleCellHover(r, c),
+                    );
+                    cell.addEventListener("mouseleave", () =>
+                        this.clearPreview(),
+                    );
+                }
+                this.cellEls[r][c] = cell;
+                frag.appendChild(cell);
             }
         }
+        board.appendChild(frag);
     },
 
     getCellEl(r, c) {
-        return document.querySelector(
-            `.block-cell[data-r="${r}"][data-c="${c}"]`,
-        );
+        return this.cellEls[r]?.[c] || null;
     },
 
     paintCell(r, c, color, pokemonUrl) {
@@ -620,6 +644,8 @@ window.BlockGame = {
         return true;
     },
 
+    _previewEls: [],
+
     handleCellHover(r, c) {
         if (this.selectedTrayIndex === null || this.isPaused || this.gameOver)
             return;
@@ -627,18 +653,25 @@ window.BlockGame = {
         if (!piece) return;
         this.clearPreview();
         const ok = this.canPlace(piece.cells, r, c);
+        const cls = ok ? "preview-ok" : "preview-bad";
         piece.cells.forEach(([dr, dc]) => {
-            const rr = r + dr,
-                cc = c + dc;
-            const el = this.getCellEl(rr, cc);
-            if (el) el.classList.add(ok ? "preview-ok" : "preview-bad");
+            const el = this.getCellEl(r + dr, c + dc);
+            if (el) {
+                el.classList.add(cls);
+                this._previewEls.push(el);
+            }
         });
     },
 
     clearPreview() {
-        document
-            .querySelectorAll(".block-cell.preview-ok, .block-cell.preview-bad")
-            .forEach((el) => el.classList.remove("preview-ok", "preview-bad"));
+        // Chỉ xoá đúng những ô đã tô preview lần trước (lưu sẵn tham chiếu),
+        // thay vì querySelectorAll quét lại cả 64 ô mỗi lần di chuyển.
+        if (this._previewEls.length) {
+            this._previewEls.forEach((el) =>
+                el.classList.remove("preview-ok", "preview-bad"),
+            );
+            this._previewEls.length = 0;
+        }
     },
 
     handleCellClick(r, c) {
