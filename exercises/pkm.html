@@ -113,6 +113,7 @@
     }
 
     .hs-map img { animation: orbFloat 3.2s ease-in-out infinite; }
+    .hs-garden img { animation: orbFloat 3.6s ease-in-out infinite; }
     @keyframes orbFloat {
         0%, 100% { transform: translateY(0) rotate(-4deg); }
         50%      { transform: translateY(-10px) rotate(4deg); }
@@ -265,6 +266,7 @@
         const DOOR_CONFIG = { top: '30%', left: '50%', width: '7%' };
         const MAP_CONFIG  = { top: '75%', left: '50%', width: '16%' };
         const KEY_CONFIG  = { top: '30%', left: '10%', width: '6%' };
+        const GARDEN_CONFIG = { top: '30%', left: '90%', width: '6%' };
 
         const TRAINER_URL = name => `https://play.pokemonshowdown.com/sprites/trainers/${name}.png`;
         const POKEMON_URL  = name => `https://play.pokemonshowdown.com/sprites/ani/${name}.gif`;
@@ -374,6 +376,17 @@
                  </svg>`),
             label: 'Chìa khoá',
             onClick: openKeyDialogue
+        });
+        placeElement({
+            top: GARDEN_CONFIG.top, left: GARDEN_CONFIG.left, width: GARDEN_CONFIG.width,
+            extraClass: 'hs-garden',
+            imgSrc: 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="46" fill="#1c3a14" stroke="#6fcf3f" stroke-width="5"/>
+                    <text x="50" y="66" font-size="46" text-anchor="middle">🌾</text>
+                 </svg>`),
+            label: 'Khu vườn',
+            onClick: () => { window.location.href = 'pkm_garden.html'; }
         });
 
         const dlgOverlay = document.getElementById('dlg-overlay');
@@ -490,7 +503,7 @@
 
             dlgChoices.innerHTML = '';
             const exerciseBtn = document.createElement('a');
-            exerciseBtn.href = '../exercise1.html';
+            exerciseBtn.href = 'parents.html';
             exerciseBtn.className = 'dlg-choice-btn confirm';
             exerciseBtn.innerHTML = `<span class="dlg-choice-en">A. See studying results</span><span class="dlg-choice-vn">Xem kết quả học tập</span>`;
 
@@ -528,7 +541,7 @@
 
         const SAVE_KEYS = [
             'pkm_inventory', 'pkm_global_exp', 'pkm_global_dv',
-            'pkm_passed_maps', 'pkm_equipped', 'pkm_owned_ids'
+            'pkm_passed_maps', 'pkm_equipped', 'pkm_owned_ids', 'pkm_garden_state'
         ];
 
         function updateProfileUI() {
