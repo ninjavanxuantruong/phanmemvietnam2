@@ -37,6 +37,7 @@ import {
   PkmGameLauncher, speakEN, speakInstructionOnce, initTTSVoice,
   randomPick, POSITIVE_FEEDBACK, ENCOURAGE_RETRY, shuffle,
   startRecording, transcribeAudio, createMicFailTracker, noteMicResult, askIfMicWorking,
+  getCompanionSprite, SFX,
 } from "./all-shared.js";
 
 // ============================================================================
@@ -94,6 +95,7 @@ function switchLane(newIndex) {
     currentLane = newIndex; // vẫn cho phép "chạm lại đúng hàng đang đứng" không lỗi gì
   }
   currentLane = newIndex;
+  SFX.move();
   playerEl.style.top = `${newIndex * (100 / LANE_COUNT) + (100 / LANE_COUNT / 2)}%`;
   laneEls.forEach((el, i) => el.classList.toggle("pka-lane-active", i === newIndex));
 }
@@ -110,6 +112,9 @@ function initLaneTapZones() {
 
 function reactPlayer(kind) {
   // kind: "dash" (đúng) | "stumble" (sai) | "dazed" (bỏ lỡ chướng ngại vật)
+  if (kind === "dash") SFX.correct();
+  else if (kind === "stumble") SFX.wrong();
+  else if (kind === "dazed") SFX.dazed();
   playerEl.classList.remove("pka-dash", "pka-stumble", "pka-dazed");
   void playerEl.offsetWidth;
   playerEl.classList.add("pka-" + kind);
@@ -144,6 +149,7 @@ function spawnTrackItem() {
     if (isCoin) {
       coinCount++;
       coinCounterEl.textContent = `🪙 ${coinCount}`;
+      SFX.collect();
       el.classList.add("pka-collected");
     } else {
       reactPlayer("dazed"); // bị đá va phải — thuần hiệu ứng, KHÔNG trừ điểm
@@ -554,6 +560,13 @@ async function main() {
   laneEls = Array.from(document.querySelectorAll(".pka-lane"));
   playerEl = document.getElementById("pkaPlayer");
   coinCounterEl = document.getElementById("pkaCoinCounter");
+
+  // Đổi avatar nhân vật thành Pokémon đồng hành đã chọn ở all-shared.html
+  const companion = getCompanionSprite();
+  const playerBodyEl = playerEl.querySelector(".pka-player-body");
+  if (companion && playerBodyEl) {
+    playerBodyEl.innerHTML = `<img src="${companion.spriteUrl}" style="width:42px;height:42px;object-fit:contain;display:block;" alt=""/>`;
+  }
   const startOverlay = document.getElementById("pkaStartOverlay");
   const startBtn = document.getElementById("pkaStartBtn");
 
@@ -561,7 +574,19 @@ async function main() {
   initLaneTapZones();
   switchLane(currentLane); // đặt nhân vật vào đúng hàng bắt đầu
 
-  await new Promise(resolve => { startBtn.onclick = resolve; });
+  await new Promise(resolve => {
+    startBtn.onclick = () => {
+      // Làm nóng speechSynthesis ngay trong cử chỉ chạm — nhiều trình duyệt
+      // mobile chỉ cho phép phát âm chắc chắn nếu gọi ngay lúc có gesture,
+      // gọi trễ vài giây sau (qua await) dễ bị bỏ qua lần đầu.
+      try {
+        const unlock = new SpeechSynthesisUtterance(" ");
+        unlock.volume = 0;
+        window.speechSynthesis.speak(unlock);
+      } catch (e) {}
+      resolve();
+    };
+  });
   startOverlay.remove();
 
   await initTTSVoice();

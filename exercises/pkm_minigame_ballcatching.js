@@ -22,7 +22,7 @@
  * URL ảnh dựng từ trước (lúc soạn round ở all-shared.html, cache ảnh đã ấm).
  */
 
-import { PkmGameLauncher, askMCQ, startRecording, transcribeAudio, speakEN } from "./all-shared.js";
+import { PkmGameLauncher, askMCQ, startRecording, transcribeAudio, speakEN, SFX } from "./all-shared.js";
 import { checkPercentMatchLocal } from "./pkm_intro_round_helpers.js";
 
 const TECH_FAIL_THRESHOLD = 2; // 2 lần lỗi kỹ thuật liên tiếp thì hỏi "mic có hoạt động không"
@@ -73,6 +73,11 @@ function movePokeball(ball) {
   ball.style.top = `${top}px`;
   ball.style.left = `${left}px`;
 }
+function resizePokeball(ball) {
+  const size = Math.floor(Math.random() * 40) + 24; // 24–64px, dải rộng hơn để thấy rõ đổi cỡ
+  ball.style.width = `${size}px`;
+  ball.style.height = `${size}px`;
+}
 
 function renderPokeballs() {
   const container = el("pkbContainer");
@@ -92,10 +97,15 @@ function renderPokeballs() {
 
     ball.addEventListener("click", () => catchBall(round, ball));
 
-    const interval = setInterval(() => {
+    const moveInterval = setInterval(() => {
       if (document.body.contains(ball)) movePokeball(ball);
-      else clearInterval(interval);
+      else clearInterval(moveInterval);
     }, 5000);
+
+    const resizeInterval = setInterval(() => {
+      if (document.body.contains(ball)) resizePokeball(ball);
+      else clearInterval(resizeInterval);
+    }, 1200); // đổi cỡ thường xuyên hơn đổi vị trí, tạo cảm giác "liên tục"
   });
 }
 
@@ -105,6 +115,7 @@ function renderPokeballs() {
 async function catchBall(round, ballEl) {
   if (isFlashcardActive) return;
   isFlashcardActive = true;
+  SFX.catchBall();
   ballEl.remove();
 
   if (micDisabledForRest) {
@@ -167,6 +178,7 @@ async function catchBall(round, ballEl) {
 
       consecutiveTechFails = 0;
       const isCorrect = checkSpeakingMatch(transcript, round);
+      SFX[isCorrect ? "correct" : "wrong"]();
       resultEl.innerHTML = transcript ? `🗣️ "<b>${transcript}</b>"` : "🗣️ (chưa nghe rõ)";
       statusEl.textContent = isCorrect ? "🎉 Chính xác!" : "👍 Cố gắng tốt lắm!";
       results.push({ correct: isCorrect });

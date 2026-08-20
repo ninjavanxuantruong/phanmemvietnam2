@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <title>🎮 PokéLearn</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Be+Vietnam+Pro:wght@400;600;700;900&display=swap" rel="stylesheet">
   <style>
     html { -webkit-text-size-adjust: 100%; }
 
@@ -15,36 +17,56 @@
       --poke-dark:   #1a1a2e;
       --poke-card:   #16213e;
       --text-light:  #f0f0f0;
+      --text-dim:    #9aa0b4;
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0; padding: 0;
-      font-family: 'Segoe UI', sans-serif;
+      font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
       background:
-        radial-gradient(circle at 15% 8%, rgba(255,203,5,0.10), transparent 40%),
-        radial-gradient(circle at 85% 92%, rgba(42,117,187,0.18), transparent 45%),
+        radial-gradient(circle at 12% 6%, rgba(255,203,5,0.12), transparent 42%),
+        radial-gradient(circle at 88% 94%, rgba(42,117,187,0.20), transparent 48%),
         linear-gradient(135deg, #1a1a2e, #16213e 45%, #0f3460);
       background-attachment: fixed;
       color: var(--text-light);
       min-height: 100vh;
     }
 
-    /* ===== TOP BAR: quay lại chọn trò chơi ===== */
+    h1, h2, h3, .display-font { font-family: 'Baloo 2', 'Be Vietnam Pro', sans-serif; }
+
+    /* ===== TOP BAR ===== */
     #topBar {
-      display: flex; justify-content: flex-end; align-items: center;
-      padding: 8px 16px 0;
+      display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+      padding: 10px 16px 0;
       max-width: 960px; margin: 0 auto;
+    }
+    .companion-badge {
+      display: none; align-items: center; gap: 7px;
+      margin-right: auto;
+      background: rgba(255,255,255,0.06);
+      border: 1.5px solid rgba(255,203,5,0.4);
+      border-radius: 22px; padding: 4px 12px 4px 5px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+    .companion-badge img {
+      width: 28px; height: 28px; object-fit: contain; display: block;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+    }
+    .companion-badge .companion-badge-label {
+      font-size: 11px; font-weight: 700; color: var(--poke-yellow);
+      max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     #backToModeSelect {
       display: inline-flex; align-items: center; gap: 6px;
-      font-size: 12px; font-weight: 700; padding: 6px 12px;
+      font-size: 12px; font-weight: 700; padding: 7px 13px;
       border-radius: 20px; text-decoration: none;
       background: rgba(255,255,255,0.06);
       color: var(--poke-yellow);
       border: 1px solid rgba(255,203,5,0.35);
       transition: all .2s;
+      white-space: nowrap;
     }
     #backToModeSelect:hover {
       background: rgba(255,203,5,0.15);
@@ -52,32 +74,34 @@
       transform: translateY(-1px);
     }
 
-    /* ===== PROGRESS BAR — thanh dính đầu trang, giờ như 1 "hub" chọn module ===== */
+    /* ===== PROGRESS BAR — hub chọn module ===== */
     #progressWrap {
-      background: rgba(10,14,30,0.6);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      background: rgba(10,14,30,0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       padding: 12px 20px 14px;
       position: sticky;
       top: 0;
       z-index: 100;
       border-bottom: 1px solid rgba(255,203,5,0.15);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
     }
     #progressInner { max-width: 960px; margin: 0 auto; }
 
     #stageLabel {
-      font-size: 13px;
+      font-family: 'Baloo 2', sans-serif;
+      font-size: 13.5px;
       color: var(--poke-yellow);
       font-weight: 800;
       letter-spacing: .3px;
-      margin-bottom: 8px;
+      margin-bottom: 9px;
       text-align: center;
+      transition: opacity .2s ease;
     }
 
     #progressTrack {
       background: rgba(255,255,255,0.08);
-      border-radius: 6px;
+      border-radius: 7px;
       overflow: hidden;
       height: 8px;
       box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
@@ -85,24 +109,24 @@
     #progressBar {
       height: 8px;
       background: linear-gradient(90deg, #ffd54f, var(--poke-yellow));
-      border-radius: 6px;
+      border-radius: 7px;
       transition: width 0.5s ease;
       width: 0%;
-      box-shadow: 0 0 8px rgba(255,203,5,0.6);
+      box-shadow: 0 0 10px rgba(255,203,5,0.65);
     }
 
-    /* Các "chip" module — sinh ra bởi JS (.step-dot), chỉ style lại cho đẹp */
     #progressSteps {
       display: flex; gap: 8px; margin-top: 12px;
       flex-wrap: wrap; justify-content: center;
     }
     .step-dot {
       font-size: 12.5px; font-weight: 700; padding: 7px 14px;
-      border-radius: 14px; white-space: nowrap; cursor: pointer;
+      border-radius: 14px; white-space: nowrap;
       background: rgba(255,255,255,0.06);
-      color: #9aa0b4;
+      color: var(--text-dim);
       border: 1.5px solid rgba(255,255,255,0.10);
       transition: all 0.25s ease;
+      cursor: pointer;
     }
     .step-dot:hover {
       transform: translateY(-2px);
@@ -122,6 +146,15 @@
       box-shadow: 0 0 14px rgba(255,203,5,0.55);
       transform: scale(1.05);
     }
+    .step-dot.locked {
+      cursor: not-allowed;
+      opacity: .4;
+      background: rgba(255,255,255,0.03);
+      border-color: rgba(255,255,255,0.08);
+      color: #6b7183;
+      transform: none !important;
+    }
+    .step-dot.locked:hover { transform: none; border-color: rgba(255,255,255,0.08); color: #6b7183; }
 
     /* ===== MAIN CONTENT AREA ===== */
     #stageContainer { padding: 22px 16px 40px; max-width: 960px; margin: 0 auto; }
@@ -129,7 +162,7 @@
       background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,203,5,0.2);
       border-radius: 22px; padding: 26px; margin-bottom: 20px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      box-shadow: 0 12px 34px rgba(0,0,0,0.38);
       animation: pklCardIn .35s ease;
     }
     @keyframes pklCardIn {
@@ -140,7 +173,7 @@
     /* ===== TRANSITION SCREEN ===== */
     #transitionScreen {
       display: none; position: fixed; inset: 0;
-      background: radial-gradient(circle at 50% 40%, rgba(255,203,5,0.08), rgba(0,0,0,0.9));
+      background: radial-gradient(circle at 50% 40%, rgba(255,203,5,0.10), rgba(0,0,0,0.9));
       z-index: 200; align-items: center; justify-content: center;
       flex-direction: column; text-align: center; padding: 20px;
     }
@@ -155,6 +188,7 @@
     #transitionScreen p  { color: #ccc; font-size: 16px; margin: 0 0 26px; max-width: 360px; }
     #nextStageBtn {
       padding: 14px 34px; font-size: 18px; font-weight: bold;
+      font-family: 'Baloo 2', sans-serif;
       background: linear-gradient(135deg, var(--poke-yellow), #ffb300);
       color: #1a1a2e; border: none; border-radius: 14px;
       cursor: pointer; box-shadow: 0 6px 18px rgba(255,203,5,0.35);
@@ -166,6 +200,7 @@
     .poke-btn {
       padding: 12px 22px; font-size: 16px; border: none; border-radius: 12px;
       cursor: pointer; font-weight: bold; transition: all 0.2s; touch-action: manipulation;
+      font-family: 'Baloo 2', sans-serif;
     }
     .poke-btn:hover { transform: translateY(-2px); opacity: 0.92; }
     .poke-btn.red    { background: var(--poke-red);    color: #fff; }
@@ -189,20 +224,25 @@
       #stageContainer { padding: 16px 10px 32px; }
       .stage-card { padding: 18px; border-radius: 18px; }
       .step-dot { font-size: 11.5px; padding: 6px 11px; }
+      .companion-badge .companion-badge-label { max-width: 64px; }
     }
   </style>
 </head>
 <body>
 
-<!-- THANH TRÊN CÙNG — quay lại chọn trò chơi khác, hiển thị mọi lúc -->
+<!-- THANH TRÊN CÙNG -->
 <div id="topBar">
+  <div class="companion-badge" id="companionBadge">
+    <img id="companionBadgeImg" src="" alt="" />
+    <span class="companion-badge-label" id="companionBadgeLabel"></span>
+  </div>
   <a id="backToModeSelect" href="pkm_mode_select.html"
      onclick="return confirm('Thoát buổi học hiện tại và quay về chọn trò chơi khác?');">
     ⬅ Chọn trò chơi khác
   </a>
 </div>
 
-<!-- PROGRESS / HUB CHỌN MODULE (5 module) -->
+<!-- PROGRESS / HUB CHỌN MODULE -->
 <div id="progressWrap">
   <div id="progressInner">
     <div id="stageLabel">Đang tải...</div>
@@ -211,7 +251,7 @@
   </div>
 </div>
 
-<!-- MAIN AREA — mainCard là nơi TẤT CẢ module render nội dung vào -->
+<!-- MAIN AREA -->
 <div id="stageContainer">
   <div class="stage-card" id="mainCard">
     <p style="text-align:center;color:#aaa;">Đang khởi động...</p>

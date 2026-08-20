@@ -33,11 +33,12 @@
    * ============================================================================
    */
 
-  import {
-    PkmGameLauncher, speakEN, speakInstructionOnce, initTTSVoice,
-    randomPick, POSITIVE_FEEDBACK, ENCOURAGE_RETRY, shuffle,
-    startRecording, transcribeAudio, createMicFailTracker, noteMicResult, askIfMicWorking,
-  } from "./all-shared.js";
+import {
+  PkmGameLauncher, speakEN, speakInstructionOnce, initTTSVoice,
+  randomPick, POSITIVE_FEEDBACK, ENCOURAGE_RETRY, shuffle,
+  startRecording, transcribeAudio, createMicFailTracker, noteMicResult, askIfMicWorking,
+  getCompanionSprite, SFX, pokeAnimatedBackUrl
+} from "./all-shared.js";
 
   // ============================================================================
   // HẰNG SỐ NHỊP ĐỘ
@@ -101,17 +102,19 @@
   // PHẢN ỨNG NHÂN VẬT
   // ============================================================================
 
-  function reactPlayer(kind) {
-    // kind: "cheer" (bắn trúng / trả lời đúng) | "hit" (bắn trượt / đối thủ áp sát)
-    playerEl.classList.remove("pks-cheer", "pks-hit");
-    void playerEl.offsetWidth;
-    playerEl.classList.add("pks-" + kind);
-    setTimeout(() => playerEl.classList.remove("pks-" + kind), 600);
-  }
+function reactPlayer(kind) {
+  // kind: "cheer" (bắn trúng / trả lời đúng) | "hit" (bắn trượt / đối thủ áp sát)
+  SFX[kind === "cheer" ? "correct" : "hit"]();
+  playerEl.classList.remove("pks-cheer", "pks-hit");
+  void playerEl.offsetWidth;
+  playerEl.classList.add("pks-" + kind);
+  setTimeout(() => playerEl.classList.remove("pks-" + kind), 600);
+}
 
-  function fireShotVisual(laneIdx) {
-    const lane = lanesEls[laneIdx];
-    const shot = document.createElement("div");
+function fireShotVisual(laneIdx) {
+  SFX.shoot();
+  const lane = lanesEls[laneIdx];
+  const shot = document.createElement("div");
     shot.className = "pks-shot";
     shot.textContent = "✨";
     shot.style.bottom = "8%";
@@ -602,13 +605,34 @@
     playerEl = document.getElementById("pksPlayer");
     killCounterEl = document.getElementById("pksKillCounter");
     decorLayerEl = document.getElementById("pksDecorLayer");
+
+    // Đổi avatar nhân vật thành Pokémon đồng hành — đối thủ (bug/bat/spider...
+    // theo địa hình) GIỮ NGUYÊN, không đổi theo yêu cầu.
+    const companion = getCompanionSprite();
+    const playerBodyEl = playerEl.querySelector(".pks-player-body");
+    if (companion && playerBodyEl) {
+      playerBodyEl.innerHTML = `<img src="${pokeAnimatedBackUrl(companion.pkmId)}" style="width:46px;height:46px;object-fit:contain;display:block;transform:rotate(-90deg);" alt="" onerror="this.src='${companion.spriteUrl}';this.style.transform='';"/>`;
+    }
+    
     const startOverlay = document.getElementById("pksStartOverlay");
     const startBtn = document.getElementById("pksStartBtn");
 
     setupTerrain();
     initLaneTapZones();
 
-    await new Promise(resolve => { startBtn.onclick = resolve; });
+    await new Promise(resolve => {
+      startBtn.onclick = () => {
+        // Làm nóng speechSynthesis ngay trong cử chỉ chạm — nhiều trình duyệt
+        // mobile chỉ cho phép phát âm chắc chắn nếu gọi ngay lúc có gesture,
+        // gọi trễ vài giây sau (qua await) dễ bị bỏ qua lần đầu.
+        try {
+          const unlock = new SpeechSynthesisUtterance(" ");
+          unlock.volume = 0;
+          window.speechSynthesis.speak(unlock);
+        } catch (e) {}
+        resolve();
+      };
+    });
     startOverlay.remove();
 
     await initTTSVoice();

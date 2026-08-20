@@ -100,7 +100,7 @@ async function enterPage(idx) {
       if (results[idx] === undefined) results[idx] = round.type === "present" ? null : { attemptsUsed: 2 };
       pageCompleted[idx] = true;
       setLocked(false);
-    }, 5000);
+    }, 20000);
 
     if (round.type === "present") {
       await readPresentSequence(round);
@@ -190,4 +190,3 @@ async function main() {
 }
 
 main();
-

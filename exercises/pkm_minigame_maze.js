@@ -6,18 +6,26 @@
  * rounds từ module-1-intro.js (buildIntroRounds) và CHUNG logic dạy-từ với
  * flipbook qua pkm_intro_round_helpers.js. Chỉ khác cách THỂ HIỆN.
  *
- * Thứ tự chơi (khác flipbook — mỗi game được tự chọn thứ tự riêng, module
- * không quan tâm): PHA 1 chạy hết mọi round "present" (mỗi lần 1 ảnh xuất
- * hiện ở 1 góc ngẫu nhiên trong mê cung), xong mới sang PHA 2 chạy hết mọi
- * round "phonicsSpeak". Ăn xong 1 ảnh -> ảnh biến mất, ảnh tiếp theo xuất
- * hiện ở góc khác.
+ * ĐIỂM MỚI (bản viết lại): thay vì hiện TỪNG ẢNH 1 (ăn xong mới hiện ảnh kế
+ * tiếp), giờ TOÀN BỘ ảnh của 1 PHA hiện CÙNG LÚC trong mê cung ngay từ đầu
+ * pha đó — học sinh ăn ảnh nào thì chỉ ảnh đó biến mất và mở thẻ học từ cho
+ * đúng từ vừa ăn, các ảnh còn lại vẫn đứng yên chờ. Ăn hết mọi ảnh của PHA 1
+ * ("present") thì mê cung tự nạp lại TOÀN BỘ ảnh của PHA 2 ("phonicsSpeak").
+ *
+ * SỬA LỖI ĐƠ TRÊN MOBILE (đặc biệt lần ăn ảnh đầu tiên): nguyên nhân là
+ * speechSynthesis + AudioContext (dùng cho TTS, tách âm IPA, tiếng "bốp" khi
+ * ăn ảnh) trên nhiều trình duyệt di động CHỈ được mở khoá chắc chắn nếu có
+ * lệnh gọi NGAY TRONG lúc xử lý cử chỉ chạm (gesture) — gọi trễ vài giây sau
+ * (qua các "await" nạp ảnh/sinh mê cung) dễ bị trình duyệt bỏ qua/treo. Ở
+ * đây ta "đánh thức" cả 2 thứ đó NGAY LÚC chạm nút Bắt đầu, trước khi làm
+ * bất cứ việc gì khác.
  *
  * Bản đồ mê cung sinh ngẫu nhiên MỖI BUỔI HỌC (randomized DFS/recursive
  * backtracker) — đảm bảo mọi ô đều có đường đi tới (không có ô bị cô lập).
  */
 
-import { PkmGameLauncher, getImageFromMap, prefetchImagesBatch, shuffle } from "./all-shared.js";
-import { readPresentSequence, readPhonicsSequence, runMicRepeat, playPopSound } from "./pkm_intro_round_helpers.js";
+import { PkmGameLauncher, getImageFromMap, prefetchImagesBatch, shuffle, SFX } from "./all-shared.js";
+import { readPresentSequence, readPhonicsSequence, runMicRepeat, playPopSound, getSharedAudioCtx } from "./pkm_intro_round_helpers.js";
 
 const COLS = 8, ROWS = 6;
 const DIR_DELTA = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
@@ -55,10 +63,13 @@ function generateMaze(cols, rows) {
 let maze = null;
 let cellSize = 56;
 let player = { x: 0, y: 0 };
-let orderedRounds = [];
-let roundCursor = 0;
+let presentRounds = [];
+let phonicsRounds = [];
+let currentPhase = 1; // 1 = present, 2 = phonicsSpeak
+let activeTargets = []; // [{ round, cell, el }] — TOÀN BỘ ảnh đang hiện trong pha hiện tại
 let results = [];
-let targetCell = null;
+let totalRounds = 0;
+let doneCount = 0;
 let moveLocked = false;
 
 // ============================================================================
@@ -122,28 +133,47 @@ function computeCellSize() {
 }
 
 // ============================================================================
-// SINH VỊ TRÍ ẢNH MỤC TIÊU MỚI (1 ô ngẫu nhiên khác vị trí người chơi)
+// CHỌN N Ô KHÁC NHAU (không trùng nhau, không trùng vị trí người chơi hiện tại)
 // ============================================================================
-function spawnTarget(round) {
-  let cell;
-  do {
-    cell = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
-  } while (cell.x === player.x && cell.y === player.y);
+function pickDistinctCells(count, excludeCell) {
+  const used = new Set([`${excludeCell.x},${excludeCell.y}`]);
+  const cells = [];
+  let guard = 0;
+  while (cells.length < count && guard < 4000) {
+    guard++;
+    const c = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
+    const key = `${c.x},${c.y}`;
+    if (used.has(key)) continue;
+    used.add(key);
+    cells.push(c);
+  }
+  return cells;
+}
 
-  targetCell = cell;
+// ============================================================================
+// NẠP TOÀN BỘ ẢNH CỦA 1 PHA CÙNG LÚC VÀO MÊ CUNG
+// ============================================================================
+function spawnAllTargets(rounds) {
   const wrap = el("pkzMazeWrap");
-  const old = wrap.querySelector(".pkz-target");
-  if (old) old.remove();
+  wrap.querySelectorAll(".pkz-target").forEach(t => t.remove());
+  activeTargets = [];
 
-  const t = document.createElement("div");
-  t.className = "pkz-target";
-  t.id = "pkzTargetEl";
-  t.style.left = (cell.x * cellSize + cellSize * 0.12) + "px";
-  t.style.top = (cell.y * cellSize + cellSize * 0.12) + "px";
-  t.style.width = (cellSize * 0.76) + "px";
-  t.style.height = (cellSize * 0.76) + "px";
-  t.innerHTML = `<img src="${getImageFromMap(round.imageKeyword) || ""}" alt=""/>`;
-  wrap.appendChild(t);
+  const cells = pickDistinctCells(rounds.length, player);
+  rounds.forEach((round, i) => {
+    const cell = cells[i];
+    if (!cell) return; // mê cung quá nhỏ so với số từ — bỏ qua phần dư (hiếm khi xảy ra)
+
+    const t = document.createElement("div");
+    t.className = "pkz-target";
+    t.style.left = (cell.x * cellSize + cellSize * 0.12) + "px";
+    t.style.top = (cell.y * cellSize + cellSize * 0.12) + "px";
+    t.style.width = (cellSize * 0.76) + "px";
+    t.style.height = (cellSize * 0.76) + "px";
+    t.innerHTML = `<img src="${getImageFromMap(round.imageKeyword) || ""}" alt=""/>`;
+    wrap.appendChild(t);
+
+    activeTargets.push({ round, cell, el: t });
+  });
 }
 
 // ============================================================================
@@ -153,13 +183,13 @@ function tryMove(dir) {
   if (moveLocked) return;
   const c = maze[player.y][player.x];
   if (!c[dir]) return; // có tường, không đi được
+  SFX?.move?.();
   const [dx, dy] = DIR_DELTA[dir];
   player.x += dx; player.y += dy;
   renderPlayerPosition();
 
-  if (targetCell && player.x === targetCell.x && player.y === targetCell.y) {
-    onReachTarget();
-  }
+  const hit = activeTargets.find(t => t.cell.x === player.x && t.cell.y === player.y);
+  if (hit) catchTarget(hit);
 }
 
 function attachControls() {
@@ -183,14 +213,15 @@ function attachControls() {
 }
 
 // ============================================================================
-// ĂN ẢNH -> HIỆN THẺ HỌC TỪ
+// ĂN ẢNH -> HIỆN THẺ HỌC TỪ (các ảnh khác vẫn đứng yên trong mê cung)
 // ============================================================================
-async function onReachTarget() {
+async function catchTarget(target) {
   moveLocked = true;
   playPopSound();
-  const round = orderedRounds[roundCursor];
-  el("pkzTargetEl")?.remove();
-  targetCell = null;
+
+  const round = target.round;
+  activeTargets = activeTargets.filter(t => t !== target);
+  target.el.remove();
 
   el("pkzCardImg").src = getImageFromMap(round.imageKeyword) || "";
   el("pkzCardOverlay").classList.add("show");
@@ -200,35 +231,50 @@ async function onReachTarget() {
   if (round.type === "present") renderPresentCard(round);
   else renderPhonicsCard(round);
 
-  // ─── Dự phòng bị đơ: sau 5s tự mở nút Tiếp tục dù đọc/nói dở gì đi nữa ───
+  // ─── Dự phòng bị đơ: sau 20s tự mở nút Tiếp tục dù đọc/nói dở gì đi nữa ───
   let watchdogFired = false;
+  let localResult;
   const watchdog = setTimeout(() => {
     watchdogFired = true;
-    if (results[roundCursor] === undefined) results[roundCursor] = round.type === "present" ? null : { attemptsUsed: 2 };
+    localResult = round.type === "present" ? null : { attemptsUsed: 2 };
     continueBtn.disabled = false;
-  }, 5000);
+  }, 20000);
 
   if (round.type === "present") {
     await readPresentSequence(round);
-    if (!watchdogFired) results[roundCursor] = null;
+    if (!watchdogFired) localResult = null;
   } else {
     await readPhonicsSequence(round, el("pkzPhonicsBox"));
     const attemptsUsed = await runMicRepeat(round, {
       statusEl: el("pkzSpeakStatus"), micEl: el("pkzMic"),
       finishBtnEl: el("pkzMicFinishBtn"), resultEl: el("pkzSpeakResult"),
     });
-    if (!watchdogFired) results[roundCursor] = { attemptsUsed };
+    if (!watchdogFired) localResult = { attemptsUsed };
   }
   clearTimeout(watchdog);
   continueBtn.disabled = false;
 
-  continueBtn.onclick = () => {
-    el("pkzCardOverlay").classList.remove("show");
-    roundCursor++;
-    updateProgress();
-    moveLocked = false;
-    advanceOrFinish();
-  };
+  // TEST: nếu không ấn gì thì sau 5s tự động "Tiếp tục" giúp — để kiểm tra
+  // xem luồng có tự chạy trơn tru không, không cần chờ người dùng chạm.
+  await new Promise(resolve => {
+    let settled = false;
+    const finishCard = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(autoTimer);
+      el("pkzCardOverlay").classList.remove("show");
+      resolve();
+    };
+    continueBtn.onclick = finishCard;
+    const autoTimer = setTimeout(finishCard, 5000);
+  });
+
+  results.push(localResult !== undefined ? localResult : (round.type === "present" ? null : { attemptsUsed: 2 }));
+  doneCount++;
+  updateProgress();
+  moveLocked = false;
+
+  if (activeTargets.length === 0) advancePhaseOrFinish();
 }
 
 function renderPresentCard(round) {
@@ -257,16 +303,36 @@ function renderPhonicsCard(round) {
 // ĐIỀU KHIỂN PHA / KẾT THÚC
 // ============================================================================
 function updateProgress() {
-  el("pkzProgress").textContent = `${roundCursor}/${orderedRounds.length}`;
+  el("pkzProgress").textContent = `${doneCount}/${totalRounds}`;
 }
 
-function advanceOrFinish() {
-  if (roundCursor >= orderedRounds.length) { finish(); return; }
-  spawnTarget(orderedRounds[roundCursor]);
+function advancePhaseOrFinish() {
+  if (currentPhase === 1) {
+    currentPhase = 2;
+    if (!phonicsRounds.length) { finish(); return; }
+    spawnAllTargets(phonicsRounds);
+  } else {
+    finish();
+  }
 }
 
 function finish() {
   PkmGameLauncher.finishAndReturn("introPresent", results);
+}
+
+// ============================================================================
+// ĐÁNH THỨC ÂM THANH NGAY TRONG CỬ CHỈ CHẠM (chống đơ lần ăn ảnh đầu tiên
+// trên mobile) — PHẢI gọi đồng bộ, ngay trong handler của sự kiện click.
+// ============================================================================
+function warmUpAudio() {
+  try {
+    const unlock = new SpeechSynthesisUtterance(" ");
+    unlock.volume = 0;
+    window.speechSynthesis.speak(unlock);
+  } catch (e) { /* trình duyệt không hỗ trợ — bỏ qua */ }
+  try {
+    getSharedAudioCtx(); // tạo/resume AudioContext dùng chung cho IPA + pop sound
+  } catch (e) { /* bỏ qua */ }
 }
 
 // ============================================================================
@@ -279,13 +345,16 @@ async function main() {
     return;
   }
 
-  // PHA 1: hết mọi round "present" -> PHA 2: hết mọi round "phonicsSpeak"
-  const presentRounds = payload.rounds.filter(r => r.type === "present");
-  const phonicsRounds = payload.rounds.filter(r => r.type === "phonicsSpeak");
-  orderedRounds = [...presentRounds, ...phonicsRounds];
+  presentRounds = payload.rounds.filter(r => r.type === "present");
+  phonicsRounds = payload.rounds.filter(r => r.type === "phonicsSpeak");
+  totalRounds = presentRounds.length + phonicsRounds.length;
+  doneCount = 0;
+  currentPhase = 1;
   results = [];
 
-  await new Promise(resolve => { el("pkzStartBtn").onclick = resolve; });
+  await new Promise(resolve => {
+    el("pkzStartBtn").onclick = () => { warmUpAudio(); resolve(); };
+  });
   el("pkzStartOverlay").remove();
 
   const keywords = [...new Set(payload.rounds.map(r => r.imageKeyword).filter(Boolean))];
@@ -298,7 +367,8 @@ async function main() {
   attachControls();
   updateProgress();
 
-  spawnTarget(orderedRounds[0]);
+  if (presentRounds.length) spawnAllTargets(presentRounds);
+  else advancePhaseOrFinish();
 }
 
 main();

@@ -197,11 +197,15 @@ export async function getSheetRows() {
   if (_sheetRowsCache) return _sheetRowsCache;
   const wordBank = getWordBank();
   const cacheKey = "sheet_rows_" + wordBank.length;
-  const cached = sessionStorage.getItem(cacheKey);
+
+  // Ưu tiên dùng lại dữ liệu đã tải sẵn ở pkm_map.js (key "allVocabData")
+  // trước khi tự fetch lại từ Google Sheet — tránh tải trùng 2 lần.
+  const cached = sessionStorage.getItem(cacheKey) || sessionStorage.getItem("allVocabData");
   if (cached) {
     _sheetRowsCache = JSON.parse(cached);
     return _sheetRowsCache;
   }
+
   const res = await fetch(window.SHEET_URL);
   const data = await res.json();
   _sheetRowsCache = data.data || data;
@@ -330,16 +334,19 @@ const spokenInstructions = new Set(); // mỗi dạng bài chỉ đọc hướng
 
 export function initTTSVoice() {
   return new Promise(resolve => {
+    let done = false;
+    const finish = () => { if (done) return; done = true; resolve(); };
     const apply = () => {
       const voices = speechSynthesis.getVoices();
       ttsVoice =
         voices.find(v => v.lang === "en-US" && v.name?.toLowerCase().includes("zira")) ||
         voices.find(v => v.lang === "en-US") || null;
-      resolve();
+      finish();
     };
     const voices = speechSynthesis.getVoices();
     if (voices.length) apply();
     else speechSynthesis.onvoiceschanged = apply;
+    setTimeout(finish, 3000); // cầu chì: mobile nhiều khi không bắn onvoiceschanged
   });
 }
 
@@ -926,6 +933,21 @@ export function injectSharedStyles() {
     .pkl-level-card .emoji { font-size:38px; }
     .pkl-level-card .label { font-weight:800; color:#FFCB05; margin-top:6px; font-size:16px; }
     .pkl-level-card .sub { font-size:12px; color:#bbb; margin-top:4px; }
+
+    .pkl-companion-grid {
+      display:grid; grid-template-columns:repeat(4,1fr); gap:10px;
+      max-width:520px; margin:0 auto;
+    }
+    @media (max-width:520px){ .pkl-companion-grid{ grid-template-columns:repeat(3,1fr); } }
+    .pkl-companion-card {
+      background:rgba(255,255,255,.06); border:2px solid rgba(255,203,5,.3);
+      border-radius:14px; padding:10px 6px; text-align:center; cursor:pointer;
+      transition:all .2s;
+    }
+    .pkl-companion-card:hover { transform:translateY(-3px); border-color:#FFCB05; }
+    .pkl-companion-card img { width:52px; height:52px; object-fit:contain; }
+    .pkl-companion-name { font-size:11px; font-weight:700; color:#f0f0f0; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    
     .pkl-end-prompt { text-align:center; padding:20px; }
     .pkl-end-prompt .emoji { font-size:64px; }
     .pkl-end-prompt .q { font-size:18px; color:#FFCB05; font-weight:700; margin:14px 0 20px; }
@@ -1044,7 +1066,93 @@ export function renderLevelSelect(container) {
     });
   });
 }
+// ============================================================================
+// 13.5. POKÉMON ĐỒNG HÀNH — chọn 1 lần/buổi từ pkm_inventory, dùng chung cho
+// mọi minigame (race/race_alone/shooting...) qua getCompanionSprite().
+// ============================================================================
 
+const COMPANION_KEY = "pkl_companion";
+
+export function pokeArtworkUrl(pkmId) {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pkmId}.png`;
+}
+export function pokeAnimatedFrontUrl(pkmId) {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${pkmId}.gif`;
+}
+
+export function pokeAnimatedBackUrl(pkmId) {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/back/animated/${pkmId}.gif`;
+}
+
+export function getInventoryList() {
+  try { return JSON.parse(localStorage.getItem("pkm_inventory")) || []; }
+  catch (e) { return []; }
+}
+
+export function getCompanionSprite() {
+  try {
+    const raw = localStorage.getItem(COMPANION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+export function clearCompanion() {
+  localStorage.removeItem(COMPANION_KEY);
+}
+
+/** Random 1 sprite đối thủ (không cần gọi mạng, build thẳng URL) — dùng cho
+ *  race.js để đối thủ khác con với companion (và khác nhau giữa các đối thủ). */
+export function getRandomOpponentSprite(excludeIds = []) {
+  let id, guard = 0;
+  do {
+    id = Math.floor(Math.random() * 649) + 1;
+    guard++;
+  } while (excludeIds.includes(id) && guard < 20);
+  return { pkmId: id, name: "???", spriteUrl: pokeArtworkUrl(id) };
+}
+
+/** Màn chọn Pokémon đồng hành. Nếu túi (pkm_inventory) trống -> tự động
+ *  random 1 con, không bắt chọn (tránh kẹt luồng học). */
+export function renderCompanionSelect(container) {
+  injectSharedStyles();
+  const inv = getInventoryList();
+
+  return new Promise(resolve => {
+    const finishWith = (companion) => {
+      localStorage.setItem(COMPANION_KEY, JSON.stringify(companion));
+      resolve(companion);
+    };
+
+    if (!inv.length) {
+      const id = Math.floor(Math.random() * 649) + 1;
+      finishWith({ pkmId: id, name: "Bạn đồng hành", spriteUrl: pokeArtworkUrl(id) });
+      return;
+    }
+
+    container.innerHTML = `
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:15px;color:#FFCB05;font-weight:700;">🤝 Chọn Pokémon đồng hành cho buổi học!</div>
+        <div style="font-size:12px;color:#aaa;margin-top:4px;">Bạn ấy sẽ cùng bạn chơi các trò chơi hôm nay</div>
+      </div>
+      <div class="pkl-companion-grid">
+        ${inv.map(p => `
+          <div class="pkl-companion-card" data-id="${p.id}" data-name="${(p.name || "").replace(/"/g, "&quot;")}">
+            <img src="${pokeArtworkUrl(p.id)}" alt="${p.name || ""}" onerror="this.style.opacity='0.25';"/>
+            <div class="pkl-companion-name">${p.name || "???"}</div>
+          </div>`).join("")}
+      </div>
+    `;
+    container.querySelectorAll(".pkl-companion-card").forEach(card => {
+      card.onclick = () => {
+        finishWith({
+          pkmId: parseInt(card.dataset.id, 10),
+          name: card.dataset.name,
+          spriteUrl: pokeArtworkUrl(card.dataset.id),
+        });
+      };
+    });
+  });
+}
 /** Hỏi cuối buổi: "Đã thuộc chưa hay muốn học lại?" -> Promise<'replay'|'done'> */
 export function renderEndOfSessionPrompt(container) {
   injectSharedStyles();
@@ -1109,7 +1217,63 @@ const PKM_LAST_GAME_PREFIX = "pkl_last_game_"; // + category, sessionStorage
 export class PkmGameNavigating extends Error {
   constructor() { super("PkmGameNavigating"); this.pkmNavigating = true; }
 }
+// ============================================================================
+// 14. SFX — âm thanh hành động TỰ TỔNG HỢP (Web Audio API, không cần file mp3)
+// ============================================================================
+let _sfxCtx = null;
+function _getSfxCtx() {
+  if (!_sfxCtx) _sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_sfxCtx.state === "suspended") _sfxCtx.resume();
+  return _sfxCtx;
+}
 
+function _tone({ freq = 440, endFreq = null, type = "sine", duration = 0.15, volume = 0.15, delay = 0 }) {
+  try {
+    const ctx = _getSfxCtx();
+    const t0 = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (endFreq !== null) osc.frequency.exponentialRampToValueAtTime(Math.max(endFreq, 1), t0 + duration);
+    gain.gain.setValueAtTime(volume, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.02);
+  } catch (e) { /* im lặng nếu trình duyệt chặn audio */ }
+}
+
+function _noiseBurst({ duration = 0.12, volume = 0.14, delay = 0 }) {
+  try {
+    const ctx = _getSfxCtx();
+    const t0 = ctx.currentTime + delay;
+    const bufferSize = Math.floor(ctx.sampleRate * duration);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(volume, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+    src.connect(gain).connect(ctx.destination);
+    src.start(t0);
+  } catch (e) { /* im lặng nếu trình duyệt chặn audio */ }
+}
+
+// Mỗi hành động 1 "màu âm thanh" riêng — dùng chung cho mọi minigame.
+export const SFX = {
+  move()      { _tone({ freq: 480, endFreq: 620, type: "square", duration: 0.09, volume: 0.08 }); },
+  jump()      { _tone({ freq: 380, endFreq: 700, type: "triangle", duration: 0.14, volume: 0.12 }); },
+  collect()   { _tone({ freq: 880, endFreq: 1320, type: "sine", duration: 0.16, volume: 0.14 }); _tone({ freq: 1320, type: "sine", duration: 0.1, volume: 0.08, delay: 0.06 }); },
+  correct()   { _tone({ freq: 660, type: "sine", duration: 0.12, volume: 0.16 }); _tone({ freq: 880, type: "sine", duration: 0.18, volume: 0.16, delay: 0.1 }); },
+  wrong()     { _tone({ freq: 220, endFreq: 110, type: "sawtooth", duration: 0.28, volume: 0.16 }); },
+  hit()       { _noiseBurst({ duration: 0.14, volume: 0.18 }); _tone({ freq: 140, endFreq: 60, type: "square", duration: 0.18, volume: 0.1, delay: 0.02 }); },
+  dazed()     { _tone({ freq: 300, endFreq: 200, type: "triangle", duration: 0.2, volume: 0.1 }); _tone({ freq: 260, endFreq: 180, type: "triangle", duration: 0.2, volume: 0.08, delay: 0.15 }); },
+  shoot()     { _tone({ freq: 900, endFreq: 200, type: "sawtooth", duration: 0.1, volume: 0.1 }); },
+  catchBall() { _tone({ freq: 700, type: "sine", duration: 0.1, volume: 0.13 }); _tone({ freq: 1000, type: "sine", duration: 0.12, volume: 0.11, delay: 0.05 }); },
+};
 export const PkmGameLauncher = {
   // Bảng game theo nhóm — SỬA Ở ĐÂY khi thêm game mới (chỉ cần thêm tên
   // file .html vào đúng mảng, không cần sửa gì khác trong hệ thống).

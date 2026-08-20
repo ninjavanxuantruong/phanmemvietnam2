@@ -179,6 +179,15 @@ window.RaceBackground = {
         return Math.sin(distance * (zone.bobFreq || 0.02) + (1 - t) * 2.6) * zone.bobAmp * (0.4 + 0.6 * (1 - t));
     },
 
+    // Đọc độ lệch do KHÚC CUA (do pkm_race.js quản lý) một cách AN TOÀN —
+    // nếu RaceGame chưa có hàm này (hoặc không đang cua) thì trả về 0, không
+    // văng lỗi. Cộng thêm vào mọi chỗ tính pathOffsetX để đường/vật trang
+    // trí bám đúng theo khúc cua giống hệt nhân vật/vàng/chướng ngại vật.
+    _cornerX(t) {
+        return (window.RaceGame && typeof window.RaceGame.cornerOffsetX === "function")
+            ? window.RaceGame.cornerOffsetX(t) : 0;
+    },
+
     // ═══════════════════════════════════════════════════════════
     // GRADIENT CACHE — dựng 1 lần khi resize()/đổi khu vực, KHÔNG dựng lại
     // mỗi khung hình (tốn hiệu năng trên máy yếu).
@@ -467,7 +476,7 @@ window.RaceBackground = {
         const zone = this.zoneAt(state.zoneIndex);
         const f = Math.max(0, Math.min(1, t)) ** 1.6;
         const off = state.LANE_OFFSET_BOTTOM + (state.LANE_OFFSET_TOP - state.LANE_OFFSET_BOTTOM) * f;
-        const x = state.VW / 2 + frac * off * 1.5 + this.pathOffsetX(zone, t, state.distance);
+        const x = state.VW / 2 + frac * off * 1.5 + this.pathOffsetX(zone, t, state.distance) + this._cornerX(t);
         const y = state.ROAD_BOTTOM_Y + (state.HORIZON_Y - state.ROAD_BOTTOM_Y) * f + this.pathOffsetY(zone, t, state.distance);
         return { x, y, f };
     },
@@ -483,7 +492,7 @@ window.RaceBackground = {
             const f = Math.max(0, Math.min(1, t)) ** 1.6;
             const off = state.LANE_OFFSET_BOTTOM + (state.LANE_OFFSET_TOP - state.LANE_OFFSET_BOTTOM) * f;
             const half = off * 1.5 + (40 - 30 * f);
-            const cx = state.VW / 2 + this.pathOffsetX(zone, t, state.distance);
+            const cx = state.VW / 2 + this.pathOffsetX(zone, t, state.distance) + this._cornerX(t);
             const cy = state.ROAD_BOTTOM_Y + (state.HORIZON_Y - state.ROAD_BOTTOM_Y) * f + this.pathOffsetY(zone, t, state.distance);
             leftPts.push({ x: cx - half, y: cy });
             rightPts.push({ x: cx + half, y: cy });
@@ -519,7 +528,7 @@ window.RaceBackground = {
             for (let t = 1; t >= 0; t -= 0.02) {
                 const f = t ** 1.6;
                 const off = state.LANE_OFFSET_BOTTOM + (state.LANE_OFFSET_TOP - state.LANE_OFFSET_BOTTOM) * f;
-                const x = state.VW / 2 + laneEdge * off * 2 + this.pathOffsetX(zone, t, state.distance);
+                const x = state.VW / 2 + laneEdge * off * 2 + this.pathOffsetX(zone, t, state.distance) + this._cornerX(t);
                 const y = state.ROAD_BOTTOM_Y + (state.HORIZON_Y - state.ROAD_BOTTOM_Y) * f + this.pathOffsetY(zone, t, state.distance);
                 const dashPhase = Math.floor((t * 400 + scrollOffset) / 30) % 2;
                 if (dashPhase === 0) ctx.lineTo(x, y); else ctx.moveTo(x, y);
@@ -647,7 +656,7 @@ window.RaceBackground = {
         const off = state.LANE_OFFSET_BOTTOM + (state.LANE_OFFSET_TOP - state.LANE_OFFSET_BOTTOM) * f;
         const scale = 1 + (0.12 - 1) * f;
         const y = state.ROAD_BOTTOM_Y + (state.HORIZON_Y - state.ROAD_BOTTOM_Y) * f + this.pathOffsetY(zone, sp.t, state.distance);
-        const x = state.VW / 2 + sp.lane * off + this.pathOffsetX(zone, sp.t, state.distance) + sp.jitter * scale;
+        const x = state.VW / 2 + sp.lane * off + this.pathOffsetX(zone, sp.t, state.distance) + this._cornerX(sp.t) + sp.jitter * scale;
         const s = scale;
         const pal = (zone.propPalette && zone.propPalette[sp.kind]) || {};
 
@@ -838,12 +847,75 @@ window.RaceBackground = {
         ctx.restore();
     },
 
+    // Nhãn chữ dạng "viên thuốc" (pill) có nền tương phản — dễ đọc hơn hẳn so
+    // với chữ trần chỉ có đổ bóng, đặc biệt khi chạy tốc độ cao.
     drawActionLabel(ctx, text, x, y, scale, color) {
-        ctx.save(); ctx.fillStyle = color;
+        ctx.save();
         ctx.font = `bold ${14 * scale}px Baloo 2, sans-serif`;
-        ctx.textAlign = "center";
-        ctx.shadowColor = "rgba(0,0,0,0.8)"; ctx.shadowBlur = 4 * scale;
-        ctx.fillText(text, x, y);
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        const padX = 10 * scale, padY = 5 * scale;
+        const w = ctx.measureText(text).width + padX * 2;
+        const h = 14 * scale + padY * 2;
+        const r = h / 2;
+        ctx.fillStyle = "rgba(10,8,18,0.72)";
+        ctx.beginPath();
+        ctx.moveTo(x - w / 2 + r, y - h / 2);
+        ctx.arcTo(x + w / 2, y - h / 2, x + w / 2, y + h / 2, r);
+        ctx.arcTo(x + w / 2, y + h / 2, x - w / 2, y + h / 2, r);
+        ctx.arcTo(x - w / 2, y + h / 2, x - w / 2, y - h / 2, r);
+        ctx.arcTo(x - w / 2, y - h / 2, x + w / 2, y - h / 2, r);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = color; ctx.lineWidth = 1.6 * scale; ctx.globalAlpha = 0.9; ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = color;
+        ctx.shadowColor = "rgba(0,0,0,0.9)"; ctx.shadowBlur = 3 * scale;
+        ctx.fillText(text, x, y + 1 * scale);
+        ctx.restore();
+    },
+
+    // HUY HIỆU LỚN + MŨI TÊN — dấu hiệu CHÍNH để người chơi nhận biết ngay
+    // lập tức phải NHẢY / TRƯỢT / ĐỔI LÀN, kể cả khi chạy rất nhanh. To, viền
+    // phát sáng, tự nhấp nháy nhịp nhàng để "hút mắt" — đặt phía trên mỗi
+    // chướng ngại vật, cùng với nhãn chữ nhỏ bên dưới cho rõ nghĩa.
+    drawCueIcon(ctx, action, x, y, scale, color) {
+        const pulse = 0.72 + 0.28 * Math.abs(Math.sin(Date.now() * 0.005));
+        const r = 27 * scale;
+        ctx.save();
+        ctx.translate(x, y);
+
+        // nền tròn tối để mũi tên nổi bật trên MỌI phông nền
+        const bg = ctx.createRadialGradient(0, 0, 2, 0, 0, r);
+        bg.addColorStop(0, "rgba(10,8,18,0.85)");
+        bg.addColorStop(1, "rgba(10,8,18,0.45)");
+        ctx.fillStyle = bg;
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+
+        // viền phát sáng nhấp nháy
+        ctx.lineWidth = 3.6 * scale;
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = pulse;
+        ctx.shadowColor = color; ctx.shadowBlur = 16 * scale;
+        ctx.beginPath(); ctx.arc(0, 0, r - 2 * scale, 0, Math.PI * 2); ctx.stroke();
+        ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+
+        // mũi tên lớn, đậm
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        const a = 13 * scale, b = 5 * scale, c = 15 * scale;
+        if (action === "jump") {
+            ctx.moveTo(0, -c); ctx.lineTo(a, b); ctx.lineTo(b, b);
+            ctx.lineTo(b, c); ctx.lineTo(-b, c); ctx.lineTo(-b, b); ctx.lineTo(-a, b);
+        } else if (action === "slide") {
+            ctx.moveTo(0, c); ctx.lineTo(a, -b); ctx.lineTo(b, -b);
+            ctx.lineTo(b, -c); ctx.lineTo(-b, -c); ctx.lineTo(-b, -b); ctx.lineTo(-a, -b);
+        } else {
+            ctx.moveTo(-c, 0); ctx.lineTo(-b, -a); ctx.lineTo(-b, -b);
+            ctx.lineTo(b, -b); ctx.lineTo(b, -a); ctx.lineTo(c, 0);
+            ctx.lineTo(b, a); ctx.lineTo(b, b); ctx.lineTo(-b, b); ctx.lineTo(-b, a);
+        }
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 1 * scale; ctx.stroke();
         ctx.restore();
     },
 
@@ -891,125 +963,141 @@ window.RaceBackground = {
     },
 
     _obsRock(ctx, proj, obj, zone) {
-        const spanW = obj.spanAll ? (280 * proj.scale) : (70 * proj.scale);
-        const h = 62 * proj.scale;
+        const spanW = obj.spanAll ? (300 * proj.scale) : (96 * proj.scale);
+        const h = 84 * proj.scale;
         ctx.save(); ctx.translate(proj.x, proj.y);
-        this.drawGroundShadow(ctx, spanW * 0.55, 26 * proj.scale, 20 * proj.scale);
+        this.drawGroundShadow(ctx, spanW * 0.55, 30 * proj.scale, 24 * proj.scale);
         const grad = ctx.createLinearGradient(-spanW / 2, -h, spanW / 2, 0);
-        grad.addColorStop(0, "#8b8a9c"); grad.addColorStop(0.5, "#5b5a6d"); grad.addColorStop(1, "#3f3f4d");
+        grad.addColorStop(0, "#9d9cae"); grad.addColorStop(0.5, "#666578"); grad.addColorStop(1, "#403f4e");
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.moveTo(-spanW * 0.5, 4); ctx.lineTo(-spanW * 0.38, -h * 0.65); ctx.lineTo(-spanW * 0.12, -h);
         ctx.lineTo(spanW * 0.2, -h * 0.82); ctx.lineTo(spanW * 0.48, -h * 0.25); ctx.lineTo(spanW * 0.5, 6);
         ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 2; ctx.stroke();
-        this.drawObstacleFlourish(ctx, zone.obstacleFlourish, 0, -h * 0.55, proj.scale, zone.obstacleAccent);
+        ctx.strokeStyle = zone.obstacleAccent; ctx.globalAlpha = 0.55; ctx.lineWidth = 2.4 * proj.scale; ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 1.6; ctx.stroke();
+        this.drawObstacleFlourish(ctx, zone.obstacleFlourish, 0, -h * 0.55, proj.scale * 1.15, zone.obstacleAccent);
+        this.drawCueIcon(ctx, "jump", 0, -h - 44 * proj.scale, proj.scale, zone.obstacleAccent);
         this.drawActionLabel(ctx, "⤒ NHẢY", 0, -h - 10 * proj.scale, proj.scale, zone.obstacleAccent);
         ctx.restore();
     },
 
     _obsSpike(ctx, proj, obj, zone) {
-        const spanW = obj.spanAll ? (280 * proj.scale) : (66 * proj.scale);
-        const h = 56 * proj.scale;
+        const spanW = obj.spanAll ? (300 * proj.scale) : (90 * proj.scale);
+        const h = 76 * proj.scale;
         const spikeCount = obj.spanAll ? 7 : 3;
         const spikeW = spanW / spikeCount;
         ctx.save(); ctx.translate(proj.x, proj.y);
-        this.drawGroundShadow(ctx, spanW * 0.55, 22 * proj.scale, 12 * proj.scale);
-        ctx.fillStyle = "#2c2a38"; ctx.fillRect(-spanW / 2, -10 * proj.scale, spanW, 14 * proj.scale);
+        this.drawGroundShadow(ctx, spanW * 0.55, 26 * proj.scale, 14 * proj.scale);
+        ctx.fillStyle = "#2c2a38"; ctx.fillRect(-spanW / 2, -12 * proj.scale, spanW, 16 * proj.scale);
         for (let i = 0; i < spikeCount; i++) {
             const cx = -spanW / 2 + spikeW * (i + 0.5);
             const grad = ctx.createLinearGradient(cx, -h, cx, 0);
-            grad.addColorStop(0, "#f4f4f8"); grad.addColorStop(0.55, "#9a9aa8"); grad.addColorStop(1, "#45454f");
+            grad.addColorStop(0, "#ffffff"); grad.addColorStop(0.5, "#aeaebc"); grad.addColorStop(1, "#4a4a58");
             ctx.fillStyle = grad;
-            ctx.beginPath(); ctx.moveTo(cx - spikeW * 0.32, 0); ctx.lineTo(cx, -h); ctx.lineTo(cx + spikeW * 0.32, 0); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(cx - spikeW * 0.34, 0); ctx.lineTo(cx, -h); ctx.lineTo(cx + spikeW * 0.34, 0); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 1; ctx.stroke();
         }
         const pulse = 0.5 + 0.5 * Math.sin((obj.spin || 0) * 3);
-        ctx.fillStyle = zone.obstacleAccent.replace(")", `,${0.4 + pulse * 0.5})`).replace("rgb", "rgba").replace("#", "#");
-        this.drawObstacleFlourish(ctx, zone.obstacleFlourish, 0, -h * 0.5, proj.scale, zone.obstacleAccent);
-        this.drawActionLabel(ctx, "⤒ NHẢY", 0, -h - 10 * proj.scale, proj.scale, zone.obstacleAccent);
+        ctx.fillStyle = `rgba(255,60,60,${0.35 + pulse * 0.5})`;
+        ctx.beginPath(); ctx.arc(0, -8 * proj.scale, 6 * proj.scale, 0, Math.PI * 2); ctx.fill();
+        this.drawObstacleFlourish(ctx, zone.obstacleFlourish, 0, -h * 0.5, proj.scale * 1.15, zone.obstacleAccent);
+        this.drawCueIcon(ctx, "jump", 0, -h - 46 * proj.scale, proj.scale, zone.obstacleAccent);
+        this.drawActionLabel(ctx, "⤒ NHẢY", 0, -h - 12 * proj.scale, proj.scale, zone.obstacleAccent);
         ctx.restore();
     },
 
     _obsChasm(ctx, proj, obj, zone) {
-        const spanW = obj.spanAll ? (280 * proj.scale) : (78 * proj.scale);
-        const depth = 30 * proj.scale;
+        const spanW = obj.spanAll ? (300 * proj.scale) : (108 * proj.scale);
+        const depth = 38 * proj.scale;
         ctx.save(); ctx.translate(proj.x, proj.y);
         ctx.fillStyle = "#0c0814";
         ctx.beginPath(); ctx.ellipse(0, 8 * proj.scale, spanW * 0.55, depth, 0, 0, Math.PI * 2); ctx.fill();
         const grad = ctx.createRadialGradient(0, 8 * proj.scale, 4, 0, 8 * proj.scale, spanW * 0.5);
-        grad.addColorStop(0, zone.obstacleAccent); grad.addColorStop(0.55, "rgba(255,80,20,0.35)"); grad.addColorStop(1, "rgba(255,80,20,0)");
+        grad.addColorStop(0, zone.obstacleAccent); grad.addColorStop(0.55, "rgba(255,80,20,0.4)"); grad.addColorStop(1, "rgba(255,80,20,0)");
         ctx.fillStyle = grad;
         ctx.beginPath(); ctx.ellipse(0, 8 * proj.scale, spanW * 0.46, depth * 0.75, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = zone.obstacleAccent; ctx.lineWidth = 2 * proj.scale; ctx.globalAlpha = 0.6;
+        ctx.strokeStyle = zone.obstacleAccent; ctx.lineWidth = 2.6 * proj.scale; ctx.globalAlpha = 0.75;
+        ctx.shadowColor = zone.obstacleAccent; ctx.shadowBlur = 10 * proj.scale;
         ctx.beginPath(); ctx.ellipse(0, 8 * proj.scale, spanW * 0.55, depth, 0, 0, Math.PI * 2); ctx.stroke();
-        ctx.globalAlpha = 1;
-        this.drawActionLabel(ctx, "⤒ NHẢY", 0, -34 * proj.scale, proj.scale, zone.obstacleAccent);
+        ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+        this.drawCueIcon(ctx, "jump", 0, -56 * proj.scale, proj.scale, zone.obstacleAccent);
+        this.drawActionLabel(ctx, "⤒ NHẢY", 0, -20 * proj.scale, proj.scale, zone.obstacleAccent);
         ctx.restore();
     },
 
     _obsBranch(ctx, proj, obj, zone) {
-        const spanW = obj.spanAll ? (280 * proj.scale) : (70 * proj.scale);
-        const h = 30 * proj.scale, yTop = -110 * proj.scale;
+        const spanW = obj.spanAll ? (300 * proj.scale) : (96 * proj.scale);
+        const h = 40 * proj.scale, yTop = -128 * proj.scale;
         ctx.save(); ctx.translate(proj.x, proj.y);
-        this.drawGroundShadow(ctx, spanW * 0.55, 26 * proj.scale, 20 * proj.scale);
+        this.drawGroundShadow(ctx, spanW * 0.55, 30 * proj.scale, 24 * proj.scale);
         const grad = ctx.createLinearGradient(0, yTop, 0, yTop + h);
-        grad.addColorStop(0, "#a9702f"); grad.addColorStop(1, "#6b4419");
+        grad.addColorStop(0, "#c48a3f"); grad.addColorStop(1, "#7a4e1e");
         ctx.fillStyle = grad; ctx.fillRect(-spanW / 2, yTop, spanW, h);
-        ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 2; ctx.strokeRect(-spanW / 2, yTop, spanW, h);
-        ctx.fillStyle = "#3f8f4f";
-        ctx.beginPath(); ctx.ellipse(-spanW / 2 + 8, yTop, 14 * proj.scale, 9 * proj.scale, 0.4, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(spanW / 2 - 8, yTop + h, 14 * proj.scale, 9 * proj.scale, -0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = zone.obstacleAccent; ctx.globalAlpha = 0.5; ctx.lineWidth = 2.2; ctx.strokeRect(-spanW / 2, yTop, spanW, h);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 1.6; ctx.strokeRect(-spanW / 2, yTop, spanW, h);
+        ctx.fillStyle = "#4aa85a";
+        ctx.beginPath(); ctx.ellipse(-spanW / 2 + 10, yTop, 18 * proj.scale, 11 * proj.scale, 0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(spanW / 2 - 10, yTop + h, 18 * proj.scale, 11 * proj.scale, -0.4, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#4a2f12";
-        ctx.fillRect(-spanW / 2 + 4, yTop + h, 8 * proj.scale, 110 * proj.scale);
-        ctx.fillRect(spanW / 2 - 12, yTop + h, 8 * proj.scale, 110 * proj.scale);
-        this.drawObstacleFlourish(ctx, zone.obstacleFlourish, 0, yTop + h * 0.5, proj.scale, zone.obstacleAccent);
-        this.drawActionLabel(ctx, "⤓ TRƯỢT", 0, yTop - 8 * proj.scale, proj.scale, zone.obstacleAccent);
+        ctx.fillRect(-spanW / 2 + 4, yTop + h, 10 * proj.scale, 130 * proj.scale);
+        ctx.fillRect(spanW / 2 - 14, yTop + h, 10 * proj.scale, 130 * proj.scale);
+        this.drawObstacleFlourish(ctx, zone.obstacleFlourish, 0, yTop + h * 0.5, proj.scale * 1.15, zone.obstacleAccent);
+        this.drawCueIcon(ctx, "slide", 0, yTop - 42 * proj.scale, proj.scale, zone.obstacleAccent);
+        this.drawActionLabel(ctx, "⤓ TRƯỢT", 0, yTop - 10 * proj.scale, proj.scale, zone.obstacleAccent);
         ctx.restore();
     },
 
     _obsSwarm(ctx, proj, obj, zone) {
-        const spanW = obj.spanAll ? (280 * proj.scale) : (80 * proj.scale);
-        const yTop = -128 * proj.scale;
+        const spanW = obj.spanAll ? (300 * proj.scale) : (100 * proj.scale);
+        const yTop = -148 * proj.scale;
         const spin = obj.spin || 0, flap = Math.sin(spin * 3);
         ctx.save(); ctx.translate(proj.x, proj.y);
-        this.drawGroundShadow(ctx, spanW * 0.42, 16 * proj.scale, 8 * proj.scale, 0.24);
+        this.drawGroundShadow(ctx, spanW * 0.42, 18 * proj.scale, 10 * proj.scale, 0.26);
         const count = obj.spanAll ? 5 : 3;
         for (let i = 0; i < count; i++) {
             const cx = -spanW / 2 + (spanW / Math.max(1, count - 1)) * i;
-            const cy = yTop + Math.sin(spin + i * 1.7) * 8 * proj.scale;
-            ctx.save(); ctx.translate(cx, cy);
-            ctx.fillStyle = "#5a3f80";
+            const cy = yTop + Math.sin(spin + i * 1.7) * 10 * proj.scale;
+            ctx.save(); ctx.translate(cx, cy); ctx.scale(1.25, 1.25);
+            ctx.fillStyle = "#6a4a95";
             ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-16 * proj.scale, -6 * proj.scale - flap * 9 * proj.scale); ctx.lineTo(-4 * proj.scale, 3 * proj.scale); ctx.closePath(); ctx.fill();
             ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(16 * proj.scale, -6 * proj.scale - flap * 9 * proj.scale); ctx.lineTo(4 * proj.scale, 3 * proj.scale); ctx.closePath(); ctx.fill();
             ctx.fillStyle = "#3a2a55"; ctx.beginPath(); ctx.ellipse(0, 0, 9 * proj.scale, 7 * proj.scale, 0, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = zone.obstacleAccent;
-            ctx.beginPath(); ctx.arc(-2.4 * proj.scale, -1 * proj.scale, 1.6 * proj.scale, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(2.4 * proj.scale, -1 * proj.scale, 1.6 * proj.scale, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(-2.4 * proj.scale, -1 * proj.scale, 1.8 * proj.scale, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(2.4 * proj.scale, -1 * proj.scale, 1.8 * proj.scale, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
         }
-        this.drawActionLabel(ctx, "⤓ TRƯỢT", 0, yTop - 30 * proj.scale, proj.scale, zone.obstacleAccent);
+        this.drawCueIcon(ctx, "slide", 0, yTop - 44 * proj.scale, proj.scale, zone.obstacleAccent);
+        this.drawActionLabel(ctx, "⤓ TRƯỢT", 0, yTop - 10 * proj.scale, proj.scale, zone.obstacleAccent);
         ctx.restore();
     },
 
     _obsPendulum(ctx, proj, obj, zone) {
-        const spanW = obj.spanAll ? (280 * proj.scale) : (90 * proj.scale);
+        const spanW = obj.spanAll ? (300 * proj.scale) : (110 * proj.scale);
         const swing = Math.sin((obj.spin || 0) * 1.4) * 0.55;
         ctx.save(); ctx.translate(proj.x, proj.y);
-        this.drawGroundShadow(ctx, spanW * 0.4, 20 * proj.scale, 10 * proj.scale, 0.3);
-        const beamY = -172 * proj.scale;
-        ctx.fillStyle = "#3a2c20"; ctx.fillRect(-spanW / 2, beamY - 8 * proj.scale, spanW, 10 * proj.scale);
-        const armLen = 130 * proj.scale;
+        this.drawGroundShadow(ctx, spanW * 0.4, 22 * proj.scale, 12 * proj.scale, 0.32);
+        const beamY = -190 * proj.scale;
+        ctx.fillStyle = "#3a2c20"; ctx.fillRect(-spanW / 2, beamY - 9 * proj.scale, spanW, 11 * proj.scale);
+        ctx.strokeStyle = zone.obstacleAccent; ctx.globalAlpha = 0.5; ctx.lineWidth = 1.6;
+        ctx.strokeRect(-spanW / 2, beamY - 9 * proj.scale, spanW, 11 * proj.scale);
+        ctx.globalAlpha = 1;
+        const armLen = 148 * proj.scale;
         const bladeX = Math.sin(swing) * armLen, bladeY = beamY + Math.cos(swing) * armLen;
-        ctx.strokeStyle = "#8a8a94"; ctx.lineWidth = 3 * proj.scale;
+        ctx.strokeStyle = "#9a9aa4"; ctx.lineWidth = 3.4 * proj.scale;
         ctx.beginPath(); ctx.moveTo(0, beamY); ctx.lineTo(bladeX, bladeY); ctx.stroke();
         ctx.save(); ctx.translate(bladeX, bladeY); ctx.rotate(swing);
-        const grad = ctx.createLinearGradient(-34 * proj.scale, 0, 34 * proj.scale, 0);
-        grad.addColorStop(0, "#e8e8f0"); grad.addColorStop(0.5, "#aab0c0"); grad.addColorStop(1, "#666e80");
+        const grad = ctx.createLinearGradient(-40 * proj.scale, 0, 40 * proj.scale, 0);
+        grad.addColorStop(0, "#ffffff"); grad.addColorStop(0.5, "#bcc2d0"); grad.addColorStop(1, "#666e80");
         ctx.fillStyle = grad;
-        ctx.beginPath(); ctx.moveTo(-34 * proj.scale, -6 * proj.scale); ctx.lineTo(34 * proj.scale, -6 * proj.scale); ctx.lineTo(0, 30 * proj.scale); ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = zone.obstacleAccent; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-40 * proj.scale, -7 * proj.scale); ctx.lineTo(40 * proj.scale, -7 * proj.scale); ctx.lineTo(0, 36 * proj.scale); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = zone.obstacleAccent; ctx.lineWidth = 2; ctx.stroke();
         ctx.restore();
-        this.drawActionLabel(ctx, "⤒ NHẢY", 0, beamY - 14 * proj.scale, proj.scale, zone.obstacleAccent);
+        this.drawCueIcon(ctx, "jump", 0, beamY - 44 * proj.scale, proj.scale, zone.obstacleAccent);
+        this.drawActionLabel(ctx, "⤒ NHẢY", 0, beamY - 12 * proj.scale, proj.scale, zone.obstacleAccent);
         ctx.restore();
     },
 
@@ -1020,21 +1108,22 @@ window.RaceBackground = {
         const sc = zone.structureColor || ["#5a4a7a", "#3a2c58", "#241a3d"];
         (obj.blockedLanes || []).forEach((lane) => {
             const proj = state.renderProjFor(lane, obj.t);
-            const w = 132 * proj.scale, h = 150 * proj.scale;
+            const w = 165 * proj.scale, h = 178 * proj.scale;
             ctx.save(); ctx.translate(proj.x, proj.y);
-            this.drawGroundShadow(ctx, w * 0.5, 22 * proj.scale, 20 * proj.scale);
+            this.drawGroundShadow(ctx, w * 0.5, 26 * proj.scale, 24 * proj.scale);
             const grad = ctx.createLinearGradient(-w / 2, -h, w / 2, 0);
             grad.addColorStop(0, sc[0]); grad.addColorStop(0.5, sc[1]); grad.addColorStop(1, sc[2]);
             ctx.fillStyle = grad; ctx.fillRect(-w / 2, -h, w, h);
-            ctx.strokeStyle = zone.obstacleAccent; ctx.globalAlpha = 0.5; ctx.lineWidth = 2; ctx.strokeRect(-w / 2, -h, w, h);
+            ctx.strokeStyle = zone.obstacleAccent; ctx.globalAlpha = 0.6; ctx.lineWidth = 2.4; ctx.strokeRect(-w / 2, -h, w, h);
             ctx.globalAlpha = 1;
             ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 1.5;
             for (let row = 1; row < 4; row++) { ctx.beginPath(); ctx.moveTo(-w / 2, -h + (h / 4) * row); ctx.lineTo(w / 2, -h + (h / 4) * row); ctx.stroke(); }
-            this.drawObstacleFlourish(ctx, zone.obstacleFlourish, 0, -h * 0.5, proj.scale, zone.obstacleAccent);
+            this.drawObstacleFlourish(ctx, zone.obstacleFlourish, 0, -h * 0.5, proj.scale * 1.15, zone.obstacleAccent);
             ctx.restore();
         });
         const freeLane = [-1, 0, 1].find((l) => !(obj.blockedLanes || []).includes(l));
         const lp = state.renderProjFor(freeLane != null ? freeLane : 0, obj.t);
+        this.drawCueIcon(ctx, "dodge", lp.x, lp.y - 200 * lp.scale, lp.scale, zone.obstacleAccent);
         this.drawActionLabel(ctx, "↔ ĐỔI LÀN", lp.x, lp.y - 168 * lp.scale, lp.scale, zone.obstacleAccent);
     },
 

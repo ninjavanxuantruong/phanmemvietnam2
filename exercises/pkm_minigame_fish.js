@@ -29,11 +29,12 @@
    * ============================================================================
    */
 
-  import {
-    PkmGameLauncher, speakEN, speakInstructionOnce, initTTSVoice,
-    randomPick, POSITIVE_FEEDBACK, ENCOURAGE_RETRY, shuffle,
-    startRecording, transcribeAudio, createMicFailTracker, noteMicResult, askIfMicWorking,
-  } from "./all-shared.js";
+import {
+  PkmGameLauncher, speakEN, speakInstructionOnce, initTTSVoice,
+  randomPick, POSITIVE_FEEDBACK, ENCOURAGE_RETRY, shuffle,
+  startRecording, transcribeAudio, createMicFailTracker, noteMicResult, askIfMicWorking,
+  getCompanionSprite, SFX, pokeAnimatedBackUrl
+} from "./all-shared.js";
 
   // ============================================================================
   // HẰNG SỐ NHỊP ĐỘ
@@ -88,12 +89,13 @@
   // ĐỔI LÀN — chạm để cá bơi sang làn đó, kèm hiệu ứng tia nước bắn về phía trước
   // ============================================================================
 
-  function switchLane(newIndex) {
-    currentLane = newIndex;
-    fishEl.style.left = `${newIndex * (100 / LANE_COUNT) + (100 / LANE_COUNT / 2)}%`;
-    laneEls.forEach((el, i) => el.classList.toggle("pkf-lane-active", i === newIndex));
-    fireWaterJet(newIndex);
-  }
+function switchLane(newIndex) {
+  currentLane = newIndex;
+  SFX.move();
+  fishEl.style.left = `${newIndex * (100 / LANE_COUNT) + (100 / LANE_COUNT / 2)}%`;
+  laneEls.forEach((el, i) => el.classList.toggle("pkf-lane-active", i === newIndex));
+  fireWaterJet(newIndex);
+}
 
   function fireWaterJet(laneIdx) {
     const lane = laneEls[laneIdx];
@@ -115,13 +117,16 @@
   // PHẢN ỨNG CÁ
   // ============================================================================
 
-  function reactFish(kind) {
-    // kind: "dash" (đúng) | "stumble" (sai) | "dazed" (bỏ lỡ sứa)
-    fishEl.classList.remove("pkf-dash", "pkf-stumble", "pkf-dazed");
-    void fishEl.offsetWidth;
-    fishEl.classList.add("pkf-" + kind);
-    setTimeout(() => fishEl.classList.remove("pkf-" + kind), 850);
-  }
+function reactFish(kind) {
+  // kind: "dash" (đúng) | "stumble" (sai) | "dazed" (bỏ lỡ sứa)
+  if (kind === "dash") SFX.correct();
+  else if (kind === "stumble") SFX.wrong();
+  else if (kind === "dazed") SFX.dazed();
+  fishEl.classList.remove("pkf-dash", "pkf-stumble", "pkf-dazed");
+  void fishEl.offsetWidth;
+  fishEl.classList.add("pkf-" + kind);
+  setTimeout(() => fishEl.classList.remove("pkf-" + kind), 850);
+}
 
   // ============================================================================
   // PHA "BƠI THUẦN" — ngọc trai/sứa trôi TRONG 1 LÀN, từ trên xuống dưới, chỉ
@@ -150,6 +155,7 @@
       if (isPearl) {
         pearlCount++;
         pearlCounterEl.textContent = `🦪 ${pearlCount}`;
+        SFX.collect();
         el.classList.add("pkf-collected");
       } else {
         reactFish("dazed"); // đụng sứa — thuần hiệu ứng, KHÔNG trừ điểm
@@ -560,6 +566,14 @@
     laneEls = Array.from(document.querySelectorAll(".pkf-lane"));
     fishEl = document.getElementById("pkfFish");
     pearlCounterEl = document.getElementById("pkfPearlCounter");
+
+    // Đổi avatar cá thành Pokémon đồng hành đã chọn ở all-shared.html
+    const companion = getCompanionSprite();
+    const fishBodyEl = fishEl.querySelector(".pkf-fish-body");
+    if (companion && fishBodyEl) {
+      fishBodyEl.innerHTML = `<img src="${pokeAnimatedBackUrl(companion.pkmId)}" style="width:40px;height:40px;object-fit:contain;display:block;transform:rotate(-90deg);" alt="" onerror="this.src='${companion.spriteUrl}';this.style.transform='';"/>`;
+    }
+
     const startOverlay = document.getElementById("pkfStartOverlay");
     const startBtn = document.getElementById("pkfStartBtn");
 
@@ -567,7 +581,19 @@
     initLaneTapZones();
     switchLane(currentLane); // đặt cá vào đúng làn bắt đầu (không cần bắn nước lúc này, nhưng vô hại)
 
-    await new Promise(resolve => { startBtn.onclick = resolve; });
+    await new Promise(resolve => {
+      startBtn.onclick = () => {
+        // Làm nóng speechSynthesis ngay trong cử chỉ chạm — nhiều trình duyệt
+        // mobile chỉ cho phép phát âm chắc chắn nếu gọi ngay lúc có gesture,
+        // gọi trễ vài giây sau (qua await) dễ bị bỏ qua lần đầu.
+        try {
+          const unlock = new SpeechSynthesisUtterance(" ");
+          unlock.volume = 0;
+          window.speechSynthesis.speak(unlock);
+        } catch (e) {}
+        resolve();
+      };
+    });
     startOverlay.remove();
 
     await initTTSVoice();

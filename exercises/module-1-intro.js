@@ -22,7 +22,7 @@
 import {
   LEVELS, askMCQ, buildDistractors, shuffle,
   createScoreTracker, recordQuestionPassed, saveIntroResult, showTransition,
-  updateMiniScore, getImageFromMap, injectSharedStyles,
+  updateMiniScore, getImageFromMap, prefetchImagesBatch, injectSharedStyles,
   getEnglishRateForLevel, PkmGameLauncher,
 } from "./all-shared.js";
 
@@ -92,11 +92,22 @@ export function buildIntroRounds(sessionVocab, level) {
 async function stage4_MamNon(rootEl, w, sessionVocab, poolData, tracker, rate) {
   const others = sessionVocab.filter(x => x.word !== w.word);
   const distractorWords = buildDistractors(w, others, { field: "word", count: 2, extra: poolData });
+
+  // Ảnh của từ nhiễu (lấy từ poolData) CHƯA được prefetch trước đó (chỉ
+  // sessionVocab mới được prefetch ở loadSessionData) -> phải tải trước ở
+  // đây, nếu không getImageFromMap() sẽ trả về rỗng và ảnh bị trống.
+  const distractorKeywords = distractorWords.map(val => {
+    const found = [w, ...sessionVocab, ...poolData].find(p => p.word === val) || w;
+    return (found.imageKeyword || val || "").toLowerCase().trim();
+  }).filter(Boolean);
+  await prefetchImagesBatch(distractorKeywords);
+
   const options = shuffle([w.word, ...distractorWords]).map(val => {
     const found = [w, ...sessionVocab, ...poolData].find(p => p.word === val) || w;
     return { label: "", speakText: val, value: val, imageUrl: getImageFromMap(found.imageKeyword || val) || "" };
   });
   const attempts = await askMCQ({
+    
     container: rootEl,
     instructionKey: "intro-mamnon-quiz",
     instructionText: "Listen and tap the correct picture!",

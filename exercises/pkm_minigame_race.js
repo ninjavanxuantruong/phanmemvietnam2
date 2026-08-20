@@ -89,6 +89,7 @@ import {
   PkmGameLauncher, speakEN, speakInstructionOnce, initTTSVoice,
   randomPick, POSITIVE_FEEDBACK, ENCOURAGE_RETRY, shuffle,
   startRecording, transcribeAudio, createMicFailTracker, noteMicResult, askIfMicWorking,
+  getCompanionSprite, getRandomOpponentSprite, pokeAnimatedFrontUrl, SFX,
 } from "./all-shared.js";
 
 // ============================================================================
@@ -110,10 +111,21 @@ const CATCHUP_TARGET = BOOST_CORRECT_MAX * 0.55; // khoảng cách còn lại sa
 const DEFAULT_MAX_RECORD_MS = 10000; // an toàn: tự dừng ghi âm nếu quên bấm Finish
 const MIC_FAIL_THRESHOLD = 2;        // số lần lỗi kỹ thuật liên tiếp thì hỏi "mic có ổn không"
 
+// Companion người chơi (chọn 1 lần/buổi ở all-shared.html) + 2 đối thủ random
+// khác con với companion (không cần gọi mạng, build thẳng URL ảnh tĩnh).
+const _companion = getCompanionSprite();
+const _usedIds = _companion ? [_companion.pkmId] : [];
+const _rival1Sprite = getRandomOpponentSprite(_usedIds);
+_usedIds.push(_rival1Sprite.pkmId);
+const _rival2Sprite = getRandomOpponentSprite(_usedIds);
+
+// flip: false = giữ hướng gốc của GIF (giống companion, quay phải).
+// Nếu con nào bị lệch hướng khi test thực tế, đổi flip: true cho con đó
+// (sẽ lật ngang bằng CSS scaleX(-1)) — không cần đổi ảnh, chỉ cần đổi true/false.
 const RACERS = [
-  { id: "player", emoji: "🦔", label: "Bạn", isPlayer: true },
-  { id: "rival1", emoji: "🦊", label: "Đối thủ 1" },
-  { id: "rival2", emoji: "🐻", label: "Đối thủ 2" },
+  { id: "player", emoji: "🦔", pkmId: _companion?.pkmId || null, label: _companion?.name || "Bạn", isPlayer: true, flip: false },
+  { id: "rival1", emoji: "🦊", pkmId: _rival1Sprite.pkmId, label: "Đối thủ 1", flip: true },
+  { id: "rival2", emoji: "🐻", pkmId: _rival2Sprite.pkmId, label: "Đối thủ 2", flip: true },
 ];
 
 function rand(min, max) { return Math.round(min + Math.random() * (max - min)); }
@@ -160,15 +172,24 @@ function setupParallaxScenery() {
 // ============================================================================
 
 function renderRacers() {
+  // Xáo thứ tự gán vào 3 làn mỗi ván -> con của mình KHÔNG còn cố định 1 làn,
+  // nằm ngẫu nhiên (id/pos vẫn giữ nguyên theo "player"/"rival1"/"rival2" nên
+  // mọi logic tính điểm/vị trí phía dưới không cần đổi gì).
+  const laneOrder = shuffle(RACERS);
+
   trackEl.querySelectorAll(".pkr-lane").forEach((lane, i) => {
-    const r = RACERS[i];
+    const r = laneOrder[i];
     lane.querySelector(".pkr-car")?.remove();
     const car = document.createElement("div");
     car.className = "pkr-car" + (r.isPlayer ? " player" : "");
     car.id = "pkrCar_" + r.id;
+    const flipStyle = r.flip ? "transform:scaleX(-1);" : "";
+    const bodyContent = r.pkmId
+      ? `<img src="${pokeAnimatedFrontUrl(r.pkmId)}" style="width:44px;height:44px;object-fit:contain;display:block;${flipStyle}filter:drop-shadow(0 4px 4px rgba(0,0,0,.35));" alt="" onerror="this.replaceWith(document.createTextNode('${r.emoji}'));"/>`
+      : r.emoji;
     car.innerHTML = `
       <span class="pkr-boost-fx">💨</span>
-      <div class="pkr-car-body">${r.emoji}</div>
+      <div class="pkr-car-body">${bodyContent}</div>
       <div class="pkr-car-shadow"></div>
       <span class="pkr-car-name">${r.label}</span>
     `;
@@ -195,6 +216,7 @@ function applyCatchup() {
 }
 
 async function reactToAnswer(isCorrect) {
+  SFX[isCorrect ? "correct" : "wrong"]();
   const playerEl = document.getElementById("pkrCar_player");
   if (isCorrect) {
     pos.player = clamp(pos.player + rand(BOOST_CORRECT_MIN, BOOST_CORRECT_MAX), -POS_CLAMP, POS_CLAMP);
@@ -245,6 +267,7 @@ function spawnTrackItem() {
 
 function handleSceneTap() {
   if (!runPhaseActive) return;
+  SFX.jump();
   const playerEl = document.getElementById("pkrCar_player");
   playerEl?.classList.remove("pkr-player-jump");
   void playerEl?.offsetWidth; // ép reflow để chạy lại animation nếu bấm liên tiếp
@@ -256,6 +279,7 @@ function handleSceneTap() {
     if (el.dataset.kind === "coin") {
       coinCount++;
       coinCounterEl.textContent = `🪙 ${coinCount}`;
+      SFX.collect();
     }
     el.classList.add("pkr-collected");
   });

@@ -1,18 +1,22 @@
 /**
  * ============================================================================
- * all-orchestrator.js — ĐIỀU PHỐI CHÍNH (có hỗ trợ NHẢY GIỮA MODULE)
+ * all-orchestrator.js — ĐIỀU PHỐI CHÍNH (nhảy module + khoá/mở theo tiến trình
+ * + chọn Pokémon đồng hành 1 lần/buổi học)
  * ============================================================================
- * File này CHỈ điều phối (chọn cấp độ -> tải dữ liệu -> chạy 5 module -> hỏi
- * học lại/đã thuộc). Không chứa logic riêng của module nào.
+ * File này CHỈ điều phối. Không chứa logic riêng của module nào.
  *
- * TÍNH NĂNG NHẢY MODULE: click vào 1 ô ở thanh progress -> xác nhận -> lưu
- * localStorage -> reload trang -> orchestrator đọc lại và bắt đầu CHẠY TỪ
- * module đó. Bắt buộc reload (giống all.js cũ) vì không thể an toàn "hủy
- * giữa dòng" 1 module đang chạy (audio/mic/Live2D đang mở).
+ * KHOÁ/MỞ MODULE (MỚI):
+ *   - Chưa chọn cấp độ  -> khoá cả 5 module (chỉ hiện, không bấm được).
+ *   - Đã chọn cấp độ, CHƯA học xong Giới thiệu lần nào trong buổi -> chỉ mở
+ *     module Giới thiệu, 4 module còn lại khoá.
+ *   - Đã học xong Giới thiệu (ít nhất 1 lần, cờ pkl_intro_ever_done) -> mở
+ *     hết cả 5 module, module nào đã học xong hiện ✅, vẫn bấm học lại được.
+ *   - Cờ pkl_intro_ever_done KHÔNG bị xoá khi bấm "Học lại" cuối buổi (chỉ
+ *     xoá khi kết thúc HẲN buổi học) — để không bị khoá lại vô lý.
  *
- * Chỉ khi CẢ 5 module đều đã hoàn thành (theo dõi cộng dồn qua localStorage,
- * sống sót qua các lần reload do nhảy module) mới hiện màn hỏi "Học lại/Đã
- * thuộc". Điểm từng module vẫn tự lưu ngay khi module đó xong, không đổi.
+ * CHỌN POKÉMON ĐỒNG HÀNH (MỚI): ngay sau khi chọn cấp độ (chỉ 1 lần/buổi,
+ * lưu ở localStorage pkl_companion), trước khi vào module Giới thiệu. Xoá
+ * cùng lúc với selected_level/selected_instructor_idx khi kết thúc hẳn buổi.
  * ============================================================================
  */
 
@@ -20,6 +24,7 @@ import {
   initTTSVoice, injectSharedStyles, getWordBank, loadSessionData,
   renderLevelSelect, renderEndOfSessionPrompt, resetInstructionMemory,
   showTransition, PkmGameNavigating,
+  renderCompanionSelect, getCompanionSprite, clearCompanion,
 } from "./all-shared.js";
 
 import { runIntroModule } from "./module-1-intro.js";
@@ -38,10 +43,11 @@ const MODULES = [
 
 const JUMP_KEY = "pkl_jump_to_module_idx";
 const COMPLETED_KEY = "pkl_completed_modules";
-const CURRENT_IDX_SESSION_KEY = "pkl_current_module_idx"; // sessionStorage, chỉ để chống click trùng module đang chạy
+const CURRENT_IDX_SESSION_KEY = "pkl_current_module_idx"; // sessionStorage
+const INTRO_DONE_KEY = "pkl_intro_ever_done"; // localStorage — sống sót qua "Học lại"
 
 // ============================================================================
-// TRẠNG THÁI "ĐÃ HOÀN THÀNH" — cộng dồn qua localStorage, sống sót qua reload
+// TRẠNG THÁI "ĐÃ HOÀN THÀNH"
 // ============================================================================
 
 function getCompletedSet() {
@@ -56,11 +62,36 @@ function resetCompletedSet() {
 }
 
 // ============================================================================
+// KHOÁ/MỞ MODULE
+// ============================================================================
+
+function isModuleLocked(moduleId) {
+  if (!localStorage.getItem("selected_level")) return true; // chưa chọn cấp độ -> khoá hết
+  if (localStorage.getItem(INTRO_DONE_KEY) === "1") return false; // đã học Giới thiệu -> mở hết
+  return moduleId !== "intro"; // chưa học Giới thiệu -> chỉ mở Giới thiệu
+}
+
+// ============================================================================
 // UI: THANH PROGRESS + NHẢY MODULE
 // ============================================================================
 
 function setCard(html) {
   document.getElementById("mainCard").innerHTML = html;
+}
+
+/** Vẽ 5 chip module ở trạng thái khoá hoàn toàn — dùng khi CHƯA chọn cấp độ. */
+function renderLockedChipsOnly() {
+  const bar = document.getElementById("progressBar");
+  if (bar) bar.style.width = "0%";
+  const label = document.getElementById("stageLabel");
+  if (label) label.textContent = "🎮 Hãy chọn cấp độ để bắt đầu!";
+  const wrap = document.getElementById("progressSteps");
+  if (wrap) {
+    wrap.innerHTML = MODULES.map(m => {
+      const shortLabel = m.label.replace(/^\S+\s/, "");
+      return `<span class="step-dot locked" title="Hãy chọn cấp độ trước!">🔒 ${shortLabel}</span>`;
+    }).join("");
+  }
 }
 
 function updateProgress(idx) {
@@ -76,11 +107,13 @@ function updateProgress(idx) {
     wrap.innerHTML = MODULES.map((m, i) => {
       const isDone = completed.has(m.id);
       const isActive = i === idx;
-      const cls = isDone ? "done" : isActive ? "active" : "";
+      const locked = !isDone && isModuleLocked(m.id);
+      const cls = locked ? "locked" : isDone ? "done" : isActive ? "active" : "";
       const shortLabel = m.label.replace(/^\S+\s/, "");
-      return `<span class="step-dot ${cls}" style="cursor:pointer;"
-                    onclick="window.pklJumpToModule(${i})"
-                    title="Nhấn để chuyển tới: ${m.label}">${m.emoji} ${shortLabel}</span>`;
+      const icon = locked ? "🔒" : m.emoji;
+      const title = locked ? "Hoàn thành phần Giới thiệu trước nhé!" : `Nhấn để chuyển tới: ${m.label}`;
+      const clickAttr = locked ? "" : `onclick="window.pklJumpToModule(${i})"`;
+      return `<span class="step-dot ${cls}" ${clickAttr} title="${title}">${icon} ${shortLabel}</span>`;
     }).join("");
   }
 
@@ -89,8 +122,9 @@ function updateProgress(idx) {
 }
 
 window.pklJumpToModule = function (idx) {
+  if (isModuleLocked(MODULES[idx].id) && !getCompletedSet().has(MODULES[idx].id)) return; // vẫn khoá -> không làm gì
   const current = parseInt(sessionStorage.getItem(CURRENT_IDX_SESSION_KEY) || "0", 10);
-  if (idx === current) return; // đang ở module này rồi, không cần làm gì
+  if (idx === current) return;
   const target = MODULES[idx];
   if (confirm(`Bạn muốn chuyển sang phần: ${target.label}?`)) {
     localStorage.setItem(JUMP_KEY, String(idx));
@@ -99,23 +133,40 @@ window.pklJumpToModule = function (idx) {
 };
 
 // ============================================================================
-// CHẠY 5 MODULE, BẮT ĐẦU TỪ startIdx, TỰ ĐỘNG LẤP CÁC MODULE CÒN THIẾU
+// BADGE POKÉMON ĐỒNG HÀNH (topBar)
+// ============================================================================
+
+function refreshCompanionBadge() {
+  const c = getCompanionSprite();
+  const badge = document.getElementById("companionBadge");
+  const img = document.getElementById("companionBadgeImg");
+  const labelEl = document.getElementById("companionBadgeLabel");
+  if (!badge || !img) return;
+  if (c) {
+    img.src = c.spriteUrl;
+    img.alt = c.name || "";
+    if (labelEl) labelEl.textContent = c.name || "Bạn đồng hành";
+    badge.style.display = "flex";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+// ============================================================================
+// CHẠY 5 MODULE, BẮT ĐẦU TỪ startIdx
 // ============================================================================
 
 async function runFromIndex(sessionVocab, poolData, level, startIdx) {
   resetInstructionMemory();
 
-  // Thứ tự chạy: bắt đầu từ startIdx, hết vòng thì quay lại đầu (đảm bảo luôn
-  // chạm đủ cả 5 module đúng 1 lượt duy nhất mỗi module, trừ module đích).
   const order = [];
   for (let k = 0; k < MODULES.length; k++) order.push((startIdx + k) % MODULES.length);
 
   for (let pos = 0; pos < order.length; pos++) {
     const i = order[pos];
-    const isExplicitTarget = pos === 0; // module đầu tiên = module người dùng vừa chọn (hoặc mặc định)
+    const isExplicitTarget = pos === 0;
     const completed = getCompletedSet();
 
-    // Module đã hoàn thành rồi thì bỏ qua — TRỪ module đích (người dùng chủ động chọn thì luôn cho làm lại)
     if (!isExplicitTarget && completed.has(MODULES[i].id)) continue;
 
     updateProgress(i);
@@ -124,6 +175,9 @@ async function runFromIndex(sessionVocab, poolData, level, startIdx) {
 
     completed.add(MODULES[i].id);
     saveCompletedSet(completed);
+
+    // Học xong Giới thiệu lần đầu trong buổi -> mở khoá 4 module còn lại
+    if (MODULES[i].id === "intro") localStorage.setItem(INTRO_DONE_KEY, "1");
 
     if (completed.size >= MODULES.length) {
       updateProgress(MODULES.length);
@@ -140,6 +194,7 @@ async function runFromIndex(sessionVocab, poolData, level, startIdx) {
 async function main() {
   injectSharedStyles();
   await initTTSVoice();
+  renderLockedChipsOnly();
 
   const wordBank = getWordBank();
   if (!wordBank.length) {
@@ -150,8 +205,15 @@ async function main() {
       </div>`);
     return;
   }
+  // ─── MỚI: phát hiện đổi sang bài khác -> reset tiến trình module cũ ───
+  const wbFingerprint = wordBank.slice().sort().join("|");
+  const savedFingerprint = localStorage.getItem("pkl_wordbank_fp");
+  if (savedFingerprint !== wbFingerprint) {
+    resetCompletedSet();
+    localStorage.removeItem(INTRO_DONE_KEY);
+    localStorage.setItem("pkl_wordbank_fp", wbFingerprint);
+  }
 
-  // Kiểm tra xem trang này được load do NHẢY MODULE (click progress dot) hay không
   const jumpIdxRaw = localStorage.getItem(JUMP_KEY);
   const isJumping = jumpIdxRaw !== null;
   let startIdx = 0;
@@ -160,27 +222,33 @@ async function main() {
     localStorage.removeItem(JUMP_KEY);
   }
 
-  // 1. Cấp độ: CHỈ hỏi đúng 1 lần cho cả buổi học. Hễ đã có selected_level
-  //    trong localStorage -> dùng lại, không hỏi lại, dù đang jump module
-  //    hay vừa quay về (reload thường) từ 1 minigame.
+  // 1. Cấp độ
   let level;
   const savedLevel = localStorage.getItem("selected_level");
   if (savedLevel) {
     level = savedLevel;
     if (!isJumping) {
-      // Không phải do bấm nhảy module -> đây là lượt reload do minigame vừa
-      // finishAndReturn() xong -> tiếp tục ĐÚNG module đang dở dang (lưu ở
-      // sessionStorage lúc trước khi phóng sang minigame), không phải module 0.
       startIdx = parseInt(sessionStorage.getItem(CURRENT_IDX_SESSION_KEY) || "0", 10);
     }
   } else {
     setCard(`<div style="text-align:center;padding:20px;color:#aaa;">Đang tải...</div>`);
     level = await renderLevelSelect(document.getElementById("mainCard"));
-    resetCompletedSet(); // bắt đầu 1 buổi học hoàn toàn mới -> xoá tiến trình hoàn thành cũ
+    resetCompletedSet();
+    localStorage.removeItem(INTRO_DONE_KEY); // buổi học mới -> khoá lại 4 module còn lại
   }
 
-  // 2. Tải dữ liệu buổi học (cache F5-safe qua all-shared.js — nếu đang nhảy
-  //    module thì dữ liệu này đã có sẵn trong cache, không tải lại từ mạng)
+  updateProgress(0); // cập nhật ngay: mở "Giới thiệu", khoá phần còn lại (hoặc mở hết nếu đã từng học)
+
+  // 1.5. Pokémon đồng hành — CHỈ hỏi 1 lần/buổi, ngay sau khi có cấp độ
+  if (!getCompanionSprite()) {
+    const label = document.getElementById("stageLabel");
+    if (label) label.textContent = "🤝 Hãy chọn bạn đồng hành!";
+    setCard(`<div style="text-align:center;padding:20px;color:#aaa;">Đang tải danh sách Pokémon của bạn...</div>`);
+    await renderCompanionSelect(document.getElementById("mainCard"));
+  }
+  refreshCompanionBadge();
+
+  // 2. Tải dữ liệu buổi học
   setCard(`
     <div style="text-align:center;padding:40px;">
       <div style="font-size:48px;animation:bounce 0.8s ease infinite alternate;">📚</div>
@@ -210,22 +278,23 @@ async function main() {
       `Today you'll learn ${sessionVocab.length} new words through 5 fun activities!`);
   }
 
-  // 3. Vòng lặp buổi học — mỗi lượt chạy đủ 5 module (có thể qua nhiều lần
-  //    nhảy/reload) mới hỏi "Học lại/Đã thuộc". "Học lại" thì lặp lại trong
-  //    cùng trang (không cần reload) và reset tiến trình hoàn thành.
+  // 3. Vòng lặp buổi học
   let keepGoing = true;
   while (keepGoing) {
     await runFromIndex(sessionVocab, poolData, level, startIdx);
-    startIdx = 0; // các lượt lặp lại sau (do "Học lại", không phải do nhảy) luôn bắt đầu từ module 1
+    startIdx = 0;
 
     const choice = await renderEndOfSessionPrompt(document.getElementById("mainCard"));
     keepGoing = choice === "replay";
-    if (keepGoing) resetCompletedSet();
+    if (keepGoing) resetCompletedSet(); // KHÔNG đụng INTRO_DONE_KEY -> 5 module vẫn mở
   }
 
-  // 4. Kết thúc hẳn buổi học — dọn lựa chọn mascot + cấp độ để buổi sau hỏi lại từ đầu
+  // 4. Kết thúc hẳn buổi học — dọn mọi lựa chọn của buổi để lần sau hỏi lại từ đầu
   localStorage.removeItem("selected_instructor_idx");
   localStorage.removeItem("selected_level");
+  localStorage.removeItem(INTRO_DONE_KEY);
+  clearCompanion();
+  refreshCompanionBadge();
 
   setCard(`
     <div style="text-align:center;padding:30px;">
@@ -241,6 +310,6 @@ async function main() {
 }
 
 main().catch(e => {
-  if (e?.pkmNavigating) return; // đang điều hướng sang 1 game full-screen — không phải lỗi
+  if (e?.pkmNavigating) return;
   console.error("Lỗi không mong muốn trong buổi học:", e);
 });

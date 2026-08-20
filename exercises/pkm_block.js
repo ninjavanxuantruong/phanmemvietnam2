@@ -16,7 +16,19 @@
 
 window.BlockGame = {
     GRID_SIZE: 8,
-    MIN_QUESTIONS: 8,
+    MIN_QUESTIONS: 8, // = số câu cần trả lời để chốt xong 1 VÒNG
+
+    // ═══════════════════════════════════════════════════════════
+    // HỆ THỐNG "VÒNG" (round): cứ đủ MIN_QUESTIONS câu -> chốt 1 vòng,
+    // ghi điểm/thưởng qua PkmScore + lưu local NGAY (không đợi đến hết cả
+    // ván), rồi thu nhỏ bàn cờ chơi tiếp. Nhờ vậy nếu máy đơ/crash giữa
+    // chừng thì tối thiểu các vòng đã hoàn thành vẫn còn nguyên trong
+    // localStorage (pkm_global_exp/pkm_global_dv/result_battle/... đã được
+    // PkmScore ghi, cộng thêm pkm_block_rounds để lưu chi tiết từng vòng).
+    BOARD_SIZE_FLOOR: 5, // nhỏ nhất 5x5 (đủ chỗ cho khối dài 5 ô / vuông 3x3)
+    ROUND_STORAGE_KEY: "pkm_block_rounds",
+    roundQuestionCount: 0, // số câu đã trả lời TRONG vòng hiện tại
+    roundIndex: 1,
 
     grid: [], // 8x8, mỗi ô: null hoặc mã màu (string)
     pokemonGrid: [], // 8x8 song song với grid, mỗi ô: null hoặc {id, url}
@@ -494,6 +506,10 @@ window.BlockGame = {
         const board = document.getElementById("block-board");
         if (!board) return;
         board.innerHTML = "";
+        // Bàn cờ co dần theo từng vòng -> phải set lại số cột/hàng CSS mỗi
+        // lần render, không thể để cố định repeat(8,...) trong file CSS nữa.
+        board.style.gridTemplateColumns = `repeat(${this.GRID_SIZE}, 1fr)`;
+        board.style.gridTemplateRows = `repeat(${this.GRID_SIZE}, 1fr)`;
         this.cellEls = Array.from({ length: this.GRID_SIZE }, () =>
             new Array(this.GRID_SIZE).fill(null),
         );
@@ -944,12 +960,107 @@ window.BlockGame = {
         else this.wrongCount++;
         this.updateStatsUI();
 
+        this.roundQuestionCount++;
+        if (this.roundQuestionCount >= this.MIN_QUESTIONS) {
+            this.roundQuestionCount = 0;
+            this.completeRound(); // chốt vòng + reset bàn cờ mới, tự bật lại tương tác
+            return;
+        }
+
         this.isPaused = false;
         this.setInteractionEnabled(true);
 
         if (!isCorrect) this.autoPlayPenalty();
 
         this.checkGameOver();
+    },
+
+    // ═══════════════════════════════════════════════════════════
+    // CHỐT 1 VÒNG (đủ MIN_QUESTIONS câu): ghi điểm/thưởng NGAY qua PkmScore,
+    // lưu chi tiết vòng vào localStorage để phòng đơ/crash, rồi thu nhỏ bàn
+    // cờ và chơi tiếp (không kết thúc ván).
+    // ═══════════════════════════════════════════════════════════
+    completeRound() {
+        const result = window.PkmScore
+            ? window.PkmScore.finishMatch({ won: true, minQuestions: 0 })
+            : { bonusEXP: 0, bonusDV: 0 };
+
+        this.saveRoundLocal({
+            round: this.roundIndex,
+            boardSize: this.GRID_SIZE,
+            blockScore: this.score,
+            correct: this.correctCount,
+            wrong: this.wrongCount,
+            bonusEXP: result.bonusEXP || 0,
+            bonusDV: result.bonusDV || 0,
+            ts: Date.now(),
+        });
+
+        // Reset session của PkmScore để vòng SAU không bị tính trùng số câu
+        // của vòng NÀY (finishMatch đã cộng dồn EXP/DV vào localStorage rồi,
+        // nên reset ở đây an toàn, không mất dữ liệu).
+        if (window.PkmScore) window.PkmScore.resetForNewRound();
+
+        this.showRoundToast(
+            `✅ Vòng ${this.roundIndex} xong! +${result.bonusEXP || 0} KN +${result.bonusDV || 0} DV`,
+        );
+        this.roundIndex++;
+
+        // Thu nhỏ bàn cờ dần, dừng lại ở BOARD_SIZE_FLOOR (5x5)
+        this.GRID_SIZE = Math.max(this.BOARD_SIZE_FLOOR, this.GRID_SIZE - 1);
+
+        this.setupGrid();
+        this.renderBoard();
+        this.spawnTray();
+        this.renderTray();
+        this.updateScoreUI();
+        this.updateStatsUI();
+
+        this.selectedTrayIndex = null;
+        this.movesSinceLastQuiz = 0;
+        this.movesUntilNextQuiz = this.randomMoveThreshold();
+
+        this.isPaused = false;
+        this.setInteractionEnabled(true);
+    },
+
+    // Lưu chi tiết từng vòng vào localStorage (mảng nối dài, chưa tự xoá —
+    // để sau này đẩy lên Firebase rồi chủ động dọn nếu cần).
+    saveRoundLocal(entry) {
+        try {
+            const list = JSON.parse(
+                localStorage.getItem(this.ROUND_STORAGE_KEY) || "[]",
+            );
+            list.push(entry);
+            localStorage.setItem(this.ROUND_STORAGE_KEY, JSON.stringify(list));
+        } catch (e) {
+            console.error("❌ [BlockGame] Lỗi lưu round local:", e);
+        }
+    },
+
+    // Toast nhỏ báo "xong 1 vòng" — tự tạo DOM, không cần sửa HTML.
+    showRoundToast(text) {
+        let toast = document.getElementById("round-toast");
+        if (!toast) {
+            toast = document.createElement("div");
+            toast.id = "round-toast";
+            toast.style.cssText = `
+                position: fixed; top: 54px; left: 50%; transform: translateX(-50%);
+                background: rgba(20,24,40,0.95); border: 2px solid #ffcb05; color: #ffcb05;
+                font-weight: 900; font-size: 13px; padding: 8px 18px; border-radius: 20px;
+                z-index: 9500; text-align: center; box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+                opacity: 0; transition: opacity .25s ease; pointer-events: none; white-space: nowrap;
+            `;
+            document.body.appendChild(toast);
+        }
+        toast.textContent = text;
+        requestAnimationFrame(() => {
+            toast.style.opacity = "1";
+        });
+        clearTimeout(this._roundToastTimer);
+        this._roundToastTimer = setTimeout(() => {
+            toast.style.opacity = "0";
+        }, 1600);
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -1003,17 +1114,24 @@ window.BlockGame = {
             return;
         }
 
-        const enoughQuestions = this.totalCount >= this.MIN_QUESTIONS;
+        // Các vòng đã hoàn thành (đủ MIN_QUESTIONS câu) đã được ghi điểm +
+        // lưu local NGAY tại thời điểm chốt vòng, xem completeRound(). Ở đây
+        // chỉ cần chốt nốt phần câu hỏi CÒN DANG DỞ (chưa đủ 1 vòng) của
+        // vòng hiện tại, nếu có — không tính lại từ đầu để tránh trùng điểm.
+        const leftoverQuestions = window.PkmScore.session.totalCount;
         const result = window.PkmScore.finishMatch({
-            won: enoughQuestions,
-            minQuestions: this.MIN_QUESTIONS,
+            won: true,
+            minQuestions: 0,
         });
+        if (leftoverQuestions > 0) window.PkmScore.resetForNewRound();
 
+        const completedRounds = this.roundIndex - 1;
         const titleEl = document.getElementById("victory-title-text");
         const expText = document.getElementById("victory-exp-text");
 
-        // Chưa trả lời đủ câu tối thiểu -> không ghi điểm/thưởng gì cả
-        if (result.skipped) {
+        // Trường hợp hiếm: bàn cờ kẹt ngay từ đầu, chưa trả lời được câu nào
+        // cả (chưa có vòng nào, cũng chưa có câu dở dang nào).
+        if (this.totalCount === 0) {
             this.getRewardImage().then((src) => {
                 const img = document.getElementById("victory-pkm-img");
                 if (img) {
@@ -1029,12 +1147,7 @@ window.BlockGame = {
             }
             if (expText) {
                 expText.innerHTML = `
-                    <div style="color:#ccc; margin-bottom:14px;">Không còn khối nào đặt vừa bàn cờ nữa!</div>
-                    <div style="font-size:13px; color:#ff9f43; margin-bottom:10px;">
-                        Ván này mới trả lời ${this.totalCount}/${this.MIN_QUESTIONS} câu tối thiểu nên
-                        chưa được tính điểm hay thưởng.
-                    </div>
-                    <div style="font-size:12px; color:#ffbc00;">Chơi lại và trả lời đủ ${this.MIN_QUESTIONS} câu để được ghi nhận nhé!</div>`;
+                    <div style="color:#ccc;">Bàn cờ hết chỗ đặt trước khi trả lời được câu nào. Chơi lại nhé!</div>`;
             }
             const overlay = document.getElementById("victory-overlay");
             if (overlay) overlay.style.display = "flex";
@@ -1082,6 +1195,9 @@ window.BlockGame = {
 
         if (expText) {
             expText.innerHTML = `
+                <div style="color:#8fd18f; font-size:13px; margin-bottom:10px;">
+                    🔁 Đã hoàn thành ${completedRounds} vòng${leftoverQuestions > 0 ? ` + ${leftoverQuestions} câu dở dang vòng cuối` : ""}
+                </div>
                 <div style="font-size:13px; text-align:left; margin-bottom:12px; line-height:2;">
                     ${messages.map((m) => `<div>${m}</div>`).join("")}
                 </div>
