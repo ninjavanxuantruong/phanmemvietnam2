@@ -280,8 +280,14 @@
             const ratio = BG_WIDTH / BG_HEIGHT;
             const sceneW = scene.clientWidth;
             const sceneH = scene.clientHeight;
+            const isMobile = window.matchMedia('(pointer: coarse)').matches;
+
             let w = sceneW, h = sceneW / ratio;
-            if (h < sceneH) { h = sceneH; w = sceneH * ratio; }
+            if (isMobile) {
+                if (h < sceneH) { h = sceneH; w = sceneH * ratio; }   // mobile: giữ nguyên như cũ (cover)
+            } else {
+                if (h > sceneH) { h = sceneH; w = sceneH * ratio; }   // PC: đổi sang contain
+            }
             stage.style.width = w + 'px';
             stage.style.height = h + 'px';
         }
