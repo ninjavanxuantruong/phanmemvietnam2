@@ -539,6 +539,7 @@
       // Dọn sạch dữ liệu phiên trước, chỉ giữ lại giá trị của phiên đăng nhập
       // vừa xác thực xong — thay cho đoạn "giữ lại rồi clear" từng nằm ở choice.js
       localStorage.clear();
+      sessionStorage.clear();
       Object.entries(sessionValues).forEach(([key, val]) => {
         localStorage.setItem(key, val);
       });
