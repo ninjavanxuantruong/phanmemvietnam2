@@ -58,7 +58,7 @@
 
     .hall-stage {
         position: relative;
-        background-image: url('https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/sanh1.png');
+        
         background-size: 100% 100%;
         background-repeat: no-repeat;
     }
@@ -209,6 +209,7 @@
     <div id="toast"></div>
 
     <script>
+        
         const BG_WIDTH = 1536;
         const BG_HEIGHT = 1024;
 
@@ -274,8 +275,18 @@
         const DOOR_ICON = '🚪';
         const FALLBACK_TRAINER = 'https://play.pokemonshowdown.com/sprites/trainers/acetrainer.png';
 
+        
         const scene = document.getElementById('hall-scene');
         const stage = document.getElementById('hall-stage');
+        (function setHallBackground() {
+            let n = sessionStorage.getItem('pkm_hall_bg');
+            if (!n) {
+                n = String(Math.floor(Math.random() * 10) + 1); // 1 -> 10
+                sessionStorage.setItem('pkm_hall_bg', n);
+            }
+            stage.style.backgroundImage =
+                `url('https://raw.githubusercontent.com/ninjavanxuantruong/mp3vietnam2/main/sanh${n}.png')`;
+        })();
         function fitStage() {
             const ratio = BG_WIDTH / BG_HEIGHT;
             const sceneW = scene.clientWidth;
