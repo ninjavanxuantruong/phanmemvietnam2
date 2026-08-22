@@ -215,7 +215,7 @@
         const NPC_CONFIG = [
             {
                 id: 'list-team',
-                nameVN: 'Misty',
+                nameVN: 'Quản lý pokemon',
                 trainer:  { name: 'misty',   top: '50%', left: '15%', width: '18%',  flip: false },
                 pokemon:  { name: 'psyduck', top: '50%', left: '30%', width: '12%',  flip: false },
                 questionEN: 'Do you want to view your Pokémon List, or arrange your Team?',
@@ -227,7 +227,7 @@
             },
             {
                 id: 'egg-upgrade',
-                nameVN: 'Erika',
+                nameVN: 'ấp trứng/nâng cấp',
                 trainer:  { name: 'erika', top: '29%', left: '20%', width: '18%', flip: false },
                 pokemon:  { name: 'eevee', top: '29%', left: '28%', width: '12%', flip: false },
                 questionEN: 'Do you want to hatch an Egg, or upgrade your Pokémon?',
@@ -239,7 +239,7 @@
             },
             {
                 id: 'item-store',
-                nameVN: 'Jasmine',
+                nameVN: 'Cửa hàng',
                 trainer:  { name: 'jasmine',   top: '65%', left: '80%', width: '18%', flip: true },
                 pokemon:  { name: 'magnemite', top: '62%', left: '72%', width: '12%', flip: true },
                 questionEN: 'Do you want to equip Items, or visit the Store?',
@@ -251,7 +251,7 @@
             },
             {
                 id: 'instruct-ranking',
-                nameVN: 'Cynthia',
+                nameVN: 'bảng xếp hạng',
                 trainer:  { name: 'cynthia',  top: '78%', left: '15%', width: '18%', flip: true },
                 pokemon:  { name: 'garchomp', top: '78%', left: '23%', width: '12%', flip: true },
                 questionEN: 'Do you want to read the Instructions, or see the Ranking?',
@@ -380,7 +380,7 @@
                     <circle cx="50" cy="50" r="46" fill="#3a2f0d" stroke="#ffcb05" stroke-width="5"/>
                     <text x="50" y="66" font-size="46" text-anchor="middle">🔑</text>
                  </svg>`),
-            label: 'Chìa khoá',
+            label: 'phụ huynh',
             onClick: openKeyDialogue
         });
         placeElement({
@@ -391,7 +391,7 @@
                     <circle cx="50" cy="50" r="46" fill="#1c3a14" stroke="#6fcf3f" stroke-width="5"/>
                     <text x="50" y="66" font-size="46" text-anchor="middle">🌾</text>
                  </svg>`),
-            label: 'Khu vườn',
+            label: 'Farm',
             onClick: () => { window.location.href = 'pkm_garden.html'; }
         });
 
@@ -472,8 +472,8 @@
                  </svg>`);
             dlgPortrait.onerror = null;
             dlgName.textContent = 'Cổng Ra';
-            const qEn = 'Do you want to save your results, or exit the game?';
-            const qVn = 'Bạn muốn lưu kết quả, hay thoát trò chơi?';
+            const qEn = 'Do you want to see your results, or exit the game?';
+            const qVn = 'Bạn muốn xem kết quả, hay thoát trò chơi?';
             dlgQEn.textContent = qEn;
             dlgQVn.textContent = qVn;
 
@@ -481,7 +481,7 @@
             const saveBtn = document.createElement('a');
             saveBtn.href = 'pkm_results.html';
             saveBtn.className = 'dlg-choice-btn confirm';
-            saveBtn.innerHTML = `<span class="dlg-choice-en">A. Save Results</span><span class="dlg-choice-vn">Lưu kết quả</span>`;
+            saveBtn.innerHTML = `<span class="dlg-choice-en">A. See Results</span><span class="dlg-choice-vn">Xem kết quả</span>`;
 
             const exitBtn = document.createElement('div');
             exitBtn.className = 'dlg-choice-btn danger';
