@@ -19,6 +19,78 @@
 
 const CFG = window.GardenConfig;
 const STORAGE_KEY = "pkm_garden_state";
+const PET_STORAGE_KEY = "pkm_garden_pets_state"; // trạng thái chăm sóc thú cưng, theo uid trong pkm_inventory
+const PET_CARE_REWARD_DV = 0.5;
+const PET_CARE_REWARD_EXP = 0.5;
+
+// Cho phép chăm sóc SỚM hơn mốc 24h tối đa bấy nhiêu (vào sớm vài tiếng vẫn
+// chăm được). QUAN TRỌNG: khi chăm sớm, mốc "lần chăm này" vẫn được LƯU
+// THEO LỊCH CŨ (lastCareAt + 24h) chứ KHÔNG lưu theo giờ bấm thực tế — nhờ
+// vậy lịch không bị trôi sớm dần qua từng ngày, đảm bảo tối đa đúng 2 lần
+// chăm trong mọi khoảng 48h liên tục. Áp dụng chung cho cây/vật nuôi/cá VÀ
+// khu thú cưng.
+const CARE_EARLY_GRACE_MS = 5 * 60 * 60 * 1000; // 5 giờ
+
+// Toạ độ 3 khu đã quy hoạch (khớp với biến CSS trong pkm_garden.html :root) —
+// thú cưng KHÔNG được phép đi vào bên trong các vùng này.
+// Toạ độ 3 khu đã quy hoạch (khớp với biến CSS trong pkm_garden.html :root) —
+// thú cưng KHÔNG được phép đi vào bên trong các vùng này (kể cả ĐI NGANG QUA).
+const PET_FORBIDDEN_ZONES = [
+    { top: 20.6, left: 8.3,  width: 30,   height: 28.1 }, // Ao
+    { top: 22.6, left: 52.1, width: 32.6, height: 28.2 }, // Chuồng
+    { top: 64.6, left: 22.2, width: 56.8, height: 28.1 }, // Ruộng
+];
+// Nới rộng thêm mỗi phía để bù kích thước thật của sprite (58×64px) — tránh
+// trường hợp tâm điểm né được nhưng rìa ảnh vẫn đè lên vùng cấm. Tăng số này
+// nếu vẫn thấy chạm viền, giảm nếu thấy né quá xa.
+const PET_ZONE_PAD_PCT = 4;
+
+function isInForbiddenZone(xPct, yPct) {
+    return PET_FORBIDDEN_ZONES.some((z) =>
+        xPct >= z.left - PET_ZONE_PAD_PCT && xPct <= z.left + z.width + PET_ZONE_PAD_PCT &&
+        yPct >= z.top - PET_ZONE_PAD_PCT && yPct <= z.top + z.height + PET_ZONE_PAD_PCT
+    );
+}
+
+// Kiểm tra ĐOẠN ĐƯỜNG (x1,y1)->(x2,y2) có CẮT NGANG qua 1 hình chữ nhật hay
+// không (thuật toán Liang–Barsky). Bắt buộc phải có bước này vì sprite di
+// chuyển theo đường thẳng giữa 2 điểm — nếu chỉ kiểm tra điểm đến, nó vẫn có
+// thể xuyên qua giữa 1 vùng cấm nằm chắn giữa đường đi.
+function segmentIntersectsRect(x1, y1, x2, y2, rect) {
+    const xmin = rect.left - PET_ZONE_PAD_PCT, xmax = rect.left + rect.width + PET_ZONE_PAD_PCT;
+    const ymin = rect.top - PET_ZONE_PAD_PCT, ymax = rect.top + rect.height + PET_ZONE_PAD_PCT;
+    let t0 = 0, t1 = 1;
+    const dx = x2 - x1, dy = y2 - y1;
+    const p = [-dx, dx, -dy, dy];
+    const q = [x1 - xmin, xmax - x1, y1 - ymin, ymax - y1];
+    for (let i = 0; i < 4; i++) {
+        if (p[i] === 0) {
+            if (q[i] < 0) return false; // song song với cạnh và nằm ngoài -> không cắt
+        } else {
+            const r = q[i] / p[i];
+            if (p[i] < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+            else { if (r < t0) return false; if (r < t1) t1 = r; }
+        }
+    }
+    return true; // tồn tại đoạn [t0,t1] hợp lệ -> đường đi có cắt qua hình chữ nhật
+}
+function pathHitsForbiddenZone(x1, y1, x2, y2) {
+    return PET_FORBIDDEN_ZONES.some((z) => segmentIntersectsRect(x1, y1, x2, y2, z));
+}
+
+// Random ra 1 điểm KHÔNG rơi vào vùng cấm, VÀ đường đi từ vị trí hiện tại
+// (curX, curY) tới điểm đó cũng không cắt ngang vùng nào (thử tối đa 30 lần).
+function pickPetWanderSpot(curX, curY) {
+    for (let i = 0; i < 30; i++) {
+        const nx = 4 + Math.random() * 90, ny = 8 + Math.random() * 84;
+        if (isInForbiddenZone(nx, ny)) continue;
+        if (curX != null && curY != null && pathHitsForbiddenZone(curX, curY, nx, ny)) continue;
+        return { nx, ny };
+    }
+    // Không tìm được đường nào an toàn sau 30 lần thử -> đứng yên tại chỗ,
+    // an toàn tuyệt đối, đợi lượt sau thử lại.
+    return { nx: curX != null ? curX : 4, ny: curY != null ? curY : 8 };
+}
 
 // ===== 0. ÂM THANH + TTS (tối đa hoá tiếp xúc tiếng Anh) =====
 
@@ -301,7 +373,7 @@ function getEntityInfo(entity, kind, now) {
 
 function canCareNow(entity, now) {
     if (!entity.activatedAt) return true; // chưa từng chăm -> lần đầu luôn được phép
-    return now - entity.lastCareAt >= CFG.CARE_INTERVAL_MS;
+    return now - entity.lastCareAt >= CFG.CARE_INTERVAL_MS - CARE_EARLY_GRACE_MS;
 }
 
 const CARE_GROUPS = {
@@ -339,7 +411,7 @@ async function careForEntity(state, key, idx, kind, onDone) {
     if (info.status === "dead") { saveState(state); return onDone(false, { en: "It already died.", vn: "Đã chết mất rồi 😢" }); }
     if (info.status === "ready") return onDone(false, { en: "Fully grown — go harvest it!", vn: "Đã chín rồi, đi thu hoạch thôi!" });
     if (!canCareNow(entity, now)) {
-        const mins = Math.ceil((entity.lastCareAt + CFG.CARE_INTERVAL_MS - now) / 60000);
+        const mins = Math.ceil((entity.lastCareAt + CFG.CARE_INTERVAL_MS - CARE_EARLY_GRACE_MS - now) / 60000);
         return onDone(false, { en: `Already cared today. Come back in ${mins} min.`, vn: `Hôm nay đã chăm rồi, quay lại sau ${mins} phút.` });
     }
     const [toolA, toolB] = CARE_GROUPS[kind];
@@ -354,11 +426,16 @@ async function careForEntity(state, key, idx, kind, onDone) {
         if (!entity.activatedAt) {
             entity.activatedAt = now2;
             entity.pausedMs = 0;
+            entity.lastCareAt = now2; // lần chăm đầu tiên -> lấy đúng giờ thực tế làm mốc gốc
         } else {
             const sinceCare = now2 - entity.lastCareAt;
             if (sinceCare > CFG.CARE_INTERVAL_MS) entity.pausedMs += (sinceCare - CFG.CARE_INTERVAL_MS);
+            // Chăm sớm (trong khoảng grace) -> "chốt" mốc coi như chăm ĐÚNG giờ hẹn
+            // (lastCareAt cũ + 24h), KHÔNG lấy giờ bấm thực tế now2, để lịch không
+            // bị lùi sớm dần qua từng ngày.
+            const scheduledNext = entity.lastCareAt + CFG.CARE_INTERVAL_MS;
+            entity.lastCareAt = now2 < scheduledNext ? scheduledNext : now2;
         }
-        entity.lastCareAt = now2;
         state.tools[toolA]--; state.tools[toolB]--;
         saveState(state);
         setUiLocked(false);
@@ -599,6 +676,7 @@ function handlePlantTap(idx, entity, info, spriteEl) {
     careForEntity(gameState, "lands", idx, "plant", (ok, msg, toolIds) => {
         if (ok) { playEffect(spriteEl, toolIds); announce(msg.en); }
         else showToast(msg.en, msg.vn);
+        selectedTool = null;
         updateToolbar(); renderLandField();
     });
 }
@@ -713,6 +791,7 @@ function handleRoamTap(key, idx, kind, imgEl) {
     careForEntity(gameState, key, idx, kind, (ok, msg, toolIds) => {
         if (ok) { playEffect(spriteWrap, toolIds); announce(msg.en); }
         else showToast(msg.en, msg.vn);
+        selectedTool = null;
         updateToolbar(); renderAll();
     });
 }
@@ -732,6 +811,190 @@ function addToPenClicked(key, kind, addLabel) {
 
 const renderBarnPen = makePenRenderer("zoneBarn", "addAnimalBtn", "barn", "animal", CFG.ANIMAL_TIERS, "wander-barn");
 const renderPondPen = makePenRenderer("zonePond", "addFishBtn", "pond", "fish", CFG.FISH_TIERS, "wander-pond");
+
+// ===== Khu Thú Cưng (Pokémon ĐANG SỞ HỮU, đọc từ pkm_inventory) =====
+// KHÁC hẳn logic cây/vật nuôi/cá ở trên:
+//  - Không mua, không mất tiền — đây là chính những Pokémon người chơi đang có.
+//  - Chạy tự do khắp bản đồ (không giới hạn trong 1 ô/1 khu).
+//  - Chăm bằng BẤT KỲ công cụ nào TRỪ 3 dụng cụ thu hoạch (liềm/bao/giỏ),
+//    không cần đủ cặp, không cần đúng nhóm plant/animal/fish.
+//  - Mỗi ngày (24h) chăm 1 lần / 1 con -> +0.5 DV + 0.5 EXP.
+//  - KHÔNG BAO GIỜ CHẾT nếu bị bỏ bê — chỉ chuyển sang trạng thái "Suy yếu"
+//    (chỉ để hiển thị cảnh báo, không mất gì cả).
+
+function loadPetState() {
+    try {
+        const raw = JSON.parse(localStorage.getItem(PET_STORAGE_KEY) || "{}");
+        return raw && typeof raw === "object" ? raw : {};
+    } catch (e) { return {}; }
+}
+function savePetState(petState) {
+    localStorage.setItem(PET_STORAGE_KEY, JSON.stringify(petState));
+}
+function getOwnedPokemons() {
+    try {
+        const arr = JSON.parse(localStorage.getItem("pkm_inventory") || "[]");
+        return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+}
+// weakened = true nếu chưa từng chăm HOẶC đã quá 24h kể từ lần chăm gần nhất.
+function getPetInfo(uid, petState, now) {
+    const rec = petState[uid];
+    const lastCareAt = rec && rec.lastCareAt ? rec.lastCareAt : null;
+    const weakened = !lastCareAt || (now - lastCareAt > CFG.CARE_INTERVAL_MS);
+    return { weakened, lastCareAt };
+}
+function canCarePetNow(uid, petState, now) {
+    const rec = petState[uid];
+    if (!rec || !rec.lastCareAt) return true;
+    return now - rec.lastCareAt >= CFG.CARE_INTERVAL_MS - CARE_EARLY_GRACE_MS;
+}
+
+// Chăm 1 thú cưng bằng 1 công cụ bất kỳ (trừ công cụ thu hoạch).
+async function careForPet(pkm, toolId, onDone) {
+    const tool = CFG.TOOLS[toolId];
+    if (!tool) return onDone(false, { en: "Unknown tool.", vn: "Không rõ công cụ." });
+    if (tool.role === "harvest") {
+        return onDone(false, { en: `${tool.name} can't be used to care for Pokémon.`, vn: `${tool.nameVN} không dùng để chăm sóc được.` });
+    }
+    if (gameState.tools[toolId] <= 0) {
+        return onDone(false, { en: `You need ${tool.name}. Visit the shop!`, vn: `Bạn cần ${tool.nameVN}, ghé shop mua nhé.` });
+    }
+    const now = Date.now();
+    const petState = loadPetState();
+    if (!canCarePetNow(pkm.uid, petState, now)) {
+        const rec = petState[pkm.uid];
+        const mins = Math.ceil((rec.lastCareAt + CFG.CARE_INTERVAL_MS - CARE_EARLY_GRACE_MS - now) / 60000);
+        return onDone(false, { en: `Already cared today. Come back in ${mins} min.`, vn: `Hôm nay đã chăm rồi, quay lại sau ${mins} phút.` });
+    }
+
+    setUiLocked(true);
+    const finalize = () => {
+        gameState.tools[toolId]--;
+        saveState(gameState);
+        const petState2 = loadPetState();
+        const now2 = Date.now();
+        const prevRec = petState2[pkm.uid];
+        let newLastCareAt;
+        if (!prevRec || !prevRec.lastCareAt) {
+            newLastCareAt = now2; // lần chăm đầu tiên -> lấy đúng giờ thực tế
+        } else {
+            // Chăm sớm (trong khoảng grace) -> chốt mốc theo lịch cũ (+24h), không
+            // lấy giờ bấm thực tế, tránh lịch trôi sớm dần qua từng ngày.
+            const scheduledNext = prevRec.lastCareAt + CFG.CARE_INTERVAL_MS;
+            newLastCareAt = now2 < scheduledNext ? scheduledNext : now2;
+        }
+        petState2[pkm.uid] = { lastCareAt: newLastCareAt };
+        savePetState(petState2);
+        addCurrency(PET_CARE_REWARD_DV, PET_CARE_REWARD_EXP);
+        setUiLocked(false);
+        onDone(true, {
+            en: `Great job caring for ${pkm.name}! +${fmtNum(PET_CARE_REWARD_DV)} DV +${fmtNum(PET_CARE_REWARD_EXP)} EXP`,
+            vn: `Chăm sóc ${pkm.name} thành công! +${fmtNum(PET_CARE_REWARD_DV)} Danh Vọng +${fmtNum(PET_CARE_REWARD_EXP)} Kinh Nghiệm`,
+        }, [toolId]);
+    };
+
+    try {
+        const hasMission = await loadTodayMissionForQuiz();
+        if (hasMission && window.QuizManager) {
+            const ready = await window.QuizManager.prepareData();
+            if (ready) { window.QuizManager.loadLevel(); window.QuizManager.initSkillPools(); }
+        }
+    } catch (e) { console.warn("⚠️ [Garden] Không chuẩn bị được câu hỏi hôm nay:", e); }
+
+    let settled = false;
+    const finish = () => { if (settled) return; settled = true; finalize(); };
+    if (window.QuizManager) {
+        setTimeout(finish, 90000);
+        window.QuizManager.ask(() => finish());
+    } else {
+        finish();
+    }
+}
+
+// ── Render + đi lang thang tự do khắp toàn bộ bản đồ (không giới hạn ô) ──
+const petSpriteEls = {};
+const petTimers = {};
+
+function startPetWander(zone, uid, el) {
+    const move = () => {
+        if (!zone.contains(el)) return;
+        const curX = parseFloat(el.style.left), curY = parseFloat(el.style.top);
+        const { nx, ny } = pickPetWanderSpot(curX, curY);
+        const img = el.querySelector("img");
+        if (img) img.style.transform = nx < curX ? "scaleX(-1)" : "scaleX(1)";
+        el.style.transition = "left 7s linear, top 7s linear";
+        el.style.left = nx + "%"; el.style.top = ny + "%";
+    };
+    move();
+    petTimers[uid] = setInterval(move, 9000);
+}
+
+function openPetInfoModal(pkm, info) {
+    const body = document.getElementById("infoModalBody");
+    body.innerHTML = `
+        <div class="info-title">${pkm.name} <span class="info-title-vn">(Thú cưng của bạn)</span></div>
+        <div class="info-line">${info.weakened ? "⚠️ <b>Status / Trạng thái:</b> Weakened (Suy yếu)" : "💚 <b>Status / Trạng thái:</b> Healthy (Khoẻ mạnh)"}</div>
+        <div class="info-line">🧴 <b>Care / Chăm sóc:</b> any tool except Sickle 🔪 / Sack 🛍️ / Basket 🧺 (dùng công cụ bất kỳ, trừ 3 dụng cụ thu hoạch), 1 lần/ngày</div>
+        <div class="info-line">💰 <b>Reward / Phần thưởng:</b> +${fmtNum(PET_CARE_REWARD_DV)} DV + ${fmtNum(PET_CARE_REWARD_EXP)} EXP mỗi lần chăm</div>
+        <div class="info-line">🛡️ Không chăm sẽ KHÔNG chết, chỉ bị Suy yếu.</div>`;
+    document.getElementById("infoModal").style.display = "flex";
+}
+
+function handlePetTap(pkm, info) {
+    announce(pkm.name);
+    if (!selectedTool) return openPetInfoModal(pkm, info);
+    const tool = CFG.TOOLS[selectedTool];
+    if (tool.role === "harvest") {
+        return showToast(`${tool.name} can't be used on your Pokémon.`, `${tool.nameVN} không dùng cho thú cưng được.`);
+    }
+    const spriteEl = petSpriteEls[pkm.uid];
+    careForPet(pkm, selectedTool, (ok, msg, toolIds) => {
+        if (ok) { playEffect(spriteEl, toolIds); announce(msg.en); }
+        else showToast(msg.en, msg.vn);
+        selectedTool = null;
+        updateToolbar(); renderPetsZone(); updateTopBar();
+    });
+}
+
+function renderPetsZone() {
+    const zone = document.getElementById("zonePets");
+    if (!zone) return;
+    const owned = getOwnedPokemons();
+    const petState = loadPetState();
+    const now = Date.now();
+    const ownedUids = new Set(owned.map((p) => p.uid));
+
+    // dọn sprite của con đã bị thả (release) khỏi túi đồ
+    Object.keys(petSpriteEls).forEach((uid) => {
+        if (!ownedUids.has(uid)) {
+            clearInterval(petTimers[uid]); delete petTimers[uid];
+            petSpriteEls[uid].remove(); delete petSpriteEls[uid];
+        }
+    });
+
+    owned.forEach((pkm) => {
+        if (!pkm || !pkm.uid) return;
+        const info = getPetInfo(pkm.uid, petState, now);
+        let el = petSpriteEls[pkm.uid];
+        if (!el) {
+            el = document.createElement("div");
+            el.className = "roam-sprite wander-pets";
+            const spawn = pickPetWanderSpot();
+            el.style.left = spawn.nx + "%";
+            el.style.top = spawn.ny + "%";
+            const spriteName = (pkm.name || "").toLowerCase().replace(/\s+/g, "-");
+            el.innerHTML = `<img src="${CFG.POKEMON_ANI_URL(spriteName)}" alt="${pkm.name}"><div class="roam-badge"></div><div class="roam-name"></div>`;
+            zone.appendChild(el);
+            petSpriteEls[pkm.uid] = el;
+            startPetWander(zone, pkm.uid, el);
+            el.onclick = guard(() => handlePetTap(pkm, getPetInfo(pkm.uid, loadPetState(), Date.now())));
+        }
+        el.classList.toggle("weak", info.weakened);
+        el.querySelector(".roam-badge").textContent = info.weakened ? "⚠️" : "💚";
+        el.querySelector(".roam-name").textContent = pkm.name;
+    });
+}
 
 // ===== Khung thông tin song ngữ (bấm vào 1 ô, không cầm công cụ) =====
 
@@ -871,6 +1134,7 @@ function renderAll() {
     renderLandField();
     renderBarnPen();
     renderPondPen();
+    renderPetsZone();
 }
 
 // ===== 8. KHỞI ĐỘNG =====
