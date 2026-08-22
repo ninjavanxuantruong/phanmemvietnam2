@@ -49,7 +49,8 @@ window.TowerGame = {
     QUIZ_EVERY_N_ENEMIES: 10, // cứ 10 con quái xuất hiện (spawn) thì gọi 1 lần quiz — tự co giãn theo
                               // độ dài round, không phụ thuộc học sinh chơi nhanh hay chậm
     WRONG_STUN_MS: 3000,
-    MIN_QUESTIONS: 6,
+    MIN_QUESTIONS: 6,          // ngưỡng tối thiểu để tính là 1 ván khi THUA (gameOverWipe)
+    REWARD_MIN_QUESTIONS: 8,   // cứ đủ tối thiểu 8 câu (trong phiên) là được chốt thưởng 1 lần
 
     MELEE_COOLDOWN_MS: 900,
     RANGED_COOLDOWN_MS: 1100,
@@ -222,6 +223,8 @@ window.TowerGame = {
             gameOverWiped: false,
             towerStunUntil: 0,
             enemiesSinceQuiz: 0, // đếm số quái đã spawn kể từ lần quiz gần nhất
+            questionsSinceReward: 0, // đếm số câu đã trả lời kể từ lần chốt thưởng gần nhất
+            };
         };
 
         if (wasReset || !this.session.persisted.roster) {
@@ -841,23 +844,38 @@ window.TowerGame = {
         else this.onQuizAnswered(true);
     },
 
-    onQuizAnswered(isCorrect) {
-        const s = this.session;
-        if (window.PkmScore) window.PkmScore.recordAnswer(isCorrect);
-        s.totalCount++;
-        if (isCorrect) s.correctCount++; else s.wrongCount++;
-        this.updateHud();
+onQuizAnswered(isCorrect) {
+    const s = this.session;
+    if (window.PkmScore) window.PkmScore.recordAnswer(isCorrect);
+    s.totalCount++;
+    if (isCorrect) s.correctCount++; else s.wrongCount++;
+    s.questionsSinceReward++;
+    this.updateHud();
 
-        const overlay = document.getElementById('quiz-overlay');
-        if (overlay) overlay.style.display = 'none';
-        s.paused = false; // trả lời xong -> chạy lại, quái tiếp tục spawn và tự đếm cho lần quiz kế tiếp
+    const overlay = document.getElementById('quiz-overlay');
+    if (overlay) overlay.style.display = 'none';
+    s.paused = false; // trả lời xong -> chạy lại, quái tiếp tục spawn và tự đếm cho lần quiz kế tiếp
 
-        if (!isCorrect) {
-            s.towerStunUntil = performance.now() + this.WRONG_STUN_MS;
-            document.querySelectorAll('.tower-unit').forEach(el => el.classList.add('tower-stunned'));
-            setTimeout(() => document.querySelectorAll('.tower-unit').forEach(el => el.classList.remove('tower-stunned')), this.WRONG_STUN_MS);
+    if (!isCorrect) {
+        s.towerStunUntil = performance.now() + this.WRONG_STUN_MS;
+        document.querySelectorAll('.tower-unit').forEach(el => el.classList.add('tower-stunned'));
+        setTimeout(() => document.querySelectorAll('.tower-unit').forEach(el => el.classList.remove('tower-stunned')), this.WRONG_STUN_MS);
+    }
+
+    // ✅ Đủ tối thiểu REWARD_MIN_QUESTIONS câu kể từ lần chốt gần nhất
+    // -> thưởng EXP/DV ngay (không cần thắng/thua), rồi đếm lại từ đầu
+    // cho mốc kế tiếp. Dùng chung công thức với Battle/Block/Race qua
+    // PkmScore.finishMatch() (won:true -> +correctCount/2, + thưởng mở
+    // khoá bài mới nếu currentLessonId chưa có trong pkm_passed_maps).
+    if (s.questionsSinceReward >= this.REWARD_MIN_QUESTIONS && window.PkmScore) {
+        const result = window.PkmScore.finishMatch({ won: true, minQuestions: 0 });
+        if (!result.skipped) {
+            s.questionsSinceReward = 0;
+            window.PkmScore.resetForNewRound(); // tránh vòng thưởng sau tính trùng câu của vòng này
+            this.log(`🎁 +${result.bonusEXP} KN +${result.bonusDV} DV!`);
         }
-    },
+    }
+},
 
     // ================= 12. THUA — RESET TOÀN BỘ =================
     gameOverWipe() {
