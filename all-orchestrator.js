@@ -284,6 +284,10 @@ async function main() {
     await runFromIndex(sessionVocab, poolData, level, startIdx);
     startIdx = 0;
 
+    // ✅ Vừa học xong đủ 5 module -> thưởng cố định +5 EXP +5 DV (học lại
+    // vẫn được thưởng, không cần điều kiện mở khoá bài mới)
+    if (window.PkmScore) window.PkmScore.rewardCompletedSession(5, 5);
+
     const choice = await renderEndOfSessionPrompt(document.getElementById("mainCard"));
     keepGoing = choice === "replay";
     if (keepGoing) resetCompletedSet(); // KHÔNG đụng INTRO_DONE_KEY -> 5 module vẫn mở
