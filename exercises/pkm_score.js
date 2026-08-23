@@ -351,12 +351,28 @@ window.PkmScore = {
 
         console.log("🎓 [PkmScore] finishStudySession:", { accuracy, bonusEXP, bonusDV, newEXP, newDV, breakdown });
 
-        return {
-            skipped: false,
-            accuracy, correctCount, totalCount,
-            bonusEXP, bonusDV, newEXP, newDV,
-            isNewLesson, newLessonUnlocked, streak,
-            breakdown,
-        };
-    },
+return {
+    skipped: false,
+    accuracy, correctCount, totalCount,
+    bonusEXP, bonusDV, newEXP, newDV,
+    isNewLesson, newLessonUnlocked, streak,
+    breakdown,
+};
+},
+
+// ==========================================
+// THƯỞNG CỐ ĐỊNH khi hoàn thành đủ 5 module (all-shared) — KHÔNG xét
+// mở khoá bài mới/streak/số câu đúng như finishStudySession(), chỉ cần
+// học xong hết module là +5 EXP +5 DV, học lại vẫn được thưởng như cũ.
+// ==========================================
+rewardCompletedSession(exp = 5, dv = 5) {
+const currentEXP = parseInt(localStorage.getItem("pkm_global_exp")) || 0;
+const currentDV = parseInt(localStorage.getItem("pkm_global_dv")) || 0;
+const newEXP = currentEXP + exp;
+const newDV = currentDV + dv;
+localStorage.setItem("pkm_global_exp", newEXP);
+localStorage.setItem("pkm_global_dv", newDV);
+console.log("🎓 [PkmScore] rewardCompletedSession:", { exp, dv, newEXP, newDV });
+return { bonusEXP: exp, bonusDV: dv, newEXP, newDV };
+},
 };
