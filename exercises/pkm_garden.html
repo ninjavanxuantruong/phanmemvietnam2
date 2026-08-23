@@ -96,6 +96,17 @@
         #zonePond { --z-top: var(--pond-top); --z-left: var(--pond-left); --z-width: var(--pond-width); --z-height: var(--pond-height); }
         #zoneBarn { --z-top: var(--barn-top); --z-left: var(--barn-left); --z-width: var(--barn-width); --z-height: var(--barn-height); }
 
+        /* ============ KHU THÚ CƯNG (Pokémon đang sở hữu) — chạy TỰ DO khắp bản đồ,
+           không giới hạn trong 3 khu Ao/Chuồng/Ruộng. Nằm đè lên trên cùng để
+           thấy được thú cưng đi ngang qua mọi khu vực khác. ============ */
+        #zonePets {
+            position: absolute; inset: 0; z-index: 4;
+            pointer-events: none; /* để không chặn click vào Ao/Chuồng/Ruộng bên dưới */
+        }
+        #zonePets .roam-sprite { pointer-events: auto; }
+        .roam-sprite.weak img { filter: drop-shadow(0 4px 3px rgba(0,0,0,0.4)) saturate(0.35) brightness(0.85); }
+        .roam-sprite.weak .roam-name { background: rgba(120,40,0,0.55); }
+
         /* Ruộng: lưới các mảnh đất riêng, nằm gọn trong khu vuông của ảnh */
         #zoneLand {
             --z-top: var(--land-top); --z-left: var(--land-left); --z-width: var(--land-width); --z-height: var(--land-height);
@@ -320,6 +331,8 @@
                 <button id="addAnimalBtn" title="Add Pokémon">＋</button>
             </div>
             <div class="zone" id="zoneLand"></div>
+            <!-- Khu thú cưng: các Pokémon người chơi ĐANG SỞ HỮU (pkm_inventory), đi lại tự do khắp bản đồ -->
+            <div id="zonePets"></div>
         </div>
     </div>
     <!-- addFishBtn nằm trong zonePond, đặt ở đây để không bị grid/layout của zone khác ảnh hưởng -->
