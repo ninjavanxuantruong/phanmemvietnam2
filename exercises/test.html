@@ -1,116 +1,102 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <title>Tạo đề kiểm tra</title>
-  <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Arial; padding: 20px; }
-    h2, h3 { margin: 8px 0; }
-    .controls { display: flex; gap: 12px; align-items: center; margin: 12px 0 20px; flex-wrap: wrap; }
-    select, button { padding: 8px 12px; font-size: 14px; }
-    .sections { display: grid; grid-template-columns: 1fr; gap: 12px; }
-    .section { padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
-    .section .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
-    pre { background: #111; color: #0f0; padding: 12px; border-radius: 8px; overflow: auto; }
-    label { display: inline-flex; gap: 8px; align-items: center; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lớp Học Thầy Tinh — Đề kiểm tra</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700;800&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h2>📌 Tạo đề kiểm tra</h2>
 
-  <div class="controls">
-    <label>Chọn lớp:
-      <select id="classSelect">
-        <option value="2">Lớp 2</option>
-        <option value="3">Lớp 3</option>
-        <option value="4">Lớp 4</option>
-        <option value="5">Lớp 5</option>
-        <option value="6">Lớp 6</option>
-        <option value="7">Lớp 7</option>
-      </select>
-    </label>
+<div class="app">
 
-    <button id="saveTestBtn">💾 Lưu đề</button>
-    <button id="viewTestBtn">📖 Xem nội dung</button>
-  </div>
-
-  <div class="sections">
-    <div class="section">
-      <h3>Phần 1: Trắc nghiệm</h3>
-      <div class="row">
-        <label>Số câu:
-          <select id="mcqCount">
-            <option value="5">5</option>
-            <option value="10" selected>10</option>
-            <option value="15">15</option>
-            <option value="20">20</option>
-            <option value="30">30</option>
-          </select>
-        </label>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="brand">
+        <span class="brand-mark">✎</span>
+        <div class="brand-text">
+          <h1>Lớp Học Thầy Tinh</h1>
+          <p>Ngân hàng đề &amp; phòng thi tiếng Anh</p>
+        </div>
+      </div>
+      <div class="class-picker">
+        <label for="classSelect">Lớp</label>
+        <select id="classSelect"><option value="">— đang tải —</option></select>
       </div>
     </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="composeView" role="tab" aria-selected="true">Soạn đề</button>
+      <button class="tab" data-view="takeView" role="tab" aria-selected="false">Làm bài</button>
+    </nav>
+  </header>
 
-    <div class="section">
-      <h3>Phần 2: Phát âm</h3>
-      <div class="row">
-        <label>Số câu:
-          <select id="pronunciationCount">
-            <option value="5">5</option>
-            <option value="10" selected>10</option>
-            <option value="15">15</option>
-            <option value="20">20</option>
-          </select>
-        </label>
+  <main>
+
+    <!-- ============ SOẠN ĐỀ ============ -->
+    <section id="composeView" class="view active">
+
+      <div class="card config-card">
+        <h2>Thiết lập đề thi</h2>
+        <p class="hint">Chọn số câu cho từng phần, bấm <strong>Tạo đề</strong> để xem thử. Ưng ý thì bấm <strong>Lưu đề</strong>; chưa ưng thì cứ Tạo đề lại.</p>
+        <div class="config-grid">
+          <label class="field">
+            <span>📝 Trắc nghiệm nghĩa từ</span>
+            <input type="number" id="mcqCount" min="0" max="30" value="10">
+          </label>
+          <label class="field">
+            <span>🎧 Nghe chọn từ</span>
+            <input type="number" id="listeningCount" min="0" max="30" value="5">
+          </label>
+          <label class="field">
+            <span>🔊 Phát âm (IPA)</span>
+            <input type="number" id="pronunciationCount" min="0" max="30" value="5">
+          </label>
+          <label class="field">
+            <span>🧩 Ghép câu</span>
+            <input type="number" id="sentenceCount" min="0" max="30" value="5">
+          </label>
+          <label class="field">
+            <span>🗣 Số câu ghép đoạn nói</span>
+            <input type="number" id="speakingCount" min="0" max="30" value="5">
+          </label>
+        </div>
+        <div class="actions">
+          <button id="generateBtn" class="btn btn-primary">🎲 Tạo đề</button>
+          <button id="saveBtn" class="btn btn-pen" disabled>💾 Lưu đề</button>
+          <span id="composeStatus" class="status"></span>
+        </div>
       </div>
-    </div>
 
-    <div class="section">
-      <h3>Phần 3: Ghép từ thành câu</h3>
-      <div class="row">
-        <label>Số câu:
-          <select id="sentenceCount">
-            <option value="5">5</option>
-            <option value="10" selected>10</option>
-            <option value="15">15</option>
-            <option value="20">20</option>
-          </select>
-        </label>
+      <div id="draftPreview" class="paper hidden"></div>
+
+    </section>
+
+    <!-- ============ LÀM BÀI ============ -->
+    <section id="takeView" class="view">
+
+      <div class="card config-card">
+        <h2>Vào phòng thi</h2>
+        <p class="hint">Đề của lớp đã chọn, ngày hôm nay, do giáo viên lưu ở tab "Soạn đề".</p>
+        <div class="actions">
+          <button id="loadTestBtn" class="btn btn-primary">📥 Tải đề hôm nay</button>
+          <span id="loadStatus" class="status"></span>
+        </div>
       </div>
-    </div>
 
-    <div class="section">
-      <h3>Phần 4: Nghe</h3>
-      <div class="row">
-        <label>Số câu:
-          <select id="listeningCount">
-            <option value="5">5</option>
-            <option value="10" selected>10</option>
-            <option value="15">15</option>
-            <option value="20">20</option>
-            <option value="30">30</option>
-          </select>
-        </label>
-      </div>
-    </div>
+      <form id="examPaper" class="paper hidden"></form>
 
-    <div class="section">
-      <h3>Phần 5: Nói</h3>
-      <div class="row">
-        <label>Số câu:
-          <select id="speakingCount">
-            <option value="5">5</option>
-            <option value="6" selected>6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-          </select>
-        </label>
-      </div>
-    </div>
-  </div>
+      <div id="resultPanel" class="paper result-panel hidden"></div>
 
-  <h3>Kết quả đọc từ Firebase</h3>
-  <pre id="resultBox">// Nội dung sẽ hiện ở đây</pre>
+    </section>
 
-  <script type="module" src="./test.js"></script>
+  </main>
+
+  <footer class="foot">Lớp Học Thầy Tinh — bài kiểm tra tự động</footer>
+</div>
+
+<script type="module" src="test.js"></script>
 </body>
 </html>
