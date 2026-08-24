@@ -24,6 +24,33 @@ const SHEET_BAI_HOC =
 const SHEET_TU_VUNG =
   "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
+/* Cột trong sheet Từ vựng:
+   C(2)=word  D(3)=vi_chunks  E(4)=en_chunks  F(5)=topic nhỏ  G(6)=topic lớn
+   I(8)=câu thuyết trình  J(9)=câu hỏi  L(11)=câu trả lời  Y(24)=nghĩa
+   B(1)=mã bài dạng "lop-bai-phan" dùng để nhóm theo bài & tính độ liền kề     */
+
+/* ================= Utils ================= */
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+function esc(s) {
+  return (s || "").toString().replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function pickDistractors(pool, preferPredicate, n) {
+  const unique = [...new Set(pool)].filter(Boolean);
+  const preferred = shuffle(unique.filter(preferPredicate));
+  let chosen = preferred.slice(0, n);
+  if (chosen.length < n) {
+    const rest = shuffle(unique.filter(x => !chosen.includes(x))).slice(0, n - chosen.length);
+    chosen = chosen.concat(rest);
+  }
+  return chosen;
+}
+function rowLessonRaw(r) { return r.c[1]?.v?.toString().trim() || ""; }
+function rowLessonKey(r) {
+  const raw = rowLessonRaw(r);
+  const parts = raw.split("-");
+  return parts.length >= 2 ? `${parts[0]}-${parts[1]}` : raw || null;
+}
+
 /* ================= Helpers: sheets ================= */
 async function fetchGviz(url) {
   const res = await fetch(url);
@@ -61,9 +88,9 @@ async function fetchVocabRows(maxLessonCode) {
   const rows = json.table.rows.slice(1);
 
   const filtered = rows.filter(r => {
-    const rawCode = r.c[1]?.v?.toString().trim();   // B: lesson code
-    const word = r.c[2]?.v?.toString().trim();      // C: word
-    const meaning = r.c[24]?.v?.toString().trim();  // Y: meaning
+    const rawCode = r.c[1]?.v?.toString().trim();
+    const word = r.c[2]?.v?.toString().trim();
+    const meaning = r.c[24]?.v?.toString().trim();
     const normalizedCode = parseInt(rawCode?.replace(/\D/g, ""), 10);
     return normalizedCode && normalizedCode <= maxLessonCode && !!word && !!meaning;
   });
@@ -72,20 +99,38 @@ async function fetchVocabRows(maxLessonCode) {
   filtered.forEach(r => {
     const word = r.c[2]?.v?.toString().trim();
     if (!word) return;
-    const question = r.c[9]?.v?.toString().trim() || "";   // J
-    const answer   = r.c[11]?.v?.toString().trim() || "";  // L
+    const question = r.c[9]?.v?.toString().trim() || "";
+    const answer   = r.c[11]?.v?.toString().trim() || "";
     const meaning  = r.c[24]?.v?.toString().trim() || "";
     byWord.set(word, { question, answer, meaning });
   });
 
-  return { filteredRows: filtered, byWord };
+  // Thông tin bổ sung theo từ: bài học, câu thuyết trình, chủ đề
+  const wordInfo = new Map();
+  filtered.forEach(r => {
+    const w = r.c[2]?.v?.toString().trim();
+    if (!w || wordInfo.has(w)) return;
+    wordInfo.set(w, {
+      lessonKey: rowLessonKey(r),
+      presentation: r.c[8]?.v?.toString().trim() || "",
+      question: r.c[9]?.v?.toString().trim() || "",
+      answer: r.c[11]?.v?.toString().trim() || "",
+      meaning: r.c[24]?.v?.toString().trim() || "",
+      viChunks: tokenizeChunks(r.c[3]?.v?.toString().trim()),
+      enChunks: tokenizeChunks(r.c[4]?.v?.toString().trim()),
+      topicSmall: r.c[5]?.v?.toString().trim() || "",
+      topicBig: r.c[6]?.v?.toString().trim() || ""
+    });
+  });
+
+  return { filteredRows: filtered, byWord, wordInfo };
 }
 
-/* ================= Helpers: builders (unchanged logic) ================= */
+/* ================= Builders: MCQ (3 biến thể) ================= */
 function pickUniqueWords(filteredRows, count) {
   const uniqueWords = [];
   const seen = new Set();
-  const shuffled = [...filteredRows].sort(() => Math.random() - 0.5);
+  const shuffled = shuffle(filteredRows);
   for (const r of shuffled) {
     const w = r.c[2]?.v?.toString().trim();
     if (w && !seen.has(w)) {
@@ -97,39 +142,104 @@ function pickUniqueWords(filteredRows, count) {
   return uniqueWords;
 }
 
-function buildMcq(filteredRows, pickedWords, byWord) {
+function buildMcq(filteredRows, pickedWords, byWord, wordInfo) {
   const allMeanings = filteredRows.map(r => r.c[24]?.v?.toString().trim()).filter(Boolean);
+  const allWords = filteredRows.map(r => r.c[2]?.v?.toString().trim()).filter(Boolean);
+
   return pickedWords.map((word, idx) => {
     const meaning = byWord.get(word)?.meaning || "";
-    const wrongPool = allMeanings.filter(m => m && m !== meaning);
-    const wrongOptions = wrongPool.sort(() => Math.random() - 0.5).slice(0, 3);
-    const choices = [...wrongOptions, meaning].sort(() => Math.random() - 0.5);
-    const correctIndex = choices.indexOf(meaning);
-    return { id: `q${idx + 1}`, word, prompt: `Nghĩa của "${word}" là gì?`, choices, correctIndex };
+    const info = wordInfo.get(word) || {};
+    const candidates = ["en2vi", "vi2en"];
+    if (info.presentation && info.presentation.toLowerCase().includes(word.toLowerCase())) candidates.push("fillblank");
+    const variant = candidates[Math.floor(Math.random() * candidates.length)];
+
+    if (variant === "vi2en") {
+      const pool = allWords.filter(w => w !== word);
+      const distractors = pickDistractors(pool, w2 => wordInfo.get(w2)?.lessonKey !== info.lessonKey, 3);
+      const choices = shuffle([...distractors, word]);
+      return { id: `q${idx + 1}`, variant, word, prompt: `Từ nào có nghĩa là "${meaning}"?`, choices, correctIndex: choices.indexOf(word) };
+    }
+
+    if (variant === "fillblank") {
+      const re = new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      const blanked = info.presentation.replace(re, "ـــــ");
+      const pool = allWords.filter(w => w !== word);
+      const distractors = pickDistractors(pool, w2 => wordInfo.get(w2)?.lessonKey !== info.lessonKey, 3);
+      const choices = shuffle([...distractors, word]);
+      return { id: `q${idx + 1}`, variant, word, prompt: `Điền từ còn thiếu: "${blanked}"`, choices, correctIndex: choices.indexOf(word) };
+    }
+
+    const pool = allMeanings.filter(m => m && m !== meaning);
+    const distractors = pickDistractors(pool, () => true, 3);
+    const choices = shuffle([...distractors, meaning]);
+    return { id: `q${idx + 1}`, variant: "en2vi", word, prompt: `Nghĩa của "${word}" là gì?`, choices, correctIndex: choices.indexOf(meaning) };
   }).filter(q => q.choices?.length === 4 && q.correctIndex >= 0);
 }
 
-function buildListening(filteredRows, pickedWords, byWord) {
-  const allWordsPool = filteredRows.map(r => r.c[2]?.v?.toString().trim()).filter(Boolean);
+/* ================= Builders: Listening (4 mức) ================= */
+function buildListening(filteredRows, pickedWords, byWord, wordInfo) {
+  const allWords = filteredRows.map(r => r.c[2]?.v?.toString().trim()).filter(Boolean);
+
   return pickedWords.map((word, idx) => {
-    const meta = byWord.get(word);
-    const question = meta?.question || "";
-    const answer   = meta?.answer || "";
-    if (!question || !answer) return null;
-    const wrongPool = allWordsPool.filter(w => w && w !== word);
-    const wrongOptions = wrongPool.sort(() => Math.random() - 0.5).slice(0, 3);
-    const choices = [...wrongOptions, word].sort(() => Math.random() - 0.5);
-    const correctIndex = choices.indexOf(word);
-    return { id: `lq${idx + 1}`, prompt: "Nghe và chọn từ đúng", audioText: word, question, answer, choices, correctIndex };
-  }).filter(Boolean);
+    const info = wordInfo.get(word) || {};
+    const options = ["word"];
+    if (info.presentation) options.push("presentation");
+    if (info.question && info.answer) { options.push("qa"); options.push("dialogue"); }
+    const variant = options[Math.floor(Math.random() * options.length)];
+    const pool = allWords.filter(w => w !== word);
+
+    if (variant === "presentation") {
+      const distractors = pickDistractors(pool, w2 => wordInfo.get(w2)?.lessonKey !== info.lessonKey, 3);
+      const choices = shuffle([...distractors, word]);
+      return { id: `lq${idx + 1}`, variant, prompt: "Nghe đoạn và cho biết từ chính vừa nhắc tới là gì?", audioText: info.presentation, choices, correctIndex: choices.indexOf(word) };
+    }
+
+    if (variant === "qa") {
+      const distractors = pickDistractors(pool, w2 => wordInfo.get(w2)?.lessonKey !== info.lessonKey, 3);
+      const choices = shuffle([...distractors, word]);
+      return { id: `lq${idx + 1}`, variant, prompt: "Nghe đoạn hội thoại và cho biết đang nói về từ nào?", audioText: `${info.question}. ${info.answer}.`, choices, correctIndex: choices.indexOf(word) };
+    }
+
+    if (variant === "dialogue") {
+      const distractorPool = allWords.filter(w => {
+        const wi = wordInfo.get(w);
+        return w !== word && wi?.question && wi?.answer && wi.lessonKey !== info.lessonKey;
+      });
+      if (distractorPool.length) {
+        const distractorWord = distractorPool[Math.floor(Math.random() * distractorPool.length)];
+        const dInfo = wordInfo.get(distractorWord);
+        const order = shuffle([
+          { w: word, text: `${info.question}. ${info.answer}.` },
+          { w: distractorWord, text: `${dInfo.question}. ${dInfo.answer}.` }
+        ]);
+        const audioText = order.map(x => x.text).join(" ");
+        const firstWord = order[0].w;
+        const others = allWords.filter(w => w !== word && w !== distractorWord);
+        const extra = pickDistractors(others, () => true, 2);
+        const choices = shuffle([...new Set([word, distractorWord, ...extra])]).slice(0, 4);
+        if (!choices.includes(firstWord)) choices[0] = firstWord;
+        return {
+          id: `lq${idx + 1}`, variant, prompt: "Nghe đoạn hội thoại, từ nào được nhắc đến ĐẦU TIÊN?",
+          audioText, choices, correctIndex: choices.indexOf(firstWord)
+        };
+      }
+      // không đủ dữ liệu -> rơi về "qa"
+      const distractors = pickDistractors(pool, w2 => wordInfo.get(w2)?.lessonKey !== info.lessonKey, 3);
+      const choices = shuffle([...distractors, word]);
+      return { id: `lq${idx + 1}`, variant: "qa", prompt: "Nghe đoạn hội thoại và cho biết đang nói về từ nào?", audioText: `${info.question}. ${info.answer}.`, choices, correctIndex: choices.indexOf(word) };
+    }
+
+    const distractors = pickDistractors(pool, w2 => wordInfo.get(w2)?.lessonKey !== info.lessonKey, 3);
+    const choices = shuffle([...distractors, word]);
+    return { id: `lq${idx + 1}`, variant: "word", prompt: "Nghe và chọn từ đúng", audioText: word, choices, correctIndex: choices.indexOf(word) };
+  });
 }
 
+/* ================= Builders: Ghép câu (J/L theo từ) ================= */
 function normSentence(s) {
   return (s || "").toLowerCase().replace(/[.,;'\)\(]/g, "").replace(/\s+/g, " ").trim();
 }
-function tokenizeWords(answer) {
-  return normSentence(answer).split(" ").filter(Boolean);
-}
+function tokenizeWords(answer) { return normSentence(answer).split(" ").filter(Boolean); }
 function buildSentence(filteredRows, count) {
   const items = [];
   const seen = new Set();
@@ -143,11 +253,114 @@ function buildSentence(filteredRows, count) {
     const tokens = tokenizeWords(aRaw);
     if (tokens.length > 1) items.push({ question: qRaw, answer: aRaw, tokens });
   });
-  const shuffled = items.sort(() => Math.random() - 0.5);
-  const picked = shuffled.slice(0, count);
+  const picked = shuffle(items).slice(0, count);
   return picked.map((it, idx) => ({ id: `s${idx + 1}`, question: it.question, answer: it.answer, tokens: it.tokens }));
 }
 
+/* ================= Builders: Dịch theo cụm (D/E) ================= */
+function tokenizeChunks(raw) {
+  return (raw || "").split("/").map(s => s.trim()).filter(Boolean);
+}
+function buildChunkTranslation(wordInfo, count) {
+  const rows = [...wordInfo.values()].filter(v => v.viChunks.length > 1 && v.viChunks.length === v.enChunks.length);
+  const picked = shuffle(rows).slice(0, count);
+  return picked.map((it, idx) => {
+    const variant = Math.random() < 0.5 ? "order" : "match";
+    if (variant === "order") {
+      return { id: `c${idx + 1}`, variant, viChunks: it.viChunks, enChunks: it.enChunks };
+    }
+    return {
+      id: `c${idx + 1}`, variant,
+      pairs: it.enChunks.map((en, i) => ({ left: en, right: it.viChunks[i] }))
+    };
+  });
+}
+
+/* ================= Builders: Nối câu hỏi – câu trả lời ================= */
+function buildMatching(filteredRows, count) {
+  const pool = filteredRows.filter(r => r.c[9]?.v && r.c[11]?.v);
+  const shuffled = shuffle(pool);
+  const seen = new Set();
+  const pairs = [];
+  for (const r of shuffled) {
+    const q = r.c[9].v.toString().trim();
+    const a = r.c[11].v.toString().trim();
+    if (!q || !a || seen.has(q)) continue;
+    seen.add(q);
+    pairs.push({ left: q, right: a });
+    if (pairs.length >= count) break;
+  }
+  return pairs.length >= 2 ? { pairs } : null;
+}
+
+/* ================= Builders: Đọc hiểu ================= */
+function buildReading(wordInfo, count) {
+  const eligible = [...wordInfo.entries()].filter(([, info]) => info.presentation && info.question && info.answer);
+  const picked = shuffle(eligible).slice(0, count);
+  if (!picked.length) return null;
+
+  const paragraph = picked.map(([, info]) => info.presentation).join(" ");
+  const allAnswers = [...wordInfo.values()].map(v => v.answer).filter(Boolean);
+
+  const questions = picked.map(([word, info], idx) => {
+    const pool = allAnswers.filter(a => a && a !== info.answer);
+    const distractors = pickDistractors(pool, () => true, 3);
+    const choices = shuffle([...distractors, info.answer]);
+    return { id: `r${idx + 1}`, word, prompt: info.question, choices, correctIndex: choices.indexOf(info.answer) };
+  }).filter(q => q.correctIndex >= 0);
+
+  return { paragraph, questions };
+}
+
+/* ================= Builders: Tìm từ khác chủ đề ================= */
+function buildOddOneOut(filteredRows, count) {
+  const items = filteredRows.map(r => {
+    const word = r.c[2]?.v?.toString().trim();
+    const raw = rowLessonRaw(r);
+    const parts = raw.split("-");
+    const topicSmall = r.c[5]?.v?.toString().trim();
+    const topicBig = r.c[6]?.v?.toString().trim();
+    if (!word || parts.length < 2 || !topicSmall || !topicBig) return null;
+    return { word, cls: parts[0], lessonNum: parseInt(parts[1], 10) || 0, lessonKey: `${parts[0]}-${parts[1]}`, topicSmall, topicBig };
+  }).filter(Boolean);
+
+  const byLesson = {};
+  items.forEach(it => { (byLesson[it.lessonKey] ||= []).push(it); });
+
+  const candidateGroups = [];
+  Object.values(byLesson).forEach(words => {
+    const byTopic = {};
+    words.forEach(w => { (byTopic[w.topicSmall] ||= []).push(w); });
+    Object.values(byTopic).forEach(arr => {
+      const uniqueWords = [...new Map(arr.map(w => [w.word, w])).values()];
+      if (uniqueWords.length >= 3) candidateGroups.push(uniqueWords);
+    });
+  });
+
+  const questions = [];
+  for (const group of shuffle(candidateGroups)) {
+    if (questions.length >= count) break;
+    const main = shuffle(group).slice(0, 3);
+    const ref = main[0];
+    const distractorPool = items.filter(it =>
+      it.cls === ref.cls &&
+      Math.abs(it.lessonNum - ref.lessonNum) >= 2 &&
+      it.topicSmall !== ref.topicSmall &&
+      it.topicBig !== ref.topicBig
+    );
+    if (!distractorPool.length) continue;
+    const distractor = distractorPool[Math.floor(Math.random() * distractorPool.length)];
+    const choices = shuffle([...main.map(w => w.word), distractor.word]);
+    questions.push({
+      id: `o${questions.length + 1}`,
+      prompt: "Từ nào KHÔNG cùng chủ đề với 3 từ còn lại?",
+      choices, correctIndex: choices.indexOf(distractor.word)
+    });
+  }
+  return questions;
+}
+
+/* ================= Builder: Speaking (paragraph) ================= */
 function normalizeUnitId(unitStr) {
   if (!unitStr) return 0;
   const parts = unitStr.split("-");
@@ -164,19 +377,12 @@ function buildSpeaking(filteredRows, count) {
   }).filter(it => it.lessonName && it.presentation);
 
   const unitMap = {};
-  allItems.forEach(it => {
-    if (!unitMap[it.lessonName]) unitMap[it.lessonName] = [];
-    unitMap[it.lessonName].push(it);
-  });
+  allItems.forEach(it => { (unitMap[it.lessonName] ||= []).push(it); });
 
-  const unitNames = Object.keys(unitMap);
-  const shuffled = unitNames.sort(() => Math.random() - 0.5);
-  const pickedUnits = shuffled.slice(0, count);
-
-  const selectedItems = [];
-  pickedUnits.forEach(u => {
+  const pickedUnits = shuffle(Object.keys(unitMap)).slice(0, count);
+  const selectedItems = pickedUnits.map(u => {
     const rows = unitMap[u];
-    selectedItems.push(rows[Math.floor(Math.random() * rows.length)]);
+    return rows[Math.floor(Math.random() * rows.length)];
   });
   selectedItems.sort((a, b) => a.unitNum - b.unitNum);
 
@@ -185,18 +391,16 @@ function buildSpeaking(filteredRows, count) {
   return { paragraph: finalParagraph, count: selectedItems.length };
 }
 
+/* ================= Builder: Phonics (IPA) ================= */
 function buildPhonics(bank, count) {
   const filtered = bank.filter(it => !["unit7", "unit8", "unit9", "unit10", "unit11"].includes(it.unit));
   const allIpa = [...new Set(filtered.map(it => it.ipa).filter(Boolean))];
-  const shuffled = [...filtered].sort(() => Math.random() - 0.5);
-  const picked = shuffled.slice(0, count);
+  const picked = shuffle(filtered).slice(0, count);
   return picked.map((item, idx) => {
     const correct = item.ipa;
-    const wrongPool = allIpa.filter(ipa => ipa !== correct);
-    const wrongChoices = wrongPool.sort(() => Math.random() - 0.5).slice(0, 3);
-    const choices = [...wrongChoices, correct].sort(() => Math.random() - 0.5);
-    const correctIndex = choices.indexOf(correct);
-    return { id: `p${idx + 1}`, word: item.word, prompt: `IPA của từ "${item.word}" là gì?`, choices, correctIndex };
+    const wrongChoices = shuffle(allIpa.filter(ipa => ipa !== correct)).slice(0, 3);
+    const choices = shuffle([...wrongChoices, correct]);
+    return { id: `p${idx + 1}`, word: item.word, prompt: `IPA của từ "${item.word}" là gì?`, choices, correctIndex: choices.indexOf(correct) };
   });
 }
 
@@ -206,19 +410,6 @@ function makeDocId(classId) {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
   return `test-${classId}-${dd}${mm}${yyyy}`;
-}
-function formatTimestamp(ts) {
-  if (!ts?.seconds) return "-";
-  const d = new Date(ts.seconds * 1000 + Math.round((ts.nanoseconds || 0) / 1e6));
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
-}
-function esc(s) {
-  return (s || "").toString().replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
 /* ================= Text-to-speech ================= */
@@ -231,7 +422,7 @@ function speak(text) {
   window.speechSynthesis.speak(u);
 }
 
-/* ================= Word-match scoring (for sentence & speaking) ================= */
+/* ================= Word-match scoring (speaking) ================= */
 function wordMatch(targetText, spokenText) {
   const t = normSentence(targetText).split(" ").filter(Boolean);
   const s = normSentence(spokenText).split(" ").filter(Boolean);
@@ -271,7 +462,7 @@ const classSelect = document.getElementById("classSelect");
 })();
 
 /* ================= COMPOSE: generate / preview / save ================= */
-let currentDraft = null; // { classId, mcq, listening, sentence, speaking, pronunciation }
+let currentDraft = null;
 
 const generateBtn = document.getElementById("generateBtn");
 const saveBtn = document.getElementById("saveBtn");
@@ -282,16 +473,23 @@ function setStatus(el, text, kind) {
   el.textContent = text;
   el.className = "status" + (kind ? " " + kind : "");
 }
+function numVal(id) { return parseInt(document.getElementById(id).value, 10) || 0; }
 
 generateBtn.addEventListener("click", async () => {
   const classId = classSelect.value;
   if (!classId) { setStatus(composeStatus, "⚠️ Hãy chọn lớp trước.", "err"); return; }
 
-  const mcqCount = parseInt(document.getElementById("mcqCount").value, 10) || 0;
-  const listeningCount = parseInt(document.getElementById("listeningCount").value, 10) || 0;
-  const pronunciationCount = parseInt(document.getElementById("pronunciationCount").value, 10) || 0;
-  const sentenceCount = parseInt(document.getElementById("sentenceCount").value, 10) || 0;
-  const speakingCount = parseInt(document.getElementById("speakingCount").value, 10) || 0;
+  const counts = {
+    mcq: numVal("mcqCount"),
+    listening: numVal("listeningCount"),
+    pronunciation: numVal("pronunciationCount"),
+    sentence: numVal("sentenceCount"),
+    speaking: numVal("speakingCount"),
+    reading: numVal("readingCount"),
+    chunk: numVal("chunkCount"),
+    matching: numVal("matchingCount"),
+    oddOneOut: numVal("oddOneOutCount")
+  };
 
   generateBtn.disabled = true;
   saveBtn.disabled = true;
@@ -304,18 +502,24 @@ generateBtn.addEventListener("click", async () => {
       setStatus(composeStatus, "⚠️ Không tìm thấy bài học hợp lệ cho lớp đã chọn.", "err");
       return;
     }
-    const { filteredRows, byWord } = await fetchVocabRows(maxLesson);
+    const { filteredRows, byWord, wordInfo } = await fetchVocabRows(maxLesson);
 
-    const pickedForMcq = pickUniqueWords(filteredRows, mcqCount);
-    const pickedForListening = pickUniqueWords(filteredRows, listeningCount);
+    const pickedForMcq = pickUniqueWords(filteredRows, counts.mcq);
+    const pickedForListening = pickUniqueWords(filteredRows, counts.listening);
 
-    const mcq = buildMcq(filteredRows, pickedForMcq, byWord);
-    const listening = buildListening(filteredRows, pickedForListening, byWord);
-    const sentence = buildSentence(filteredRows, sentenceCount);
-    const speaking = buildSpeaking(filteredRows, speakingCount);
-    const pronunciation = buildPhonics(phonicsBank, pronunciationCount);
+    currentDraft = {
+      classId,
+      mcq: buildMcq(filteredRows, pickedForMcq, byWord, wordInfo),
+      listening: buildListening(filteredRows, pickedForListening, byWord, wordInfo),
+      sentence: buildSentence(filteredRows, counts.sentence),
+      speaking: buildSpeaking(filteredRows, counts.speaking),
+      pronunciation: buildPhonics(phonicsBank, counts.pronunciation),
+      reading: buildReading(wordInfo, counts.reading),
+      chunk: buildChunkTranslation(wordInfo, counts.chunk),
+      matching: buildMatching(filteredRows, counts.matching),
+      oddOneOut: buildOddOneOut(filteredRows, counts.oddOneOut)
+    };
 
-    currentDraft = { classId, mcq, listening, sentence, speaking, pronunciation };
     renderDraftPreview(currentDraft);
     saveBtn.disabled = false;
     setStatus(composeStatus, "✅ Đã tạo đề — xem thử bên dưới. Không ưng thì Tạo đề lại.", "ok");
@@ -333,48 +537,85 @@ function renderDraftPreview(draft) {
       <div class="paper-meta">Bản xem trước (chưa lưu) — hiển thị kèm đáp án để giáo viên kiểm tra</div>
     </div>`;
 
-  html += sectionPreviewMcq("📝 Trắc nghiệm nghĩa từ", "MCQ", draft.mcq);
-  html += sectionPreviewListening(draft.listening);
-  html += sectionPreviewSentence(draft.sentence);
-  html += sectionPreviewSpeaking(draft.speaking);
-  html += sectionPreviewMcq("🔊 Phát âm (IPA)", "PHONICS", draft.pronunciation);
+  html += previewMcqLike("📝 Trắc nghiệm nghĩa từ", draft.mcq);
+  html += previewListening(draft.listening);
+  html += previewSentence(draft.sentence);
+  html += previewChunk(draft.chunk);
+  html += previewMatching(draft.matching);
+  html += previewOddOneOut(draft.oddOneOut);
+  html += previewReading(draft.reading);
+  html += previewSpeaking(draft.speaking);
+  html += previewMcqLike("🔊 Phát âm (IPA)", draft.pronunciation);
 
   draftPreview.innerHTML = html;
   draftPreview.classList.remove("hidden");
 }
 
-function sectionPreviewMcq(title, tag, items) {
+function previewMcqLike(title, items) {
   if (!items?.length) return "";
   let html = `<div class="section-block"><div class="section-title">${title} <span class="eyebrow">${items.length} câu</span></div>`;
   items.forEach((q, i) => {
-    html += `<div class="q"><div class="q-prompt">${i + 1}. ${esc(q.prompt)}</div>
+    html += `<div class="q"><div class="q-prompt">${i + 1}. ${esc(q.prompt)} ${q.variant ? `<span class="topic-tag">[${q.variant}]</span>` : ""}</div>
       <div class="key-choices">${q.choices.map((c, ci) => `<span class="${ci === q.correctIndex ? "right" : ""}">${String.fromCharCode(65 + ci)}. ${esc(c)}</span>`).join(" &nbsp;·&nbsp; ")}</div></div>`;
   });
-  html += `</div>`;
-  return html;
+  return html + `</div>`;
 }
-function sectionPreviewListening(items) {
+function previewListening(items) {
   if (!items?.length) return "";
-  let html = `<div class="section-block"><div class="section-title">🎧 Nghe chọn từ <span class="eyebrow">${items.length} câu</span></div>`;
+  let html = `<div class="section-block"><div class="section-title">🎧 Nghe <span class="eyebrow">${items.length} câu</span></div>`;
   items.forEach((q, i) => {
-    html += `<div class="q"><div class="q-prompt">${i + 1}. (đọc từ: <em>${esc(q.audioText)}</em>) — ${esc(q.question)}</div>
-      <div class="key-choices">${q.choices.map((c, ci) => `<span class="${ci === q.correctIndex ? "right" : ""}">${String.fromCharCode(65 + ci)}. ${esc(c)}</span>`).join(" &nbsp;·&nbsp; ")}</div>
-      <div class="key-answer">Trả lời mẫu: ${esc(q.answer)}</div></div>`;
+    html += `<div class="q"><div class="q-prompt">${i + 1}. [${q.variant}] ${esc(q.prompt)}</div>
+      <div class="key-answer">Nội dung đọc: "${esc(q.audioText)}"</div>
+      <div class="key-choices">${q.choices.map((c, ci) => `<span class="${ci === q.correctIndex ? "right" : ""}">${String.fromCharCode(65 + ci)}. ${esc(c)}</span>`).join(" &nbsp;·&nbsp; ")}</div></div>`;
   });
-  html += `</div>`;
-  return html;
+  return html + `</div>`;
 }
-function sectionPreviewSentence(items) {
+function previewSentence(items) {
   if (!items?.length) return "";
   let html = `<div class="section-block"><div class="section-title">🧩 Ghép câu <span class="eyebrow">${items.length} câu</span></div>`;
   items.forEach((q, i) => {
-    html += `<div class="q"><div class="q-prompt">${i + 1}. ${esc(q.question)}</div>
-      <div class="key-answer">Đáp án: ${esc(q.answer)}</div></div>`;
+    html += `<div class="q"><div class="q-prompt">${i + 1}. ${esc(q.question)}</div><div class="key-answer">Đáp án: ${esc(q.answer)}</div></div>`;
   });
-  html += `</div>`;
-  return html;
+  return html + `</div>`;
 }
-function sectionPreviewSpeaking(sp) {
+function previewChunk(items) {
+  if (!items?.length) return "";
+  let html = `<div class="section-block"><div class="section-title">🔗 Dịch theo cụm <span class="eyebrow">${items.length} câu</span></div>`;
+  items.forEach((q, i) => {
+    if (q.variant === "order") {
+      html += `<div class="q"><div class="q-prompt">${i + 1}. [sắp xếp] ${esc(q.viChunks.join(" / "))}</div>
+        <div class="key-answer">Đáp án: ${esc(q.enChunks.join(" / "))}</div></div>`;
+    } else {
+      html += `<div class="q"><div class="q-prompt">${i + 1}. [ghép cặp]</div>
+        <div class="key-answer">${q.pairs.map(p => `${esc(p.left)} = ${esc(p.right)}`).join(" &nbsp;|&nbsp; ")}</div></div>`;
+    }
+  });
+  return html + `</div>`;
+}
+function previewMatching(m) {
+  if (!m?.pairs?.length) return "";
+  return `<div class="section-block"><div class="section-title">➖ Nối câu hỏi – câu trả lời <span class="eyebrow">${m.pairs.length} cặp</span></div>
+    <div class="q">${m.pairs.map(p => `<div class="key-answer">${esc(p.left)}  →  ${esc(p.right)}</div>`).join("")}</div></div>`;
+}
+function previewOddOneOut(items) {
+  if (!items?.length) return "";
+  let html = `<div class="section-block"><div class="section-title">🧭 Tìm từ khác chủ đề <span class="eyebrow">${items.length} câu</span></div>`;
+  items.forEach((q, i) => {
+    html += `<div class="q"><div class="q-prompt">${i + 1}. ${q.choices.map((c, ci) => ci === q.correctIndex ? `<strong class="topic-tag">[${esc(c)}]</strong>` : esc(c)).join(" / ")}</div></div>`;
+  });
+  return html + `</div>`;
+}
+function previewReading(r) {
+  if (!r?.paragraph) return "";
+  let html = `<div class="section-block"><div class="section-title">📖 Đọc hiểu <span class="eyebrow">${r.questions.length} câu hỏi</span></div>
+    <div class="q"><div class="q-prompt">${esc(r.paragraph)}</div></div>`;
+  r.questions.forEach((q, i) => {
+    html += `<div class="q"><div class="q-prompt">${i + 1}. ${esc(q.prompt)}</div>
+      <div class="key-choices">${q.choices.map((c, ci) => `<span class="${ci === q.correctIndex ? "right" : ""}">${String.fromCharCode(65 + ci)}. ${esc(c)}</span>`).join(" &nbsp;·&nbsp; ")}</div></div>`;
+  });
+  return html + `</div>`;
+}
+function previewSpeaking(sp) {
   if (!sp?.paragraph) return "";
   return `<div class="section-block"><div class="section-title">🗣 Đoạn nói <span class="eyebrow">ghép từ ${sp.count} câu</span></div>
     <div class="q"><div class="q-prompt">${esc(sp.paragraph)}</div></div></div>`;
@@ -393,7 +634,11 @@ saveBtn.addEventListener("click", async () => {
       listening: currentDraft.listening,
       sentence: currentDraft.sentence,
       speaking: currentDraft.speaking,
-      pronunciation: currentDraft.pronunciation
+      pronunciation: currentDraft.pronunciation,
+      reading: currentDraft.reading,
+      chunk: currentDraft.chunk,
+      matching: currentDraft.matching,
+      oddOneOut: currentDraft.oddOneOut
     });
     setStatus(composeStatus, `✅ Đã lưu đề: ${docId}`, "ok");
   } catch (e) {
@@ -411,7 +656,10 @@ const resultPanelEl = document.getElementById("resultPanel");
 
 let examData = null;
 let examMeta = null;
-let answers = { mcq: {}, listening: {}, sentence: {}, pronunciation: {}, speaking: { transcript: "" } };
+let answers = {};
+function resetAnswers() {
+  answers = { mcq: {}, listening: {}, pronunciation: {}, sentence: {}, reading: {}, oddOneOut: {}, chunkOrder: {}, chunkMatch: {}, matching: {}, speaking: { transcript: "" } };
+}
 
 loadTestBtn.addEventListener("click", async () => {
   const classId = classSelect.value;
@@ -429,7 +677,7 @@ loadTestBtn.addEventListener("click", async () => {
     }
     examData = snap.data();
     examMeta = { docId };
-    answers = { mcq: {}, listening: {}, sentence: {}, pronunciation: {}, speaking: { transcript: "" } };
+    resetAnswers();
     renderExamPaper(examData, docId);
     setStatus(loadStatus, "✅ Đã tải đề, chúc làm bài tốt!", "ok");
   } catch (e) {
@@ -449,6 +697,10 @@ function renderExamPaper(data, docId) {
   if (data.mcq?.length) html += renderMcqBlock("📝 Trắc nghiệm nghĩa từ", "mcq", data.mcq);
   if (data.listening?.length) html += renderListeningBlock(data.listening);
   if (data.sentence?.length) html += renderSentenceBlock(data.sentence);
+  if (data.chunk?.length) html += renderChunkBlock(data.chunk);
+  if (data.matching?.pairs?.length) html += renderMatchingBlock(data.matching);
+  if (data.oddOneOut?.length) html += renderMcqBlock("🧭 Tìm từ khác chủ đề", "oddOneOut", data.oddOneOut);
+  if (data.reading?.paragraph) html += renderReadingBlock(data.reading);
   if (data.speaking?.paragraph) html += renderSpeakingBlock(data.speaking);
   if (data.pronunciation?.length) html += renderMcqBlock("🔊 Phát âm (IPA)", "pronunciation", data.pronunciation);
 
@@ -458,6 +710,8 @@ function renderExamPaper(data, docId) {
   examPaperEl.classList.remove("hidden");
   wireMcqChoices(examPaperEl);
   wireSentenceBlocks(examPaperEl);
+  wireChunkBlocks(examPaperEl);
+  wireGenericMatchBlocks(examPaperEl);
   wireSpeakingBlock(examPaperEl);
 
   examPaperEl.onsubmit = (e) => { e.preventDefault(); gradeAndShowResults(); };
@@ -471,36 +725,87 @@ function renderMcqBlock(title, sectionKey, items) {
       <div class="choices">${q.choices.map((c, ci) => `<button type="button" class="choice" data-index="${ci}">${String.fromCharCode(65 + ci)}. ${esc(c)}</button>`).join("")}</div>
     </div>`;
   });
-  html += `</div>`;
-  return html;
+  return html + `</div>`;
 }
 
 function renderListeningBlock(items) {
-  let html = `<div class="section-block"><div class="section-title">🎧 Nghe chọn từ <span class="eyebrow">${items.length} câu</span></div>`;
+  let html = `<div class="section-block"><div class="section-title">🎧 Nghe <span class="eyebrow">${items.length} câu</span></div>`;
   items.forEach((q, i) => {
     html += `<div class="q" data-section="listening" data-id="${q.id}">
-      <div class="q-prompt">${i + 1}. ${esc(q.question)}</div>
-      <button type="button" class="play-btn" data-audio="${esc(q.audioText)}">🔊 Nghe từ</button>
+      <div class="q-prompt">${i + 1}. ${esc(q.prompt)}</div>
+      <button type="button" class="play-btn" data-audio="${esc(q.audioText)}">🔊 Nghe</button>
       <div class="choices">${q.choices.map((c, ci) => `<button type="button" class="choice" data-index="${ci}">${String.fromCharCode(65 + ci)}. ${esc(c)}</button>`).join("")}</div>
     </div>`;
   });
-  html += `</div>`;
-  return html;
+  return html + `</div>`;
 }
 
 function renderSentenceBlock(items) {
   let html = `<div class="section-block"><div class="section-title">🧩 Ghép câu <span class="eyebrow">${items.length} câu</span></div>`;
   items.forEach((q, i) => {
-    const shuffled = [...q.tokens].sort(() => Math.random() - 0.5);
-    html += `<div class="q sentence-q" data-section="sentence" data-id="${q.id}" data-tokens='${esc(JSON.stringify(q.tokens))}'>
+    const shuffled = shuffle(q.tokens);
+    html += `<div class="q sentence-q" data-section="sentence" data-id="${q.id}">
       <div class="q-prompt">${i + 1}. ${esc(q.question)}</div>
       <div class="sentence-answer" data-role="answer"></div>
       <div class="sentence-bank" data-role="bank">${shuffled.map(t => `<button type="button" class="token">${esc(t)}</button>`).join("")}</div>
       <button type="button" class="mini-reset">↺ làm lại câu này</button>
     </div>`;
   });
-  html += `</div>`;
-  return html;
+  return html + `</div>`;
+}
+
+function renderChunkBlock(items) {
+  let html = `<div class="section-block"><div class="section-title">🔗 Dịch theo cụm <span class="eyebrow">${items.length} câu</span></div>`;
+  items.forEach((q, i) => {
+    if (q.variant === "order") {
+      const shuffled = shuffle(q.enChunks);
+      html += `<div class="q sentence-q" data-section="chunkOrder" data-id="${q.id}">
+        <div class="q-prompt">${i + 1}. Sắp xếp các cụm tiếng Anh đúng với nghĩa: <em>${esc(q.viChunks.join(" / "))}</em></div>
+        <div class="sentence-answer" data-role="answer"></div>
+        <div class="sentence-bank" data-role="bank">${shuffled.map(t => `<button type="button" class="token">${esc(t)}</button>`).join("")}</div>
+        <button type="button" class="mini-reset">↺ làm lại câu này</button>
+      </div>`;
+    } else {
+      html += `<div class="q" data-section="chunkMatch" data-id="${q.id}">
+        <div class="q-prompt">${i + 1}. Nối cụm tiếng Anh với nghĩa tiếng Việt tương ứng</div>
+        ${matchGridHtml(q.pairs)}
+      </div>`;
+    }
+  });
+  return html + `</div>`;
+}
+
+function renderMatchingBlock(m) {
+  return `<div class="section-block" data-section="matching" data-id="main">
+    <div class="section-title">➖ Nối câu hỏi – câu trả lời <span class="eyebrow">${m.pairs.length} cặp</span></div>
+    <div class="match-note">Bấm 1 câu hỏi rồi bấm câu trả lời tương ứng để nối. Bấm lại vào ô đã nối để gỡ.</div>
+    ${matchGridHtml(m.pairs)}
+  </div>`;
+}
+
+function matchGridHtml(pairs) {
+  const left = shuffle(pairs.map((p, i) => ({ text: p.left, idx: i })));
+  const right = shuffle(pairs.map((p, i) => ({ text: p.right, idx: i })));
+  return `<div class="match-grid" data-role="match-widget">
+    <div class="match-col" data-role="match-left">
+      ${left.map(x => `<button type="button" class="match-item" data-idx="${x.idx}">${esc(x.text)}</button>`).join("")}
+    </div>
+    <div class="match-col" data-role="match-right">
+      ${right.map(x => `<button type="button" class="match-item" data-idx="${x.idx}">${esc(x.text)}</button>`).join("")}
+    </div>
+  </div>`;
+}
+
+function renderReadingBlock(r) {
+  let html = `<div class="section-block"><div class="section-title">📖 Đọc hiểu <span class="eyebrow">${r.questions.length} câu hỏi</span></div>
+    <div class="reading-passage">${esc(r.paragraph)}</div>`;
+  r.questions.forEach((q, i) => {
+    html += `<div class="q" data-section="reading" data-id="${q.id}">
+      <div class="q-prompt">${i + 1}. ${esc(q.prompt)}</div>
+      <div class="choices">${q.choices.map((c, ci) => `<button type="button" class="choice" data-index="${ci}">${String.fromCharCode(65 + ci)}. ${esc(c)}</button>`).join("")}</div>
+    </div>`;
+  });
+  return html + `</div>`;
 }
 
 function renderSpeakingBlock(sp) {
@@ -521,7 +826,7 @@ function renderSpeakingBlock(sp) {
 function wireMcqChoices(root) {
   root.querySelectorAll(".q[data-section]").forEach(qEl => {
     const section = qEl.dataset.section;
-    if (section === "sentence" || section === "speaking") return;
+    if (["sentence", "speaking", "chunkOrder", "chunkMatch"].includes(section)) return;
     qEl.querySelectorAll(".choice").forEach(btn => {
       btn.addEventListener("click", () => {
         qEl.querySelectorAll(".choice").forEach(b => b.classList.remove("selected"));
@@ -536,38 +841,100 @@ function wireMcqChoices(root) {
 }
 
 function wireSentenceBlocks(root) {
-  root.querySelectorAll(".sentence-q").forEach(qEl => {
-    const id = qEl.dataset.id;
-    const answerEl = qEl.querySelector('[data-role="answer"]');
-    const bankEl = qEl.querySelector('[data-role="bank"]');
-    answers.sentence[id] = [];
+  root.querySelectorAll('.sentence-q[data-section="sentence"]').forEach(qEl => wireOneTokenBuilder(qEl, "sentence"));
+}
 
-    function placeToken(tokenBtn, word) {
-      tokenBtn.disabled = true;
-      const placed = document.createElement("button");
-      placed.type = "button";
-      placed.className = "token placed";
-      placed.textContent = word;
-      placed.addEventListener("click", () => {
-        placed.remove();
-        tokenBtn.disabled = false;
-        rebuildFromDom();
-      });
-      answerEl.appendChild(placed);
+function wireChunkBlocks(root) {
+  root.querySelectorAll('.sentence-q[data-section="chunkOrder"]').forEach(qEl => wireOneTokenBuilder(qEl, "chunkOrder"));
+  root.querySelectorAll('.q[data-section="chunkMatch"]').forEach(qEl => {
+    wireOneMatchWidget(qEl, answers.chunkMatch, qEl.dataset.id);
+  });
+}
+
+function wireOneTokenBuilder(qEl, sectionKey) {
+  const id = qEl.dataset.id;
+  const answerEl = qEl.querySelector('[data-role="answer"]');
+  const bankEl = qEl.querySelector('[data-role="bank"]');
+  answers[sectionKey][id] = [];
+
+  function rebuildFromDom() {
+    answers[sectionKey][id] = [...answerEl.querySelectorAll(".token")].map(b => b.textContent);
+  }
+  function placeToken(tokenBtn, word) {
+    tokenBtn.disabled = true;
+    const placed = document.createElement("button");
+    placed.type = "button";
+    placed.className = "token placed";
+    placed.textContent = word;
+    placed.addEventListener("click", () => {
+      placed.remove();
+      tokenBtn.disabled = false;
       rebuildFromDom();
-    }
-    function rebuildFromDom() {
-      answers.sentence[id] = [...answerEl.querySelectorAll(".token")].map(b => b.textContent);
-    }
-
-    bankEl.querySelectorAll(".token").forEach(tokenBtn => {
-      tokenBtn.addEventListener("click", () => placeToken(tokenBtn, tokenBtn.textContent));
     });
+    answerEl.appendChild(placed);
+    rebuildFromDom();
+  }
+  bankEl.querySelectorAll(".token").forEach(tokenBtn => {
+    tokenBtn.addEventListener("click", () => placeToken(tokenBtn, tokenBtn.textContent));
+  });
+  qEl.querySelector(".mini-reset").addEventListener("click", () => {
+    answerEl.innerHTML = "";
+    bankEl.querySelectorAll(".token").forEach(b => b.disabled = false);
+    answers[sectionKey][id] = [];
+  });
+}
 
-    qEl.querySelector(".mini-reset").addEventListener("click", () => {
-      answerEl.innerHTML = "";
-      bankEl.querySelectorAll(".token").forEach(b => b.disabled = false);
-      answers.sentence[id] = [];
+function wireGenericMatchBlocks(root) {
+  const mainMatch = root.querySelector('.section-block[data-section="matching"]');
+  if (mainMatch) wireOneMatchWidget(mainMatch, answers.matching, "main");
+}
+
+function wireOneMatchWidget(container, storageObj, key) {
+  storageObj[key] = {};
+  const leftBtns = [...container.querySelectorAll('[data-role="match-left"] .match-item')];
+  const rightBtns = [...container.querySelectorAll('[data-role="match-right"] .match-item')];
+  let selectedLeft = null;
+
+  function colorFor(i) { return `hsl(${(i * 67) % 360},55%,85%)`; }
+
+  function unpairLeft(btn) {
+    const rightIdx = btn.dataset.pairedWith;
+    const rBtn = rightBtns.find(b => b.dataset.idx === rightIdx);
+    btn.classList.remove("paired"); btn.style.background = ""; delete btn.dataset.pairedWith;
+    if (rBtn) { rBtn.classList.remove("paired"); rBtn.style.background = ""; delete rBtn.dataset.pairedWith; }
+    delete storageObj[key][btn.dataset.idx];
+  }
+  function unpairRight(btn) {
+    const leftIdx = btn.dataset.pairedWith;
+    const lBtn = leftBtns.find(b => b.dataset.idx === leftIdx);
+    btn.classList.remove("paired"); btn.style.background = ""; delete btn.dataset.pairedWith;
+    if (lBtn) { lBtn.classList.remove("paired"); lBtn.style.background = ""; delete lBtn.dataset.pairedWith; }
+    if (leftIdx != null) delete storageObj[key][leftIdx];
+  }
+
+  leftBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (btn.classList.contains("paired")) { unpairLeft(btn); return; }
+      leftBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      selectedLeft = btn;
+    });
+  });
+  rightBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (btn.classList.contains("paired")) { unpairRight(btn); return; }
+      if (!selectedLeft) return;
+      const leftIdx = selectedLeft.dataset.idx;
+      const rightIdx = btn.dataset.idx;
+      storageObj[key][leftIdx] = parseInt(rightIdx, 10);
+      const color = colorFor(parseInt(leftIdx, 10));
+      selectedLeft.classList.add("paired"); selectedLeft.classList.remove("active");
+      selectedLeft.style.background = color;
+      selectedLeft.dataset.pairedWith = rightIdx;
+      btn.classList.add("paired");
+      btn.style.background = color;
+      btn.dataset.pairedWith = leftIdx;
+      selectedLeft = null;
     });
   });
 }
@@ -576,7 +943,7 @@ function wireSpeakingBlock(root) {
   const block = root.querySelector('.speaking-block');
   if (!block) return;
   const toggleBtn = block.querySelector('[data-role="rec-toggle"]');
-  if (!toggleBtn) return; // not supported
+  if (!toggleBtn) return;
   const transcriptEl = block.querySelector('[data-role="transcript"]');
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognizer = new SR();
@@ -625,52 +992,38 @@ function wireSpeakingBlock(root) {
 
 /* ================= Grading ================= */
 function gradeAndShowResults() {
-  let earned = 0;
-  let total = 0;
+  let earned = 0, total = 0;
   const reviewHtml = [];
 
-  // MCQ
   if (examData.mcq?.length) {
-    const { html, correct } = gradeMcqLike(examData.mcq, answers.mcq, "📝 Trắc nghiệm nghĩa từ");
-    reviewHtml.push(html);
-    earned += correct; total += examData.mcq.length;
+    const r = gradeMcqLike(examData.mcq, answers.mcq, "📝 Trắc nghiệm nghĩa từ");
+    reviewHtml.push(r.html); earned += r.correct; total += examData.mcq.length;
   }
-  // Listening
   if (examData.listening?.length) {
-    const { html, correct } = gradeMcqLike(examData.listening, answers.listening, "🎧 Nghe chọn từ");
-    reviewHtml.push(html);
-    earned += correct; total += examData.listening.length;
+    const r = gradeMcqLike(examData.listening, answers.listening, "🎧 Nghe");
+    reviewHtml.push(r.html); earned += r.correct; total += examData.listening.length;
   }
-  // Pronunciation
-  if (examData.pronunciation?.length) {
-    const { html, correct } = gradeMcqLike(examData.pronunciation, answers.pronunciation, "🔊 Phát âm (IPA)");
-    reviewHtml.push(html);
-    earned += correct; total += examData.pronunciation.length;
-  }
-  // Sentence
   if (examData.sentence?.length) {
-    let sectionScore = 0;
-    let block = `<div class="section-block"><div class="section-title">🧩 Ghép câu</div>`;
-    examData.sentence.forEach((q, i) => {
-      const studentTokens = answers.sentence[q.id] || [];
-      const correctTokens = q.tokens;
-      let matches = 0;
-      correctTokens.forEach((w, idx) => { if (studentTokens[idx] === w) matches++; });
-      const frac = correctTokens.length ? matches / correctTokens.length : 0;
-      sectionScore += frac;
-      const isFull = frac === 1;
-      block += `<div class="review-item">
-        <span class="mark ${isFull ? "ok" : "no"}">${isFull ? "✓" : "✗"}</span>
-        <strong>${i + 1}. ${esc(q.question)}</strong>
-        <div class="review-note">Bạn ghép: ${esc(studentTokens.join(" ") || "(bỏ trống)")}</div>
-        <div class="key-answer">Đáp án đúng: ${esc(q.answer)} — ${Math.round(frac * 100)}%</div>
-      </div>`;
-    });
-    block += `</div>`;
-    reviewHtml.push(block);
-    earned += sectionScore; total += examData.sentence.length;
+    const r = gradeTokenSection(examData.sentence, answers.sentence, "🧩 Ghép câu", it => it.tokens, it => it.answer, it => it.question);
+    reviewHtml.push(r.html); earned += r.score; total += examData.sentence.length;
   }
-  // Speaking
+  if (examData.chunk?.length) {
+    const r = gradeChunkSection(examData.chunk);
+    reviewHtml.push(r.html); earned += r.score; total += examData.chunk.length;
+  }
+  if (examData.matching?.pairs?.length) {
+    const r = gradeMatchSection(examData.matching.pairs, answers.matching.main || {}, "➖ Nối câu hỏi – câu trả lời");
+    reviewHtml.push(r.html); earned += r.fraction; total += 1;
+  }
+  if (examData.oddOneOut?.length) {
+    const r = gradeMcqLike(examData.oddOneOut, answers.oddOneOut, "🧭 Tìm từ khác chủ đề");
+    reviewHtml.push(r.html); earned += r.correct; total += examData.oddOneOut.length;
+  }
+  if (examData.reading?.paragraph) {
+    const r = gradeMcqLike(examData.reading.questions, answers.reading, "📖 Đọc hiểu");
+    reviewHtml.push(`<div class="section-block"><div class="reading-passage">${esc(examData.reading.paragraph)}</div></div>` + r.html);
+    earned += r.correct; total += examData.reading.questions.length;
+  }
   if (examData.speaking?.paragraph) {
     const transcript = answers.speaking.transcript || "";
     const { fraction, matchArr, targetWords } = wordMatch(examData.speaking.paragraph, transcript);
@@ -681,6 +1034,10 @@ function gradeAndShowResults() {
       <div class="paragraph-text">${highlighted}</div>
       <div class="key-answer">Khớp: ${Math.round(fraction * 100)}%</div>
     </div>`);
+  }
+  if (examData.pronunciation?.length) {
+    const r = gradeMcqLike(examData.pronunciation, answers.pronunciation, "🔊 Phát âm (IPA)");
+    reviewHtml.push(r.html); earned += r.correct; total += examData.pronunciation.length;
   }
 
   const scoreOn10 = total ? Math.round((earned / total) * 100) / 10 : 0;
@@ -705,8 +1062,73 @@ function gradeMcqLike(items, given, title) {
       }).join("")}</div>
     </div>`;
   });
-  html += `</div>`;
-  return { html, correct };
+  return { html: html + `</div>`, correct };
+}
+
+function gradeTokenSection(items, given, title, getTokens, getAnswerText, getQuestionText) {
+  let score = 0;
+  let html = `<div class="section-block"><div class="section-title">${title}</div>`;
+  items.forEach((q, i) => {
+    const studentTokens = given[q.id] || [];
+    const correctTokens = getTokens(q);
+    let matches = 0;
+    correctTokens.forEach((w, idx) => { if (studentTokens[idx] === w) matches++; });
+    const frac = correctTokens.length ? matches / correctTokens.length : 0;
+    score += frac;
+    const isFull = frac === 1;
+    html += `<div class="review-item">
+      <span class="mark ${isFull ? "ok" : "no"}">${isFull ? "✓" : "✗"}</span>
+      <strong>${i + 1}. ${esc(getQuestionText(q))}</strong>
+      <div class="review-note">Bạn ghép: ${esc(studentTokens.join(" ") || "(bỏ trống)")}</div>
+      <div class="key-answer">Đáp án đúng: ${esc(getAnswerText(q))} — ${Math.round(frac * 100)}%</div>
+    </div>`;
+  });
+  return { html: html + `</div>`, score };
+}
+
+function gradeChunkSection(items) {
+  let score = 0;
+  let html = `<div class="section-block"><div class="section-title">🔗 Dịch theo cụm</div>`;
+  items.forEach((q, i) => {
+    if (q.variant === "order") {
+      const studentTokens = answers.chunkOrder[q.id] || [];
+      let matches = 0;
+      q.enChunks.forEach((w, idx) => { if (studentTokens[idx] === w) matches++; });
+      const frac = q.enChunks.length ? matches / q.enChunks.length : 0;
+      score += frac;
+      html += `<div class="review-item">
+        <span class="mark ${frac === 1 ? "ok" : "no"}">${frac === 1 ? "✓" : "✗"}</span>
+        <strong>${i + 1}. ${esc(q.viChunks.join(" / "))}</strong>
+        <div class="review-note">Bạn ghép: ${esc(studentTokens.join(" / ") || "(bỏ trống)")}</div>
+        <div class="key-answer">Đáp án đúng: ${esc(q.enChunks.join(" / "))} — ${Math.round(frac * 100)}%</div>
+      </div>`;
+    } else {
+      const given = answers.chunkMatch[q.id] || {};
+      let matches = 0;
+      q.pairs.forEach((p, idx) => { if (given[idx] === idx) matches++; });
+      const frac = q.pairs.length ? matches / q.pairs.length : 0;
+      score += frac;
+      html += `<div class="review-item">
+        <span class="mark ${frac === 1 ? "ok" : "no"}">${frac === 1 ? "✓" : "✗"}</span>
+        <strong>${i + 1}. Ghép cặp cụm từ</strong>
+        <div class="key-answer">${q.pairs.map(p => `${esc(p.left)} = ${esc(p.right)}`).join(" &nbsp;|&nbsp; ")} — ${Math.round(frac * 100)}%</div>
+      </div>`;
+    }
+  });
+  return { html: html + `</div>`, score };
+}
+
+function gradeMatchSection(pairs, given, title) {
+  let matches = 0;
+  pairs.forEach((p, idx) => { if (given[idx] === idx) matches++; });
+  const fraction = pairs.length ? matches / pairs.length : 0;
+  const html = `<div class="section-block"><div class="section-title">${title}</div>
+    <div class="review-item">
+      <span class="mark ${fraction === 1 ? "ok" : "no"}">${fraction === 1 ? "✓" : "✗"}</span>
+      <strong>Kết quả nối: ${matches}/${pairs.length} cặp đúng (${Math.round(fraction * 100)}%)</strong>
+      <div class="key-answer">${pairs.map(p => `${esc(p.left)} → ${esc(p.right)}`).join(" &nbsp;|&nbsp; ")}</div>
+    </div></div>`;
+  return { html, fraction };
 }
 
 function renderResults(scoreOn10, reviewHtml) {
@@ -719,7 +1141,7 @@ function renderResults(scoreOn10, reviewHtml) {
   `;
   resultPanelEl.classList.remove("hidden");
   document.getElementById("retakeBtn").addEventListener("click", () => {
-    answers = { mcq: {}, listening: {}, sentence: {}, pronunciation: {}, speaking: { transcript: "" } };
+    resetAnswers();
     resultPanelEl.classList.add("hidden");
     renderExamPaper(examData, examMeta.docId);
   });
