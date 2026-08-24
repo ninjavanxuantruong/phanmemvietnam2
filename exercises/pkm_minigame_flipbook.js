@@ -97,10 +97,30 @@ async function enterPage(idx) {
     let watchdogFired = false;
     const watchdog = setTimeout(() => {
       watchdogFired = true;
-      if (results[idx] === undefined) results[idx] = round.type === "present" ? null : { attemptsUsed: 2 };
+
+      if (results[idx] === undefined) {
+        results[idx] = round.type === "present"
+          ? null
+          : { attemptsUsed: 2 };
+      }
+
       pageCompleted[idx] = true;
       setLocked(false);
+
+      const status = el("pkfSpeakStatus");
+      const result = el("pkfSpeakResult");
+
+      if (status) {
+        status.textContent =
+          "⚠️ Thời gian xử lý đã hết. Bạn vẫn có thể bấm Tiếp theo.";
+      }
+
+      if (result && round.type === "phonicsSpeak") {
+        result.innerHTML =
+          "🗣️ Không nhận được kết quả ghi âm, nhưng bạn vẫn có thể tiếp tục.";
+      }
     }, 20000);
+
 
     if (round.type === "present") {
       await readPresentSequence(round);
