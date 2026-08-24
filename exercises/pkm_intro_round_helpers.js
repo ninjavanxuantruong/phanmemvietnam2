@@ -10,6 +10,12 @@
  * Game nào cũng phải tự chuẩn bị sẵn các phần tử DOM cần thiết rồi truyền
  * vào (xem chữ ký từng hàm) — file này không tự tạo DOM, chỉ thao tác trên
  * DOM được đưa vào, để mỗi game tự do bố trí giao diện theo ý riêng.
+ *
+ * SỬA LỖI ĐƠ TRÊN MOBILE: getSharedAudioCtx() giờ là ASYNC và THẬT SỰ chờ
+ * audioCtx.resume() xong (bản cũ gọi resume() nhưng không await, nên trên
+ * nhiều trình duyệt mobile lệnh phát âm ngay sau đó rơi vào khoảng
+ * AudioContext còn "suspended" -> im lặng hoặc treo). Mọi hàm phát âm trong
+ * file này (playIpa, playSwishSound, playPopSound) đều await đúng theo.
  */
 
 import {
@@ -37,11 +43,17 @@ export function checkPercentMatchLocal(heard, target, threshold = 70) {
 // ─── Đọc từng âm IPA (dùng cho tách âm) ───
 let audioCtx = null;
 const audioCache = new Map();
-export function getSharedAudioCtx() {
+
+/** Trả về (và tạo nếu chưa có) AudioContext dùng chung — THẬT SỰ chờ resume()
+ *  xong trước khi trả về, để tránh phát âm vào lúc context còn "suspended". */
+export async function getSharedAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === "suspended") audioCtx.resume();
+  if (audioCtx.state === "suspended") {
+    try { await audioCtx.resume(); } catch (e) { /* bỏ qua — vẫn trả về ctx, gọi nơi dùng tự chịu im lặng nếu có */ }
+  }
   return audioCtx;
 }
+
 export async function preloadIpa(ipa) {
   const key = "ipa|" + ipa;
   if (audioCache.has(key)) return audioCache.get(key);
@@ -54,16 +66,18 @@ export async function preloadIpa(ipa) {
     finally { clearTimeout(timeoutId); }
     if (!res.ok) return null;
     const ab = await res.arrayBuffer();
-    const buf = await getSharedAudioCtx().decodeAudioData(ab.slice(0));
+    const ctx = await getSharedAudioCtx();
+    const buf = await ctx.decodeAudioData(ab.slice(0));
     audioCache.set(key, buf);
     return buf;
   } catch (e) { return null; }
 }
+
 export async function playIpa(ipa) {
   const buf = await preloadIpa(ipa);
   if (!buf) return;
+  const ac = await getSharedAudioCtx();
   return new Promise(resolve => {
-    const ac = getSharedAudioCtx();
     const src = ac.createBufferSource();
     src.buffer = buf; src.connect(ac.destination);
     src.onended = resolve;
@@ -71,6 +85,7 @@ export async function playIpa(ipa) {
     src.start();
   });
 }
+
 export async function autoReadPhonics(container) {
   const units = Array.from(container.querySelectorAll("[data-index]"));
   if (!units.length) return;
@@ -98,15 +113,24 @@ export async function autoReadPhonics(container) {
 }
 
 /** Đọc phần "giới thiệu từ" — không đụng DOM (chỉ phát âm thanh). */
+// Cờ TEST: từ đầu tiên trong ván chơi (mỗi lần vào trang là 1 module mới,
+// nên biến này tự đúng cho "lượt bắt/đọc đầu tiên") sẽ CHỈ đọc tiếng Anh,
+// bỏ qua toàn bộ speakVI() -- để kiểm tra xem có phải TTS tiếng Việt gây đơ.
+let _firstPresentCall = true;
+
+/** Đọc phần "giới thiệu từ" — không đụng DOM (chỉ phát âm thanh). */
 export async function readPresentSequence(round) {
+  const skipVi = _firstPresentCall;
+  _firstPresentCall = false;
+
   await speakEN(randomPick(INTRO_WORD_LINES)(round.ord, round.word), round.rate);
   await speakEN(round.word, round.rate);
-  await speakVI(round.meaning, 0.9);
+  if (!skipVi) await speakVI(round.meaning, 0.9);
   if (round.ah) {
     if (round.ah.en) await speakEN(round.ah.en, round.rate);
-    if (round.ah.vi) await speakVI(round.ah.vi, 0.9);
+    if (round.ah.vi && !skipVi) await speakVI(round.ah.vi, 0.9);
   }
-  if (round.ai) await speakVI(round.ai, 0.9);
+  if (round.ai && !skipVi) await speakVI(round.ai, 0.9);
 }
 
 /** Tách âm — vẽ vào `boxEl` (phần tử DOM rỗng do game truyền vào). */
@@ -141,77 +165,189 @@ export function runMicRepeat(round, elRefs) {
   return new Promise(resolve => {
     let attemptNum = 0;
     let finished = false;
+    let resolved = false;
 
-    const lockMic = locked_ => micEl.classList.toggle("locked", locked_);
+    const lockMic = value => {
+      micEl.classList.toggle("locked", value);
+    };
 
-    const doRecord = async () => {
-      lockMic(true);
+    const finish = (attempts = 2) => {
+      if (resolved) return;
+
+      resolved = true;
+      finished = true;
+
+      micEl.classList.remove("listening");
+      micEl.classList.add("locked");
+      finishBtnEl.style.display = "none";
+      finishBtnEl.onclick = null;
+
+      // Hiện nút/ trạng thái cho người dùng biết có thể đi tiếp
+      statusEl.textContent = "✅ Đã hoàn tất. Bạn có thể bấm Tiếp theo.";
+
+      // Quan trọng: resolve ngay, không chờ TTS
+      resolve(attempts);
+    };
+
+    const safeSpeak = async text => {
+      try {
+        await Promise.race([
+          Promise.resolve(speakEN(text, rate)),
+          new Promise(resolveTimeout => setTimeout(resolveTimeout, 7000)),
+        ]);
+      } catch (e) {
+        console.warn("Lỗi đọc TTS:", e);
+      }
+    };
+
+    const recordOneAttempt = async () => {
+      if (finished || resolved || attemptNum >= 2) return;
+
       attemptNum++;
+      lockMic(true);
       micEl.classList.add("listening");
       statusEl.textContent = "🎙️ Đang ghi âm...";
       finishBtnEl.style.display = "inline-block";
 
       try {
-        const session = await startRecording(10000);
-        finishBtnEl.onclick = () => session.stop();
-        const blob = await session.blob;
+        const session = await Promise.race([
+          startRecording(10000),
+          new Promise(resolveTimeout =>
+            setTimeout(() => resolveTimeout(null), 12000)
+          ),
+        ]);
+
+        if (!session) {
+          resultEl.innerHTML = "🗣️ Không thể sử dụng microphone.";
+          finish();
+          return;
+        }
+
+        finishBtnEl.onclick = () => {
+          try {
+            session.stop?.();
+          } catch (e) {
+            console.warn("Không dừng được ghi âm:", e);
+          }
+        };
+
+        const blob = await Promise.race([
+          Promise.resolve(session.blob),
+          new Promise(resolveTimeout =>
+            setTimeout(() => resolveTimeout(null), 15000)
+          ),
+        ]);
+
+        if (!blob) {
+          resultEl.innerHTML = "🗣️ Không lấy được bản ghi âm.";
+          finish();
+          return;
+        }
 
         finishBtnEl.style.display = "none";
+        finishBtnEl.onclick = null;
         micEl.classList.remove("listening");
         statusEl.textContent = "⏳ Đang kiểm tra...";
 
-        const transcript = await transcribeAudio(blob);
-        const isCorrect = transcript === null ? false
-          : veryLenient ? !!transcript.trim()
-          : checkPercentMatchLocal(transcript, matchText, 70);
+        const transcript = await Promise.race([
+          Promise.resolve(transcribeAudio(blob)),
+          new Promise(resolveTimeout =>
+            setTimeout(() => resolveTimeout(null), 15000)
+          ),
+        ]);
 
-        resultEl.innerHTML = transcript ? `🗣️ "<b>${transcript}</b>"` : "🗣️ (chưa nghe rõ)";
+        const isCorrect = transcript === null
+          ? false
+          : veryLenient
+            ? Boolean(transcript.trim())
+            : checkPercentMatchLocal(transcript, matchText, 70);
+
+        resultEl.innerHTML = transcript
+          ? `🗣️ "<b>${transcript}</b>"`
+          : "🗣️ Chưa nghe rõ hoặc không nhận dạng được.";
 
         if (isCorrect) {
-          finished = true;
-          statusEl.textContent = "🎉 " + randomPick(POSITIVE_FEEDBACK);
-          await speakEN(randomPick(POSITIVE_FEEDBACK), rate);
-          resolve(attemptNum);
-        } else if (attemptNum < 2) {
-          statusEl.textContent = "💡 " + randomPick(ENCOURAGE_RETRY);
-          lockMic(false);
-        } else {
-          finished = true;
-          statusEl.textContent = "👍 Cố gắng tốt lắm!";
-          await new Promise(r => setTimeout(r, 1000));
-          resolve(2);
+          statusEl.textContent = "🎉 Chính xác! Bạn có thể bấm Tiếp theo.";
+
+          // Mở khóa ngay, không chờ đọc lời khen
+          finish(attemptNum);
+
+          // Đọc lời khen ở nền, có lỗi cũng không ảnh hưởng
+          safeSpeak(randomPick(POSITIVE_FEEDBACK));
+          return;
         }
+
+        if (attemptNum < 2) {
+          statusEl.textContent =
+            "💡 Chưa nghe rõ. Hãy nói lại hoặc bấm Tiếp theo.";
+          lockMic(false);
+
+          // Cho phép nói lần 2 nếu mic vẫn dùng được
+          return;
+        }
+
+        statusEl.textContent =
+          "👍 Đã đủ lượt thử. Bạn có thể bấm Tiếp theo.";
+        finish(2);
+
       } catch (e) {
-        console.error("Lỗi ghi âm:", e);
-        finished = true;
-        micEl.classList.remove("listening");
-        finishBtnEl.style.display = "none";
-        statusEl.textContent = "⚠️ Không dùng được microphone.";
-        await new Promise(r => setTimeout(r, 1000));
-        resolve(2);
+        console.error("Lỗi microphone:", e);
+
+        resultEl.innerHTML =
+          "🗣️ Không thể ghi âm hoặc nhận dạng giọng nói.";
+
+        statusEl.textContent =
+          "⚠️ Mic gặp lỗi. Bạn vẫn có thể bấm Tiếp theo.";
+
+        finish(2);
       }
     };
 
     micEl.onclick = () => {
-      if (attemptNum >= 2 || finished || micEl.classList.contains("listening")) return;
-      doRecord();
+      if (
+        finished ||
+        resolved ||
+        attemptNum >= 2 ||
+        micEl.classList.contains("listening")
+      ) {
+        return;
+      }
+
+      recordOneAttempt();
     };
 
     (async () => {
       statusEl.textContent = "🔊 Nghe mẫu...";
-      if (veryLenient) await speakEN(`${matchText}. ${matchText}.`, rate);
-      else await speakEN(modelText, rate);
+
+      if (veryLenient) {
+        await safeSpeak(`${matchText}. ${matchText}.`);
+      } else {
+        await safeSpeak(modelText);
+      }
+
+      if (finished || resolved) return;
+
       statusEl.textContent = "🎤 Đến lượt bạn nói!";
       lockMic(false);
-    })();
+
+      // Tự động ghi âm
+      recordOneAttempt();
+    })().catch(e => {
+      console.error("Lỗi khởi tạo phần nói:", e);
+      resultEl.innerHTML = "🗣️ Không thể khởi động phần ghi âm.";
+      statusEl.textContent =
+        "⚠️ Không thể dùng mic. Bạn vẫn có thể bấm Tiếp theo.";
+      finish(2);
+    });
   });
 }
 
+
 /** Tiếng "xoẹt" ngắn — dùng cho lật trang (flipbook) hoặc bất kỳ hiệu ứng
  *  chuyển cảnh nhanh nào cần 1 tiếng động nhẹ, không cần file mp3 riêng. */
-export function playSwishSound() {
+export async function playSwishSound() {
   try {
-    const ctx = getSharedAudioCtx();
+    const ctx = await getSharedAudioCtx();
     const now = ctx.currentTime;
     const bufSize = ctx.sampleRate * 0.25;
     const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
@@ -234,9 +370,9 @@ export function playSwishSound() {
 }
 
 /** Tiếng "boong/pop" ngắn — dùng khi ăn được 1 ảnh trong maze. */
-export function playPopSound() {
+export async function playPopSound() {
   try {
-    const ctx = getSharedAudioCtx();
+    const ctx = await getSharedAudioCtx();
     const now = ctx.currentTime;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
