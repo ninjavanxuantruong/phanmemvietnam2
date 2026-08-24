@@ -29,6 +29,7 @@
   <div class="controls">
     <label>Lớp:
       <select id="classSelect">
+        <option value="1">Lớp 1</option>
         <option value="2">Lớp 2</option>
         <option value="3" selected>Lớp 3</option>
         <option value="4">Lớp 4</option>
@@ -50,9 +51,20 @@
 
     <button id="summarizeBtn" class="primary">Tổng hợp</button>
     <button id="paymentsBtn" class="secondary">Cập nhật nộp tiền</button>
+    <!-- mới -->
     <button id="viewBtn" class="view">Xem dữ liệu</button>
+    <button id="summarizeClassAllBtn" class="secondary" style="background:#00b8d4;border-color:#00b8d4;">
+      Tổng hợp CẢ NĂM lớp này
+    </button>
+    <button id="summarizeAllBtn" class="primary" style="background:#ff9100;border-color:#ff9100;">
+      Tổng hợp TẤT CẢ lớp (đến tháng mới nhất trong sheet)
+    </button>
   </div>
 
+  <div id="batchResultsBox" style="margin:12px 0; display:none;">
+    <h3 style="margin-bottom:8px;">Kết quả tổng hợp hàng loạt</h3>
+    <ul id="batchResultsList" style="list-style:none; padding:0; margin:0; max-height:320px; overflow-y:auto; font-size:14px;"></ul>
+  </div>
   <table id="summaryTable">
     <thead>
       <tr>
