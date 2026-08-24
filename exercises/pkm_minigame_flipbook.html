@@ -99,6 +99,57 @@
     padding: 15px 34px; font-size: 17px; font-weight: bold; background: #FFCB05; color: #333;
     border: none; border-radius: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.4);
   }
+  @media (max-width: 720px) {
+    #pkfContentSide {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      overflow: hidden;
+      padding: 0 14px 12px;
+    }
+
+    /* Đưa cụm nút lên ngay đầu khu vực dưới hình ảnh */
+    #pkfControls {
+      order: -1;
+      flex: 0 0 auto;
+      width: 100%;
+      margin: 0 -14px 12px;
+      padding: 10px 14px;
+      min-height: 62px;
+
+      background: #fff;
+      position: relative;
+      z-index: 30;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+    }
+
+    #pkfContent {
+      flex: 1 1 auto;
+      width: 100%;
+      overflow-y: auto;
+      padding: 8px 0 20px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #pkfNav {
+      display: flex;
+      gap: 8px;
+    }
+
+    #pkfPrevBtn,
+    #pkfNextBtn {
+      position: relative;
+      z-index: 40;
+      width: 48px;
+      height: 44px;
+      min-width: 48px;
+    }
+
+    #pkfReadBtn {
+      min-height: 44px;
+    }
+  }
+
 </style>
 </head>
 <body>
