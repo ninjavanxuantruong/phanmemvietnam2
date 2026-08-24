@@ -340,6 +340,40 @@ main{ padding-top: 26px; }
 .review-item{ margin-bottom: 14px; }
 .review-note{ font-size: 13.5px; color: var(--ink-soft); }
 
+/* ===== Matching widget (nối cột / ghép cặp cụm) ===== */
+.match-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.match-col{ display:flex; flex-direction:column; gap:8px; }
+.match-item{
+  font-family: var(--font-body);
+  font-size: 14px;
+  text-align:left;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1.5px solid var(--rule);
+  background: #fff;
+  cursor:pointer;
+}
+.match-item:hover{ border-color: var(--rule-strong); }
+.match-item.active{ border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink) inset; }
+.match-item.paired{ cursor: pointer; opacity: .9; }
+.match-item.correct-pair{ border-color: var(--correct); }
+.match-item.wrong-pair{ border-color: var(--pen-red); }
+.match-note{ font-size: 12.5px; color: var(--ink-soft); margin: 6px 0 14px; }
+
+/* ===== Reading block ===== */
+.reading-passage{
+  font-size: 15.5px;
+  line-height: 1.75;
+  background: #fff;
+  border: 1.5px solid var(--rule);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+/* ===== Odd-one-out ===== */
+.topic-tag{ font-size:12px; color:var(--ink-soft); }
+
 @media (max-width: 560px){
   .paper{ padding: 22px 16px 28px; }
   .paper::before{ left: 30px; }
@@ -402,6 +436,22 @@ main{ padding-top: 26px; }
           <label class="field">
             <span>🗣 Số câu ghép đoạn nói</span>
             <input type="number" id="speakingCount" min="0" max="30" value="5">
+          </label>
+          <label class="field">
+            <span>📖 Đọc hiểu (số câu hỏi)</span>
+            <input type="number" id="readingCount" min="0" max="10" value="4">
+          </label>
+          <label class="field">
+            <span>🔗 Dịch theo cụm</span>
+            <input type="number" id="chunkCount" min="0" max="20" value="5">
+          </label>
+          <label class="field">
+            <span>➖ Nối câu hỏi – câu trả lời</span>
+            <input type="number" id="matchingCount" min="0" max="10" value="5">
+          </label>
+          <label class="field">
+            <span>🧭 Tìm từ khác chủ đề</span>
+            <input type="number" id="oddOneOutCount" min="0" max="10" value="3">
           </label>
         </div>
         <div class="actions">
