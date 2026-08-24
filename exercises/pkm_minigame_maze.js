@@ -231,43 +231,85 @@ async function catchTarget(target) {
   if (round.type === "present") renderPresentCard(round);
   else renderPhonicsCard(round);
 
-  // ─── Dự phòng bị đơ: sau 20s tự mở nút Tiếp tục dù đọc/nói dở gì đi nữa ───
-  let watchdogFired = false;
-  let localResult;
-  const watchdog = setTimeout(() => {
-    watchdogFired = true;
-    localResult = round.type === "present" ? null : { attemptsUsed: 2 };
+  let settled = false;
+  let localResult = round.type === "present"
+    ? null
+    : { attemptsUsed: 2 };
+
+  let watchdog;
+  let autoTimer;
+
+  const finishCard = () => {
+    if (settled) return;
+
+    settled = true;
+    clearTimeout(watchdog);
+    clearTimeout(autoTimer);
+
+    continueBtn.disabled = true;
+    continueBtn.onclick = null;
+    el("pkzCardOverlay").classList.remove("show");
+
+    resolveCard();
+  };
+
+  let resolveCard;
+  const cardFinished = new Promise(resolve => {
+    resolveCard = resolve;
+  });
+
+  // Gắn handler NGAY LẬP TỨC, trước mọi await
+  continueBtn.onclick = finishCard;
+  continueBtn.disabled = true;
+
+  // Nếu luồng âm thanh/microphone bị treo quá 20 giây,
+  // vẫn cho phép người dùng bấm Tiếp tục.
+  watchdog = setTimeout(() => {
     continueBtn.disabled = false;
   }, 20000);
 
-  if (round.type === "present") {
-    await readPresentSequence(round);
-    if (!watchdogFired) localResult = null;
-  } else {
-    await readPhonicsSequence(round, el("pkzPhonicsBox"));
-    const attemptsUsed = await runMicRepeat(round, {
-      statusEl: el("pkzSpeakStatus"), micEl: el("pkzMic"),
-      finishBtnEl: el("pkzMicFinishBtn"), resultEl: el("pkzSpeakResult"),
-    });
-    if (!watchdogFired) localResult = { attemptsUsed };
-  }
-  clearTimeout(watchdog);
-  continueBtn.disabled = false;
+  try {
+    if (round.type === "present") {
+      await readPresentSequence(round);
+      localResult = null;
+    } else {
+      await readPhonicsSequence(round, el("pkzPhonicsBox"));
 
-  // TEST: nếu không ấn gì thì sau 5s tự động "Tiếp tục" giúp — để kiểm tra
-  // xem luồng có tự chạy trơn tru không, không cần chờ người dùng chạm.
-  await new Promise(resolve => {
-    let settled = false;
-    const finishCard = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(autoTimer);
-      el("pkzCardOverlay").classList.remove("show");
-      resolve();
-    };
-    continueBtn.onclick = finishCard;
-    const autoTimer = setTimeout(finishCard, 5000);
-  });
+      const attemptsUsed = await runMicRepeat(round, {
+        statusEl: el("pkzSpeakStatus"),
+        micEl: el("pkzMic"),
+        finishBtnEl: el("pkzMicFinishBtn"),
+        resultEl: el("pkzSpeakResult"),
+      });
+
+      localResult = { attemptsUsed };
+    }
+  } catch (err) {
+    console.warn("Lỗi khi đọc/nghe từ:", err);
+    localResult = round.type === "present"
+      ? null
+      : { attemptsUsed: 2 };
+  }
+
+  // Đọc xong thì mở nút
+  if (!settled) {
+    continueBtn.disabled = false;
+  }
+
+  // TEST: tự động đóng sau 5 giây
+  autoTimer = setTimeout(finishCard, 5000);
+
+  await cardFinished;
+
+  results.push(localResult);
+  doneCount++;
+  updateProgress();
+  moveLocked = false;
+
+  if (activeTargets.length === 0) {
+    advancePhaseOrFinish();
+  }
+
 
   results.push(localResult !== undefined ? localResult : (round.type === "present" ? null : { attemptsUsed: 2 }));
   doneCount++;
@@ -325,13 +367,15 @@ function finish() {
 // trên mobile) — PHẢI gọi đồng bộ, ngay trong handler của sự kiện click.
 // ============================================================================
 function warmUpAudio() {
+  // ĐÃ BỎ: utterance "câm" gọi thẳng window.speechSynthesis.speak() — utterance
+  // này KHÔNG đi qua speakEN() nên biến ttsBusy (all-shared.js) không biết nó
+  // tồn tại; nếu nó kẹt không bắn onend (khá phổ biến trên Safari/WebView di
+  // động với utterance rỗng), speakEN() lần gọi thật đầu tiên sẽ không cancel()
+  // được nó, khiến hàng đợi bị nghẹn -> đơ đúng lượt đầu. flipbook không có
+  // bước này và không bị đơ, nên bỏ hẳn, chỉ giữ lại phần đánh thức AudioContext
+  // (dùng cho IPA + tiếng "bốp" khi ăn ảnh, không liên quan speechSynthesis).
   try {
-    const unlock = new SpeechSynthesisUtterance(" ");
-    unlock.volume = 0;
-    window.speechSynthesis.speak(unlock);
-  } catch (e) { /* trình duyệt không hỗ trợ — bỏ qua */ }
-  try {
-    getSharedAudioCtx(); // tạo/resume AudioContext dùng chung cho IPA + pop sound
+    getSharedAudioCtx();
   } catch (e) { /* bỏ qua */ }
 }
 
@@ -355,10 +399,17 @@ async function main() {
   await new Promise(resolve => {
     el("pkzStartBtn").onclick = () => { warmUpAudio(); resolve(); };
   });
-  el("pkzStartOverlay").remove();
+
+  // Giữ overlay, đổi chữ thành "đang tải" thay vì xoá luôn rồi để màn hình
+  // trống trong lúc chờ tải ảnh — tránh cảm giác đơ trên mobile mạng chậm.
+  el("pkzStartBtn").style.display = "none";
+  const startP = el("pkzStartOverlay").querySelector("p");
+  if (startP) startP.textContent = "Đang tải ảnh, chờ chút nhé...";
 
   const keywords = [...new Set(payload.rounds.map(r => r.imageKeyword).filter(Boolean))];
   await prefetchImagesBatch(keywords);
+
+  el("pkzStartOverlay").remove();
 
   computeCellSize();
   maze = generateMaze(COLS, ROWS);
