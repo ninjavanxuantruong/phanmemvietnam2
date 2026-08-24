@@ -16,13 +16,27 @@ const db = getFirestore(app);
 
 // =============== Google Sheet config ===============
 const SHEET_ID = "1RRnMZJJd6U8_gQp80k5S_w7Li58nEts2mT5Nxg7CPIQ";
+const CLASS_LIST = ["1", "2", "3", "4", "5", "6"];
 
 // =============== Helpers ===============
 
 // Fetch toàn bộ sheet theo tên lớp
+// mới
 async function fetchSheetValues(sheetName) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=0&sheet=${encodeURIComponent(sheetName)}`;
-  const res = await fetch(url);
+  // Cầu chì mạng: fetch() không giới hạn thời gian có thể treo vô thời hạn
+  // nếu Google Sheets chậm/giới hạn tốc độ khi gọi liên tiếp nhiều sheet —
+  // không có cầu chì thì cả vòng lặp "Tổng hợp" đứng im, không báo lỗi gì.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  let res;
+  try {
+    res = await fetch(url, { signal: controller.signal });
+  } catch (e) {
+    throw new Error(`Không tải được sheet "${sheetName}" (mạng chậm hoặc bị chặn): ${e.message}`);
+  } finally {
+    clearTimeout(timeoutId);
+  }
   const text = await res.text();
   let cleaned = text.replace(/^\)\]\}'\s*\n?/, "");
   if (cleaned.includes("google.visualization.Query.setResponse(")) {
@@ -155,7 +169,25 @@ function findPaidColIndexFromLine1(headerLine1, month, year) {
   console.log("Kết quả paidColIndex:", paidColIndex);
   return paidColIndex;
 }
-
+// Quét TOÀN BỘ dòng 1 để tìm MỌI tháng/năm đã có cột nộp tiền — khác với
+// findPaidColIndexFromLine1 (chỉ kiểm tra đúng 1 tháng được chọn), hàm này
+// dùng cho nút "Tổng hợp tất cả" để tự biết dừng ở tháng nào.
+function findAllPaidMonthsFromLine1(headerLine1, fallbackYear) {
+  const seen = new Set();
+  const months = [];
+  headerLine1.forEach(cell => {
+    const iso = parseHeaderDateToISO(cell, fallbackYear);
+    if (!iso) return;
+    const d = new Date(iso);
+    const key = `${d.getMonth() + 1}-${d.getFullYear()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      months.push({ month: d.getMonth() + 1, year: d.getFullYear() });
+    }
+  });
+  months.sort((a, b) => (a.year - b.year) || (a.month - b.month));
+  return months;
+}
 
 // =============== Tổng hợp lớp (dòng 1 = cột nộp tiền theo tháng/năm, dòng 2 = ngày học) ===============
 
@@ -219,8 +251,9 @@ function diffFields(newObj, oldObj) {
 }
 
 // =============== Tổng hợp lớp (so sánh với money, chỉ ghi khi khác) ===============
-async function summarizeClassMonth(className, month, year) {
-  const values = await fetchSheetValues(className);
+// mới
+async function summarizeClassMonth(className, month, year, preloadedValues = null) {
+  const values = preloadedValues || await fetchSheetValues(className);
   if (values.length < 4) throw new Error("Sheet thiếu dữ liệu (cần >= 4 dòng)");
 
   const headerLine1 = values[0];
@@ -730,4 +763,139 @@ document.getElementById("multiMonthBtn").addEventListener("click", () => {
   const cls = classSelect.value;
   const year = Number(yearInput.value);
   viewClassMultiMonth(cls, year);
+});
+// ================== TỔNG HỢP TẤT CẢ LỚP ĐẾN THÁNG MỚI NHẤT ==================
+// mới — thay thế bản cũ
+// Tổng hợp toàn bộ tháng có cột nộp tiền của ĐÚNG 1 lớp — dùng chung cho cả
+// nút "Tổng hợp tất cả" (gọi lặp qua từng lớp) lẫn nút "Tổng hợp lớp này".
+// onProgress (tuỳ chọn): callback báo tiến độ để hiện lên nút, tránh cảm giác
+// bị đơ khi chạy lâu (nhiều tháng × nhiều học sinh).
+async function summarizeOneClassAllMonths(className, fallbackYear, onProgress) {
+  const results = [];
+  try {
+    const values = await fetchSheetValues(className);
+    if (values.length < 4) {
+      results.push({ cls: className, status: "skip", reason: "Sheet thiếu dữ liệu" });
+      return results;
+    }
+    const headerLine1 = values[0];
+    const monthsFound = findAllPaidMonthsFromLine1(headerLine1, fallbackYear);
+    if (monthsFound.length === 0) {
+      results.push({ cls: className, status: "skip", reason: "Không tìm thấy cột nộp tiền nào" });
+      return results;
+    }
+    for (let i = 0; i < monthsFound.length; i++) {
+      const { month, year } = monthsFound[i];
+      if (onProgress) onProgress({ cls: className, month, year, index: i + 1, total: monthsFound.length });
+      try {
+        const { totals } = await summarizeClassMonth(className, month, year, values);
+        results.push({ cls: className, month, year, status: "ok", totals });
+      } catch (e) {
+        results.push({ cls: className, month, year, status: "error", reason: e.message });
+      }
+    }
+  } catch (e) {
+    results.push({ cls: className, status: "error", reason: e.message });
+  }
+  return results;
+}
+async function summarizeAllClassesToLatestMonth(fallbackYear, onProgress) {
+  let results = [];
+  for (const cls of CLASS_LIST) {
+    const classResults = await summarizeOneClassAllMonths(cls, fallbackYear, onProgress);
+    results = results.concat(classResults);
+  }
+  return results;
+}
+
+
+function renderBatchResults(results) {
+  const box = document.getElementById("batchResultsBox");
+  const list = document.getElementById("batchResultsList");
+  box.style.display = "block";
+  list.innerHTML = "";
+
+  results.forEach(r => {
+    const li = document.createElement("li");
+    li.style.padding = "6px 8px";
+    li.style.borderBottom = "1px solid #333";
+
+    if (r.status === "ok") {
+      li.innerHTML = `<span class="paid-true">✅</span> Lớp ${r.cls} — Tháng ${r.month}/${r.year}: `
+        + `Tổng ${(r.totals.totalClassMoney || 0).toLocaleString("vi-VN")}đ `
+        + `(Đã nộp ${(r.totals.totalPaid || 0).toLocaleString("vi-VN")}đ / `
+        + `Chưa nộp ${(r.totals.totalUnpaid || 0).toLocaleString("vi-VN")}đ)`;
+    } else if (r.status === "skip") {
+      li.innerHTML = `<span style="color:#aaa;">⏭️</span> Lớp ${r.cls}: bỏ qua — ${r.reason}`;
+    } else {
+      li.innerHTML = `<span class="paid-false">❌</span> Lớp ${r.cls}`
+        + (r.month ? ` — Tháng ${r.month}/${r.year}` : "")
+        + `: lỗi — ${r.reason}`;
+    }
+    list.appendChild(li);
+  });
+
+  const okCount = results.filter(r => r.status === "ok").length;
+  const skipCount = results.filter(r => r.status === "skip").length;
+  const errorCount = results.filter(r => r.status === "error").length;
+  const summaryLi = document.createElement("li");
+  summaryLi.style.cssText = "padding:8px; font-weight:700; background:#2c2c2c;";
+  summaryLi.textContent = `Tổng: ${okCount} thành công, ${skipCount} bỏ qua, ${errorCount} lỗi.`;
+  list.prepend(summaryLi);
+}
+
+document.getElementById("summarizeAllBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("summarizeAllBtn");
+  const fallbackYear = Number(yearInput.value);
+
+  btn.disabled = true;
+  summarizeBtn.disabled = true;
+  paymentsBtn.disabled = true;
+  viewBtn.disabled = true;
+
+  // mới
+  try {
+    const results = await summarizeAllClassesToLatestMonth(fallbackYear, (p) => {
+      btn.textContent = `Đang xử lý lớp ${p.cls} — Tháng ${p.month}/${p.year} (${p.index}/${p.total})`;
+    });
+    renderBatchResults(results);
+  } catch (e) {
+    alert("Lỗi khi tổng hợp tất cả: " + e.message);
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Tổng hợp TẤT CẢ lớp (đến tháng mới nhất trong sheet)";
+    summarizeBtn.disabled = false;
+    paymentsBtn.disabled = false;
+    viewBtn.disabled = false;
+  }
+});
+document.getElementById("summarizeClassAllBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("summarizeClassAllBtn");
+  const cls = classSelect.value;
+  const fallbackYear = Number(yearInput.value);
+  const allBtn = document.getElementById("summarizeAllBtn");
+
+  btn.disabled = true;
+  summarizeBtn.disabled = true;
+  paymentsBtn.disabled = true;
+  viewBtn.disabled = true;
+  if (allBtn) allBtn.disabled = true;
+
+  try {
+    const results = await summarizeOneClassAllMonths(cls, fallbackYear, (p) => {
+      btn.textContent = `Đang xử lý... Tháng ${p.month}/${p.year} (${p.index}/${p.total})`;
+    });
+    renderBatchResults(results);
+  } catch (e) {
+    alert(`Lỗi khi tổng hợp lớp ${cls}: ` + e.message);
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Tổng hợp CẢ NĂM lớp này";
+    summarizeBtn.disabled = false;
+    paymentsBtn.disabled = false;
+    viewBtn.disabled = false;
+    if (allBtn) allBtn.disabled = false;
+  }
 });
