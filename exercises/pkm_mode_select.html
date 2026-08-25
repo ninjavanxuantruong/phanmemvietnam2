@@ -217,7 +217,7 @@
             </div>
 
             <div class="mode-card race" id="pickRace">
-                <div class="mode-icon">🏎️</div>
+                <div class="mode-icon">💨</div>
                 <div class="mode-info">
                     <h3>Đường Đua Pokémon</h3>
                     <p>Né chướng ngại vật, ăn vàng.</p>
@@ -225,10 +225,18 @@
             </div>
 
             <div class="mode-card race" id="pickChess">
-                <div class="mode-icon">🏎️</div>
+                <div class="mode-icon">♚</div>
                 <div class="mode-info">
                     <h3>Cờ vua Pokemon</h3>
                     <p>Chơi cờ vua</p>
+                </div>
+            </div>
+
+            <div class="mode-card race" id="pickBird">
+                <div class="mode-icon">🐦</div>
+                <div class="mode-info">
+                    <h3>Bắn chim</h3>
+                    <p>rèn luyện phản xạ</p>
                 </div>
             </div>
 
@@ -288,6 +296,9 @@
             };
             document.getElementById('pickChess').onclick = () => {
                 window.location.href = 'pkm_chess.html';
+            };
+            document.getElementById('pickBird').onclick = () => {
+                window.location.href = 'pkm_birdshoot.html';
             };
             document.getElementById('pickExercise').onclick = () => {
                 window.location.href = '../exercise.html';
