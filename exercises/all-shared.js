@@ -1278,9 +1278,10 @@ export const PkmGameLauncher = {
   // Bảng game theo nhóm — SỬA Ở ĐÂY khi thêm game mới (chỉ cần thêm tên
   // file .html vào đúng mảng, không cần sửa gì khác trong hệ thống).
   GAMES: {
-    answer: ["pkm_minigame_race.html", "pkm_minigame_race_alone.html", "pkm_minigame_shooting.html", "pkm_minigame_fish.html"], // sau này thêm: balloon, treasure
-    introPresent: ["pkm_minigame_flipbook.html", "pkm_minigame_maze.html"], // sau này thêm game khác cho Stage A
-    speaking: ["pkm_minigame_ballcatching.html"], // chỉ Module 3 dùng — round shape khác hẳn "answer" (promptHTML/speakBeforeText/matchType, không phải questionHTML/options)
+    answer: ["pkm_minigame_race.html", "pkm_minigame_race_alone.html", "pkm_minigame_shooting.html", "pkm_minigame_fish.html"],
+    introPresent: ["pkm_minigame_flipbook.html", "pkm_minigame_maze.html"],
+    speaking: ["pkm_minigame_ballcatching.html"],
+    quickCheck: ["pkm_minigame_balldrop.html"], // sau này thêm game khác cho Stage B thì thêm tên file vào đây
   },
 
   // Gọi bởi MODULE lúc chuẩn bị xong dữ liệu câu hỏi. Trả về false nếu
