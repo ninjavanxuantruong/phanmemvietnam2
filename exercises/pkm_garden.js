@@ -696,12 +696,13 @@ function makePenRenderer(zoneId, addBtnId, key, kind, tiers, wanderClass) {
         const spriteEls = roamSpriteEls[key];
         const timers = roamTimers[key];
 
+        // Sprite chỉ bị dọn khi Ô ĐÃ THỰC SỰ TRỐNG (đã bấm xoá / thu hoạch) —
+        // KHÔNG dọn chỉ vì con vật chết, để người chơi còn thấy mà bấm xoá.
         Object.keys(spriteEls).forEach((k) => {
             const i = Number(k);
             const entity = gameState[key][i];
-            const info = getEntityInfo(entity, kind, now);
-            const stillValid = i < unlocked && (info.status === "growing" || info.status === "stalled" || info.status === "seed" || info.status === "ready");
-            if (!stillValid) {
+            const stillHasEntity = i < unlocked && entity && entity.tierId;
+            if (!stillHasEntity) {
                 clearInterval(timers[i]); delete timers[i];
                 spriteEls[k].remove(); delete spriteEls[k];
             }
@@ -711,11 +712,40 @@ function makePenRenderer(zoneId, addBtnId, key, kind, tiers, wanderClass) {
             const entity = gameState[key][i];
             if (!entity || !entity.tierId) continue;
             const info = getEntityInfo(entity, kind, now);
-            if (info.status === "dead" || info.status === "empty") {
-                if (spriteEls[i]) { clearInterval(timers[i]); delete timers[i]; spriteEls[i].remove(); delete spriteEls[i]; }
+            let el = spriteEls[i];
+
+            // ĐÃ CHẾT: đứng yên tại chỗ, hiện đầu lâu, bấm vào là dọn ô ngay
+            // (không cần confirm vì đã chết, không mất gì thêm khi dọn).
+            if (info.status === "dead") {
+                if (el) {
+                    clearInterval(timers[i]); delete timers[i];
+                    el.style.transition = "none";
+                } else {
+                    el = document.createElement("div");
+                    el.className = `roam-sprite ${wanderClass}`;
+                    el.style.left = 10 + Math.random() * 70 + "%";
+                    el.style.top = 15 + Math.random() * 60 + "%";
+                    el.innerHTML = `<img src="${CFG.POKEMON_ANI_URL(info.tier.pokemon)}" alt="${info.tier.name}"><div class="roam-badge"></div><div class="roam-name"></div>`;
+                    pen.appendChild(el);
+                    spriteEls[i] = el;
+                }
+                el.classList.add("dead-sprite");
+                el.querySelector(".roam-badge").textContent = "💀";
+                el.querySelector(".roam-name").textContent = `${info.tier.name} (Dead)`;
+                const bars = el.querySelector(".roam-bars");
+                if (bars) bars.style.display = "none";
+                el.onclick = guard(() => {
+                    announce("Clear");
+                    gameState[key][i] = null;
+                    saveState(gameState);
+                    clearInterval(timers[i]); delete timers[i];
+                    el.remove(); delete spriteEls[i];
+                    renderAll();
+                });
                 continue;
             }
-            let el = spriteEls[i];
+
+            // CÒN SỐNG: giữ nguyên logic cũ
             if (!el) {
                 el = document.createElement("div");
                 el.className = `roam-sprite ${wanderClass}`;
@@ -727,6 +757,7 @@ function makePenRenderer(zoneId, addBtnId, key, kind, tiers, wanderClass) {
                 startWander(pen, el, key, i);
                 el.onclick = guard(() => handleRoamTap(key, i, kind, el.querySelector("img")));
             }
+            el.classList.remove("dead-sprite");
             el.querySelector(".roam-badge").textContent = info.status === "ready" ? "✨" : info.status === "stalled" ? "⚠️" : info.status === "seed" ? "🌰" : "💤";
             el.querySelector(".roam-name").textContent = info.tier.name;
             if (info.status !== "seed") {
@@ -741,7 +772,6 @@ function makePenRenderer(zoneId, addBtnId, key, kind, tiers, wanderClass) {
         saveState(gameState);
     };
 }
-
 function startWander(pen, el, key, idx) {
     const move = () => {
         if (!pen.contains(el)) return;
