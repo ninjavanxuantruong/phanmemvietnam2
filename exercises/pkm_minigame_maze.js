@@ -6,26 +6,45 @@
  * rounds từ module-1-intro.js (buildIntroRounds) và CHUNG logic dạy-từ với
  * flipbook qua pkm_intro_round_helpers.js. Chỉ khác cách THỂ HIỆN.
  *
- * ĐIỂM MỚI (bản viết lại): thay vì hiện TỪNG ẢNH 1 (ăn xong mới hiện ảnh kế
- * tiếp), giờ TOÀN BỘ ảnh của 1 PHA hiện CÙNG LÚC trong mê cung ngay từ đầu
- * pha đó — học sinh ăn ảnh nào thì chỉ ảnh đó biến mất và mở thẻ học từ cho
- * đúng từ vừa ăn, các ảnh còn lại vẫn đứng yên chờ. Ăn hết mọi ảnh của PHA 1
- * ("present") thì mê cung tự nạp lại TOÀN BỘ ảnh của PHA 2 ("phonicsSpeak").
+ * BẢN SỬA LỖI ĐƠ (v2):
+ * Nguyên nhân thật sự của "đơ khi ăn ảnh xong, di chuyển sang từ khác" +
+ * "không đọc được tiếng Việt, phải bấm nút Đọc mới ra" là do hàm đọc
+ * "present" cũ gọi speakVI() (server TTS tiếng Việt free-tier, hay ngủ
+ * đông) tới 3-4 lần liên tiếp trong lúc catchTarget() đang khoá di chuyển
+ * (moveLocked = true) — mỗi lần có thể treo tới 6 giây trước khi ÂM THẦM bỏ
+ * qua. Xem chi tiết trong pkm_intro_round_helpers.js.
+ *
+ * CÁCH SỬA (đã thống nhất với người dùng): với round "present" — thẻ học từ
+ * giờ đọc TỰ ĐỘNG chỉ phần tiếng Anh ngắn (readPresentAuto, không gọi mạng
+ * ngoài, không thể treo) → sau đó mở khoá nút "🔊 Đọc đầy đủ" (Anh+Việt+AH+AI,
+ * readPresentFull) — CHỈ chạy khi học sinh chủ động bấm → xong mới mở khoá
+ * nút "Tiếp tục". Round "phonicsSpeak" giữ nguyên luồng cũ (không gọi
+ * speakVI nên không dính lỗi này).
+ *
+ * ĐÃ BỎ: đoạn code bị LẶP 2 LẦN trong catchTarget() cũ (results.push/
+ * doneCount++/advancePhaseOrFinish() chạy 2 lần liên tiếp mỗi lần ăn ảnh —
+ * đây là 1 bug thật, có thể gây spawn/finish sai nhịp). ĐÃ BỎ luôn
+ * `autoTimer = setTimeout(finishCard, 5000)` — code TEST còn sót, tự đóng
+ * thẻ sau 5 giây vô điều kiện dù đang ghi âm/đọc dở, không nên tồn tại ở
+ * bản chạy thật.
  *
  * SỬA LỖI ĐƠ TRÊN MOBILE (đặc biệt lần ăn ảnh đầu tiên): nguyên nhân là
  * speechSynthesis + AudioContext (dùng cho TTS, tách âm IPA, tiếng "bốp" khi
  * ăn ảnh) trên nhiều trình duyệt di động CHỈ được mở khoá chắc chắn nếu có
  * lệnh gọi NGAY TRONG lúc xử lý cử chỉ chạm (gesture) — gọi trễ vài giây sau
  * (qua các "await" nạp ảnh/sinh mê cung) dễ bị trình duyệt bỏ qua/treo. Ở
- * đây ta "đánh thức" cả 2 thứ đó NGAY LÚC chạm nút Bắt đầu, trước khi làm
- * bất cứ việc gì khác.
+ * đây ta "đánh thức" AudioContext + server TTS tiếng Việt NGAY LÚC chạm nút
+ * Bắt đầu, trước khi làm bất cứ việc gì khác.
  *
  * Bản đồ mê cung sinh ngẫu nhiên MỖI BUỔI HỌC (randomized DFS/recursive
  * backtracker) — đảm bảo mọi ô đều có đường đi tới (không có ô bị cô lập).
  */
 
 import { PkmGameLauncher, getImageFromMap, prefetchImagesBatch, shuffle, SFX } from "./all-shared.js";
-import { readPresentSequence, readPhonicsSequence, runMicRepeat, playPopSound, getSharedAudioCtx } from "./pkm_intro_round_helpers.js";
+import {
+  readPresentAuto, readPresentFull, readPhonicsSequence, runMicRepeat,
+  playPopSound, getSharedAudioCtx, warmUpViServer,
+} from "./pkm_intro_round_helpers.js";
 
 const COLS = 8, ROWS = 6;
 const DIR_DELTA = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
@@ -225,98 +244,81 @@ async function catchTarget(target) {
 
   el("pkzCardImg").src = getImageFromMap(round.imageKeyword) || "";
   el("pkzCardOverlay").classList.add("show");
-  const continueBtn = el("pkzCardContinueBtn");
-  continueBtn.disabled = true;
 
-  if (round.type === "present") renderPresentCard(round);
-  else renderPhonicsCard(round);
+  const localResult = round.type === "present"
+    ? await runPresentCard(round)
+    : await runPhonicsCard(round);
 
-  let settled = false;
-  let localResult = round.type === "present"
-    ? null
-    : { attemptsUsed: 2 };
-
-  let watchdog;
-  let autoTimer;
-
-  const finishCard = () => {
-    if (settled) return;
-
-    settled = true;
-    clearTimeout(watchdog);
-    clearTimeout(autoTimer);
-
-    continueBtn.disabled = true;
-    continueBtn.onclick = null;
-    el("pkzCardOverlay").classList.remove("show");
-
-    resolveCard();
-  };
-
-  let resolveCard;
-  const cardFinished = new Promise(resolve => {
-    resolveCard = resolve;
-  });
-
-  // Gắn handler NGAY LẬP TỨC, trước mọi await
-  continueBtn.onclick = finishCard;
-  continueBtn.disabled = true;
-
-  // Nếu luồng âm thanh/microphone bị treo quá 20 giây,
-  // vẫn cho phép người dùng bấm Tiếp tục.
-  watchdog = setTimeout(() => {
-    continueBtn.disabled = false;
-  }, 20000);
-
-  try {
-    if (round.type === "present") {
-      await readPresentSequence(round);
-      localResult = null;
-    } else {
-      await readPhonicsSequence(round, el("pkzPhonicsBox"));
-
-      const attemptsUsed = await runMicRepeat(round, {
-        statusEl: el("pkzSpeakStatus"),
-        micEl: el("pkzMic"),
-        finishBtnEl: el("pkzMicFinishBtn"),
-        resultEl: el("pkzSpeakResult"),
-      });
-
-      localResult = { attemptsUsed };
-    }
-  } catch (err) {
-    console.warn("Lỗi khi đọc/nghe từ:", err);
-    localResult = round.type === "present"
-      ? null
-      : { attemptsUsed: 2 };
-  }
-
-  // Đọc xong thì mở nút
-  if (!settled) {
-    continueBtn.disabled = false;
-  }
-
-  // TEST: tự động đóng sau 5 giây
-  autoTimer = setTimeout(finishCard, 5000);
-
-  await cardFinished;
+  el("pkzCardOverlay").classList.remove("show");
 
   results.push(localResult);
   doneCount++;
   updateProgress();
   moveLocked = false;
 
-  if (activeTargets.length === 0) {
-    advancePhaseOrFinish();
-  }
-
-
-  results.push(localResult !== undefined ? localResult : (round.type === "present" ? null : { attemptsUsed: 2 }));
-  doneCount++;
-  updateProgress();
-  moveLocked = false;
-
   if (activeTargets.length === 0) advancePhaseOrFinish();
+}
+
+/**
+ * Thẻ "present" (giới thiệu từ) — mô hình mới:
+ *   1. Vào thẻ -> TỰ ĐỘNG đọc ngắn tiếng Anh (readPresentAuto, không gọi
+ *      mạng ngoài -> không thể treo).
+ *   2. Xong -> mở khoá nút "🔊 Đọc đầy đủ".
+ *   3. Học sinh bấm nút đó -> mới gọi readPresentFull (Anh+Việt+AH/AI).
+ *   4. Xong lần đọc đầy đủ ĐẦU TIÊN -> mở khoá nút "Tiếp tục".
+ * Watchdog 20s là lưới an toàn cuối — chỉ MỞ KHOÁ nút Tiếp tục, không tự ý
+ * đóng thẻ hộ, để không cắt ngang lúc học sinh đang thao tác.
+ */
+function runPresentCard(round) {
+  return new Promise(resolve => {
+    renderPresentCard(round);
+
+    const readBtn = el("pkzCardReadBtn");
+    const continueBtn = el("pkzCardContinueBtn");
+    const statusEl = el("pkzPresentStatus");
+
+    let settled = false;
+    let fullReadDone = false;
+
+    readBtn.disabled = true;
+    continueBtn.disabled = true;
+
+    const watchdog = setTimeout(() => {
+      if (settled) return;
+      continueBtn.disabled = false;
+      if (statusEl) statusEl.textContent = "⚠️ Thời gian xử lý đã hết. Bạn vẫn có thể bấm Tiếp tục.";
+    }, 20000);
+
+    const finishCard = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(watchdog);
+      readBtn.onclick = null;
+      continueBtn.onclick = null;
+      resolve(null); // "present" không chấm điểm — giữ đúng hành vi cũ
+    };
+
+    continueBtn.onclick = finishCard;
+
+    readBtn.onclick = async () => {
+      readBtn.disabled = true;
+      if (statusEl) statusEl.textContent = "🔊 Đang đọc...";
+      await readPresentFull(round);
+      if (settled) return;
+      fullReadDone = true;
+      readBtn.disabled = false;
+      continueBtn.disabled = false;
+      if (statusEl) statusEl.textContent = "✅ Bạn có thể bấm Tiếp tục, hoặc bấm Đọc lại lần nữa.";
+    };
+
+    (async () => {
+      if (statusEl) statusEl.textContent = "🔊 Đang đọc...";
+      await readPresentAuto(round);
+      if (settled) return;
+      readBtn.disabled = false;
+      if (statusEl) statusEl.textContent = "🔊 Bấm nút để nghe đầy đủ (kèm nghĩa tiếng Việt).";
+    })();
+  });
 }
 
 function renderPresentCard(round) {
@@ -327,7 +329,59 @@ function renderPresentCard(round) {
     <div class="pkz-meaning">${round.meaning}</div>
     ${round.ah ? `<div class="pkz-ah">💡 ${round.ah.en ? round.ah.en + " : " : ""}${round.ah.vi || ""}</div>` : ""}
     ${round.ai ? `<div class="pkz-ai">✨ ${round.ai}</div>` : ""}
+    <div id="pkzPresentStatus" style="text-align:center;font-size:13px;color:#b06a00;margin:8px 0;min-height:18px;"></div>
+    <button class="pkz-btn" id="pkzCardReadBtn" style="display:block;margin:0 auto;background:#3498db;color:#fff;" disabled>🔊 Đọc đầy đủ</button>
   `;
+  const continueBtn = el("pkzCardContinueBtn");
+  continueBtn.disabled = true;
+}
+
+/** Thẻ "phonicsSpeak" — giữ nguyên luồng cũ (không gọi speakVI nên không
+ *  dính lỗi cold-start VI, không cần đổi mô hình). */
+function runPhonicsCard(round) {
+  return new Promise(async resolve => {
+    renderPhonicsCard(round);
+    const continueBtn = el("pkzCardContinueBtn");
+    continueBtn.disabled = true;
+
+    let settled = false;
+    const watchdog = setTimeout(() => {
+      if (settled) return;
+      continueBtn.disabled = false;
+      const status = el("pkzSpeakStatus");
+      const result = el("pkzSpeakResult");
+      if (status) status.textContent = "⚠️ Thời gian xử lý đã hết. Bạn vẫn có thể bấm Tiếp tục.";
+      if (result) result.innerHTML = "🗣️ Không nhận được kết quả ghi âm, nhưng bạn vẫn có thể tiếp tục.";
+    }, 20000);
+
+    let localResult = { attemptsUsed: 2 };
+    try {
+      await readPhonicsSequence(round, el("pkzPhonicsBox"));
+      const attemptsUsed = await runMicRepeat(round, {
+        statusEl: el("pkzSpeakStatus"),
+        micEl: el("pkzMic"),
+        finishBtnEl: el("pkzMicFinishBtn"),
+        resultEl: el("pkzSpeakResult"),
+      });
+      localResult = { attemptsUsed };
+    } catch (err) {
+      console.warn("Lỗi khi đọc/nghe từ:", err);
+    }
+
+    if (!settled) {
+      settled = true;
+      clearTimeout(watchdog);
+      continueBtn.disabled = false;
+    }
+
+    continueBtn.onclick = () => {
+      if (settled && continueBtn.disabled) return;
+      continueBtn.onclick = null;
+      resolve(localResult);
+    };
+    // Nếu watchdog đã bắn trước khi mic xong (hiếm), vẫn cho phép bấm ngay lúc này.
+    continueBtn.disabled = false;
+  });
 }
 
 function renderPhonicsCard(round) {
@@ -363,8 +417,10 @@ function finish() {
 }
 
 // ============================================================================
-// ĐÁNH THỨC ÂM THANH NGAY TRONG CỬ CHỈ CHẠM (chống đơ lần ăn ảnh đầu tiên
-// trên mobile) — PHẢI gọi đồng bộ, ngay trong handler của sự kiện click.
+// ĐÁNH THỨC ÂM THANH + SERVER TTS TIẾNG VIỆT NGAY TRONG CỬ CHỈ CHẠM (chống
+// đơ lần ăn ảnh đầu tiên trên mobile, và giảm khả năng bị timeout 6s ở lần
+// gọi speakVI đầu tiên vì server Render free-tier đang "ngủ đông").
+// PHẢI gọi đồng bộ, ngay trong handler của sự kiện click.
 // ============================================================================
 function warmUpAudio() {
   // ĐÃ BỎ: utterance "câm" gọi thẳng window.speechSynthesis.speak() — utterance
@@ -376,6 +432,13 @@ function warmUpAudio() {
   // (dùng cho IPA + tiếng "bốp" khi ăn ảnh, không liên quan speechSynthesis).
   try {
     getSharedAudioCtx();
+  } catch (e) { /* bỏ qua */ }
+
+  // MỚI: đánh thức server TTS tiếng Việt càng sớm càng tốt — chạy nền, không
+  // chặn gì cả. Tới lúc học sinh bấm "Đọc đầy đủ" ở thẻ present đầu tiên thì
+  // server thường đã kịp tỉnh, giảm hẳn khả năng bị timeout 6s.
+  try {
+    warmUpViServer();
   } catch (e) { /* bỏ qua */ }
 }
 
