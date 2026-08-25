@@ -16,6 +16,33 @@
  * nhiều trình duyệt mobile lệnh phát âm ngay sau đó rơi vào khoảng
  * AudioContext còn "suspended" -> im lặng hoặc treo). Mọi hàm phát âm trong
  * file này (playIpa, playSwishSound, playPopSound) đều await đúng theo.
+ *
+ * SỬA LỖI ĐƠ DO TTS TIẾNG VIỆT (bản này — QUAN TRỌNG):
+ * Nguyên nhân thật sự của hiện tượng "đơ khi sang từ khác" + "không đọc
+ * được tiếng Việt, phải bấm nút Đọc mới ra" KHÔNG nằm ở maze.js/flipbook.js
+ * mà nằm ở chính hàm đọc "present" cũ (readPresentSequence): nó gọi
+ * speakVI() liên tiếp 3-4 lần (nghĩa, AH tiếng Việt, AI). speakVI() dùng
+ * server Render free-tier, có thể "ngủ đông" và mỗi lần gọi treo tới 6 giây
+ * (timeout trong all-shared.js) trước khi ÂM THẦM bỏ qua (không throw, chỉ
+ * console.error rồi resolve() im lặng) — cộng dồn 3-4 lần có thể đơ tới
+ * 20+ giây, và lần đầu luôn bị mất tiếng vì server chưa kịp tỉnh.
+ *
+ * CÁCH SỬA: tách hẳn phần đọc "present" thành 2 hàm riêng biệt:
+ *   - readPresentAuto()  : CHỈ tiếng Anh (câu giới thiệu + từ) — tự động đọc
+ *                          ngay khi vào trang, không gọi server ngoài nào,
+ *                          nên không bao giờ đơ/treo vì mạng.
+ *   - readPresentFull()  : đọc ĐẦY ĐỦ (tiếng Anh + tiếng Việt + AH + AI) —
+ *                          CHỈ chạy khi người học chủ động bấm nút "Đọc".
+ *                          Nếu server VI đang nguội thì học sinh THẤY app
+ *                          đang bận (họ vừa bấm nút) thay vì tưởng app đơ.
+ * Game (flipbook.js/maze.js) sẽ gọi readPresentAuto() khi enterPage(), rồi
+ * mở khoá nút "Đọc" gọi readPresentFull(), rồi mở khoá nút "Tiếp theo" —
+ * đúng mô hình đã thống nhất. (Sửa flipbook.js/maze.js ở bước tiếp theo.)
+ *
+ * Đồng thời thêm warmUpViServer(): gọi 1 lần lúc bấm nút Start của game,
+ * bắn request "đánh thức" server TTS tiếng Việt CHẠY NỀN (không await),
+ * để tới lúc học sinh thật sự cần nghe tiếng Việt thì server thường đã
+ * tỉnh, giảm hẳn khả năng bị timeout 6s lần đầu.
  */
 
 import {
@@ -40,7 +67,31 @@ export function checkPercentMatchLocal(heard, target, threshold = 70) {
   return Math.round((correct / t.length) * 100) >= threshold;
 }
 
-// ─── Đọc từng âm IPA (dùng cho tách âm) ───
+// ============================================================================
+// WARM-UP SERVER TTS TIẾNG VIỆT — gọi 1 lần/trang, chạy nền, không chặn UI.
+// Cùng domain với speakVI() trong all-shared.js — TẠM thời khai lại hằng số
+// ở đây (không export từ all-shared.js) để không phải sửa thêm file đó ở
+// bước này; có thể gộp lại làm 1 nguồn sau nếu muốn.
+// ============================================================================
+const VI_TTS_BASE = "https://googlevoice-tinh.onrender.com";
+let _viWarmedUp = false;
+
+/** Bắn 1 request "đánh thức" server TTS tiếng Việt, KHÔNG await, KHÔNG phát
+ *  âm thanh gì cả (chỉ để server dậy trước, không decode/không play). Gọi
+ *  càng sớm càng tốt — lý tưởng nhất là ngay trong lúc xử lý gesture bấm nút
+ *  Start của game (giống warmUpAudio() cho AudioContext). */
+export function warmUpViServer() {
+  if (_viWarmedUp) return;
+  _viWarmedUp = true;
+  try {
+    const url = `${VI_TTS_BASE}/tts?q=xin+chao&speed=0.9&lang=vi-VN&voice=`;
+    fetch(url).catch(() => { /* im lặng — chỉ là bước đánh thức, không cần kết quả */ });
+  } catch (e) { /* im lặng bỏ qua nếu fetch không khả dụng vì lý do gì đó */ }
+}
+
+// ============================================================================
+// ẢNH / TÁCH ÂM — Đọc từng âm IPA (dùng cho tách âm)
+// ============================================================================
 let audioCtx = null;
 const audioCache = new Map();
 
@@ -112,28 +163,37 @@ export async function autoReadPhonics(container) {
   }
 }
 
-/** Đọc phần "giới thiệu từ" — không đụng DOM (chỉ phát âm thanh). */
-// Cờ TEST: từ đầu tiên trong ván chơi (mỗi lần vào trang là 1 module mới,
-// nên biến này tự đúng cho "lượt bắt/đọc đầu tiên") sẽ CHỈ đọc tiếng Anh,
-// bỏ qua toàn bộ speakVI() -- để kiểm tra xem có phải TTS tiếng Việt gây đơ.
-let _firstPresentCall = true;
+// ============================================================================
+// ĐỌC PHẦN "GIỚI THIỆU TỪ" (present) — TÁCH LÀM 2 HÀM (xem giải thích ở đầu
+// file): auto (chỉ EN, an toàn/nhanh) và full (đầy đủ, chỉ khi bấm nút Đọc).
+// ============================================================================
 
-/** Đọc phần "giới thiệu từ" — không đụng DOM (chỉ phát âm thanh). */
-export async function readPresentSequence(round) {
-  const skipVi = _firstPresentCall;
-  _firstPresentCall = false;
-
+/** Đọc TỰ ĐỘNG lúc vừa vào trang — CHỈ tiếng Anh (câu giới thiệu + từ), hoàn
+ *  toàn không gọi server ngoài (chỉ speechSynthesis nội bộ trình duyệt) nên
+ *  không có lý do gì để bị treo/đơ vì mạng. Đây là phần luôn chạy tự động. */
+export async function readPresentAuto(round) {
   await speakEN(randomPick(INTRO_WORD_LINES)(round.ord, round.word), round.rate);
   await speakEN(round.word, round.rate);
-  if (!skipVi) await speakVI(round.meaning, 0.9);
-  if (round.ah) {
-    if (round.ah.en) await speakEN(round.ah.en, round.rate);
-    if (round.ah.vi && !skipVi) await speakVI(round.ah.vi, 0.9);
-  }
-  if (round.ai && !skipVi) await speakVI(round.ai, 0.9);
 }
 
-/** Tách âm — vẽ vào `boxEl` (phần tử DOM rỗng do game truyền vào). */
+/** Đọc ĐẦY ĐỦ — tiếng Anh + nghĩa tiếng Việt + AH (en/vi) + AI (vi). CHỈ nên
+ *  gọi khi người học CHỦ ĐỘNG bấm nút "Đọc" (không tự động chạy), để nếu
+ *  server TTS tiếng Việt đang nguội thì học sinh thấy app đang xử lý phản
+ *  hồi hành động của mình, không phải cảm giác "trang bị đơ vô cớ". */
+export async function readPresentFull(round) {
+  await speakEN(round.word, round.rate);
+  await speakVI(round.meaning, 0.9);
+  if (round.ah) {
+    if (round.ah.en) await speakEN(round.ah.en, round.rate);
+    if (round.ah.vi) await speakVI(round.ah.vi, 0.9);
+  }
+  if (round.ai) await speakVI(round.ai, 0.9);
+}
+
+// ============================================================================
+// TÁCH ÂM — vẽ vào `boxEl` (phần tử DOM rỗng do game truyền vào). Không gọi
+// speakVI ở đâu trong hàm này nên không dính lỗi cold-start VI như ở trên.
+// ============================================================================
 export async function readPhonicsSequence(round, boxEl) {
   boxEl.innerHTML = "";
   if (window.handleSplit) {
@@ -157,6 +217,8 @@ export async function readPhonicsSequence(round, boxEl) {
  * — game tự thêm/bỏ class "listening"/"locked" theo ý muốn, finishBtnEl: nút
  * "Xong" để tự dừng ghi âm sớm, resultEl: hiện lại câu nhận dạng được).
  * Trả về attemptsUsed: 1 = đúng ngay lần đầu, 2 = lần 2 hoặc không đạt.
+ * (Không đụng gì trong hàm này — modelText/matchText luôn là tiếng Anh, nên
+ * không dính lỗi cold-start VI.)
  */
 export function runMicRepeat(round, elRefs) {
   const { statusEl, micEl, finishBtnEl, resultEl } = elRefs;
@@ -182,10 +244,8 @@ export function runMicRepeat(round, elRefs) {
       finishBtnEl.style.display = "none";
       finishBtnEl.onclick = null;
 
-      // Hiện nút/ trạng thái cho người dùng biết có thể đi tiếp
       statusEl.textContent = "✅ Đã hoàn tất. Bạn có thể bấm Tiếp theo.";
 
-      // Quan trọng: resolve ngay, không chờ TTS
       resolve(attempts);
     };
 
@@ -268,11 +328,7 @@ export function runMicRepeat(round, elRefs) {
 
         if (isCorrect) {
           statusEl.textContent = "🎉 Chính xác! Bạn có thể bấm Tiếp theo.";
-
-          // Mở khóa ngay, không chờ đọc lời khen
           finish(attemptNum);
-
-          // Đọc lời khen ở nền, có lỗi cũng không ảnh hưởng
           safeSpeak(randomPick(POSITIVE_FEEDBACK));
           return;
         }
@@ -281,8 +337,6 @@ export function runMicRepeat(round, elRefs) {
           statusEl.textContent =
             "💡 Chưa nghe rõ. Hãy nói lại hoặc bấm Tiếp theo.";
           lockMic(false);
-
-          // Cho phép nói lần 2 nếu mic vẫn dùng được
           return;
         }
 
@@ -330,7 +384,6 @@ export function runMicRepeat(round, elRefs) {
       statusEl.textContent = "🎤 Đến lượt bạn nói!";
       lockMic(false);
 
-      // Tự động ghi âm
       recordOneAttempt();
     })().catch(e => {
       console.error("Lỗi khởi tạo phần nói:", e);
@@ -341,7 +394,6 @@ export function runMicRepeat(round, elRefs) {
     });
   });
 }
-
 
 /** Tiếng "xoẹt" ngắn — dùng cho lật trang (flipbook) hoặc bất kỳ hiệu ứng
  *  chuyển cảnh nhanh nào cần 1 tiếng động nhẹ, không cần file mp3 riêng. */
