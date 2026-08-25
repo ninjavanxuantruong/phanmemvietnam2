@@ -403,7 +403,7 @@ window.ChessGame = {
 
                 const piece = this.board[r][c];
                 if (piece) {
-                    const el = this.buildPieceElement(piece);
+                    const el = this.buildPieceElement(piece, c);
                     piece.el = el;
                     sq.appendChild(el);
                 }
@@ -420,7 +420,11 @@ window.ChessGame = {
     // Vì vậy nhãn vai trò dùng <span> (không phải <div>) để không bị nhầm
     // là "div đầu tiên", và huy hiệu tròn trắng/đen nằm TRONG scale-wrap,
     // phía SAU ảnh (z-index thấp hơn).
-    buildPieceElement(piece) {
+    pieceFlipFor(side, c) {
+        const isLeftHalf = c < 4;
+        return side === 'player' ? (isLeftHalf ? 1 : -1) : (isLeftHalf ? -1 : 1);
+    },
+    buildPieceElement(piece, c) {
         const side = piece.side;
         const folder = side === 'player' ? 'ani-back' : 'ani'; // ta nhìn lên trên, địch nhìn xuống dưới — đúng quy ước pkm_styles.js
         const cleanName = (piece.entry.name || 'pikachu').toLowerCase().replace(/\s+/g, '');
@@ -428,11 +432,15 @@ window.ChessGame = {
         const fallbackUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${piece.entry.pkmId}.png`;
         const size = this.UNIT_SIZE;
 
+        // Quân bên trái (cột 0-3) và bên phải (cột 4-7) quay mặt ngược nhau
+        // để "nhìn vào giữa bàn cờ" — phe ta và phe địch đối xứng nhau.
+        const flip = this.pieceFlipFor(side, c);
+
         const el = document.createElement('div');
         el.className = `pkm-unit chess-piece side-${side}`;
         el.id = `${side}-unit-${piece.idx}`;
         el.dataset.scale = 1;   // CỐ ĐỊNH — mọi quân cùng kích cỡ, không co giãn theo loài
-        el.dataset.flip = 1;
+        el.dataset.flip = flip;
         el.dataset.type = piece.entry.type;
         el.innerHTML = `
             <span class="piece-label">${this.ROLE_LABEL[piece.role]}</span>
@@ -445,7 +453,11 @@ window.ChessGame = {
     },
 
     getSquareEl(r, c) { return document.querySelector(`.chess-square[data-r="${r}"][data-c="${c}"]`); },
-    moveElementToSquare(el, r, c) { const sq = this.getSquareEl(r, c); if (sq && el) sq.appendChild(el); },
+    moveElementToSquare(el, r, c, side) {
+        const sq = this.getSquareEl(r, c);
+        if (sq && el) sq.appendChild(el);
+        if (el && side) el.dataset.flip = this.pieceFlipFor(side, c);
+    },
 
     // Bàn cờ luôn có kích thước THAM CHIẾU cố định 480×480 (xem CSS +
     // renderBoard). Ở đây chỉ tính 1 hệ số scale() duy nhất để khối 480×480
@@ -691,36 +703,14 @@ window.ChessGame = {
 
     // ================= 8. HIỆU ỨNG RA CHIÊU (dùng thật pkm_skill_normal.js) =================
     // Chỉ 3/4 kiểu — xem giải thích ở đầu file (bỏ 'physical' vì lý do vị trí)
-    _capturePools: {},
-    pickCaptureStyle(idx) {
-        if (!this._capturePools[idx] || this._capturePools[idx].length === 0) {
-            const styles = ['bigOrb', 'stream', 'themed'];
-            for (let i = styles.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [styles[i], styles[j]] = [styles[j], styles[i]];
-            }
-            this._capturePools[idx] = styles;
-        }
-        return this._capturePools[idx].shift();
-    },
-
-    fireSkill(attackerPiece, targetPiece, damage) {
-        const SM = window.SkillManager;
-        if (!SM) return;
-        const info = {
-            type: attackerPiece.entry.type, gen: attackerPiece.entry.gen,
-            attackerIndex: attackerPiece.idx, attackerSide: attackerPiece.side,
-            attackerId: attackerPiece.entry.pkmId, attackerName: attackerPiece.entry.name,
-            targetSide: targetPiece.side, damage, isAOE: false,
-            targets: [targetPiece.idx], isSkill: true,
-        };
-        const style = this.pickCaptureStyle(`${attackerPiece.side}-${attackerPiece.idx}`);
+    async fireSkill(attackerPiece, targetPiece, damage, dist) {
+        const CS = window.ChessSkill;
+        if (!CS) return;
         const attackerEl = attackerPiece.el, targetEl = targetPiece.el;
-        let p;
-        if (style === 'bigOrb') p = SM.executeBigOrbSkill?.call(SM, attackerEl, targetEl, info);
-        else if (style === 'stream') p = SM.executeStreamSkill?.call(SM, attackerEl, targetEl, info);
-        else p = SM.executeThemedNormal?.call(SM, attackerEl, targetEl, info);
-        if (p && typeof p.catch === 'function') p.catch(() => {});
+        const opts = { type: attackerPiece.entry.type, damage };
+        const isMelee = dist <= 1 || attackerPiece.role === 'knight';
+        if (isMelee) await CS.meleeAttack(attackerEl, targetEl, opts);
+        else await CS.fireRanged(attackerEl, targetEl, opts);
     },
 
     // ================= 9. THỰC THI 1 NƯỚC ĐI (dùng chung người chơi + AI) =================
@@ -734,20 +724,20 @@ window.ChessGame = {
             // Damage chỉ là con số TRANG TRÍ cho hiệu ứng (cờ vua ăn quân là
             // loại bỏ hẳn, không có khái niệm máu) — nhân lên cho "đã mắt".
             const flourishDamage = ((this.PIECE_VALUE[captured.role] || 1) * 111);
-            this.fireSkill(piece, captured, flourishDamage);
+            const dist = Math.max(Math.abs(toR - fromR), Math.abs(toC - fromC));
+            await this.fireSkill(piece, captured, flourishDamage, dist); // đợi đúng lúc ChessSkill chạy xong hẳn (~2s)
 
             if (piece.side === 'player') {
                 const gold = Math.round((this.PIECE_VALUE[captured.role] || 1) * (3 + (this.session.persisted.round - 1) * 0.6));
                 this.session.persisted.gold += gold;
                 this.floatingText(piece.el, `+${gold}💰`, '#ffd700');
             }
-            await this.sleep(280);
             captured.el.remove();
         }
 
         this.board[toR][toC] = piece;
         this.board[fromR][fromC] = null;
-        this.moveElementToSquare(piece.el, toR, toC);
+        this.moveElementToSquare(piece.el, toR, toC, piece.side);
 
         // Phong cấp: Tốt tới cuối bàn -> tự động thành Hậu
         if (piece.role === 'pawn' && (toR === 0 || toR === 7)) {
@@ -886,7 +876,8 @@ window.ChessGame = {
         const s = this.session;
         s.gameEnded = true;
         s.inputLocked = true;
-        if (window.PkmScore) window.PkmScore.finishMatch({ won: true, minQuestions: this.MIN_QUESTIONS });
+        let scoreResult = null;
+        if (window.PkmScore) scoreResult = window.PkmScore.finishMatch({ won: true, minQuestions: this.MIN_QUESTIONS });
 
         const bonus = Math.round(30 + (s.persisted.round - 1) * 12);
         s.persisted.gold += bonus;
@@ -894,21 +885,39 @@ window.ChessGame = {
         this.savePersisted();
         this.updateHud();
 
+        // Dòng báo EXP/DV kiếm được từ quiz — chỉ hiện nếu có kết quả và
+        // không bị "skipped" (tức là đã trả lời đủ số câu tối thiểu).
+        let scoreLine = '';
+        if (scoreResult && !scoreResult.skipped) {
+            scoreLine = `<div style="color:#7ed6ff; font-size:14px; font-weight:bold; margin-top:6px;">
+                            +${scoreResult.bonusEXP} EXP &nbsp; +${scoreResult.bonusDV} DV
+                          </div>
+                          <div style="color:#888; font-size:11px; margin-top:2px;">
+                            Đúng ${scoreResult.correctCount}/${scoreResult.totalCount} câu (${scoreResult.accuracy}%)
+                          </div>`;
+        } else if (scoreResult && scoreResult.skipped) {
+            scoreLine = `<div style="color:#e74c3c; font-size:11px; margin-top:6px;">
+                            Chưa đủ ${this.MIN_QUESTIONS} câu quiz nên chưa được tính EXP/DV.
+                          </div>`;
+        }
+
         this.showEndOverlay({
             title: '🏆 CHIẾU BÍ! BẠN THẮNG!',
             color: '#f0c766',
             message: `<div style="color:#4caf50; font-size:16px; font-weight:bold;">+${bonus} 💰</div>
+                       ${scoreLine}
                        <div style="color:#aaa; font-size:12px; margin-top:6px;">Ván tiếp theo (đợt ${s.persisted.round}) — chọn lại độ khó nếu muốn!</div>`,
             buttonText: '⚔️ VÁN TIẾP THEO',
             onContinue: () => window.location.reload(),
+            onExit: () => window.location.href = 'pkm_mode_select.html',
         });
     },
-
     onPlayerLose() {
         const s = this.session;
         s.gameEnded = true;
         s.inputLocked = true;
-        if (window.PkmScore) window.PkmScore.finishMatch({ won: false, minQuestions: this.MIN_QUESTIONS });
+        let scoreResult = null;
+        if (window.PkmScore) scoreResult = window.PkmScore.finishMatch({ won: false, minQuestions: this.MIN_QUESTIONS });
         this.wipeAndRestart();
 
         this.showEndOverlay({
@@ -934,14 +943,16 @@ window.ChessGame = {
         });
     },
 
-    showEndOverlay({ title, color, message, buttonText, onContinue }) {
+    showEndOverlay({ title, color, message, buttonText, onContinue, onExit }) {
         const overlay = document.getElementById('match-end-overlay');
         const titleEl = document.getElementById('match-end-title');
         const msgEl = document.getElementById('match-end-message');
         const btn = document.getElementById('match-end-btn');
+        const btnExit = document.getElementById('match-end-btn-secondary');
         if (titleEl) { titleEl.innerText = title; titleEl.style.color = color; }
         if (msgEl) msgEl.innerHTML = message;
         if (btn) { btn.innerText = buttonText; btn.onclick = () => { overlay.style.display = 'none'; onContinue(); }; }
+        if (btnExit) { btnExit.onclick = () => { overlay.style.display = 'none'; onExit(); }; }
         if (overlay) overlay.style.display = 'flex';
     },
 
@@ -1067,11 +1078,12 @@ window.ChessGame = {
                 background:radial-gradient(circle, rgba(20,20,20,.9) 0%, rgba(20,20,20,.2) 70%, transparent 85%);
                 border:3px solid #141414; box-shadow:0 0 8px rgba(0,0,0,.75);
             }
-            .chess-piece img {
+                        .chess-piece img {
                 position:relative; z-index:1;
                 width:86%; height:86%; object-fit:contain;
                 filter:drop-shadow(0 3px 5px rgba(0,0,0,.6));
             }
+            .chess-piece[data-flip="-1"] img { transform: scaleX(-1); }
             .chess-piece.piece-promoted img { animation: chessPromoSparkle .6s ease-out; }
             .chess-piece.piece-in-check .piece-badge { animation: chessCheckPulse .7s ease-in-out infinite; }
 
