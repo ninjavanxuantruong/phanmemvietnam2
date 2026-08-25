@@ -224,7 +224,7 @@ window.TowerGame = {
             towerStunUntil: 0,
             enemiesSinceQuiz: 0, // đếm số quái đã spawn kể từ lần quiz gần nhất
             questionsSinceReward: 0, // đếm số câu đã trả lời kể từ lần chốt thưởng gần nhất
-            };
+            
         };
 
         if (wasReset || !this.session.persisted.roster) {
