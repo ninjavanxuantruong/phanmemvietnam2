@@ -109,6 +109,13 @@
             box-shadow: 0 4px 0 #8a6a20, 0 8px 25px rgba(240,199,102,0.3);
         }
         #match-end-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #8a6a20; }
+        #match-end-btn-secondary {
+            background: transparent; color: var(--text-soft);
+            border: 2px solid rgba(255,255,255,0.25);
+            padding: 12px 32px; border-radius: 30px; font-size: 14px; font-weight: 700; cursor: pointer;
+            font-family: 'Baloo 2', sans-serif; margin-top: 10px;
+        }
+        #match-end-btn-secondary:active { background: rgba(255,255,255,0.08); }
     </style>
 </head>
 <body>
@@ -147,6 +154,7 @@
         <div id="match-end-title">🏆 CHIẾU BÍ! BẠN THẮNG!</div>
         <div id="match-end-message"></div>
         <button id="match-end-btn">⚔️ VÁN TIẾP THEO</button>
+        <button id="match-end-btn-secondary">🏠 VỀ CHỌN CHẾ ĐỘ</button>
     </div>
 
     <script src="global-config.js"></script>
@@ -157,6 +165,8 @@
     <!-- Tái dùng NGUYÊN VẸN engine hiệu ứng đã viết cho Thủ Thành — ăn quân
          gọi TowerSkill.meleeAttack/fireRanged, không cần file skill riêng -->
     <script src="pkm_tower_skill.js"></script>
+    <script src="pkm_chess_skill.js"></script>
+
 
     <script src="pkm_score.js"></script>
     <script src="pkm_chess_scenery.js"></script>
