@@ -104,6 +104,7 @@
         .hud-chip .icon { font-size: clamp(13px, 2.5vw, 18px); filter: drop-shadow(0 0 4px rgba(0,0,0,.5)); }
         .hud-chip.score { color: var(--sky-cyan); }
         .hud-chip.level { color: #d7c4ff; padding: clamp(4px,1vh,7px) clamp(8px,1.6vw,12px); }
+        .hud-chip.weapon { color: #ffcf8a; padding: clamp(4px,1vh,7px) clamp(8px,1.6vw,12px); }
 
         #heartsBox { display: flex; gap: 1.5px; align-items: center; flex-wrap: wrap; justify-content: center; max-width: 30vw; }
         #heartsBox .heart-icon {
@@ -275,26 +276,37 @@
             z-index: 30;
         }
         #ammoBox {
-            display: flex; gap: 5px; align-items: flex-end;
+            display: flex; align-items: center; justify-content: center;
             pointer-events: none;
-            padding: 6px 14px;
+            padding: 6px 18px;
             background: rgba(10,8,18,0.5);
             border: 1px solid rgba(255,203,5,0.3);
             border-radius: 14px;
             backdrop-filter: blur(4px);
+            font-family: 'Baloo 2', sans-serif;
+            font-weight: 800;
+            font-size: clamp(14px, 3vw, 18px);
+            color: var(--gold);
+            min-width: 70px;
         }
-        .bullet-icon {
-            width: 10px; height: 26px;
-            border-radius: 4px 4px 2px 2px;
-            background: linear-gradient(180deg, #ffe38a 0%, #ff9500 55%, #a85f00 100%);
-            box-shadow: 0 0 6px rgba(255,180,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4);
-            transition: opacity .2s ease, transform .2s ease, filter .2s ease;
+        .ctrl-row { display: flex; gap: clamp(14px, 4vw, 26px); align-items: flex-end; pointer-events: none; }
+        #btnAim {
+            pointer-events: auto;
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            width: clamp(58px, 12vw, 74px); height: clamp(58px, 12vw, 74px);
+            border-radius: 50%;
+            background: linear-gradient(160deg, rgba(122,92,255,0.3), rgba(40,24,80,0.5));
+            border: 2.5px solid var(--violet);
+            color: #e2d8ff;
+            font-size: clamp(18px, 4vw, 22px);
+            justify-content: center;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12);
+            transition: transform .1s ease, background .15s ease, opacity .2s ease;
         }
-        .bullet-icon.bullet-used {
-            opacity: 0.25; filter: grayscale(1);
-            transform: scaleY(0.75) translateY(4px);
-            box-shadow: none;
-        }
+        #btnAim .reload-label { font-size: 8px; font-weight: 800; font-family: 'Baloo 2', sans-serif; letter-spacing: .5px; }
+        #btnAim:active { transform: scale(0.9); }
+        #btnAim.active { background: rgba(122,92,255,0.55); border-color: #fff; box-shadow: 0 0 22px rgba(122,92,255,0.6); }
+        #btnAim.hidden-weapon { opacity: 0.25; pointer-events: none; filter: grayscale(0.8); }
         #btnReload {
             pointer-events: auto;
             display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -437,6 +449,7 @@
         <div id="top-bar">
             <div class="brand-badge"><span class="pika-dot"></span>Bird&nbsp;Shoot</div>
             <div class="hud-chip level" id="levelChip">🎯 Màn 1</div>
+            <div class="hud-chip weapon" id="weaponChip">🔫 Súng lục</div>
             <div id="heartsBox">
                 <span class="heart-icon" data-i="0">❤️</span>
                 <span class="heart-icon" data-i="1">❤️</span>
@@ -458,17 +471,16 @@
             <div id="shoot-overlay-layer"></div>
 
             <div id="shoot-controls">
-                <div id="ammoBox">
-                    <span class="bullet-icon" data-i="0"></span>
-                    <span class="bullet-icon" data-i="1"></span>
-                    <span class="bullet-icon" data-i="2"></span>
-                    <span class="bullet-icon" data-i="3"></span>
-                    <span class="bullet-icon" data-i="4"></span>
-                    <span class="bullet-icon" data-i="5"></span>
-                </div>
-                <div id="btnReload">
-                    <span>🔄</span>
-                    <span class="reload-label">NẠP ĐẠN</span>
+                <div id="ammoBox"><span id="ammoText">7 / 7</span></div>
+                <div class="ctrl-row">
+                    <div id="btnAim" class="hidden-weapon" onclick="BirdShootGame.toggleAim()">
+                        <span>🔭</span>
+                        <span class="reload-label">NGẮM</span>
+                    </div>
+                    <div id="btnReload">
+                        <span>🔄</span>
+                        <span class="reload-label">NẠP ĐẠN</span>
+                    </div>
                 </div>
             </div>
         </div>

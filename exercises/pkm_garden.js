@@ -472,7 +472,7 @@ function harvestEntity(state, key, idx, kind) {
     const toolId = HARVEST_TOOL[kind];
     if (state.tools[toolId] <= 0) return { ok: false, en: `You need a ${CFG.TOOLS[toolId].name}.`, vn: `Bạn cần ${CFG.TOOLS[toolId].nameVN}, ghé shop mua nhé.` };
     state.tools[toolId]--;
-    addCurrency(info.tier.harvestDV, info.tier.harvestEXP);
+    if (window.WarehouseAPI) window.WarehouseAPI.addRaw(info.tier.id, 1); // cho vào Kho thay vì ra thẳng DV/EXP
     state[key][idx] = null;
     saveState(state);
     return { ok: true, tier: info.tier };
@@ -667,7 +667,7 @@ function handlePlantTap(idx, entity, info, spriteEl) {
     if (tool.role === "harvest") {
         if (tool.group !== "plant") return showToast(`${tool.name} doesn't work on plants.`, `${tool.nameVN} không dùng cho cây được.`);
         const r = harvestEntity(gameState, "lands", idx, "plant");
-        if (r.ok) { playEffect(spriteEl, "sickle"); showToast(`Harvested ${r.tier.name}! +${fmtNum(r.tier.harvestDV)} DV +${fmtNum(r.tier.harvestEXP)} EXP`, `Đã thu hoạch ${r.tier.nameVN}!`); }
+        if (r.ok) { playEffect(spriteEl, "sickle"); showToast(`Harvested ${r.tier.name}! Added to your warehouse.`, `Đã thu hoạch ${r.tier.nameVN}! Đã cho vào Kho.`); }
         else showToast(r.en, r.vn);
         updateToolbar(); renderLandField();
         return;
@@ -811,10 +811,10 @@ function handleRoamTap(key, idx, kind, imgEl) {
     if (tool.group !== kind) return showToast(`${tool.name} doesn't work here.`, `${tool.nameVN} không dùng ở đây được.`);
     const spriteWrap = imgEl.closest(".roam-sprite");
 
-    if (tool.role === "harvest") {
-        const r = harvestEntity(gameState, key, idx, kind);
-        if (r.ok) { playEffect(spriteWrap, tool.id); showToast(`Harvested ${r.tier.name}! +${fmtNum(r.tier.harvestDV)} DV +${fmtNum(r.tier.harvestEXP)} EXP`, `Đã thu hoạch ${r.tier.nameVN}!`); }
-        else showToast(r.en, r.vn);
+        if (tool.role === "harvest") {
+            const r = harvestEntity(gameState, key, idx, kind);
+            if (r.ok) { playEffect(spriteWrap, tool.id); showToast(`Harvested ${r.tier.name}! Added to your warehouse.`, `Đã thu hoạch ${r.tier.nameVN}! Đã cho vào Kho.`); }
+            else showToast(r.en, r.vn);
         updateToolbar(); renderAll();
         return;
     }
@@ -1061,6 +1061,74 @@ function openInfoModal(kind, info, entity, key, idx) {
 }
 function closeInfoModal() { document.getElementById("infoModal").style.display = "none"; }
 window.closeInfoModal = guard(closeInfoModal);
+// ===== Kho (Warehouse) — xem + bán trực tiếp nguyên liệu thô & sản phẩm =====
+function renderWarehouseModal() {
+    if (!window.WarehouseAPI || !window.WarehouseCatalog) return;
+    const wh = window.WarehouseAPI.load();
+    const cat = window.WarehouseCatalog;
+
+    const rawList = document.getElementById("warehouseRawList");
+    rawList.innerHTML = "";
+    let anyRaw = false;
+    Object.values(cat.RAW_MATERIALS).forEach((m) => {
+        const qty = wh.raw[m.id] || 0;
+        if (qty <= 0) return;
+        anyRaw = true;
+        const item = document.createElement("div");
+        item.className = "shop-item";
+        item.innerHTML = `
+            <div class="shop-item-emoji">${m.emoji}</div>
+            <div class="shop-item-info">
+                <div class="shop-item-name">${m.name} <span class="shop-item-vn">(${m.nameVN})</span></div>
+                <div class="shop-item-sub">Have: ${fmtNum(qty)} · ${fmtNum(m.sellDV)} DV each</div>
+            </div>
+            <button class="shop-buy-btn">Sell 1</button>`;
+        item.querySelector(".shop-buy-btn").onclick = guard(() => {
+            if (!window.WarehouseAPI.removeRaw(m.id, 1)) return showToast("Not enough to sell.", "Không đủ để bán.");
+            addCurrency(m.sellDV, 0);
+            announce("Sold");
+            showToast(`Sold 1 ${m.name} for ${fmtNum(m.sellDV)} DV.`, `Đã bán 1 ${m.nameVN}.`);
+            renderWarehouseModal(); updateTopBar();
+        });
+        rawList.appendChild(item);
+    });
+    document.getElementById("warehouseRawEmpty").style.display = anyRaw ? "none" : "block";
+
+    const procList = document.getElementById("warehouseProcessedList");
+    procList.innerHTML = "";
+    let anyProc = false;
+    Object.values(cat.RECIPES).flat().forEach((r) => {
+        const qty = wh.processed[r.id] || 0;
+        if (qty <= 0) return;
+        anyProc = true;
+        const item = document.createElement("div");
+        item.className = "shop-item";
+        item.innerHTML = `
+            <div class="shop-item-emoji">${r.emoji}</div>
+            <div class="shop-item-info">
+                <div class="shop-item-name">${r.name} <span class="shop-item-vn">(${r.nameVN})</span></div>
+                <div class="shop-item-sub">Have: ${fmtNum(qty)} · ${fmtNum(r.sellDV)} DV + ${fmtNum(r.sellEXP)} EXP each</div>
+            </div>
+            <button class="shop-buy-btn">Sell 1</button>`;
+        item.querySelector(".shop-buy-btn").onclick = guard(() => {
+            if (!window.WarehouseAPI.removeProcessed(r.id, 1)) return showToast("Not enough to sell.", "Không đủ để bán.");
+            addCurrency(r.sellDV, r.sellEXP);
+            announce("Sold");
+            showToast(`Sold 1 ${r.name} for ${fmtNum(r.sellDV)} DV + ${fmtNum(r.sellEXP)} EXP.`, `Đã bán 1 ${r.nameVN}.`);
+            renderWarehouseModal(); updateTopBar();
+        });
+        procList.appendChild(item);
+    });
+    document.getElementById("warehouseProcessedEmpty").style.display = anyProc ? "none" : "block";
+}
+function openWarehouseModal() {
+    announce("Warehouse");
+    renderWarehouseModal();
+    document.getElementById("warehouseModal").style.display = "flex";
+}
+window.openWarehouseModal = guard(openWarehouseModal);
+function closeWarehouseModal() { document.getElementById("warehouseModal").style.display = "none"; }
+window.closeWarehouseModal = guard(closeWarehouseModal);
 
 // ===== Shop giống (DV) =====
 

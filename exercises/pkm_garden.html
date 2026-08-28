@@ -20,7 +20,11 @@
         :root {
             --pond-top: 20.6%;  --pond-left: 8.3%;  --pond-width: 30%;  --pond-height: 28.1%;
             --barn-top: 22.6%;  --barn-left: 52.1%; --barn-width: 32.6%; --barn-height: 28.2%;
-            --land-top: 64.6%;  --land-left: 22.2%; --land-width: 56.8%; --land-height: 28.1%;
+        --land-top: 64.6%;  --land-left: 22.2%; --land-width: 56.8%; --land-height: 28.1%;
+        /* Toạ độ icon Công Xưởng (Store) — tạm để giữa ảnh, tự chỉnh 2 số này */
+        --factory-top: 46%;  --factory-left: 46%;
+        /* Toạ độ icon Kho (Warehouse) — tạm để góc phải trên, tự chỉnh 2 số này */
+        --warehouse-top: 30%;  --warehouse-left: 90%;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -183,6 +187,22 @@
             font-size: 19px; font-weight: 900; color: #1c1200; cursor: pointer;
             box-shadow: 0 4px 10px rgba(0,0,0,0.35);
         }
+        #openFactoryBtn {
+            position: absolute; top: var(--factory-top); left: var(--factory-left);
+            transform: translate(-50%, -50%); z-index: 6;
+            width: 56px; height: 56px; border-radius: 50%;
+            background: linear-gradient(135deg, #ff9f4a, #b5541a); border: 3px solid #ffcb05;
+            font-size: 26px; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+        }
+        #openWarehouseBtn {
+            position: absolute; top: var(--warehouse-top); left: var(--warehouse-left);
+            transform: translate(-50%, -50%); z-index: 6;
+            width: 46px; height: 46px; border-radius: 50%;
+            background: linear-gradient(135deg, #7fd8ff, #3fa9d1); border: 3px solid #fff;
+            font-size: 20px; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
 
         /* ============ THANH CÔNG CỤ (9 nút, cuộn ngang, dính đáy) ============ */
         #toolbar {
@@ -335,7 +355,11 @@
             <div class="zone" id="zoneLand"></div>
             <!-- Khu thú cưng: các Pokémon người chơi ĐANG SỞ HỮU (pkm_inventory), đi lại tự do khắp bản đồ -->
             <div id="zonePets"></div>
-        </div>
+    <!-- Icon mở PKM Garden Store — toạ độ chỉnh ở biến --factory-top/--factory-left trong :root -->
+    <button id="openFactoryBtn" title="PKM Garden Store">🏭</button>
+    <!-- Icon mở Kho — toạ độ chỉnh ở biến --warehouse-top/--warehouse-left trong :root -->
+    <button id="openWarehouseBtn" title="Warehouse">📦</button>
+    </div>
     </div>
     <!-- addFishBtn nằm trong zonePond, đặt ở đây để không bị grid/layout của zone khác ảnh hưởng -->
     <script>document.getElementById('zonePond').innerHTML += '<button id="addFishBtn" title="Add fish">＋</button>';</script>
@@ -398,6 +422,23 @@
         </div>
     </div>
 
+    <!-- KHO (WAREHOUSE) -->
+    <div id="warehouseModal" class="shop-overlay">
+        <div class="shop-card">
+            <div class="shop-card-header">
+                <div class="shop-modal-title">📦 Warehouse</div>
+                <button class="shop-close-btn" onclick="closeWarehouseModal()">✕</button>
+            </div>
+            <div class="shop-item-vn" style="margin-bottom:8px;">Kho Nguyên Liệu &amp; Sản Phẩm</div>
+            <div style="font-weight:900; font-size:12.5px; color:#a4e968; margin:10px 0 6px;">📦 Raw Materials / Nguyên Liệu Thô</div>
+            <div id="warehouseRawList"></div>
+            <div id="warehouseRawEmpty" style="font-size:11.5px; color:#9fd88a; font-style:italic; display:none;">Empty — go harvest! / Trống, hãy đi thu hoạch!</div>
+            <div style="font-weight:900; font-size:12.5px; color:#a4e968; margin:14px 0 6px;">🍽️ Processed Goods / Sản Phẩm Đã Chế Biến</div>
+            <div id="warehouseProcessedList"></div>
+            <div id="warehouseProcessedEmpty" style="font-size:11.5px; color:#9fd88a; font-style:italic; display:none;">Empty — process at the Store! / Trống, hãy chế biến ở Store!</div>
+        </div>
+    </div>
+
     <!-- TOAST -->
     <div id="gardenToast">
         <div id="gardenToastEn"></div>
@@ -431,12 +472,15 @@
         window.addEventListener('orientationchange', fitStage);
         fitStage();
         document.getElementById('toolShopOpenBtn').onclick = () => window.openToolShop();
+        document.getElementById('openFactoryBtn').onclick = () => { window.location.href = 'pkm_garden_store.html'; };
+        document.getElementById('openWarehouseBtn').onclick = () => window.openWarehouseModal();
     </script>
 
     <script src="global-config.js"></script>
     <script src="tacham.js"></script>
     <script type="module" src="pkm_quiz.js"></script>
     <script src="pkm_garden_tree.js"></script>
+    <script src="pkm_garden_warehouse.js"></script>
     <script src="pkm_garden.js"></script>
 </body>
 </html>
