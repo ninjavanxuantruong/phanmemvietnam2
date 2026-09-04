@@ -103,53 +103,145 @@ window.BirdShootGame = {
     // ═══════════════════════════════════════════════════════════
     WEAPON_DEFS: {
         pistol: {
-            id: "pistol", name: "Súng lục", maxAmmo: 7, fireCooldown: 0, reloadDuration: 0.6,
-            hitRadiusMul: 1, mode: "single", barrelLen: 120, viewmodel: "pistol",
+            id: "pistol",
+            name: "Súng lục",
+            maxAmmo: 7,
+            fireCooldown: 0,
+            reloadDuration: 0.6,
+            hitRadiusMul: 1,
+            mode: "single",
+            barrelLen: 120,
+            viewmodel: "pistol",
         },
         rifle: {
-            id: "rifle", name: "Súng trường", maxAmmo: 10, fireCooldown: 0.18, reloadDuration: 1.0,
-            hitRadiusMul: 1.25, farScoreMul: 2, mode: "single", barrelLen: 200, viewmodel: "rifle",
+            id: "rifle",
+            name: "Súng trường",
+            maxAmmo: 10,
+            fireCooldown: 0.18,
+            reloadDuration: 1.0,
+            hitRadiusMul: 1.25,
+            farScoreMul: 2,
+            mode: "single",
+            barrelLen: 200,
+            viewmodel: "rifle",
         },
         shotgun: {
-            id: "shotgun", name: "Súng 2 nòng", maxAmmo: 5, fireCooldown: 0, reloadDuration: 1.3,
-            hitRadiusMul: 1, mode: "spread", spreadRadius: 150, barrelLen: 170, viewmodel: "shotgun",
+            id: "shotgun",
+            name: "Súng 2 nòng",
+            maxAmmo: 5,
+            fireCooldown: 0,
+            reloadDuration: 1.3,
+            hitRadiusMul: 1,
+            mode: "spread",
+            spreadRadius: 150,
+            barrelLen: 170,
+            viewmodel: "shotgun",
         },
         sniper: {
-            id: "sniper", name: "Súng ngắm", maxAmmo: 5, fireCooldown: 0.9, reloadDuration: 1.4,
-            hitRadiusMul: 1, requiresScope: true, scopedHitRadiusMul: 1.8, unscopedHitRadiusMul: 0.6,
-            farScoreMul: 3, mode: "single", barrelLen: 210, viewmodel: "sniper",
+            id: "sniper",
+            name: "Súng ngắm",
+            maxAmmo: 5,
+            fireCooldown: 0.9,
+            reloadDuration: 1.4,
+            hitRadiusMul: 1,
+            requiresScope: true,
+            scopedHitRadiusMul: 1.8,
+            unscopedHitRadiusMul: 0.6,
+            farScoreMul: 3,
+            mode: "single",
+            barrelLen: 210,
+            viewmodel: "sniper",
         },
         smg: {
-            id: "smg", name: "Súng máy", maxAmmo: 24, fireCooldown: 0.09, reloadDuration: 1.6,
-            hitRadiusMul: 0.85, scoreMul: 0.7, autoFire: true, mode: "single", barrelLen: 140, viewmodel: "smg",
+            id: "smg",
+            name: "Súng máy",
+            maxAmmo: 24,
+            fireCooldown: 0.09,
+            reloadDuration: 1.6,
+            hitRadiusMul: 0.85,
+            scoreMul: 0.7,
+            autoFire: true,
+            mode: "single",
+            barrelLen: 140,
+            viewmodel: "smg",
         },
         revolver: {
-            id: "revolver", name: "Súng ổ quay", maxAmmo: 6, fireCooldown: 0.12, reloadDuration: 2.2,
-            hitRadiusMul: 1, scoreMul: 1.8, critChance: 0.15, critMul: 2, mode: "single", barrelLen: 110, viewmodel: "revolver",
+            id: "revolver",
+            name: "Súng ổ quay",
+            maxAmmo: 6,
+            fireCooldown: 0.12,
+            reloadDuration: 2.2,
+            hitRadiusMul: 1,
+            scoreMul: 1.8,
+            critChance: 0.15,
+            critMul: 2,
+            mode: "single",
+            barrelLen: 110,
+            viewmodel: "revolver",
         },
         crossbow: {
-            id: "crossbow", name: "Nỏ", maxAmmo: 4, fireCooldown: 0.7, reloadDuration: 0.5,
-            hitRadiusMul: 1, mode: "pierce", corridorWidth: 55, pierceMax: 4, barrelLen: 150, viewmodel: "crossbow",
+            id: "crossbow",
+            name: "Nỏ",
+            maxAmmo: 4,
+            fireCooldown: 0.7,
+            reloadDuration: 0.5,
+            hitRadiusMul: 1,
+            mode: "pierce",
+            corridorWidth: 55,
+            pierceMax: 4,
+            barrelLen: 150,
+            viewmodel: "crossbow",
         },
         grenade: {
-            id: "grenade", name: "Súng cối", maxAmmo: 3, fireCooldown: 1.0, reloadDuration: 2.0,
-            hitRadiusMul: 1, mode: "explosive", spreadRadius: 150, barrelLen: 160, viewmodel: "grenade",
+            id: "grenade",
+            name: "Súng cối",
+            maxAmmo: 3,
+            fireCooldown: 1.0,
+            reloadDuration: 2.0,
+            hitRadiusMul: 1,
+            mode: "explosive",
+            spreadRadius: 150,
+            barrelLen: 160,
+            viewmodel: "grenade",
         },
         blunderbuss: {
-            id: "blunderbuss", name: "Hoả mai cổ", maxAmmo: 4, fireCooldown: 0.6, reloadDuration: 2.6,
-            hitRadiusMul: 1, mode: "spread", spreadRadius: 210, nearOnlyDepthMin: 0.35, barrelLen: 180, viewmodel: "blunderbuss",
+            id: "blunderbuss",
+            name: "Hoả mai cổ",
+            maxAmmo: 4,
+            fireCooldown: 0.6,
+            reloadDuration: 2.6,
+            hitRadiusMul: 1,
+            mode: "spread",
+            spreadRadius: 210,
+            nearOnlyDepthMin: 0.35,
+            barrelLen: 180,
+            viewmodel: "blunderbuss",
         },
         silenced: {
-            id: "silenced", name: "Súng giảm thanh", maxAmmo: 8, fireCooldown: 0, reloadDuration: 0.55,
-            hitRadiusMul: 1, missRateThreshold: 0.55, mode: "single", barrelLen: 150, viewmodel: "silenced",
+            id: "silenced",
+            name: "Súng giảm thanh",
+            maxAmmo: 8,
+            fireCooldown: 0,
+            reloadDuration: 0.55,
+            hitRadiusMul: 1,
+            missRateThreshold: 0.55,
+            mode: "single",
+            barrelLen: 150,
+            viewmodel: "silenced",
         },
     },
 
-    weapon() { return this.WEAPON_DEFS[this.currentWeaponId] || this.WEAPON_DEFS.pistol; },
+    weapon() {
+        return (
+            this.WEAPON_DEFS[this.currentWeaponId] || this.WEAPON_DEFS.pistol
+        );
+    },
 
     // Điểm trục súng — hơi thấp hơn đáy màn hình 1 chút để trông như súng
     // cắm từ dưới lên (giống ảnh mẫu). MỌI khẩu đều xoay quanh CÙNG 1 trục.
-    pivotPoint() { return { x: this.VW / 2, y: this.VH * 1.02 }; },
+    pivotPoint() {
+        return { x: this.VW / 2, y: this.VH * 1.02 };
+    },
 
     // Đầu nòng súng theo góc ngắm HIỆN TẠI (lastAimAngle) — dùng để đặt tia
     // lửa đầu nòng đúng chỗ. pkm_birdshoot_background.js PHẢI vẽ đầu nòng
@@ -159,7 +251,10 @@ window.BirdShootGame = {
         const w = this.weapon();
         const pivot = this.pivotPoint();
         const len = w.barrelLen || 140;
-        return { x: pivot.x + Math.sin(this.lastAimAngle) * len, y: pivot.y - Math.cos(this.lastAimAngle) * len };
+        return {
+            x: pivot.x + Math.sin(this.lastAimAngle) * len,
+            y: pivot.y - Math.cos(this.lastAimAngle) * len,
+        };
     },
 
     // Hệ số nhân bán kính bắn trúng theo súng đang cầm + trạng thái ngắm
@@ -167,17 +262,30 @@ window.BirdShootGame = {
     currentHitRadiusMul() {
         const w = this.weapon();
         let mul = w.hitRadiusMul || 1;
-        if (w.requiresScope) mul *= this.aiming ? (w.scopedHitRadiusMul || 1.8) : (w.unscopedHitRadiusMul || 0.6);
+        if (w.requiresScope)
+            mul *= this.aiming
+                ? w.scopedHitRadiusMul || 1.8
+                : w.unscopedHitRadiusMul || 0.6;
         return mul;
     },
 
-    randomHitsUntilQuiz() { return 5 + Math.floor(Math.random() * 400); }, // 5..8  // số chim gọi quiz 84=5 đến 8
-    randomLevelTarget() { return 10 + Math.floor(Math.random() * 4); }, // 10..13
+    randomHitsUntilQuiz() {
+        return 5 + Math.floor(Math.random() * 4);
+    }, // 5..8  // số chim gọi quiz 84=5 đến 8
+    randomLevelTarget() {
+        return 10 + Math.floor(Math.random() * 4);
+    }, // 10..13
     // dùng chung cho cối xay gió LẪN bù nhìn — khoảng nghỉ trước khi hồi
     // sinh lại (ở vị trí khác) sau khi bị bắn hết/bắn xong nhiệm vụ.
-    randomStructureInterval() { return 14 + Math.random() * 8; }, // 14..22s
-    randomBalloonInterval() { return 10 + Math.random() * 8; }, // 10..18s
-    randomSpawnGap() { return Math.max(0.35, (0.75 + Math.random() * 0.5) / this.speedMul); },
+    randomStructureInterval() {
+        return 14 + Math.random() * 8;
+    }, // 14..22s
+    randomBalloonInterval() {
+        return 10 + Math.random() * 8;
+    }, // 10..18s
+    randomSpawnGap() {
+        return Math.max(0.35, (0.75 + Math.random() * 0.5) / this.speedMul);
+    },
     // vị trí X ngẫu nhiên cho cối xay gió/bù nhìn — chọn ngẫu nhiên 1 trong 2
     // dải trái/phải rồi random tiếp trong dải đó, để mỗi lần hồi sinh KHÔNG
     // lặp lại đúng 1 điểm cố định như trước (chỉ toggle trái<->phải).
@@ -265,7 +373,9 @@ window.BirdShootGame = {
     // ═══════════════════════════════════════════════════════════
     _audioCtx: null,
     ensureAudioCtx() {
-        if (!this._audioCtx) this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (!this._audioCtx)
+            this._audioCtx = new (window.AudioContext ||
+                window.webkitAudioContext)();
         if (this._audioCtx.state === "suspended") this._audioCtx.resume();
         return this._audioCtx;
     },
@@ -283,7 +393,9 @@ window.BirdShootGame = {
             gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
             osc.start(startTime);
             osc.stop(startTime + duration + 0.02);
-        } catch (e) { /* im lặng nếu trình duyệt chặn audio */ }
+        } catch (e) {
+            /* im lặng nếu trình duyệt chặn audio */
+        }
     },
     playNoiseBurst(duration, volume, delay = 0) {
         try {
@@ -291,14 +403,18 @@ window.BirdShootGame = {
             const bufferSize = Math.floor(ctx.sampleRate * duration);
             const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
             const data = buffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+            for (let i = 0; i < bufferSize; i++)
+                data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
             const src = ctx.createBufferSource();
             src.buffer = buffer;
             const gain = ctx.createGain();
             gain.gain.value = volume;
-            src.connect(gain); gain.connect(ctx.destination);
+            src.connect(gain);
+            gain.connect(ctx.destination);
             src.start(ctx.currentTime + delay);
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
     },
     // tiếng súng: nổ (noise) + "đề pa" tần số thấp
     playGunshotSound() {
@@ -307,7 +423,10 @@ window.BirdShootGame = {
         this.playTone(70, 0.14, "sine", 0.18, 0.015);
     },
     // tiếng cò súng bấm khi hết đạn (khô, không nổ)
-    playEmptyClickSound() { this.playTone(1400, 0.03, "square", 0.08, 0); this.playTone(900, 0.03, "square", 0.06, 0.03); },
+    playEmptyClickSound() {
+        this.playTone(1400, 0.03, "square", 0.08, 0);
+        this.playTone(900, 0.03, "square", 0.06, 0.03);
+    },
     // tiếng nạp đạn: 2 nhịp lách cách kim loại
     playReloadSound() {
         this.playTone(320, 0.06, "square", 0.16, 0);
@@ -315,14 +434,29 @@ window.BirdShootGame = {
         this.playTone(500, 0.05, "square", 0.15, 0.32);
         this.playTone(260, 0.08, "square", 0.16, 0.42);
     },
-    playBirdHitSound() { this.playTone(700, 0.05, "triangle", 0.22, 0); this.playTone(1100, 0.09, "sine", 0.22, 0.04); },
-    playWindmillHitSound() { this.playTone(300, 0.05, "square", 0.2, 0); this.playTone(180, 0.08, "square", 0.16, 0.03); },
-    playWindmillDestroySound() {
-        this.playTone(523, 0.1, "sine", 0.22, 0); this.playTone(659, 0.1, "sine", 0.22, 0.1);
-        this.playTone(784, 0.1, "sine", 0.22, 0.2); this.playTone(1047, 0.2, "sine", 0.26, 0.3);
+    playBirdHitSound() {
+        this.playTone(700, 0.05, "triangle", 0.22, 0);
+        this.playTone(1100, 0.09, "sine", 0.22, 0.04);
     },
-    playBalloonPopSound() { this.playNoiseBurst(0.2, 0.35, 0); this.playTone(180, 0.22, "sawtooth", 0.22, 0); },
-    playScarecrowHatSound() { this.playTone(880, 0.06, "triangle", 0.22, 0); this.playTone(1320, 0.1, "sine", 0.22, 0.05); this.playTone(1760, 0.14, "sine", 0.2, 0.12); },
+    playWindmillHitSound() {
+        this.playTone(300, 0.05, "square", 0.2, 0);
+        this.playTone(180, 0.08, "square", 0.16, 0.03);
+    },
+    playWindmillDestroySound() {
+        this.playTone(523, 0.1, "sine", 0.22, 0);
+        this.playTone(659, 0.1, "sine", 0.22, 0.1);
+        this.playTone(784, 0.1, "sine", 0.22, 0.2);
+        this.playTone(1047, 0.2, "sine", 0.26, 0.3);
+    },
+    playBalloonPopSound() {
+        this.playNoiseBurst(0.2, 0.35, 0);
+        this.playTone(180, 0.22, "sawtooth", 0.22, 0);
+    },
+    playScarecrowHatSound() {
+        this.playTone(880, 0.06, "triangle", 0.22, 0);
+        this.playTone(1320, 0.1, "sine", 0.22, 0.05);
+        this.playTone(1760, 0.14, "sine", 0.2, 0.12);
+    },
     // tiếng "choáng váng" khi bị phạt đơ — chuỗi tần số tụt dần kiểu sao nhấp nháy quanh đầu
     playStunSound() {
         this.playNoiseBurst(0.15, 0.3, 0);
@@ -331,20 +465,43 @@ window.BirdShootGame = {
         this.playTone(280, 0.14, "sawtooth", 0.15, 0.2);
         this.playTone(190, 0.2, "sawtooth", 0.14, 0.32);
     },
-    playHeartLostSound() { this.playTone(160, 0.2, "square", 0.24, 0); this.playTone(100, 0.24, "sawtooth", 0.2, 0.05); },
-    playQuizChime() { this.playTone(784, 0.1, "sine", 0.22, 0); this.playTone(988, 0.1, "sine", 0.22, 0.09); this.playTone(1318, 0.18, "sine", 0.25, 0.18); },
-    playGoSound() { this.playTone(523, 0.12, "sine", 0.25, 0); this.playTone(659, 0.12, "sine", 0.25, 0.12); this.playTone(784, 0.2, "sine", 0.28, 0.24); },
-    playGameOverSound() { this.playTone(392, 0.2, "sawtooth", 0.2, 0); this.playTone(330, 0.2, "sawtooth", 0.2, 0.18); this.playTone(220, 0.35, "sawtooth", 0.2, 0.36); },
+    playHeartLostSound() {
+        this.playTone(160, 0.2, "square", 0.24, 0);
+        this.playTone(100, 0.24, "sawtooth", 0.2, 0.05);
+    },
+    playQuizChime() {
+        this.playTone(784, 0.1, "sine", 0.22, 0);
+        this.playTone(988, 0.1, "sine", 0.22, 0.09);
+        this.playTone(1318, 0.18, "sine", 0.25, 0.18);
+    },
+    playGoSound() {
+        this.playTone(523, 0.12, "sine", 0.25, 0);
+        this.playTone(659, 0.12, "sine", 0.25, 0.12);
+        this.playTone(784, 0.2, "sine", 0.28, 0.24);
+    },
+    playGameOverSound() {
+        this.playTone(392, 0.2, "sawtooth", 0.2, 0);
+        this.playTone(330, 0.2, "sawtooth", 0.2, 0.18);
+        this.playTone(220, 0.35, "sawtooth", 0.2, 0.36);
+    },
     playLevelUpSound() {
-        this.playTone(440, 0.1, "sine", 0.22, 0); this.playTone(587, 0.1, "sine", 0.24, 0.1); this.playTone(880, 0.24, "sine", 0.28, 0.2);
+        this.playTone(440, 0.1, "sine", 0.22, 0);
+        this.playTone(587, 0.1, "sine", 0.24, 0.1);
+        this.playTone(880, 0.24, "sine", 0.28, 0.2);
     },
     // tiếng nhặt túi quà — đổi súng, vui tươi kiểu "level up nhỏ"
     playGiftPickupSound() {
-        this.playTone(660, 0.06, "triangle", 0.2, 0); this.playTone(880, 0.06, "triangle", 0.2, 0.06);
-        this.playTone(1100, 0.06, "triangle", 0.2, 0.12); this.playTone(1568, 0.16, "sine", 0.24, 0.18);
+        this.playTone(660, 0.06, "triangle", 0.2, 0);
+        this.playTone(880, 0.06, "triangle", 0.2, 0.06);
+        this.playTone(1100, 0.06, "triangle", 0.2, 0.12);
+        this.playTone(1568, 0.16, "sine", 0.24, 0.18);
     },
     // tiếng "chí mạng" (revolver) — vang và nặng hơn phát thường
-    playCritSound() { this.playTone(200, 0.05, "square", 0.3, 0); this.playTone(880, 0.1, "sine", 0.26, 0.03); this.playTone(1320, 0.14, "sine", 0.22, 0.1); },
+    playCritSound() {
+        this.playTone(200, 0.05, "square", 0.3, 0);
+        this.playTone(880, 0.1, "sine", 0.26, 0.03);
+        this.playTone(1320, 0.14, "sine", 0.22, 0.1);
+    },
 
     // ═══════════════════════════════════════════════════════════
     // KHỞI TẠO — luồng học từ vựng -> chọn cấp -> chạm bắt đầu, HỆT pkm_race.js
@@ -370,28 +527,50 @@ window.BirdShootGame = {
         const renderLevelSelect = (container) => {
             return new Promise((resolve) => {
                 const LEVELS = [
-                    { key: "de", emoji: "🟢", label: "Dễ", sub: "Hội thoại/đoạn văn ngắn" },
-                    { key: "trung_binh", emoji: "🟡", label: "Trung bình", sub: "Độ dài vừa phải" },
-                    { key: "kho", emoji: "🔴", label: "Khó", sub: "Hội thoại/đoạn văn dài" },
+                    {
+                        key: "de",
+                        emoji: "🟢",
+                        label: "Dễ",
+                        sub: "Hội thoại/đoạn văn ngắn",
+                    },
+                    {
+                        key: "trung_binh",
+                        emoji: "🟡",
+                        label: "Trung bình",
+                        sub: "Độ dài vừa phải",
+                    },
+                    {
+                        key: "kho",
+                        emoji: "🔴",
+                        label: "Khó",
+                        sub: "Hội thoại/đoạn văn dài",
+                    },
                 ];
                 container.innerHTML = `
                     <div style="text-align:center;">
                         <div class="shoot-level-select-title">🎯 Chọn cấp độ Bird Shoot!</div>
                         <div class="shoot-level-row">
-                            ${LEVELS.map((lv) => `
+                            ${LEVELS.map(
+                                (lv) => `
                                 <div class="shoot-level-card" data-level="${lv.key}">
                                     <div class="lv-emoji">${lv.emoji}</div>
                                     <div class="lv-label">${lv.label}</div>
                                     <div class="lv-sub">${lv.sub}</div>
-                                </div>`).join("")}
+                                </div>`,
+                            ).join("")}
                         </div>
                     </div>`;
-                container.querySelectorAll(".shoot-level-card").forEach((card) => {
-                    card.onclick = () => {
-                        localStorage.setItem("selected_level", card.dataset.level);
-                        resolve(card.dataset.level);
-                    };
-                });
+                container
+                    .querySelectorAll(".shoot-level-card")
+                    .forEach((card) => {
+                        card.onclick = () => {
+                            localStorage.setItem(
+                                "selected_level",
+                                card.dataset.level,
+                            );
+                            resolve(card.dataset.level);
+                        };
+                    });
             });
         };
 
@@ -424,11 +603,18 @@ window.BirdShootGame = {
             this.showTapToStart();
         };
 
-        if (window.VocabularyModule && typeof window.VocabularyModule.start === "function") {
-            console.log("📘 [BirdShoot] Gọi VocabularyModule chạy phần học từ vựng...");
+        if (
+            window.VocabularyModule &&
+            typeof window.VocabularyModule.start === "function"
+        ) {
+            console.log(
+                "📘 [BirdShoot] Gọi VocabularyModule chạy phần học từ vựng...",
+            );
             await window.VocabularyModule.start();
         } else {
-            console.warn("⚠️ Không tìm thấy VocabularyModule, tự động vào thẳng Bird Shoot!");
+            console.warn(
+                "⚠️ Không tìm thấy VocabularyModule, tự động vào thẳng Bird Shoot!",
+            );
             window.startPokemonBattle();
         }
     },
@@ -441,7 +627,8 @@ window.BirdShootGame = {
         const wrapW = Math.max(1, stage.clientWidth);
         const wrapH = Math.max(1, stage.clientHeight);
 
-        this.cssW = wrapW; this.cssH = wrapH;
+        this.cssW = wrapW;
+        this.cssH = wrapH;
         this.canvas.style.width = wrapW + "px";
         this.canvas.style.height = wrapH + "px";
 
@@ -453,18 +640,32 @@ window.BirdShootGame = {
         this.canvas.height = Math.round(this.VH * this.dpr);
         this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
 
-        if (window.BirdShootBackground) window.BirdShootBackground.rebuildGradients(this.ctx, this.shootState());
+        if (window.BirdShootBackground)
+            window.BirdShootBackground.rebuildGradients(
+                this.ctx,
+                this.shootState(),
+            );
     },
 
     // Đóng gói thông số cho pkm_birdshoot_background.js — xem API ở đầu file.
     shootState() {
         return {
-            VW: this.VW, VH: this.VH, level: this.level, speedMul: this.speedMul, tNow: performance.now() / 1000,
-            weaponId: this.currentWeaponId, weaponName: this.weapon().name,
+            VW: this.VW,
+            VH: this.VH,
+            level: this.level,
+            speedMul: this.speedMul,
+            tNow: performance.now() / 1000,
+            weaponId: this.currentWeaponId,
+            weaponName: this.weapon().name,
             aimAngle: this.lastAimAngle,
-            recoilAmt: this.GUN_RECOIL_DURATION ? Math.max(0, this.gunRecoilT / this.GUN_RECOIL_DURATION) : 0,
-            aiming: this.aiming, requiresScope: !!this.weapon().requiresScope,
-            ammo: this.ammo, maxAmmo: this.weapon().maxAmmo, reloading: this.reloading,
+            recoilAmt: this.GUN_RECOIL_DURATION
+                ? Math.max(0, this.gunRecoilT / this.GUN_RECOIL_DURATION)
+                : 0,
+            aiming: this.aiming,
+            requiresScope: !!this.weapon().requiresScope,
+            ammo: this.ammo,
+            maxAmmo: this.weapon().maxAmmo,
+            reloading: this.reloading,
             pivot: this.pivotPoint(),
         };
     },
@@ -554,7 +755,11 @@ window.BirdShootGame = {
         this.scarecrowActive = false;
         this.stunned = false;
         this.stunT = 0;
-        if (window.BirdShootBackground) window.BirdShootBackground.rebuildGradients(this.ctx, this.shootState());
+        if (window.BirdShootBackground)
+            window.BirdShootBackground.rebuildGradients(
+                this.ctx,
+                this.shootState(),
+            );
     },
 
     startPlaying() {
@@ -566,7 +771,9 @@ window.BirdShootGame = {
         this.score = 0;
         this.lives = 10;
         this.birdsCollected = 0;
-        this.correctCount = 0; this.wrongCount = 0; this.totalCount = 0;
+        this.correctCount = 0;
+        this.wrongCount = 0;
+        this.totalCount = 0;
         this.birdsHitSinceQuiz = 0;
         this.hitsUntilQuiz = this.randomHitsUntilQuiz();
         this.updateHUD();
@@ -605,7 +812,10 @@ window.BirdShootGame = {
         this.updateObjects(dt);
         this.updateParticles(dt);
 
-        if (this.shake.t > 0) { this.shake.t -= dt; if (this.shake.t < 0) this.shake.t = 0; }
+        if (this.shake.t > 0) {
+            this.shake.t -= dt;
+            if (this.shake.t < 0) this.shake.t = 0;
+        }
 
         this.updateControlsLockVisual();
         this.updateHUD();
@@ -616,22 +826,32 @@ window.BirdShootGame = {
     updateStun(dt) {
         if (!this.stunned) return;
         this.stunT -= dt;
-        if (this.stunT <= 0) { this.stunned = false; this.stunT = 0; }
+        if (this.stunT <= 0) {
+            this.stunned = false;
+            this.stunT = 0;
+        }
     },
 
     // Đồng bộ class "locked" của #shoot-controls theo CẢ controlsLocked (quiz)
     // LẪN stunned (phạt đơ) — 2 trạng thái độc lập nhưng cùng khoá UI.
     updateControlsLockVisual() {
         const el = document.getElementById("shoot-controls");
-        if (el) el.classList.toggle("locked", this.controlsLocked || this.stunned);
+        if (el)
+            el.classList.toggle("locked", this.controlsLocked || this.stunned);
     },
 
     // Đếm ngược cooldown giữa 2 phát (rifle/sniper/crossbow/grenade/blunderbuss)
     // + hiệu ứng giật lùi viewmodel — thuần thị giác + gating bắn, không liên
     // quan gì tới reload.
     updateWeaponTimers(dt) {
-        if (this.fireCooldownT > 0) { this.fireCooldownT -= dt; if (this.fireCooldownT < 0) this.fireCooldownT = 0; }
-        if (this.gunRecoilT > 0) { this.gunRecoilT -= dt; if (this.gunRecoilT < 0) this.gunRecoilT = 0; }
+        if (this.fireCooldownT > 0) {
+            this.fireCooldownT -= dt;
+            if (this.fireCooldownT < 0) this.fireCooldownT = 0;
+        }
+        if (this.gunRecoilT > 0) {
+            this.gunRecoilT -= dt;
+            if (this.gunRecoilT < 0) this.gunRecoilT = 0;
+        }
     },
 
     // Auto-fire — CHỈ áp dụng khi súng hiện tại có autoFire=true (SMG) VÀ
@@ -641,8 +861,18 @@ window.BirdShootGame = {
         if (!this._pointerActive) return;
         const w = this.weapon();
         if (!w.autoFire) return;
-        if (this.controlsLocked || this.stunned || this.reloading || !this.running || this.gameOver) return;
-        if (this.ammo <= 0) { this._pointerActive = false; return; }
+        if (
+            this.controlsLocked ||
+            this.stunned ||
+            this.reloading ||
+            !this.running ||
+            this.gameOver
+        )
+            return;
+        if (this.ammo <= 0) {
+            this._pointerActive = false;
+            return;
+        }
         this.autoFireAccum -= dt;
         if (this.autoFireAccum <= 0) {
             this.onTapShoot(this._pointerX, this._pointerY);
@@ -688,58 +918,92 @@ window.BirdShootGame = {
     spawnBird() {
         const roll = Math.random();
         const depth = Math.random(); // 0 = xa/bé, 1 = gần/to
-        const scale = this.SCALE_FAR + (this.SCALE_NEAR - this.SCALE_FAR) * depth;
+        const scale =
+            this.SCALE_FAR + (this.SCALE_NEAR - this.SCALE_FAR) * depth;
         const speed = this.BASE_SPEED * (0.65 + 0.55 * depth) * this.speedMul;
-        const species = ["brown", "red", "white"][Math.floor(Math.random() * 3)];
+        const species = ["brown", "red", "white"][
+            Math.floor(Math.random() * 3)
+        ];
         const base = {
-            kind: "bird", alive: true, depth, scale, species,
+            kind: "bird",
+            alive: true,
+            depth,
+            scale,
+            species,
             hitRadius: this.HIT_RADIUS_BASE * scale,
             flapPhase: Math.random() * Math.PI * 2,
-            rot: 0, bornT: performance.now() / 1000,
+            rot: 0,
+            bornT: performance.now() / 1000,
         };
 
         if (roll < 0.45) {
             // bay ngang: trái->phải hoặc phải->trái, hơi nhấp nhô theo sin
             const dir = Math.random() < 0.5 ? 1 : -1;
             const y = this.VH * 0.14 + Math.random() * this.VH * 0.42;
-            this.objects.push(Object.assign(base, {
-                pattern: "horizontal",
-                x: dir < 0 ? this.VW + 70 : -70, y, baseY: y,
-                vx: dir * speed, vy: 0,
-                bobAmp: 14 + Math.random() * 26, bobFreq: 1.4 + Math.random() * 1.4,
-            }));
+            this.objects.push(
+                Object.assign(base, {
+                    pattern: "horizontal",
+                    x: dir < 0 ? this.VW + 70 : -70,
+                    y,
+                    baseY: y,
+                    vx: dir * speed,
+                    vy: 0,
+                    bobAmp: 14 + Math.random() * 26,
+                    bobFreq: 1.4 + Math.random() * 1.4,
+                }),
+            );
         } else if (roll < 0.68) {
             // bay chéo lên trời: xuất phát đáy 1 bên, bay chéo qua và thoát lên trên
             const dir = Math.random() < 0.5 ? 1 : -1;
             const x = dir < 0 ? this.VW + 40 : -40;
             const y = this.VH * 0.62 + Math.random() * this.VH * 0.28;
-            this.objects.push(Object.assign(base, {
-                pattern: "diagonal",
-                x, y,
-                vx: dir * speed * 0.72, vy: -speed * 0.95,
-            }));
+            this.objects.push(
+                Object.assign(base, {
+                    pattern: "diagonal",
+                    x,
+                    y,
+                    vx: dir * speed * 0.72,
+                    vy: -speed * 0.95,
+                }),
+            );
         } else if (roll < 0.85) {
             // lượn giữa màn hình 1 lúc rồi bay thoát — mục tiêu "ngon ăn" nhưng thời gian có hạn
             const x = this.VW * 0.34 + Math.random() * this.VW * 0.32;
             const y = this.VH * 0.22 + Math.random() * this.VH * 0.24;
-            this.objects.push(Object.assign(base, {
-                pattern: "center",
-                x, y, baseX: x, baseY: y,
-                vx: 0, vy: 0, centerT: 0, centerLife: 2.4 + Math.random() * 1.3, fleeing: false,
-            }));
+            this.objects.push(
+                Object.assign(base, {
+                    pattern: "center",
+                    x,
+                    y,
+                    baseX: x,
+                    baseY: y,
+                    vx: 0,
+                    vy: 0,
+                    centerT: 0,
+                    centerLife: 2.4 + Math.random() * 1.3,
+                    fleeing: false,
+                }),
+            );
         } else {
             // "popup" kiểu mồi Duck Hunt: nhô từ mép dưới lên, đứng giật nhẹ
             // 1-1.5s rồi tự tụt xuống mất — bắn hụt KHÔNG bị trừ mạng.
             const x = this.VW * 0.12 + Math.random() * this.VW * 0.76;
             const targetY = this.VH * 0.3 + Math.random() * this.VH * 0.28;
-            this.objects.push(Object.assign(base, {
-                pattern: "popup",
-                x, baseX: x, y: this.VH * 1.08, targetY,
-                vx: 0, vy: 0,
-                phase: "rising",
-                holdT: 0, holdDur: 1.0 + Math.random() * 0.5,
-                jitterSeed: Math.random() * 10,
-            }));
+            this.objects.push(
+                Object.assign(base, {
+                    pattern: "popup",
+                    x,
+                    baseX: x,
+                    y: this.VH * 1.08,
+                    targetY,
+                    vx: 0,
+                    vy: 0,
+                    phase: "rising",
+                    holdT: 0,
+                    holdDur: 1.0 + Math.random() * 0.5,
+                    jitterSeed: Math.random() * 10,
+                }),
+            );
         }
     },
 
@@ -749,12 +1013,17 @@ window.BirdShootGame = {
     spawnWindmill() {
         this.windmillActive = true;
         this.objects.push({
-            kind: "windmill", alive: true,
-            x: this.randomStructureX(), y: this.VH * (0.18 + Math.random() * 0.08),
-            scale: 1, bladeLen: 92, rotAngle: 0,
+            kind: "windmill",
+            alive: true,
+            x: this.randomStructureX(),
+            y: this.VH * (0.18 + Math.random() * 0.08),
+            scale: 1,
+            bladeLen: 92,
+            rotAngle: 0,
             rotSpeed: 1.05 + Math.random() * 0.5,
             blades: [0, 1, 2, 3, 4].map(() => ({ alive: true })),
-            destroyed: false, despawnT: 0,
+            destroyed: false,
+            despawnT: 0,
         });
     },
 
@@ -765,19 +1034,27 @@ window.BirdShootGame = {
     spawnScarecrow() {
         this.scarecrowActive = true;
         this.objects.push({
-            kind: "scarecrow", alive: true,
-            x: this.randomStructureX(), y: this.VH * (0.72 + Math.random() * 0.06),
+            kind: "scarecrow",
+            alive: true,
+            x: this.randomStructureX(),
+            y: this.VH * (0.72 + Math.random() * 0.06),
             scale: 0.92 + Math.random() * 0.2,
-            hatAlive: true, swayPhase: Math.random() * Math.PI * 2,
-            destroyed: false, despawnT: 0,
+            hatAlive: true,
+            swayPhase: Math.random() * Math.PI * 2,
+            destroyed: false,
+            despawnT: 0,
         });
     },
 
     // Vị trí nón / thân bù nhìn tại thời điểm hiện tại — dùng chung cho cả
     // hit-test (findTargetAt) lẫn vẽ hình (pkm_birdshoot_background.js phải
     // định vị nón/thân Ở ĐÚNG toạ độ tương đối này, xem ghi chú offset).
-    scarecrowHatPos(sc) { return { x: sc.x, y: sc.y - 96 * sc.scale }; },
-    scarecrowBodyPos(sc) { return { x: sc.x, y: sc.y - 30 * sc.scale }; },
+    scarecrowHatPos(sc) {
+        return { x: sc.x, y: sc.y - 96 * sc.scale };
+    },
+    scarecrowBodyPos(sc) {
+        return { x: sc.x, y: sc.y - 30 * sc.scale };
+    },
 
     // Khinh khí cầu — bay ngang chậm rãi, bắn trúng bị TRỪ điểm + phạt đơ
     // (mục tiêu cần tránh, không tính vào bộ đếm quiz/lên màn). "Hầu như"
@@ -787,13 +1064,18 @@ window.BirdShootGame = {
         const dir = Math.random() < 0.5 ? 1 : -1;
         const y = this.VH * 0.1 + Math.random() * this.VH * 0.16;
         this.objects.push({
-            kind: "balloon", alive: true,
-            x: dir < 0 ? this.VW + 90 : -90, y,
-            vx: dir * this.BASE_SPEED * 0.42 * this.speedMul, vy: 0,
+            kind: "balloon",
+            alive: true,
+            x: dir < 0 ? this.VW + 90 : -90,
+            y,
+            vx: dir * this.BASE_SPEED * 0.42 * this.speedMul,
+            vy: 0,
             scale: 0.95 + Math.random() * 0.25,
             hitRadius: this.HIT_RADIUS_BASE * 1.35,
             bobPhase: Math.random() * Math.PI * 2,
-            carriedWeaponId: Object.keys(this.WEAPON_DEFS)[Math.floor(Math.random() * Object.keys(this.WEAPON_DEFS).length)],
+            carriedWeaponId: Object.keys(this.WEAPON_DEFS)[
+                Math.floor(Math.random() * Object.keys(this.WEAPON_DEFS).length)
+            ],
         });
     },
 
@@ -801,8 +1083,11 @@ window.BirdShootGame = {
     // sẽ đổi sang 1 khẩu súng NGẪU NHIÊN (khác khẩu đang cầm nếu có thể).
     spawnGiftBag(x, y) {
         this.objects.push({
-            kind: "giftBag", alive: true,
-            x, y, vy: 0,
+            kind: "giftBag",
+            alive: true,
+            x,
+            y,
+            vy: 0,
             scale: 0.85 + Math.random() * 0.25,
             hitRadius: this.HIT_RADIUS_BASE * 1.1,
             spin: Math.random() * 10,
@@ -834,7 +1119,8 @@ window.BirdShootGame = {
             b.y = b.baseY + Math.sin(b.flapPhase * (b.bobFreq / 9)) * b.bobAmp;
             b.rot = b.vx > 0 ? 0.08 : -0.08;
         } else if (b.pattern === "diagonal") {
-            b.x += b.vx * dt; b.y += b.vy * dt;
+            b.x += b.vx * dt;
+            b.y += b.vy * dt;
             b.rot = Math.atan2(b.vy, b.vx) * 0.5;
         } else if (b.pattern === "center") {
             if (!b.fleeing) {
@@ -844,17 +1130,24 @@ window.BirdShootGame = {
                 if (b.centerT >= b.centerLife) {
                     b.fleeing = true;
                     const ang = Math.random() * Math.PI * 2;
-                    const spd = this.BASE_SPEED * (0.8 + 0.6 * b.depth) * this.speedMul;
-                    b.vx = Math.cos(ang) * spd; b.vy = Math.sin(ang) * spd - 40;
+                    const spd =
+                        this.BASE_SPEED * (0.8 + 0.6 * b.depth) * this.speedMul;
+                    b.vx = Math.cos(ang) * spd;
+                    b.vy = Math.sin(ang) * spd - 40;
                 }
             } else {
-                b.x += b.vx * dt; b.y += b.vy * dt;
+                b.x += b.vx * dt;
+                b.y += b.vy * dt;
             }
         } else if (b.pattern === "popup") {
             const RISE_SPEED = 520; // px ảo/giây — tốc độ nhô lên/tụt xuống
             if (b.phase === "rising") {
                 b.y -= RISE_SPEED * dt;
-                if (b.y <= b.targetY) { b.y = b.targetY; b.phase = "holding"; b.holdT = 0; }
+                if (b.y <= b.targetY) {
+                    b.y = b.targetY;
+                    b.phase = "holding";
+                    b.holdT = 0;
+                }
             } else if (b.phase === "holding") {
                 b.holdT += dt;
                 // giật nhẹ qua lại tại chỗ, mô phỏng chim mồi "cảnh giác"
@@ -912,9 +1205,15 @@ window.BirdShootGame = {
 
     isOffscreenRemovable(obj) {
         // cối xay gió/bù nhìn không di chuyển — chỉ gỡ khi đã fade xong (alive=false)
-        if (obj.kind === "windmill" || obj.kind === "scarecrow") return !obj.alive;
+        if (obj.kind === "windmill" || obj.kind === "scarecrow")
+            return !obj.alive;
         const margin = 140;
-        if (obj.x < -margin || obj.x > this.VW + margin || obj.y < -margin || obj.y > this.VH + margin) {
+        if (
+            obj.x < -margin ||
+            obj.x > this.VW + margin ||
+            obj.y < -margin ||
+            obj.y > this.VH + margin
+        ) {
             if (obj.kind === "balloon") {
                 this.balloonActive = false;
                 // FIX: trước đây quên reset -> khinh khí cầu bay thoát xong
@@ -942,7 +1241,9 @@ window.BirdShootGame = {
     // ĐIỀU KHIỂN — TAP TRỰC TIẾP VÀO MỤC TIÊU TRÊN CANVAS
     // ═══════════════════════════════════════════════════════════
     attachControls() {
-        document.getElementById("btnReload").addEventListener("click", () => this.doReload());
+        document
+            .getElementById("btnReload")
+            .addEventListener("click", () => this.doReload());
 
         const stage = document.getElementById("shoot-stage");
         const toVirtual = (clientX, clientY) => {
@@ -952,40 +1253,76 @@ window.BirdShootGame = {
             return { x: relX * this.VW, y: relY * this.VH };
         };
 
-        const canShoot = () => this.controlsLocked || this.stunned || !this.running || this.gameOver;
+        const canShoot = () =>
+            this.controlsLocked ||
+            this.stunned ||
+            !this.running ||
+            this.gameOver;
 
-        stage.addEventListener("touchstart", (e) => {
-            if (canShoot()) return;
-            const t = e.changedTouches[0];
-            const p = toVirtual(t.clientX, t.clientY);
-            this._pointerActive = true; this._pointerX = p.x; this._pointerY = p.y; this.autoFireAccum = 0;
-            this.onTapShoot(p.x, p.y);
-        }, { passive: true });
-        stage.addEventListener("touchend", () => { this._pointerActive = false; }, { passive: true });
-        stage.addEventListener("touchcancel", () => { this._pointerActive = false; }, { passive: true });
+        stage.addEventListener(
+            "touchstart",
+            (e) => {
+                if (canShoot()) return;
+                const t = e.changedTouches[0];
+                const p = toVirtual(t.clientX, t.clientY);
+                this._pointerActive = true;
+                this._pointerX = p.x;
+                this._pointerY = p.y;
+                this.autoFireAccum = 0;
+                this.onTapShoot(p.x, p.y);
+            },
+            { passive: true },
+        );
+        stage.addEventListener(
+            "touchend",
+            () => {
+                this._pointerActive = false;
+            },
+            { passive: true },
+        );
+        stage.addEventListener(
+            "touchcancel",
+            () => {
+                this._pointerActive = false;
+            },
+            { passive: true },
+        );
         // CHỈ theo dõi di chuyển ngón tay khi súng hiện tại autoFire (SMG) VÀ
         // đang giữ — để giữ tay + rê ngón tay sẽ "quét" đạn theo, đúng như
         // súng máy thật. Các súng khác KHÔNG track di chuyển (đỡ tốn tài nguyên).
-        stage.addEventListener("touchmove", (e) => {
-            if (!this._pointerActive || !this.weapon().autoFire) return;
-            const t = e.changedTouches[0];
-            const p = toVirtual(t.clientX, t.clientY);
-            this._pointerX = p.x; this._pointerY = p.y;
-        }, { passive: true });
+        stage.addEventListener(
+            "touchmove",
+            (e) => {
+                if (!this._pointerActive || !this.weapon().autoFire) return;
+                const t = e.changedTouches[0];
+                const p = toVirtual(t.clientX, t.clientY);
+                this._pointerX = p.x;
+                this._pointerY = p.y;
+            },
+            { passive: true },
+        );
 
         // Chuột cho PC (test trên máy tính) — cùng logic như cảm ứng
         stage.addEventListener("mousedown", (e) => {
             if (canShoot()) return;
             const p = toVirtual(e.clientX, e.clientY);
-            this._pointerActive = true; this._pointerX = p.x; this._pointerY = p.y; this.autoFireAccum = 0;
+            this._pointerActive = true;
+            this._pointerX = p.x;
+            this._pointerY = p.y;
+            this.autoFireAccum = 0;
             this.onTapShoot(p.x, p.y);
         });
-        stage.addEventListener("mouseup", () => { this._pointerActive = false; });
-        stage.addEventListener("mouseleave", () => { this._pointerActive = false; });
+        stage.addEventListener("mouseup", () => {
+            this._pointerActive = false;
+        });
+        stage.addEventListener("mouseleave", () => {
+            this._pointerActive = false;
+        });
         stage.addEventListener("mousemove", (e) => {
             if (!this._pointerActive || !this.weapon().autoFire) return;
             const p = toVirtual(e.clientX, e.clientY);
-            this._pointerX = p.x; this._pointerY = p.y;
+            this._pointerX = p.x;
+            this._pointerY = p.y;
         });
 
         window.addEventListener("keydown", (e) => {
@@ -1004,7 +1341,13 @@ window.BirdShootGame = {
     },
 
     doReload() {
-        if (this.controlsLocked || this.stunned || !this.running || this.gameOver) return;
+        if (
+            this.controlsLocked ||
+            this.stunned ||
+            !this.running ||
+            this.gameOver
+        )
+            return;
         const w = this.weapon();
         if (this.reloading || this.ammo === w.maxAmmo) return;
         this.reloading = true;
@@ -1018,10 +1361,20 @@ window.BirdShootGame = {
     // (nổ diện rộng không phân biệt tốt/xấu).
     // ═══════════════════════════════════════════════════════════
     onTapShoot(x, y) {
-        if (this.stunned) { this.playEmptyClickSound(); return; }
-        if (this.reloading) { this.playEmptyClickSound(); return; }
+        if (this.stunned) {
+            this.playEmptyClickSound();
+            return;
+        }
+        if (this.reloading) {
+            this.playEmptyClickSound();
+            return;
+        }
         if (this.fireCooldownT > 0) return; // súng chưa kịp lên đạn giữa 2 phát -> lờ tap này, không tốn đạn
-        if (this.ammo <= 0) { this.playEmptyClickSound(); this.flashNoAmmoHint(); return; }
+        if (this.ammo <= 0) {
+            this.playEmptyClickSound();
+            this.flashNoAmmoHint();
+            return;
+        }
 
         const w = this.weapon();
         this.ammo--;
@@ -1030,7 +1383,10 @@ window.BirdShootGame = {
 
         // xoay súng hướng theo điểm vừa bắn (giới hạn góc để không "gãy tay")
         const pivot = this.pivotPoint();
-        this.lastAimAngle = Math.max(-0.55, Math.min(0.55, Math.atan2(x - pivot.x, pivot.y - y)));
+        this.lastAimAngle = Math.max(
+            -0.55,
+            Math.min(0.55, Math.atan2(x - pivot.x, pivot.y - y)),
+        );
 
         this.playGunshotSound();
         const tip = this.muzzleTipPos();
@@ -1038,11 +1394,23 @@ window.BirdShootGame = {
         this.updateAmmoUI();
 
         let targets;
-        if (w.mode === "spread" || w.mode === "explosive") targets = this.findTargetsInRadius(x, y, w.spreadRadius || 140, w);
-        else if (w.mode === "pierce") targets = this.findTargetsInCorridor(x, w.corridorWidth || 55, w.pierceMax || 4);
-        else { const t = this.findTargetAt(x, y); targets = t ? [t] : []; }
+        if (w.mode === "spread" || w.mode === "explosive")
+            targets = this.findTargetsInRadius(x, y, w.spreadRadius || 140, w);
+        else if (w.mode === "pierce")
+            targets = this.findTargetsInCorridor(
+                x,
+                w.corridorWidth || 55,
+                w.pierceMax || 4,
+            );
+        else {
+            const t = this.findTargetAt(x, y);
+            targets = t ? [t] : [];
+        }
 
-        if (targets.length === 0) { this.pushShotResult(0); return; }
+        if (targets.length === 0) {
+            this.pushShotResult(0);
+            return;
+        }
         this.pushShotResult(1);
         targets.forEach((t) => this.resolveHit(t, w));
     },
@@ -1052,26 +1420,48 @@ window.BirdShootGame = {
     // bắn hụt hoàn toàn. Dùng cho mode "single".
     findTargetAt(x, y) {
         const mul = this.currentHitRadiusMul();
-        let best = null, bestDist = Infinity;
+        let best = null,
+            bestDist = Infinity;
         for (const obj of this.objects) {
             if (obj.kind === "bird" && obj.alive) {
                 const d = Math.hypot(obj.x - x, obj.y - y);
-                if (d <= obj.hitRadius * mul && d < bestDist) { bestDist = d; best = { kind: "bird", obj, dist: d }; }
+                if (d <= obj.hitRadius * mul && d < bestDist) {
+                    bestDist = d;
+                    best = { kind: "bird", obj, dist: d };
+                }
             } else if (obj.kind === "giftBag" && obj.alive) {
                 const d = Math.hypot(obj.x - x, obj.y - y);
-                if (d <= obj.hitRadius * mul && d < bestDist) { bestDist = d; best = { kind: "giftBag", obj, dist: d }; }
+                if (d <= obj.hitRadius * mul && d < bestDist) {
+                    bestDist = d;
+                    best = { kind: "giftBag", obj, dist: d };
+                }
             } else if (obj.kind === "balloon" && obj.alive) {
                 const d = Math.hypot(obj.x - x, obj.y - y);
-                if (d <= obj.hitRadius * mul && d < bestDist) { bestDist = d; best = { kind: "balloon", obj, dist: d }; }
+                if (d <= obj.hitRadius * mul && d < bestDist) {
+                    bestDist = d;
+                    best = { kind: "balloon", obj, dist: d };
+                }
             } else if (obj.kind === "windmill" && obj.alive && !obj.destroyed) {
                 obj.blades.forEach((blade, i) => {
                     if (!blade.alive) return;
                     const tip = this.windmillBladeTipPos(obj, i);
                     const d = Math.hypot(tip.x - x, tip.y - y);
                     const r = 44 * obj.scale * mul;
-                    if (d <= r && d < bestDist) { bestDist = d; best = { kind: "windmillBlade", obj, bladeIndex: i, dist: d }; }
+                    if (d <= r && d < bestDist) {
+                        bestDist = d;
+                        best = {
+                            kind: "windmillBlade",
+                            obj,
+                            bladeIndex: i,
+                            dist: d,
+                        };
+                    }
                 });
-            } else if (obj.kind === "scarecrow" && obj.alive && !obj.destroyed) {
+            } else if (
+                obj.kind === "scarecrow" &&
+                obj.alive &&
+                !obj.destroyed
+            ) {
                 // ưu tiên NÓN (bán kính nhỏ hơn, hầu như luôn gần điểm chạm hơn
                 // khi người chơi thật sự nhắm nón) — cả 2 vùng cùng vào so sánh
                 // khoảng cách chung với mọi mục tiêu khác nên tự nhiên ưu tiên đúng.
@@ -1079,12 +1469,18 @@ window.BirdShootGame = {
                     const hp = this.scarecrowHatPos(obj);
                     const d = Math.hypot(hp.x - x, hp.y - y);
                     const r = 34 * obj.scale * mul;
-                    if (d <= r && d < bestDist) { bestDist = d; best = { kind: "scarecrowHat", obj, dist: d }; }
+                    if (d <= r && d < bestDist) {
+                        bestDist = d;
+                        best = { kind: "scarecrowHat", obj, dist: d };
+                    }
                 }
                 const bp = this.scarecrowBodyPos(obj);
                 const db = Math.hypot(bp.x - x, bp.y - y);
                 const rb = 56 * obj.scale * mul;
-                if (db <= rb && db < bestDist) { bestDist = db; best = { kind: "scarecrowBody", obj, dist: db }; }
+                if (db <= rb && db < bestDist) {
+                    bestDist = db;
+                    best = { kind: "scarecrowBody", obj, dist: db };
+                }
             }
         }
         return best;
@@ -1100,7 +1496,12 @@ window.BirdShootGame = {
         const found = [];
         for (const obj of this.objects) {
             if (obj.kind === "bird" && obj.alive) {
-                if (weapon && weapon.nearOnlyDepthMin != null && obj.depth < weapon.nearOnlyDepthMin) continue;
+                if (
+                    weapon &&
+                    weapon.nearOnlyDepthMin != null &&
+                    obj.depth < weapon.nearOnlyDepthMin
+                )
+                    continue;
                 const d = Math.hypot(obj.x - x, obj.y - y);
                 if (d <= R) found.push({ kind: "bird", obj, dist: d });
             } else if (obj.kind === "giftBag" && obj.alive) {
@@ -1111,22 +1512,36 @@ window.BirdShootGame = {
                     if (!blade.alive) return;
                     const tip = this.windmillBladeTipPos(obj, i);
                     const d = Math.hypot(tip.x - x, tip.y - y);
-                    if (d <= R) found.push({ kind: "windmillBlade", obj, bladeIndex: i, dist: d });
+                    if (d <= R)
+                        found.push({
+                            kind: "windmillBlade",
+                            obj,
+                            bladeIndex: i,
+                            dist: d,
+                        });
                 });
             } else if (obj.kind === "balloon" && obj.alive) {
                 const d = Math.hypot(obj.x - x, obj.y - y);
                 if (d <= R) found.push({ kind: "balloon", obj, dist: d });
-            } else if (obj.kind === "scarecrow" && obj.alive && !obj.destroyed) {
+            } else if (
+                obj.kind === "scarecrow" &&
+                obj.alive &&
+                !obj.destroyed
+            ) {
                 let hatHit = false;
                 if (obj.hatAlive) {
                     const hp = this.scarecrowHatPos(obj);
                     const d = Math.hypot(hp.x - x, hp.y - y);
-                    if (d <= R) { found.push({ kind: "scarecrowHat", obj, dist: d }); hatHit = true; }
+                    if (d <= R) {
+                        found.push({ kind: "scarecrowHat", obj, dist: d });
+                        hatHit = true;
+                    }
                 }
                 if (!hatHit) {
                     const bp = this.scarecrowBodyPos(obj);
                     const db = Math.hypot(bp.x - x, bp.y - y);
-                    if (db <= R) found.push({ kind: "scarecrowBody", obj, dist: db });
+                    if (db <= R)
+                        found.push({ kind: "scarecrowBody", obj, dist: db });
                 }
             }
         }
@@ -1150,7 +1565,8 @@ window.BirdShootGame = {
 
     resolveHit(t, weapon) {
         if (t.kind === "bird") this.collectBird(t.obj, weapon);
-        else if (t.kind === "windmillBlade") this.hitWindmillBlade(t.obj, t.bladeIndex, weapon);
+        else if (t.kind === "windmillBlade")
+            this.hitWindmillBlade(t.obj, t.bladeIndex, weapon);
         else if (t.kind === "balloon") this.hitBalloon(t.obj);
         else if (t.kind === "scarecrowHat") this.hitScarecrowHat(t.obj, weapon);
         else if (t.kind === "scarecrowBody") this.hitScarecrowBody(t.obj);
@@ -1170,7 +1586,8 @@ window.BirdShootGame = {
         this.shotWindow.push(v);
         if (this.shotWindow.length >= this.MISS_WINDOW_SIZE) {
             const misses = this.shotWindow.filter((s) => s === 0).length;
-            const threshold = this.weapon().missRateThreshold || this.MISS_RATE_THRESHOLD;
+            const threshold =
+                this.weapon().missRateThreshold || this.MISS_RATE_THRESHOLD;
             if (misses / this.shotWindow.length > threshold) {
                 this.loseHeart("miss_rate");
             }
@@ -1179,7 +1596,12 @@ window.BirdShootGame = {
     },
 
     flashNoAmmoHint() {
-        this.spawnFloatText(this.VW / 2, this.VH * 0.42, "🔄 Hết đạn — Nạp đạn!", "#ffcb05");
+        this.spawnFloatText(
+            this.VW / 2,
+            this.VH * 0.42,
+            "🔄 Hết đạn — Nạp đạn!",
+            "#ffcb05",
+        );
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -1189,12 +1611,17 @@ window.BirdShootGame = {
         bird.alive = false;
         this.objects = this.objects.filter((o) => o !== bird);
 
-        let pts = Math.round(this.BIRD_SCORE_FAR - (this.BIRD_SCORE_FAR - this.BIRD_SCORE_NEAR) * bird.depth);
+        let pts = Math.round(
+            this.BIRD_SCORE_FAR -
+                (this.BIRD_SCORE_FAR - this.BIRD_SCORE_NEAR) * bird.depth,
+        );
 
         // Bonus chim XA theo súng (rifle x2, sniper x3 NHƯNG chỉ khi đang
         // NGẮM — không ngắm thì sniper không có bonus này, xem currentHitRadiusMul).
-        const farMul = (!weapon.requiresScope || this.aiming) ? (weapon.farScoreMul || 1) : 1;
-        if (farMul > 1) pts = Math.round(pts * (1 + (farMul - 1) * (1 - bird.depth)));
+        const farMul =
+            !weapon.requiresScope || this.aiming ? weapon.farScoreMul || 1 : 1;
+        if (farMul > 1)
+            pts = Math.round(pts * (1 + (farMul - 1) * (1 - bird.depth)));
 
         pts = Math.round(pts * (weapon.scoreMul || 1));
 
@@ -1212,7 +1639,12 @@ window.BirdShootGame = {
         if (isCrit) {
             this.playCritSound();
             this.spawnBurst(bird.x, bird.y, "#ff9f1c", 16);
-            this.spawnFloatText(bird.x, bird.y - 34, `💥 CHÍ MẠNG +${pts}`, "#ff9f1c");
+            this.spawnFloatText(
+                bird.x,
+                bird.y - 34,
+                `💥 CHÍ MẠNG +${pts}`,
+                "#ff9f1c",
+            );
         } else {
             this.playBirdHitSound();
             this.spawnBurst(bird.x, bird.y, "#ffcb05", 10);
@@ -1234,7 +1666,9 @@ window.BirdShootGame = {
         const blade = windmill.blades[index];
         if (!blade.alive) return;
         blade.alive = false;
-        const pts = Math.round(this.WINDMILL_BLADE_SCORE * (weapon.scoreMul || 1));
+        const pts = Math.round(
+            this.WINDMILL_BLADE_SCORE * (weapon.scoreMul || 1),
+        );
         this.score += pts;
         this.playWindmillHitSound();
         const tip = this.windmillBladeTipPos(windmill, index);
@@ -1247,7 +1681,12 @@ window.BirdShootGame = {
             this.score += this.WINDMILL_CLEAR_BONUS;
             this.playWindmillDestroySound();
             this.spawnBurst(windmill.x, windmill.y, "#ffcb05", 26);
-            this.spawnFloatText(windmill.x, windmill.y - 60, `🎉 +${this.WINDMILL_CLEAR_BONUS}`, "#ffcb05");
+            this.spawnFloatText(
+                windmill.x,
+                windmill.y - 60,
+                `🎉 +${this.WINDMILL_CLEAR_BONUS}`,
+                "#ffcb05",
+            );
         }
     },
 
@@ -1259,14 +1698,21 @@ window.BirdShootGame = {
         this.equipWeapon(balloon.carriedWeaponId);
         this.playGiftPickupSound();
         this.spawnBurst(balloon.x, balloon.y, "#ffcb05", 18);
-        this.spawnFloatText(balloon.x, balloon.y - 24, `🎁 ${this.WEAPON_DEFS[balloon.carriedWeaponId].name}!`, "#ffe38a");
+        this.spawnFloatText(
+            balloon.x,
+            balloon.y - 24,
+            `🎁 ${this.WEAPON_DEFS[balloon.carriedWeaponId].name}!`,
+            "#ffe38a",
+        );
     },
 
     // Bắn trúng NÓN bù nhìn — ăn điểm, xong "nhiệm vụ" -> cả bù nhìn mờ dần
     // biến mất rồi hồi sinh vị trí khác (giống windmill hết 5 cánh).
     hitScarecrowHat(sc, weapon = this.weapon()) {
         sc.hatAlive = false;
-        const pts = Math.round(this.SCARECROW_HAT_SCORE * (weapon.scoreMul || 1));
+        const pts = Math.round(
+            this.SCARECROW_HAT_SCORE * (weapon.scoreMul || 1),
+        );
         this.score += pts;
         this.playScarecrowHatSound();
         const hp = this.scarecrowHatPos(sc);
@@ -1284,8 +1730,14 @@ window.BirdShootGame = {
         this.playBalloonPopSound();
         const bp = this.scarecrowBodyPos(sc);
         this.spawnBurst(bp.x, bp.y, "#ff6b6b", 12);
-        this.spawnFloatText(bp.x, bp.y - 20, `-${this.SCARECROW_BODY_PENALTY}`, "#ff6b6b");
-        this.shake.t = 0.2; this.shake.mag = 8;
+        this.spawnFloatText(
+            bp.x,
+            bp.y - 20,
+            `-${this.SCARECROW_BODY_PENALTY}`,
+            "#ff6b6b",
+        );
+        this.shake.t = 0.2;
+        this.shake.mag = 8;
         this.applyStun();
     },
 
@@ -1295,7 +1747,12 @@ window.BirdShootGame = {
         this.stunned = true;
         this.stunT = this.STUN_DURATION;
         this.playStunSound();
-        this.spawnFloatText(this.VW / 2, this.VH * 0.3, `😵 Đơ ${this.STUN_DURATION}s!`, "#ffcb05");
+        this.spawnFloatText(
+            this.VW / 2,
+            this.VH * 0.3,
+            `😵 Đơ ${this.STUN_DURATION}s!`,
+            "#ffcb05",
+        );
         this.updateControlsLockVisual();
     },
 
@@ -1306,11 +1763,21 @@ window.BirdShootGame = {
         this.objects = this.objects.filter((o) => o !== bag);
         const ids = Object.keys(this.WEAPON_DEFS);
         const otherIds = ids.filter((id) => id !== this.currentWeaponId);
-        const pick = (otherIds.length > 0 ? otherIds : ids)[Math.floor(Math.random() * (otherIds.length > 0 ? otherIds.length : ids.length))];
+        const pick = (otherIds.length > 0 ? otherIds : ids)[
+            Math.floor(
+                Math.random() *
+                    (otherIds.length > 0 ? otherIds.length : ids.length),
+            )
+        ];
         this.equipWeapon(pick);
         this.playGiftPickupSound();
         this.spawnBurst(bag.x, bag.y, "#ffcb05", 18);
-        this.spawnFloatText(bag.x, bag.y - 24, `🎁 ${this.WEAPON_DEFS[pick].name}!`, "#ffe38a");
+        this.spawnFloatText(
+            bag.x,
+            bag.y - 24,
+            `🎁 ${this.WEAPON_DEFS[pick].name}!`,
+            "#ffe38a",
+        );
     },
 
     // Đổi súng đang cầm — nạp đầy đạn theo súng mới, reset mọi cooldown/ngắm
@@ -1334,7 +1801,10 @@ window.BirdShootGame = {
         this.level++;
         this.levelBirdsHit = 0;
         this.levelTarget = this.randomLevelTarget();
-        this.speedMul = Math.min(this.MAX_SPEED_MUL, 1 + (this.level - 1) * 0.16);
+        this.speedMul = Math.min(
+            this.MAX_SPEED_MUL,
+            1 + (this.level - 1) * 0.16,
+        );
         this.playLevelUpSound();
         this.showLevelBanner();
     },
@@ -1348,7 +1818,10 @@ window.BirdShootGame = {
         void el.offsetWidth;
         el.classList.add("show");
         clearTimeout(this._levelBannerTimer);
-        this._levelBannerTimer = setTimeout(() => el.classList.remove("show"), 2200);
+        this._levelBannerTimer = setTimeout(
+            () => el.classList.remove("show"),
+            2200,
+        );
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -1356,7 +1829,8 @@ window.BirdShootGame = {
     // ═══════════════════════════════════════════════════════════
     loseHeart(reason) {
         this.lives = Math.max(0, this.lives - 1);
-        this.shake.t = 0.3; this.shake.mag = 14;
+        this.shake.t = 0.3;
+        this.shake.mag = 14;
         this.playHeartLostSound();
         this.spawnFloatText(this.VW / 2, this.VH * 0.36, "-1 ❤️", "#ff6b6b");
         this.updateHeartsUI();
@@ -1373,9 +1847,15 @@ window.BirdShootGame = {
         // vài hạt sáng loé lên tại đầu nòng (glow chớp nhoáng)
         for (let i = 0; i < 3; i++) {
             this.particles.push({
-                x, y, vx: (Math.random() - 0.5) * 30, vy: (Math.random() - 0.5) * 30,
-                gravity: 0, life: 0.06 + Math.random() * 0.04, maxLife: 0.1,
-                color: "rgba(255,244,200,0.95)", size: 6 + Math.random() * 4,
+                x,
+                y,
+                vx: (Math.random() - 0.5) * 30,
+                vy: (Math.random() - 0.5) * 30,
+                gravity: 0,
+                life: 0.06 + Math.random() * 0.04,
+                maxLife: 0.1,
+                color: "rgba(255,244,200,0.95)",
+                size: 6 + Math.random() * 4,
             });
         }
         // tia lửa bắn ra theo hình nón quanh hướng nòng súng
@@ -1383,9 +1863,15 @@ window.BirdShootGame = {
             const ang = dirAngle + (Math.random() - 0.5) * 0.9;
             const spd = 90 + Math.random() * 130;
             this.particles.push({
-                x, y, vx: Math.sin(ang) * spd, vy: -Math.cos(ang) * spd,
-                gravity: 90, life: 0.14 + Math.random() * 0.1, maxLife: 0.24,
-                color: "rgba(255,205,90,0.9)", size: 2 + Math.random() * 2.5,
+                x,
+                y,
+                vx: Math.sin(ang) * spd,
+                vy: -Math.cos(ang) * spd,
+                gravity: 90,
+                life: 0.14 + Math.random() * 0.1,
+                maxLife: 0.24,
+                color: "rgba(255,205,90,0.9)",
+                size: 2 + Math.random() * 2.5,
             });
         }
     },
@@ -1394,14 +1880,31 @@ window.BirdShootGame = {
             const ang = Math.random() * Math.PI * 2;
             const spd = 60 + Math.random() * 120;
             this.particles.push({
-                x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 40,
-                gravity: 260, life: 0.5 + Math.random() * 0.3, maxLife: 0.8,
-                color, size: 3 + Math.random() * 3,
+                x,
+                y,
+                vx: Math.cos(ang) * spd,
+                vy: Math.sin(ang) * spd - 40,
+                gravity: 260,
+                life: 0.5 + Math.random() * 0.3,
+                maxLife: 0.8,
+                color,
+                size: 3 + Math.random() * 3,
             });
         }
     },
     spawnFloatText(x, y, text, color) {
-        this.particles.push({ x, y, vx: 0, vy: -55, gravity: 40, life: 0.9, maxLife: 0.9, color, text, size: 20 });
+        this.particles.push({
+            x,
+            y,
+            vx: 0,
+            vy: -55,
+            gravity: 40,
+            life: 0.9,
+            maxLife: 0.9,
+            color,
+            text,
+            size: 20,
+        });
     },
 
     // ═══════════════════════════════════════════════════════════
@@ -1416,11 +1919,15 @@ window.BirdShootGame = {
 
         const banner = document.getElementById("quiz-intro-banner");
         banner.classList.add("show");
-        setTimeout(() => { banner.classList.remove("show"); }, 900);
+        setTimeout(() => {
+            banner.classList.remove("show");
+        }, 900);
 
         setTimeout(() => {
             if (window.QuizManager) {
-                window.QuizManager.ask((isCorrect) => this.onQuizAnswered(isCorrect));
+                window.QuizManager.ask((isCorrect) =>
+                    this.onQuizAnswered(isCorrect),
+                );
             } else {
                 this.onQuizAnswered(true);
             }
@@ -1431,7 +1938,8 @@ window.BirdShootGame = {
         if (window.PkmScore) window.PkmScore.recordAnswer(isCorrect);
 
         this.totalCount++;
-        if (isCorrect) this.correctCount++; else this.wrongCount++;
+        if (isCorrect) this.correctCount++;
+        else this.wrongCount++;
         this.updateHUD();
 
         this.paused = false;
@@ -1442,7 +1950,12 @@ window.BirdShootGame = {
         if (!isCorrect) {
             this.loseHeart("quiz_wrong");
         } else {
-            this.spawnFloatText(this.VW / 2, this.VH * 0.36, "🎉 Chuẩn!", "#2ecc71");
+            this.spawnFloatText(
+                this.VW / 2,
+                this.VH * 0.36,
+                "🎉 Chuẩn!",
+                "#2ecc71",
+            );
         }
 
         const isOver = this.checkGameOver();
@@ -1459,7 +1972,8 @@ window.BirdShootGame = {
         const scoreEl = document.getElementById("scoreValue");
         if (scoreEl) scoreEl.innerText = this.score;
         const stats = document.getElementById("quiz-stats");
-        if (stats) stats.innerHTML = `✅ ${this.correctCount} &nbsp; ❌ ${this.wrongCount} &nbsp; 📊 ${this.totalCount} câu`;
+        if (stats)
+            stats.innerHTML = `✅ ${this.correctCount} &nbsp; ❌ ${this.wrongCount} &nbsp; 📊 ${this.totalCount} câu`;
         const levelEl = document.getElementById("levelChip");
         if (levelEl) levelEl.textContent = `🎯 Màn ${this.level}`;
         const weaponEl = document.getElementById("weaponChip");
@@ -1512,15 +2026,22 @@ window.BirdShootGame = {
     async getRewardImage() {
         try {
             const inv = JSON.parse(localStorage.getItem("pkm_inventory")) || [];
-            const team = inv.filter((p) => p.inTeam).sort((a, b) => a.position - b.position);
-            if (team.length > 0) return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${team[0].id}.png`;
-        } catch (e) { /* ignore */ }
+            const team = inv
+                .filter((p) => p.inTeam)
+                .sort((a, b) => a.position - b.position);
+            if (team.length > 0)
+                return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${team[0].id}.png`;
+        } catch (e) {
+            /* ignore */
+        }
         return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png`;
     },
 
     handleMatchEnd() {
         if (!window.PkmScore) {
-            console.error('❌ PkmScore chưa được nạp — thiếu <script src="pkm_score.js"> trong pkm_birdshoot.html?');
+            console.error(
+                '❌ PkmScore chưa được nạp — thiếu <script src="pkm_score.js"> trong pkm_birdshoot.html?',
+            );
             return;
         }
 
@@ -1536,7 +2057,10 @@ window.BirdShootGame = {
         if (result.skipped) {
             this.getRewardImage().then((src) => {
                 const img = document.getElementById("victory-pkm-img");
-                if (img) { img.src = src; img.style.filter = "grayscale(100%) opacity(0.7)"; }
+                if (img) {
+                    img.src = src;
+                    img.style.filter = "grayscale(100%) opacity(0.7)";
+                }
             });
             if (titleEl) {
                 titleEl.innerText = "💥 HẾT MẠNG RỒI!";
@@ -1564,21 +2088,36 @@ window.BirdShootGame = {
 
         if (titleEl) titleEl.innerText = "🏆 SĂN THÀNH CÔNG!";
 
-        const messages = (result.breakdown || []).map((b) => {
-            if (b.type === "new_lesson") return `🌟 BÀI MỚI HOÀN THÀNH (${b.accuracy}% đúng): <b>+${b.exp} KN +${b.dv} DV</b>`;
-            if (b.type === "new_lesson_failed") return `⚠️ Bài mới nhưng chỉ ${b.accuracy}% đúng — cần ≥${b.requiredAccuracy}% để mở khoá!`;
-            if (b.type === "correct_answers") return `📝 ${b.correctCount} câu đúng ÷ ${b.divisor} = <b>+${b.exp} KN +${b.dv} DV</b>`;
-            if (b.type === "streak") return b.exp > 0 ? `🔥 Chuỗi ${b.streak} ngày liên tục: <b>+${b.exp} KN +${b.dv} DV</b>` : `📅 Chuỗi hiện tại: <b>${b.streak} ngày</b>`;
-            return "";
-        }).filter(Boolean);
+        const messages = (result.breakdown || [])
+            .map((b) => {
+                if (b.type === "new_lesson")
+                    return `🌟 BÀI MỚI HOÀN THÀNH (${b.accuracy}% đúng): <b>+${b.exp} KN +${b.dv} DV</b>`;
+                if (b.type === "new_lesson_failed")
+                    return `⚠️ Bài mới nhưng chỉ ${b.accuracy}% đúng — cần ≥${b.requiredAccuracy}% để mở khoá!`;
+                if (b.type === "correct_answers")
+                    return `📝 ${b.correctCount} câu đúng ÷ ${b.divisor} = <b>+${b.exp} KN +${b.dv} DV</b>`;
+                if (b.type === "streak")
+                    return b.exp > 0
+                        ? `🔥 Chuỗi ${b.streak} ngày liên tục: <b>+${b.exp} KN +${b.dv} DV</b>`
+                        : `📅 Chuỗi hiện tại: <b>${b.streak} ngày</b>`;
+                return "";
+            })
+            .filter(Boolean);
 
         const skillOrder = window.PkmScore.SKILL_ORDER;
         const skillStatsNow = window.PkmScore.session.skillStats;
-        const skillLines = skillOrder.map((s) => {
-            const st = skillStatsNow[s] || { correct: 0, total: 0 };
-            const label = { listening: "🎧 Nghe", speaking: "🗣️ Nói", reading: "📖 Đọc", writing: "✍️ Viết" }[s];
-            return `<div>${label}: ${st.correct}/${st.total}</div>`;
-        }).join("");
+        const skillLines = skillOrder
+            .map((s) => {
+                const st = skillStatsNow[s] || { correct: 0, total: 0 };
+                const label = {
+                    listening: "🎧 Nghe",
+                    speaking: "🗣️ Nói",
+                    reading: "📖 Đọc",
+                    writing: "✍️ Viết",
+                }[s];
+                return `<div>${label}: ${st.correct}/${st.total}</div>`;
+            })
+            .join("");
 
         if (expText) {
             expText.innerHTML = `
@@ -1619,19 +2158,25 @@ window.BirdShootGame = {
         }
 
         const state = this.shootState();
-        if (window.BirdShootBackground) window.BirdShootBackground.drawBackground(ctx, state);
+        if (window.BirdShootBackground)
+            window.BirdShootBackground.drawBackground(ctx, state);
 
         // vẽ mục tiêu theo thứ tự XA -> GẦN (depth thấp trước) để vật gần đè lên vật xa
         const drawList = this.objects.slice().sort((a, b) => {
-            const depthOf = (o) => o.kind === "bird" ? o.depth : o.kind === "balloon" ? 0.5 : 0.8;
+            const depthOf = (o) =>
+                o.kind === "bird" ? o.depth : o.kind === "balloon" ? 0.5 : 0.8;
             return depthOf(a) - depthOf(b);
         });
         if (window.BirdShootBackground) {
             drawList.forEach((obj) => {
-                if (obj.kind === "bird") window.BirdShootBackground.drawBird(ctx, obj, state);
-                else if (obj.kind === "windmill") window.BirdShootBackground.drawWindmill(ctx, obj, state);
-                else if (obj.kind === "scarecrow") window.BirdShootBackground.drawScarecrow(ctx, obj, state);
-                else if (obj.kind === "balloon") window.BirdShootBackground.drawBalloon(ctx, obj, state);
+                if (obj.kind === "bird")
+                    window.BirdShootBackground.drawBird(ctx, obj, state);
+                else if (obj.kind === "windmill")
+                    window.BirdShootBackground.drawWindmill(ctx, obj, state);
+                else if (obj.kind === "scarecrow")
+                    window.BirdShootBackground.drawScarecrow(ctx, obj, state);
+                else if (obj.kind === "balloon")
+                    window.BirdShootBackground.drawBalloon(ctx, obj, state);
             });
         }
 
@@ -1641,7 +2186,8 @@ window.BirdShootGame = {
         // hiện khi đang bật NGẮM (đè lên trên cùng, che luôn viewmodel bên dưới).
         if (window.BirdShootBackground) {
             window.BirdShootBackground.drawWeaponViewmodel(ctx, state);
-            if (state.aiming && state.requiresScope) window.BirdShootBackground.drawScopeOverlay(ctx, state);
+            if (state.aiming && state.requiresScope)
+                window.BirdShootBackground.drawScopeOverlay(ctx, state);
         }
 
         ctx.restore();
@@ -1657,12 +2203,15 @@ window.BirdShootGame = {
                 ctx.fillStyle = pt.color;
                 ctx.font = `bold ${pt.size}px Baloo 2, sans-serif`;
                 ctx.textAlign = "center";
-                ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 3;
+                ctx.strokeStyle = "rgba(0,0,0,0.6)";
+                ctx.lineWidth = 3;
                 ctx.strokeText(pt.text, pt.x, pt.y);
                 ctx.fillText(pt.text, pt.x, pt.y);
             } else {
                 ctx.fillStyle = pt.color;
-                ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+                ctx.fill();
             }
             ctx.restore();
         });
