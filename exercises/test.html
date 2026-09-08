@@ -134,7 +134,7 @@ main{ padding-top: 26px; }
   margin-bottom: 18px;
 }
 .field{ display:flex; flex-direction:column; gap:6px; font-size: 13.5px; color: var(--ink-soft); font-weight:600; }
-.field input{
+.field input, .field select{
   font-family: var(--font-body);
   font-size: 16px;
   padding: 9px 10px;
@@ -474,15 +474,15 @@ main{ padding-top: 26px; }
         <div class="mode-panel hidden" data-mode-panel="range">
           <div class="config-grid">
             <label class="field">
-              <span>Từ bài số</span>
-              <input type="number" id="rangeFrom" min="1" value="1">
+              <span>Từ bài</span>
+              <select id="rangeFromSelect"><option value="">— chọn lớp trước —</option></select>
             </label>
             <label class="field">
-              <span>Đến bài số</span>
-              <input type="number" id="rangeTo" min="1" value="5">
+              <span>Đến bài</span>
+              <select id="rangeToSelect"><option value="">— chọn lớp trước —</option></select>
             </label>
           </div>
-          <p class="hint">Áp dụng cho lớp đang chọn ở góc trên, dựa theo số bài trong mã ở cột B (dạng "lớp-bài-phần").</p>
+          <p class="hint">Danh sách bài lấy theo lớp đang chọn ở góc trên, dựa theo số bài trong mã ở cột B (dạng "lớp-bài-phần"). Đề sẽ gồm các bài từ mục "Từ bài" đến mục "Đến bài".</p>
         </div>
 
         <div class="mode-panel hidden" data-mode-panel="topic">
