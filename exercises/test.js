@@ -133,7 +133,7 @@ async function fetchVocabRowsByLessonCode(maxLessonCode) {
   return buildVocabStructures(filtered);
 }
 
-/* Chế độ 2: THEO DÃY BÀI — lọc theo lớp + số bài (phần giữa của mã cột B) trong khoảng [from, to] */
+/* Chế độ 2: THEO DÃY BÀI — lọc theo lớp + số bài (cột B) nằm trong khoảng [from, to] */
 async function fetchVocabRowsByLessonRange(classId, fromLesson, toLesson) {
   const rows = await fetchVocabJson();
   const filtered = rows.filter(r => {
@@ -173,6 +173,20 @@ async function fetchAllTopics() {
     if (t) set.add(t);
   });
   return [...set].sort();
+}
+
+/* Danh sách các số bài (cột B) có trong 1 lớp, dùng để đổ vào 2 dropdown "Từ bài" / "Đến bài" */
+async function fetchLessonNumbersForClass(classId) {
+  const rows = await fetchVocabJson();
+  const set = new Set();
+  rows.forEach(r => {
+    const raw = rowLessonRaw(r);
+    const parts = raw.split("-");
+    if (parts.length < 2 || parts[0] !== classId) return;
+    const bai = parseInt(parts[1], 10);
+    if (Number.isFinite(bai)) set.add(bai);
+  });
+  return [...set].sort((a, b) => a - b);
 }
 
 /* ================= Builders: MCQ (3 biến thể) ================= */
@@ -507,6 +521,8 @@ const classSelect = document.getElementById("classSelect");
   } catch (e) {
     console.error(e);
     classSelect.innerHTML = `<option value="">— lỗi tải lớp —</option>`;
+  } finally {
+    loadLessonOptionsForSelectedClass();
   }
 })();
 
@@ -524,6 +540,7 @@ modeButtons.forEach(btn => {
   });
 });
 
+/* ---- Theo chủ đề: đổ danh sách chủ đề (cột G) vào topicSelect ---- */
 const topicSelect = document.getElementById("topicSelect");
 (async function initTopics() {
   try {
@@ -539,6 +556,41 @@ const topicSelect = document.getElementById("topicSelect");
 function getSelectedTopics() {
   return [...topicSelect.selectedOptions].map(o => o.value).filter(Boolean);
 }
+
+/* ---- Theo dãy bài: 2 dropdown "Từ bài" / "Đến bài", đổ theo lớp đang chọn ---- */
+const rangeFromSelect = document.getElementById("rangeFromSelect");
+const rangeToSelect = document.getElementById("rangeToSelect");
+
+async function loadLessonOptionsForSelectedClass() {
+  const classId = classSelect.value;
+  if (!classId) {
+    const emptyHtml = `<option value="">— chọn lớp trước —</option>`;
+    rangeFromSelect.innerHTML = emptyHtml;
+    rangeToSelect.innerHTML = emptyHtml;
+    return;
+  }
+  const loadingHtml = `<option value="">— đang tải —</option>`;
+  rangeFromSelect.innerHTML = loadingHtml;
+  rangeToSelect.innerHTML = loadingHtml;
+  try {
+    const lessons = await fetchLessonNumbersForClass(classId);
+    const optionsHtml = lessons.length
+      ? lessons.map(n => `<option value="${n}">Bài ${n}</option>`).join("")
+      : `<option value="">— lớp này chưa có bài —</option>`;
+    rangeFromSelect.innerHTML = optionsHtml;
+    rangeToSelect.innerHTML = optionsHtml;
+    if (lessons.length) {
+      rangeFromSelect.value = String(lessons[0]);
+      rangeToSelect.value = String(lessons[lessons.length - 1]);
+    }
+  } catch (e) {
+    console.error(e);
+    const errHtml = `<option value="">— lỗi tải danh sách bài —</option>`;
+    rangeFromSelect.innerHTML = errHtml;
+    rangeToSelect.innerHTML = errHtml;
+  }
+}
+classSelect.addEventListener("change", loadLessonOptionsForSelectedClass);
 
 /* ================= COMPOSE: generate / preview / save ================= */
 let currentDraft = null;
@@ -579,13 +631,15 @@ generateBtn.addEventListener("click", async () => {
     let vocabData;
 
     if (composeMode === "range") {
-      const from = numVal("rangeFrom");
-      const to = numVal("rangeTo");
-      if (!from || !to || from > to) {
-        setStatus(composeStatus, "⚠️ Hãy nhập đúng \"Từ bài\" / \"Đến bài\" (từ ≤ đến).", "err");
+      const from = parseInt(rangeFromSelect.value, 10);
+      const to = parseInt(rangeToSelect.value, 10);
+      if (!Number.isFinite(from) || !Number.isFinite(to)) {
+        setStatus(composeStatus, "⚠️ Hãy chọn \"Từ bài\" và \"Đến bài\".", "err");
         return;
       }
-      vocabData = await fetchVocabRowsByLessonRange(classId, from, to);
+      const lo = Math.min(from, to);
+      const hi = Math.max(from, to);
+      vocabData = await fetchVocabRowsByLessonRange(classId, lo, hi);
     } else if (composeMode === "topic") {
       const topics = getSelectedTopics();
       if (!topics.length) {
