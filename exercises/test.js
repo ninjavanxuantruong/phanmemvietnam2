@@ -25,9 +25,9 @@ const SHEET_TU_VUNG =
   "https://docs.google.com/spreadsheets/d/1KaYYyvkjFxVVobRHNs9tDxW7S79-c5Q4mWEKch6oqks/gviz/tq?tqx=out:json";
 
 /* Cột trong sheet Từ vựng:
-   C(2)=word  D(3)=vi_chunks  E(4)=en_chunks  F(5)=topic nhỏ  G(6)=topic lớn
-   I(8)=câu thuyết trình  J(9)=câu hỏi  L(11)=câu trả lời  Y(24)=nghĩa
-   B(1)=mã bài dạng "lop-bai-phan" dùng để nhóm theo bài & tính độ liền kề     */
+   B(1)=mã bài dạng "lop-bai-phan" (dùng để nhóm theo bài & tính độ liền kề)
+   C(2)=word  D(3)=vi_chunks  E(4)=en_chunks  F(5)=topic nhỏ  G(6)=topic lớn (chủ đề)
+   I(8)=câu thuyết trình  J(9)=câu hỏi  L(11)=câu trả lời  Y(24)=nghĩa            */
 
 /* ================= Utils ================= */
 function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
@@ -83,18 +83,8 @@ async function fetchMaxLessonCode(classId) {
   return Math.max(...baiList);
 }
 
-async function fetchVocabRows(maxLessonCode) {
-  const json = await fetchGviz(SHEET_TU_VUNG);
-  const rows = json.table.rows.slice(1);
-
-  const filtered = rows.filter(r => {
-    const rawCode = r.c[1]?.v?.toString().trim();
-    const word = r.c[2]?.v?.toString().trim();
-    const meaning = r.c[24]?.v?.toString().trim();
-    const normalizedCode = parseInt(rawCode?.replace(/\D/g, ""), 10);
-    return normalizedCode && normalizedCode <= maxLessonCode && !!word && !!meaning;
-  });
-
+/* ---- Từ vựng: hàm dùng chung để xây byWord / wordInfo từ 1 tập rows đã lọc sẵn ---- */
+function buildVocabStructures(filtered) {
   const byWord = new Map();
   filtered.forEach(r => {
     const word = r.c[2]?.v?.toString().trim();
@@ -105,7 +95,6 @@ async function fetchVocabRows(maxLessonCode) {
     byWord.set(word, { question, answer, meaning });
   });
 
-  // Thông tin bổ sung theo từ: bài học, câu thuyết trình, chủ đề
   const wordInfo = new Map();
   filtered.forEach(r => {
     const w = r.c[2]?.v?.toString().trim();
@@ -124,6 +113,66 @@ async function fetchVocabRows(maxLessonCode) {
   });
 
   return { filteredRows: filtered, byWord, wordInfo };
+}
+
+async function fetchVocabJson() {
+  const json = await fetchGviz(SHEET_TU_VUNG);
+  return json.table.rows.slice(1);
+}
+
+/* Chế độ 1: THEO LỚP — lấy toàn bộ từ vựng có mã bài <= bài mới nhất của lớp */
+async function fetchVocabRowsByLessonCode(maxLessonCode) {
+  const rows = await fetchVocabJson();
+  const filtered = rows.filter(r => {
+    const rawCode = r.c[1]?.v?.toString().trim();
+    const word = r.c[2]?.v?.toString().trim();
+    const meaning = r.c[24]?.v?.toString().trim();
+    const normalizedCode = parseInt(rawCode?.replace(/\D/g, ""), 10);
+    return normalizedCode && normalizedCode <= maxLessonCode && !!word && !!meaning;
+  });
+  return buildVocabStructures(filtered);
+}
+
+/* Chế độ 2: THEO DÃY BÀI — lọc theo lớp + số bài (phần giữa của mã cột B) trong khoảng [from, to] */
+async function fetchVocabRowsByLessonRange(classId, fromLesson, toLesson) {
+  const rows = await fetchVocabJson();
+  const filtered = rows.filter(r => {
+    const raw = rowLessonRaw(r);
+    const word = r.c[2]?.v?.toString().trim();
+    const meaning = r.c[24]?.v?.toString().trim();
+    if (!raw || !word || !meaning) return false;
+    const parts = raw.split("-");
+    if (parts.length < 2) return false;
+    const cls = parts[0];
+    const bai = parseInt(parts[1], 10);
+    if (cls !== classId || !Number.isFinite(bai)) return false;
+    return bai >= fromLesson && bai <= toLesson;
+  });
+  return buildVocabStructures(filtered);
+}
+
+/* Chế độ 3: THEO CHỦ ĐỀ — lọc theo cột G (topic lớn), không giới hạn lớp */
+async function fetchVocabRowsByTopics(topics) {
+  const rows = await fetchVocabJson();
+  const topicSet = new Set(topics);
+  const filtered = rows.filter(r => {
+    const word = r.c[2]?.v?.toString().trim();
+    const meaning = r.c[24]?.v?.toString().trim();
+    const topicBig = r.c[6]?.v?.toString().trim();
+    if (!word || !meaning || !topicBig) return false;
+    return topicSet.has(topicBig);
+  });
+  return buildVocabStructures(filtered);
+}
+
+async function fetchAllTopics() {
+  const rows = await fetchVocabJson();
+  const set = new Set();
+  rows.forEach(r => {
+    const t = r.c[6]?.v?.toString().trim();
+    if (t) set.add(t);
+  });
+  return [...set].sort();
 }
 
 /* ================= Builders: MCQ (3 biến thể) ================= */
@@ -461,6 +510,36 @@ const classSelect = document.getElementById("classSelect");
   }
 })();
 
+/* ================= Compose mode switch (theo lớp / dãy bài / chủ đề) ================= */
+let composeMode = "class";
+const modeButtons = document.querySelectorAll(".mode-btn");
+modeButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    modeButtons.forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    composeMode = btn.dataset.mode;
+    document.querySelectorAll(".mode-panel").forEach(p => {
+      p.classList.toggle("hidden", p.dataset.modePanel !== composeMode);
+    });
+  });
+});
+
+const topicSelect = document.getElementById("topicSelect");
+(async function initTopics() {
+  try {
+    const topics = await fetchAllTopics();
+    topicSelect.innerHTML = topics.length
+      ? topics.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join("")
+      : `<option value="">— không có chủ đề —</option>`;
+  } catch (e) {
+    console.error(e);
+    topicSelect.innerHTML = `<option value="">— lỗi tải chủ đề —</option>`;
+  }
+})();
+function getSelectedTopics() {
+  return [...topicSelect.selectedOptions].map(o => o.value).filter(Boolean);
+}
+
 /* ================= COMPOSE: generate / preview / save ================= */
 let currentDraft = null;
 
@@ -497,12 +576,37 @@ generateBtn.addEventListener("click", async () => {
   draftPreview.classList.add("hidden");
 
   try {
-    const maxLesson = await fetchMaxLessonCode(classId);
-    if (!maxLesson) {
-      setStatus(composeStatus, "⚠️ Không tìm thấy bài học hợp lệ cho lớp đã chọn.", "err");
+    let vocabData;
+
+    if (composeMode === "range") {
+      const from = numVal("rangeFrom");
+      const to = numVal("rangeTo");
+      if (!from || !to || from > to) {
+        setStatus(composeStatus, "⚠️ Hãy nhập đúng \"Từ bài\" / \"Đến bài\" (từ ≤ đến).", "err");
+        return;
+      }
+      vocabData = await fetchVocabRowsByLessonRange(classId, from, to);
+    } else if (composeMode === "topic") {
+      const topics = getSelectedTopics();
+      if (!topics.length) {
+        setStatus(composeStatus, "⚠️ Hãy chọn ít nhất 1 chủ đề.", "err");
+        return;
+      }
+      vocabData = await fetchVocabRowsByTopics(topics);
+    } else {
+      const maxLesson = await fetchMaxLessonCode(classId);
+      if (!maxLesson) {
+        setStatus(composeStatus, "⚠️ Không tìm thấy bài học hợp lệ cho lớp đã chọn.", "err");
+        return;
+      }
+      vocabData = await fetchVocabRowsByLessonCode(maxLesson);
+    }
+
+    const { filteredRows, byWord, wordInfo } = vocabData;
+    if (!filteredRows.length) {
+      setStatus(composeStatus, "⚠️ Không tìm thấy từ vựng phù hợp với lựa chọn này.", "err");
       return;
     }
-    const { filteredRows, byWord, wordInfo } = await fetchVocabRows(maxLesson);
 
     const pickedForMcq = pickUniqueWords(filteredRows, counts.mcq);
     const pickedForListening = pickUniqueWords(filteredRows, counts.listening);
@@ -543,9 +647,9 @@ function renderDraftPreview(draft) {
   html += previewChunk(draft.chunk);
   html += previewMatching(draft.matching);
   html += previewOddOneOut(draft.oddOneOut);
-  html += previewReading(draft.reading);
   html += previewSpeaking(draft.speaking);
   html += previewMcqLike("🔊 Phát âm (IPA)", draft.pronunciation);
+  html += previewReading(draft.reading); // đọc hiểu để cuối cùng
 
   draftPreview.innerHTML = html;
   draftPreview.classList.remove("hidden");
@@ -700,9 +804,9 @@ function renderExamPaper(data, docId) {
   if (data.chunk?.length) html += renderChunkBlock(data.chunk);
   if (data.matching?.pairs?.length) html += renderMatchingBlock(data.matching);
   if (data.oddOneOut?.length) html += renderMcqBlock("🧭 Tìm từ khác chủ đề", "oddOneOut", data.oddOneOut);
-  if (data.reading?.paragraph) html += renderReadingBlock(data.reading);
   if (data.speaking?.paragraph) html += renderSpeakingBlock(data.speaking);
   if (data.pronunciation?.length) html += renderMcqBlock("🔊 Phát âm (IPA)", "pronunciation", data.pronunciation);
+  if (data.reading?.paragraph) html += renderReadingBlock(data.reading); // đọc hiểu để cuối cùng, khung bài đọc dính khi cuộn
 
   html += `<div class="submit-row"><button type="submit" class="btn btn-pen">✅ Nộp bài</button></div>`;
 
@@ -796,16 +900,23 @@ function matchGridHtml(pairs) {
   </div>`;
 }
 
+/* Đọc hiểu: khung bài đọc "dính" phía trên (sticky) trong khi phần câu hỏi/đáp án trượt xuống bên dưới */
 function renderReadingBlock(r) {
-  let html = `<div class="section-block"><div class="section-title">📖 Đọc hiểu <span class="eyebrow">${r.questions.length} câu hỏi</span></div>
-    <div class="reading-passage">${esc(r.paragraph)}</div>`;
+  let html = `<div class="section-block reading-block">
+    <div class="section-title">📖 Đọc hiểu <span class="eyebrow">${r.questions.length} câu hỏi</span></div>
+    <div class="reading-flex">
+      <div class="reading-passage-sticky">
+        <div class="reading-passage">${esc(r.paragraph)}</div>
+      </div>
+      <div class="reading-questions">`;
   r.questions.forEach((q, i) => {
     html += `<div class="q" data-section="reading" data-id="${q.id}">
       <div class="q-prompt">${i + 1}. ${esc(q.prompt)}</div>
       <div class="choices">${q.choices.map((c, ci) => `<button type="button" class="choice" data-index="${ci}">${String.fromCharCode(65 + ci)}. ${esc(c)}</button>`).join("")}</div>
     </div>`;
   });
-  return html + `</div>`;
+  html += `</div></div></div>`;
+  return html;
 }
 
 function renderSpeakingBlock(sp) {
@@ -1019,11 +1130,6 @@ function gradeAndShowResults() {
     const r = gradeMcqLike(examData.oddOneOut, answers.oddOneOut, "🧭 Tìm từ khác chủ đề");
     reviewHtml.push(r.html); earned += r.correct; total += examData.oddOneOut.length;
   }
-  if (examData.reading?.paragraph) {
-    const r = gradeMcqLike(examData.reading.questions, answers.reading, "📖 Đọc hiểu");
-    reviewHtml.push(`<div class="section-block"><div class="reading-passage">${esc(examData.reading.paragraph)}</div></div>` + r.html);
-    earned += r.correct; total += examData.reading.questions.length;
-  }
   if (examData.speaking?.paragraph) {
     const transcript = answers.speaking.transcript || "";
     const { fraction, matchArr, targetWords } = wordMatch(examData.speaking.paragraph, transcript);
@@ -1038,6 +1144,11 @@ function gradeAndShowResults() {
   if (examData.pronunciation?.length) {
     const r = gradeMcqLike(examData.pronunciation, answers.pronunciation, "🔊 Phát âm (IPA)");
     reviewHtml.push(r.html); earned += r.correct; total += examData.pronunciation.length;
+  }
+  if (examData.reading?.paragraph) {
+    const r = gradeMcqLike(examData.reading.questions, answers.reading, "📖 Đọc hiểu");
+    reviewHtml.push(`<div class="section-block"><div class="reading-passage">${esc(examData.reading.paragraph)}</div></div>` + r.html);
+    earned += r.correct; total += examData.reading.questions.length;
   }
 
   const scoreOn10 = total ? Math.round((earned / total) * 100) / 10 : 0;
