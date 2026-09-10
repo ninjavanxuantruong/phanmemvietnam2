@@ -346,6 +346,7 @@ window.ChessGame = {
 
     // ================= 5. DỰNG BÀN CỜ =================
     startMatch() {
+        if (window.PkmScore) window.PkmScore.resetMatchTotals();
         if (window.ChessScenery) {
             window.ChessScenery.setTheme(window.ChessScenery.themeForRound(this.session.persisted.round));
         }
@@ -819,6 +820,10 @@ window.ChessGame = {
         if (s.playerMoveCount % this.QUIZ_EVERY_N_MOVES === 0) {
             await this.runQuiz();
             if (s.gameEnded) return;
+            if (window.PkmScore.shouldCheckpoint(s.totalCount)) {
+                const stopped = await this.showCheckpoint();
+                if (stopped) return;
+            }
         }
 
         s.turn = 'enemy';
@@ -871,6 +876,42 @@ window.ChessGame = {
         });
     },
 
+    // Chốt điểm GIỮA VÁN — Chess bắt buộc phải CHIẾU BÍ mới được xét mở khoá
+    // bài mới, nên mọi lần Dừng ở đây đều allowLessonUnlock=false.
+    showCheckpoint() {
+        return new Promise((resolve) => {
+            const s = this.session;
+            const result = window.PkmScore.finishMatch({ won: true, minQuestions: 0, allowLessonUnlock: false });
+            window.PkmScore.resetForNewRound();
+
+            const messages = (result.breakdown || []).map(b => {
+                if (b.type === 'correct_answers') return `📝 ${b.correctCount} câu đúng ÷ ${b.divisor} = <b>+${b.exp} KN +${b.dv} DV</b>`;
+                if (b.type === 'streak') return b.exp > 0 ? `🔥 Chuỗi ${b.streak} ngày: <b>+${b.exp} KN +${b.dv} DV</b>` : '';
+                return '';
+            }).filter(Boolean);
+
+            window.PkmScore.showCheckpointPopup({
+                title: `🎁 Đã trả lời ${s.totalCount} câu!`,
+                breakdownHTML: messages.map(m => `<div>${m}</div>`).join('') || '<div>Chưa có thưởng mới ở mốc này.</div>',
+                stopHint: 'Ván cờ phải CHIẾU BÍ xong mới được xét mở khoá bài mới.',
+                onContinue: () => resolve(false),
+                onStop: () => {
+                    s.gameEnded = true;
+                    s.inputLocked = true;
+                    this.showEndOverlay({
+                        title: '🏁 DỪNG GIỮA VÁN',
+                        color: '#f0c766',
+                        message: `<div style="color:#4caf50; font-size:16px; font-weight:bold;">+${window.PkmScore.matchTotals.bonusEXP} EXP &nbsp; +${window.PkmScore.matchTotals.bonusDV} DV</div>
+                                   <div style="color:#aaa; font-size:12px; margin-top:8px;">Chưa chiếu bí nên không được xét mở khoá bài mới.</div>`,
+                        buttonText: '🔄 VÁN MỚI',
+                        onContinue: () => window.location.reload(),
+                        onExit: () => window.location.href = 'pkm_mode_select.html',
+                    });
+                    resolve(true);
+                },
+            });
+        });
+    },
     // ================= 12. KẾT THÚC VÁN =================
     onPlayerWin() {
         const s = this.session;
