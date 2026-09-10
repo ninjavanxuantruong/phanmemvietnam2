@@ -163,10 +163,11 @@ window.BattleGame = {
 
                 if (quizOverlay) quizOverlay.style.display = "flex";
 
-                this.activeUnitIndex = 0;
-                this.telegraph = this.buildTelegraph(this.activeUnitIndex);
-                this.showTelegraphFX(this.telegraph);
-                setTimeout(() => this.askAndResolve(), 1000);
+            if (window.PkmScore) window.PkmScore.resetMatchTotals();
+            this.activeUnitIndex = 0;
+            this.telegraph = this.buildTelegraph(this.activeUnitIndex);
+            this.showTelegraphFX(this.telegraph);
+            setTimeout(() => this.askAndResolve(), 1000);
             };
 
             // 3. Kích hoạt gọi thằng VocabularyModule tự mò localStorage/sessionStorage bốc dữ liệu và chạy
@@ -435,7 +436,71 @@ window.BattleGame = {
         this.showTelegraphFX(this.telegraph);
 
         this.isProcessing = false;
+
+        // CHECKPOINT: cứ mỗi 10 câu đã trả lời thì dừng lại hỏi chơi tiếp/dừng.
+        if (window.PkmScore.shouldCheckpoint(this.totalCount)) {
+            this.showCheckpoint();
+            return;
+        }
+
         setTimeout(() => this.askAndResolve(), 1000);
+    },
+
+    // Chốt điểm GIỮA CHỪNG — không kết thúc trận thật. <20 câu: luôn
+    // allowLessonUnlock=false. >=20 câu: nếu bấm Dừng, quyết thắng/thua theo
+    // tổng máu hiện tại và cho phép mở khoá bài mới như 1 trận thật.
+    showCheckpoint() {
+        const result = window.PkmScore.finishMatch({
+            won: true, minQuestions: 0, allowLessonUnlock: false,
+        });
+        window.PkmScore.resetForNewRound();
+
+        const canStop = this.totalCount >= window.PkmScore.CHECKPOINT_INTERVAL * 2;
+        const messages = (result.breakdown || []).map(b => {
+            if (b.type === 'correct_answers') return `📝 ${b.correctCount} câu đúng ÷ ${b.divisor} = <b>+${b.exp} KN +${b.dv} DV</b>`;
+            if (b.type === 'streak') return b.exp > 0 ? `🔥 Chuỗi ${b.streak} ngày: <b>+${b.exp} KN +${b.dv} DV</b>` : '';
+            return '';
+        }).filter(Boolean);
+
+        window.PkmScore.showCheckpointPopup({
+            title: `🎁 Đã trả lời ${this.totalCount} câu!`,
+            breakdownHTML: messages.map(m => `<div>${m}</div>`).join('') || '<div>Chưa có thưởng mới ở mốc này.</div>',
+            stopHint: canStop ? '' : 'Dừng trước câu 20 sẽ KHÔNG được xét mở khoá bài mới.',
+            onContinue: () => { setTimeout(() => this.askAndResolve(), 400); },
+            onStop: () => {
+                if (canStop) {
+                    const playerHpSum = this.playerTeam.reduce((s, p) => s + Math.max(0, p.currentHp), 0);
+                    const enemyHpSum = this.enemyTeam.reduce((s, p) => s + Math.max(0, p.currentHp), 0);
+                    if (playerHpSum >= enemyHpSum) this.victory(); else this.defeat();
+                } else {
+                    this.victoryEarlyStop();
+                }
+            },
+        });
+    },
+
+    // Dừng sớm trước câu 20 — đã chốt điểm ở showCheckpoint() rồi (allowLessonUnlock:false),
+    // ở đây chỉ hiển thị tổng kết từ window.PkmScore.matchTotals, KHÔNG gọi finishMatch nữa.
+    victoryEarlyStop() {
+        this.log("🏁 DỪNG SỚM!");
+        const firstPkm = this.playerTeam[0];
+        const victoryImg = document.getElementById('victory-pkm-img');
+        if (victoryImg && firstPkm) {
+            victoryImg.src = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${firstPkm.id}.png`;
+        }
+        const expText = document.getElementById('victory-exp-text');
+        if (expText) {
+            expText.innerHTML = `
+                <div style="color:#4caf50; font-size:16px; font-weight:bold;">+${window.PkmScore.matchTotals.bonusEXP} KN &nbsp; +${window.PkmScore.matchTotals.bonusDV} DV</div>
+                <div style="color:#aaa; font-size:12px; margin:8px 0;">Dừng ở câu ${this.totalCount} — chưa đủ điều kiện xét mở khoá bài mới.</div>
+                <button onclick="window.location.href='pkm_map.html'"
+                        style="background:#2ecc71; color:white; border:none; padding:10px 30px;
+                               border-radius:25px; cursor:pointer; font-weight:bold;">
+                    TIẾP TỤC
+                </button>`;
+        }
+        const overlay = document.getElementById('victory-overlay');
+        if (overlay) overlay.style.display = 'flex';
     },
 
     // Thực thi 1 đòn đánh đã được telegraph từ trước: tính damage thật, phát animation, trừ máu
