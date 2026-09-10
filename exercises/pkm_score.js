@@ -2,7 +2,8 @@
  * ==========================================
  * PKM SCORE SYSTEM — ghi điểm + thưởng EXP/DV dùng chung cho mọi game
  * ==========================================
- * Dùng chung cho pkm_battle.js, pkm_block.js, và mọi game Pokémon sau này.
+ * Dùng chung cho pkm_battle.js, pkm_block.js, pkm_tower.js, pkm_chess.js,
+ * pkm_race.js, pkm_birdshoot.js, và mọi game Pokémon sau này.
  * Nạp file này (thẻ <script src="pkm_score.js">) TRƯỚC script của game.
  *
  * CÁCH DÙNG trong 1 game:
@@ -18,6 +19,13 @@
  *              unlockThreshold: 80,        // (tuỳ chọn) % đúng để mở khoá bài mới
  *              answerBonusDivisor: 2,      // (tuỳ chọn) chia số câu đúng ra thưởng
  *              loseFlatExp: 2, loseFlatDv: 2, // (tuỳ chọn) thưởng an ủi khi thua
+ *              allowLessonUnlock: true,    // (tuỳ chọn, mặc định true) — false =
+ *                                          // chốt điểm GIỮA CHỪNG (checkpoint),
+ *                                          // KHÔNG được xét mở khoá bài mới dù
+ *                                          // accuracy có đủ cao. Dùng khi người
+ *                                          // chơi dừng sớm trước khi ván đủ điều
+ *                                          // kiện được coi là "qua màn" thật sự
+ *                                          // (xem CHECKPOINT GIỮA VÁN bên dưới).
  *          });
  *
  *      finishMatch() tự lo HẾT: ghi cộng dồn điểm kỹ năng (nếu đủ điều kiện),
@@ -36,6 +44,19 @@
  *      Nếu skipped === true: KHÔNG có gì được ghi cả (không commitSession,
  *      không cộng EXP/DV) — coi như ván đó chưa tính.
  *
+ * CHECKPOINT GIỮA VÁN (MỚI):
+ *   Với các game chơi lâu (Battle, Chess, Block, Tower, Race, BirdShoot...),
+ *   cứ mỗi mốc N câu (thường là 10/20/30...) game nên:
+ *     1. Gọi finishMatch({ won:true, minQuestions:0, allowLessonUnlock:<tuỳ> })
+ *        để chốt điểm những gì đã làm được tới giờ.
+ *     2. Gọi PkmScore.resetForNewRound() NGAY để câu tiếp theo không bị tính
+ *        trùng vào lần chốt kế.
+ *     3. Gọi PkmScore.showCheckpointPopup({...}) để hỏi người chơi "Chơi tiếp
+ *        hay Dừng ở đây?" — dùng PkmScore.matchTotals để hiện tổng EXP/DV đã
+ *        kiếm được TRONG CẢ VÁN (không chỉ lần chốt gần nhất).
+ *   Mỗi game PHẢI tự gọi PkmScore.resetMatchTotals() lúc BẮT ĐẦU 1 ván mới,
+ *   nếu không matchTotals sẽ cộng dồn nhầm sang ván sau.
+ *
  * LƯU Ý QUAN TRỌNG: pkm_quiz.js (dùng chung, KHÔNG sửa) không lộ ra ngoài
  * "câu vừa hỏi thuộc kỹ năng nào" qua callback của ask(). Nhưng nó có biến
  * đếm nội bộ `skillCycleIndex` — tăng đúng 1 lần cho MỖI câu hỏi THẬT SỰ
@@ -47,6 +68,85 @@
 
 window.PkmScore = {
     SKILL_ORDER: ["listening", "speaking", "reading", "writing"],
+
+    // Ngưỡng checkpoint dùng chung — sửa số 1 chỗ này là áp dụng cho MỌI game.
+    CHECKPOINT_INTERVAL: 2,
+    shouldCheckpoint(totalAnswered) {
+        return totalAnswered > 0 && totalAnswered % this.CHECKPOINT_INTERVAL === 0;
+    },
+
+    // ==========================================
+    // CỘNG DỒN EXP/DV TOÀN VÁN — cho popup checkpoint (không bị
+    // resetForNewRound() xoá, chỉ bị xoá khi game tự gọi resetMatchTotals()
+    // lúc bắt đầu 1 ván MỚI).
+    // ==========================================
+    matchTotals: { bonusEXP: 0, bonusDV: 0 },
+
+    resetMatchTotals() {
+        this.matchTotals = { bonusEXP: 0, bonusDV: 0 };
+    },
+
+    // ==========================================
+    // POPUP CHECKPOINT DÙNG CHUNG — hiện breakdown lần chốt vừa rồi + tổng
+    // EXP/DV tích luỹ CẢ VÁN (this.matchTotals), 2 nút Tiếp tục/Dừng. Game
+    // tự quyết định logic thưởng/kết thúc khi người chơi bấm nút nào.
+    //
+    //   opts = {
+    //     title: string,
+    //     breakdownHTML: string,   // HTML mô tả các khoản thưởng lần chốt này
+    //     stopHint: string,        // (tuỳ chọn) dòng cảnh báo nhỏ, vd điều
+    //                              // kiện chưa đủ để mở khoá bài mới
+    //     onContinue: () => void,
+    //     onStop: () => void,
+    //   }
+    // ==========================================
+    showCheckpointPopup(opts) {
+        const {
+            title = "🎁 Điểm dừng!",
+            breakdownHTML = "",
+            stopHint = "",
+            onContinue,
+            onStop,
+        } = opts;
+
+        let overlay = document.getElementById("pkm-checkpoint-overlay");
+        if (!overlay) {
+            overlay = document.createElement("div");
+            overlay.id = "pkm-checkpoint-overlay";
+            overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.75);
+                z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;`;
+            document.body.appendChild(overlay);
+        }
+
+        overlay.innerHTML = `
+            <div style="background:#16213e;border:2px solid #FFCB05;border-radius:18px;padding:24px;max-width:340px;width:100%;text-align:center;color:#f0f0f0;">
+                <div style="font-size:18px;font-weight:800;color:#FFCB05;margin-bottom:12px;">${title}</div>
+                <div style="font-size:13px;text-align:left;line-height:1.8;margin-bottom:12px;">${breakdownHTML}</div>
+                <div style="border-top:1px solid #444;padding-top:10px;margin-bottom:12px;">
+                    <div style="color:#4caf50;font-size:16px;font-weight:bold;">+${this.matchTotals.bonusEXP} KN &nbsp; +${this.matchTotals.bonusDV} DV (tính đến giờ)</div>
+                </div>
+                ${stopHint ? `<div style="color:#ff9f43;font-size:12px;margin-bottom:12px;">${stopHint}</div>` : ""}
+                <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                    <button id="pkmCkStop" class="poke-btn gray">🏁 Dừng, nhận thưởng</button>
+                    <button id="pkmCkContinue" class="poke-btn green">▶️ Chơi tiếp</button>
+                </div>
+            </div>`;
+        overlay.style.display = "flex";
+
+        document.getElementById("pkmCkContinue").onclick = () => {
+            overlay.style.display = "none";
+            if (onContinue) onContinue();
+        };
+        document.getElementById("pkmCkStop").onclick = () => {
+            overlay.style.display = "none";
+            if (onStop) onStop();
+        };
+    },
+
+    hideCheckpointPopup() {
+        const overlay = document.getElementById("pkm-checkpoint-overlay");
+        if (overlay) overlay.style.display = "none";
+    },
 
     session: {
         correctCount: 0,
@@ -182,8 +282,8 @@ window.PkmScore = {
     },
 
     // ==========================================
-    // KẾT THÚC 1 VÁN — ghi điểm + tính & cộng thưởng EXP/DV, trả về dữ
-    // liệu thuần để game tự dựng UI.
+    // KẾT THÚC 1 VÁN (hoặc CHỐT CHECKPOINT GIỮA VÁN) — ghi điểm + tính &
+    // cộng thưởng EXP/DV, trả về dữ liệu thuần để game tự dựng UI.
     // ==========================================
     finishMatch(opts = {}) {
         const {
@@ -193,6 +293,8 @@ window.PkmScore = {
             answerBonusDivisor = 2,
             loseFlatExp = 2,
             loseFlatDv = 2,
+            allowLessonUnlock = true, // false = chốt điểm GIỮA CHỪNG (checkpoint),
+                                       // KHÔNG cho mở khoá bài mới dù accuracy đủ cao
         } = opts;
 
         const totalCount = this.session.totalCount;
@@ -227,17 +329,22 @@ window.PkmScore = {
         const breakdown = [];
 
         if (won) {
-            // Thưởng 1: bài mới (cần đạt unlockThreshold% đúng)
-            isNewLesson = !!(currentLessonId && !passedMaps.includes(currentLessonId));
-            if (isNewLesson) {
-                if (accuracy >= unlockThreshold) {
-                    bonusEXP += 5; bonusDV += 5;
-                    passedMaps.push(currentLessonId);
-                    localStorage.setItem("pkm_passed_maps", JSON.stringify(passedMaps));
-                    newLessonUnlocked = true;
-                    breakdown.push({ type: "new_lesson", exp: 5, dv: 5, accuracy });
-                } else {
-                    breakdown.push({ type: "new_lesson_failed", accuracy, requiredAccuracy: unlockThreshold });
+            // Thưởng 1: bài mới (cần đạt unlockThreshold% đúng) — CHỈ xét khi
+            // allowLessonUnlock=true. Chốt điểm giữa chừng (dừng sớm/chưa đủ
+            // điều kiện "qua màn" thật sự) truyền allowLessonUnlock=false để
+            // KHÔNG được thưởng phần này dù accuracy có đủ cao.
+            if (allowLessonUnlock) {
+                isNewLesson = !!(currentLessonId && !passedMaps.includes(currentLessonId));
+                if (isNewLesson) {
+                    if (accuracy >= unlockThreshold) {
+                        bonusEXP += 5; bonusDV += 5;
+                        passedMaps.push(currentLessonId);
+                        localStorage.setItem("pkm_passed_maps", JSON.stringify(passedMaps));
+                        newLessonUnlocked = true;
+                        breakdown.push({ type: "new_lesson", exp: 5, dv: 5, accuracy });
+                    } else {
+                        breakdown.push({ type: "new_lesson_failed", accuracy, requiredAccuracy: unlockThreshold });
+                    }
                 }
             }
 
@@ -268,7 +375,13 @@ window.PkmScore = {
         localStorage.setItem("pkm_global_exp", newEXP);
         localStorage.setItem("pkm_global_dv", newDV);
 
-        console.log("🎁 [PkmScore] finishMatch:", { won, accuracy, bonusEXP, bonusDV, newEXP, newDV, breakdown });
+        // Cộng dồn vào tổng CẢ VÁN — dùng cho popup checkpoint (xem
+        // showCheckpointPopup ở trên). Game phải tự gọi resetMatchTotals()
+        // lúc bắt đầu 1 ván MỚI, nếu không số này sẽ cộng dồn nhầm sang ván sau.
+        this.matchTotals.bonusEXP += bonusEXP;
+        this.matchTotals.bonusDV += bonusDV;
+
+        console.log("🎁 [PkmScore] finishMatch:", { won, accuracy, bonusEXP, bonusDV, newEXP, newDV, allowLessonUnlock, breakdown });
 
         return {
             skipped: false,
