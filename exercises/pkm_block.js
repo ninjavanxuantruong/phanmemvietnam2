@@ -16,7 +16,8 @@
 
 window.BlockGame = {
     GRID_SIZE: 8,
-    MIN_QUESTIONS: 8, // = số câu cần trả lời để chốt xong 1 VÒNG
+    ROUND_QUESTION_COUNT: 10, // = số câu để chốt xong 1 VÒNG (thu nhỏ bàn, commit điểm ÂM THẦM)
+                              // — ĐỘC LẬP với PkmScore.CHECKPOINT_INTERVAL (khi nào hiện popup Tiếp tục/Dừng)
 
     // ═══════════════════════════════════════════════════════════
     // HỆ THỐNG "VÒNG" (round): cứ đủ MIN_QUESTIONS câu -> chốt 1 vòng,
@@ -467,6 +468,7 @@ window.BlockGame = {
     },
 
     startPlaying() {
+        if (window.PkmScore) window.PkmScore.resetMatchTotals();
         this.spawnTray();
         this.renderTray();
         this.updateScoreUI();
@@ -961,9 +963,9 @@ window.BlockGame = {
         this.updateStatsUI();
 
         this.roundQuestionCount++;
-        if (this.roundQuestionCount >= this.MIN_QUESTIONS) {
+        if (this.roundQuestionCount >= this.ROUND_QUESTION_COUNT) {
             this.roundQuestionCount = 0;
-            this.completeRound(); // chốt vòng + reset bàn cờ mới, tự bật lại tương tác
+            this.completeRound(); // chốt vòng ÂM THẦM + thu nhỏ bàn cờ mới — KHÔNG hiện popup ở đây
             return;
         }
 
@@ -971,6 +973,13 @@ window.BlockGame = {
         this.setInteractionEnabled(true);
 
         if (!isCorrect) this.autoPlayPenalty();
+
+        // Checkpoint hiện popup Tiếp tục/Dừng — ĐỘC LẬP hoàn toàn với chu kỳ
+        // chốt vòng ở trên, dùng this.totalCount (không bị reset mỗi vòng).
+        if (window.PkmScore && window.PkmScore.shouldCheckpoint(this.totalCount)) {
+            this.showCheckpoint();
+            return;
+        }
 
         this.checkGameOver();
     },
@@ -982,7 +991,7 @@ window.BlockGame = {
     // ═══════════════════════════════════════════════════════════
     completeRound() {
         const result = window.PkmScore
-            ? window.PkmScore.finishMatch({ won: true, minQuestions: 0 })
+            ? window.PkmScore.finishMatch({ won: true, minQuestions: 0, allowLessonUnlock: true })
             : { bonusEXP: 0, bonusDV: 0 };
 
         this.saveRoundLocal({
@@ -1022,6 +1031,30 @@ window.BlockGame = {
 
         this.isPaused = false;
         this.setInteractionEnabled(true);
+    },
+
+    // ═══════════════════════════════════════════════════════════
+    // CHECKPOINT — ĐỘC LẬP với completeRound() ở trên. Chỉ hiện popup hỏi
+    // Tiếp tục/Dừng, KHÔNG đụng gì tới bàn cờ/khay/round. Vì finishMatch()
+    // chỉ thực sự commit điểm tại các mốc completeRound() (âm thầm), số
+    // matchTotals hiển thị ở đây là tổng đã CHỐT tới lần completeRound() gần
+    // nhất — có thể trễ tối đa (ROUND_QUESTION_COUNT-1) câu so với hiện tại,
+    // đó là đánh đổi chấp nhận được khi 2 chu kỳ tách biệt nhau.
+    // ═══════════════════════════════════════════════════════════
+    showCheckpoint() {
+        this.isPaused = true;
+        this.setInteractionEnabled(false);
+
+        window.PkmScore.showCheckpointPopup({
+            title: `🎁 Đã trả lời ${this.totalCount} câu!`,
+            breakdownHTML: `<div>Điểm được cộng dồn mỗi khi xong 1 vòng (${this.ROUND_QUESTION_COUNT} câu/vòng).</div>`,
+            onContinue: () => {
+                this.isPaused = false;
+                this.setInteractionEnabled(true);
+                this.checkGameOver();
+            },
+            onStop: () => this.handleMatchEnd(),
+        });
     },
 
     // Lưu chi tiết từng vòng vào localStorage (mảng nối dài, chưa tự xoá —
