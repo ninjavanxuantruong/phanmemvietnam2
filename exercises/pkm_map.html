@@ -284,13 +284,42 @@
   .modal-btn { flex: 1; padding: 10px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; }
   .btn-cancel { background: #eee; color: #666; }
   .btn-go { background: var(--pika-red); color: white; box-shadow: 0 4px 0 #c0392b; }
-  .btn-go:active { transform: translateY(2px); box-shadow: none; }
-</style>
-</head>
-<body>
+    .btn-go:active { transform: translateY(2px); box-shadow: none; }
 
-  <!-- ============ SCREEN 1: CHỌN VÙNG ============ -->
-  <div id="screenRegionSelect" class="screen">
+    /* ============ MÀN CHỜ TẢI BẢN ĐỒ ============ */
+    #mapLoadingScreen {
+      position: fixed; inset: 0; z-index: 99999;
+      background: #05070d;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity 0.4s ease;
+    }
+    #mapLoadingScreen.hide { opacity: 0; pointer-events: none; }
+    #mapLoadingTrack { position: relative; width: 240px; height: 60px; overflow: hidden; }
+    #mapLoadingPkm {
+      position: absolute; top: 0; left: -60px; width: 60px; height: 60px;
+      animation: mapLoadingRun 1.1s linear infinite;
+    }
+    @keyframes mapLoadingRun {
+      from { left: -60px; }
+      to { left: 240px; }
+    }
+    #mapLoadingText {
+      margin-top: 14px; font-size: 13px; font-weight: 800; color: #ffcb05; letter-spacing: 1px;
+    }
+  </style>
+</head>
+    <body>
+
+    <!-- ============ MÀN CHỜ TẢI BẢN ĐỒ ============ -->
+    <div id="mapLoadingScreen">
+      <div id="mapLoadingTrack">
+        <img id="mapLoadingPkm" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/25.gif" alt="">
+      </div>
+      <div id="mapLoadingText">Đang tải bản đồ...</div>
+    </div>
+
+    <!-- ============ SCREEN 1: CHỌN VÙNG ============ -->
+    <div id="screenRegionSelect" class="screen">
     <div class="top-header">
       <div class="back-pill" onclick="location.href='pkm.html'">◀ HUB</div>
       <div class="htitle">🗺️ Bản Đồ Thế Giới</div>
@@ -299,6 +328,8 @@
     <div class="select-body">
       <div class="section-label">📅 Nhiệm vụ 3 ngày của bạn</div>
       <div class="quest-row" id="questRow"></div>
+
+      <div id="testCardRow"></div>
 
       <div class="section-label">🌍 Chọn vùng đất</div>
       <div class="region-grid" id="regionGrid"></div>
