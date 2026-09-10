@@ -50,7 +50,7 @@ window.TowerGame = {
                               // độ dài round, không phụ thuộc học sinh chơi nhanh hay chậm
     WRONG_STUN_MS: 3000,
     MIN_QUESTIONS: 6,          // ngưỡng tối thiểu để tính là 1 ván khi THUA (gameOverWipe)
-    REWARD_MIN_QUESTIONS: 8,   // cứ đủ tối thiểu 8 câu (trong phiên) là được chốt thưởng 1 lần
+    REWARD_MIN_QUESTIONS: 10,  // cứ đủ tối thiểu 10 câu (trong phiên) là hiện checkpoint chơi tiếp/dừng
 
     MELEE_COOLDOWN_MS: 900,
     RANGED_COOLDOWN_MS: 1100,
@@ -234,6 +234,7 @@ window.TowerGame = {
             this.savePersisted();
         }
 
+        if (window.PkmScore) window.PkmScore.resetMatchTotals();
         await this.buildShop(); // refresh mỗi phiên (đã bàn), không phải mỗi round
 
         if (window.QuizManager) window.QuizManager.prepareData();
@@ -867,15 +868,53 @@ onQuizAnswered(isCorrect) {
     // cho mốc kế tiếp. Dùng chung công thức với Battle/Block/Race qua
     // PkmScore.finishMatch() (won:true -> +correctCount/2, + thưởng mở
     // khoá bài mới nếu currentLessonId chưa có trong pkm_passed_maps).
-    if (s.questionsSinceReward >= this.REWARD_MIN_QUESTIONS && window.PkmScore) {
-        const result = window.PkmScore.finishMatch({ won: true, minQuestions: 0 });
+        if (window.PkmScore && s.questionsSinceReward >= window.PkmScore.CHECKPOINT_INTERVAL) {
+        const result = window.PkmScore.finishMatch({ won: true, minQuestions: 0, allowLessonUnlock: true });
         if (!result.skipped) {
             s.questionsSinceReward = 0;
             window.PkmScore.resetForNewRound(); // tránh vòng thưởng sau tính trùng câu của vòng này
-            this.log(`🎁 +${result.bonusEXP} KN +${result.bonusDV} DV!`);
+            this.showCheckpoint(result);
         }
     }
-},
+    },
+
+    // Checkpoint — tạm dừng thế giới (giống lúc mở quiz), hỏi chơi tiếp hay dừng.
+    showCheckpoint(result) {
+    const s = this.session;
+    s.paused = true;
+    const messages = (result.breakdown || []).map(b => {
+        if (b.type === 'new_lesson') return `🌟 BÀI MỚI HOÀN THÀNH (${b.accuracy}% đúng): <b>+${b.exp} KN +${b.dv} DV</b>`;
+        if (b.type === 'new_lesson_failed') return `⚠️ Bài mới nhưng chỉ ${b.accuracy}% đúng — cần ≥${b.requiredAccuracy}%!`;
+        if (b.type === 'correct_answers') return `📝 ${b.correctCount} câu đúng ÷ ${b.divisor} = <b>+${b.exp} KN +${b.dv} DV</b>`;
+        if (b.type === 'streak') return b.exp > 0 ? `🔥 Chuỗi ${b.streak} ngày: <b>+${b.exp} KN +${b.dv} DV</b>` : '';
+        return '';
+    }).filter(Boolean);
+
+    window.PkmScore.showCheckpointPopup({
+        title: `🎁 Đã trả lời ${s.totalCount} câu!`,
+        breakdownHTML: messages.map(m => `<div>${m}</div>`).join('') || '<div>Chưa có thưởng mới ở mốc này.</div>',
+        onContinue: () => { s.paused = false; },
+        onStop: () => { this.gameOverWipeManual(); },
+    });
+    },
+
+    // Người chơi CHỦ ĐỘNG dừng ở checkpoint (khác gameOverWipe() — đó là THUA do
+    // lọt quá nhiều quái). Vẫn reset vàng/đội hình chiến dịch cho lần sau nhưng
+    // hiển thị nhẹ nhàng hơn, không phải "thất thủ".
+    gameOverWipeManual() {
+    const s = this.session;
+    s.gameOverWiped = true;
+    s.paused = true;
+    this.wipeAndRestart();
+
+    const overlay = document.getElementById('victory-overlay');
+    document.getElementById('victory-title-text').innerText = '🏁 DỪNG TẠI ĐÂY';
+    document.getElementById('victory-exp-text').innerHTML = `
+        <div style="color:#4caf50; font-weight:bold; margin-bottom:8px;">+${window.PkmScore.matchTotals.bonusEXP} KN &nbsp; +${window.PkmScore.matchTotals.bonusDV} DV</div>
+        <div style="color:#ccc; margin-bottom:10px;">Đã dừng theo yêu cầu — vàng/đội hình chiến dịch đặt lại từ đầu cho lần sau.</div>
+        <div style="color:#aaa; font-size:12px;">📊 ✅ ${s.correctCount} / ❌ ${s.wrongCount} câu &nbsp; ⭐ ${s.score} điểm</div>`;
+    if (overlay) overlay.style.display = 'flex';
+    },
 
     // ================= 12. THUA — RESET TOÀN BỘ =================
     gameOverWipe() {
