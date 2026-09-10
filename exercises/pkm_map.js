@@ -236,32 +236,115 @@ async function loadQuestBoard() {
     }
 
     const preview = buildLessonPreviewByCode(rows, colID, colWord, entry.code);
+
+    // Lịch có mã bài (entry.code) nhưng KHÔNG khớp được bài nào trong sheet
+    // -> coi như "không đọc được", tự động thay bằng đề xuất cá nhân hoá
+    // giống hệt trường hợp trống lịch ở nhánh trên.
+    if (!preview) {
+      const fillPreview = pickPersonalizedFillLesson(rows, colID, colWord, lichData, passedMaps);
+      if (!fillPreview) {
+        card.classList.add("quest-empty");
+        card.innerHTML = `
+          <div class="quest-daylabel">${slot.label} · ${formatDateVN(iso)}</div>
+          <div class="quest-emptytext">Chưa có lịch</div>`;
+        questRow.appendChild(card);
+        return;
+      }
+      card.innerHTML = `
+        <div class="quest-ribbon" style="background:#7f8c8d;">Ôn tự do</div>
+        <div class="quest-daylabel">${slot.label} · ${formatDateVN(iso)}</div>
+        <div class="quest-title">${fillPreview.lessonName}</div>
+        <div class="quest-words">${fillPreview.words.length} từ${fillPreview.words.length ? ": " + fillPreview.words.slice(0, 3).join(", ") + (fillPreview.words.length > 3 ? "..." : "") : ""}</div>
+      `;
+      card.onclick = () => {
+        localStorage.setItem("selected_lesson_name", fillPreview.lessonName);
+        localStorage.setItem("current_mission", JSON.stringify({
+          id: fillPreview.fullId, type: "quest_fill", class: realTrainerClass
+        }));
+        window.handleNodeClick(fillPreview.lessonName, fillPreview.words, "pkm_mode_select.html");
+      };
+      questRow.appendChild(card);
+      return;
+    }
+
     const typeMeta = QUEST_TYPE_META[entry.type] || { label: entry.type || "", color: "#888" };
-    const isDone = preview && passedMaps.includes(preview.fullId);
-    const wordSample = preview ? preview.words.slice(0, 3).join(", ") : "";
+    const isDone = passedMaps.includes(preview.fullId);
+    const wordSample = preview.words.slice(0, 3).join(", ");
 
     card.innerHTML = `
       <div class="quest-ribbon" style="background:${typeMeta.color};">${typeMeta.label}</div>
       <div class="quest-daylabel">${slot.label} · ${formatDateVN(iso)}</div>
-      <div class="quest-title">${preview ? preview.lessonName : "(Không rõ bài)"}</div>
-      ${preview ? `<div class="quest-words">${preview.words.length} từ${wordSample ? ": " + wordSample + (preview.words.length > 3 ? "..." : "") : ""}</div>` : ""}
+      <div class="quest-title">${preview.lessonName}</div>
+      <div class="quest-words">${preview.words.length} từ${wordSample ? ": " + wordSample + (preview.words.length > 3 ? "..." : "") : ""}</div>
       ${isDone ? `<div class="quest-done">✓ Đã học</div>` : ""}
     `;
 
-    if (preview) {
-      card.onclick = () => {
-        localStorage.setItem("selected_lesson_name", preview.lessonName);
-        localStorage.setItem("current_mission", JSON.stringify({
-          id: preview.fullId, type: "quest", class: realTrainerClass
-        }));
-        window.handleNodeClick(preview.lessonName, preview.words, "pkm_mode_select.html");
-      };
-    } else {
-      card.classList.add("quest-empty");
-    }
+    card.onclick = () => {
+      localStorage.setItem("selected_lesson_name", preview.lessonName);
+      localStorage.setItem("current_mission", JSON.stringify({
+        id: preview.fullId, type: "quest", class: realTrainerClass
+      }));
+      window.handleNodeClick(preview.lessonName, preview.words, "pkm_mode_select.html");
+    };
 
     questRow.appendChild(card);
   });
+}
+
+// Docid PHẢI khớp đúng công thức của test.js (makeDocId) để đọc đúng đề đã lưu.
+function makeTestDocId(classId) {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `test-${classId}-${dd}${mm}${yyyy}`;
+}
+
+// Nếu lớp có đề kiểm tra hôm nay (đúng docId + đủ dữ liệu hợp lệ) -> hiện 1
+// thẻ riêng bên dưới dải 3 ngày. Không có đề, hoặc đề bị lỗi lúc tạo/đẩy lên
+// Firebase (thiếu meta/rỗng hoàn toàn) -> coi như KHÔNG có, không hiện gì cả.
+async function loadTestCard() {
+  const wrap = document.getElementById("testCardRow");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  try {
+    const { db, doc, getDoc } = await getFirebaseRefs();
+    const docId = makeTestDocId(realTrainerClass);
+    const snap = await getDoc(doc(db, "test", docId));
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+    const sectionKeys = ["mcq", "listening", "sentence", "speaking", "pronunciation", "reading", "chunk", "matching", "oddOneOut"];
+    const hasAnySection = sectionKeys.some(k => {
+      const v = data[k];
+      return Array.isArray(v) ? v.length > 0 : (v && typeof v === "object");
+    });
+    if (!data.meta || !hasAnySection) return; // dữ liệu hỏng -> im lặng bỏ qua
+
+    const card = document.createElement("div");
+    card.className = "quest-card quest-today";
+    card.style.width = "100%";
+    card.innerHTML = `
+      <div class="quest-ribbon" style="background:#e3350d;">Bài kiểm tra</div>
+      <div class="quest-daylabel">📝 Hôm nay · Lớp ${realTrainerClass}</div>
+      <div class="quest-title">Bài kiểm tra hôm nay</div>
+      <div class="quest-words">Bấm để vào làm bài</div>
+    `;
+    card.onclick = () => {
+      localStorage.setItem("pkm_pending_test_docid", docId);
+      window.location.href = "test-student.html";
+    };
+    wrap.appendChild(card);
+  } catch (e) {
+    console.warn("⚠️ Không đọc được bài kiểm tra hôm nay (coi như chưa có):", e);
+  }
+}
+
+function hideMapLoadingScreen() {
+  const el = document.getElementById("mapLoadingScreen");
+  if (!el) return;
+  el.classList.add("hide");
+  setTimeout(() => el.remove(), 450);
 }
 
 // ===== 3. SCREEN 1 — CHỌN VÙNG =====
@@ -660,8 +743,10 @@ window.closeModal = function () {
 async function initWorldMap() {
   document.getElementById("trainerNameTag").textContent = trainerName.toUpperCase();
   renderRegionGrid();
-  loadQuestBoard();
   showScreen("select");
+  hideMapLoadingScreen(); // nội dung local (lưới vùng) đã dựng xong -> ẩn màn chờ ngay
+  loadQuestBoard();       // 2 lệnh gọi mạng này chạy NGẦM phía sau, không giữ màn chờ
+  loadTestCard();
 }
 
 initWorldMap();
