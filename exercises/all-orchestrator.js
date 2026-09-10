@@ -286,7 +286,9 @@ async function main() {
 
     // ✅ Vừa học xong đủ 5 module -> thưởng cố định +5 EXP +5 DV (học lại
     // vẫn được thưởng, không cần điều kiện mở khoá bài mới)
-    if (window.PkmScore) window.PkmScore.rewardCompletedSession(5, 5);
+    // ✅ Vừa học xong đủ 5 module -> thưởng cố định +10 EXP +10 DV (học lại
+    // vẫn được thưởng, không cần điều kiện mở khoá bài mới)
+    if (window.PkmScore) window.PkmScore.rewardCompletedSession(10, 10);
 
     const choice = await renderEndOfSessionPrompt(document.getElementById("mainCard"));
     keepGoing = choice === "replay";
