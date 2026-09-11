@@ -70,7 +70,7 @@ window.PkmScore = {
     SKILL_ORDER: ["listening", "speaking", "reading", "writing"],
 
     // Ngưỡng checkpoint dùng chung — sửa số 1 chỗ này là áp dụng cho MỌI game.
-    CHECKPOINT_INTERVAL: 2,
+    CHECKPOINT_INTERVAL: 8,
     shouldCheckpoint(totalAnswered) {
         return totalAnswered > 0 && totalAnswered % this.CHECKPOINT_INTERVAL === 0;
     },
