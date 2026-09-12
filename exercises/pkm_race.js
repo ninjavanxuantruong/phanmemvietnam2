@@ -60,7 +60,7 @@ window.RaceGame = {
     currentZoneIndex: 0,
     zone() { return window.RaceBackground.zoneAt(this.currentZoneIndex); },
     zoneCoins: 0,
-    zoneCoinsTarget: 24,
+    zoneCoinsTarget: 40,
     portalPending: false,
 
     canvas: null,
@@ -81,7 +81,7 @@ window.RaceGame = {
     score: 0,
     lives: 10,
     distance: 0,
-    speed: 0.5, // đơn vị t/giây (tốc độ thế giới trôi qua nhân vật)
+    speed: 0.35, // đơn vị t/giây (tốc độ thế giới trôi qua nhân vật)
     BASE_SPEED: 0.35,
     MAX_SPEED: 1.35,
 
@@ -427,9 +427,10 @@ window.RaceGame = {
         this.propTimer = 0.2;
     },
 
-    startPlaying() {
-        this.resetRunState();
-        this.running = true;
+        startPlaying() {
+            if (window.PkmScore) window.PkmScore.resetMatchTotals();
+            this.resetRunState();
+            this.running = true;
         this.paused = false;
         this.gameOver = false;
         this.controlsLocked = false;
@@ -481,7 +482,7 @@ window.RaceGame = {
     },
 
     randomCoinThreshold() { return 6 + Math.floor(Math.random() * 2); }, // 6..7
-    randomZoneTarget() { return 24 + Math.floor(Math.random() * 2); }, // 24..25 vàng/khu vực
+    randomZoneTarget() { return 40 + Math.floor(Math.random() * 2); }, // 24..25 vàng/khu vực
 
     // ═══════════════════════════════════════════════════════════
     // CẬP NHẬT MỖI KHUNG HÌNH
@@ -952,14 +953,46 @@ window.RaceGame = {
             this.spawnFloatText(pos.x, pos.y - 60, "🎉 Chuẩn!", "#2ecc71");
         }
 
-        const isOver = this.checkGameOver();
-        // gameLoopStep() đã tự dừng hẳn khi paused=true ở trên -> phải chủ
-        // động khởi động lại tại đây, TRỪ KHI ván đấu vừa kết thúc (lúc đó
-        // checkGameOver() đã tự huỷ rAF và gọi handleMatchEnd()).
-        if (!isOver) {
+    const isOver = this.checkGameOver();
+    if (isOver) return;
+
+    // CHECKPOINT — cứ đủ PkmScore.CHECKPOINT_INTERVAL câu (dùng this.totalCount,
+    // KHÔNG bị reset mỗi lần chốt) thì dừng lại hỏi Tiếp tục/Dừng.
+    if (window.PkmScore && window.PkmScore.shouldCheckpoint(this.totalCount)) {
+        this.showCheckpoint();
+        return;
+    }
+
+    // gameLoopStep() đã tự dừng hẳn khi paused=true ở trên -> phải chủ
+    // động khởi động lại tại đây.
+    this.lastTs = performance.now();
+    this.rafId = requestAnimationFrame(this._boundLoop);
+    },
+
+    // Chốt điểm GIỮA CHỪNG + hỏi Chơi tiếp/Dừng. Vẫn giữ this.paused = true
+    // (đã được triggerQuiz() bật từ trước) nên thế giới đứng yên trong lúc
+    // popup hiện — CHỈ khi bấm "Chơi tiếp" mới thực sự resume rAF.
+    showCheckpoint() {
+    const result = window.PkmScore.finishMatch({ won: true, minQuestions: 0, allowLessonUnlock: true });
+    window.PkmScore.resetForNewRound();
+
+    const messages = (result.breakdown || []).map(b => {
+        if (b.type === 'new_lesson') return `🌟 BÀI MỚI HOÀN THÀNH (${b.accuracy}% đúng): <b>+${b.exp} KN +${b.dv} DV</b>`;
+        if (b.type === 'new_lesson_failed') return `⚠️ Bài mới nhưng chỉ ${b.accuracy}% đúng — cần ≥${b.requiredAccuracy}%!`;
+        if (b.type === 'correct_answers') return `📝 ${b.correctCount} câu đúng ÷ ${b.divisor} = <b>+${b.exp} KN +${b.dv} DV</b>`;
+        if (b.type === 'streak') return b.exp > 0 ? `🔥 Chuỗi ${b.streak} ngày: <b>+${b.exp} KN +${b.dv} DV</b>` : '';
+        return '';
+    }).filter(Boolean);
+
+    window.PkmScore.showCheckpointPopup({
+        title: `🎁 Đã trả lời ${this.totalCount} câu!`,
+        breakdownHTML: messages.map(m => `<div>${m}</div>`).join('') || '<div>Chưa có thưởng mới ở mốc này.</div>',
+        onContinue: () => {
             this.lastTs = performance.now();
             this.rafId = requestAnimationFrame(this._boundLoop);
-        }
+        },
+        onStop: () => this.handleMatchEnd(),
+    });
     },
 
     // ═══════════════════════════════════════════════════════════
