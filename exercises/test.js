@@ -465,11 +465,14 @@ function buildPhonics(bank, count) {
 }
 
 function makeDocId(classId) {
+  return `test-${classId}`;
+}
+function formatTodayDDMMYYYY() {
   const d = new Date();
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
-  return `test-${classId}-${dd}${mm}${yyyy}`;
+  return `${dd}${mm}${yyyy}`;
 }
 
 /* ================= Text-to-speech ================= */
@@ -773,9 +776,9 @@ saveBtn.addEventListener("click", async () => {
   setStatus(composeStatus, "⏳ Đang lưu...", "");
   try {
     const docId = makeDocId(currentDraft.classId);
-    const expireAt = Timestamp.fromMillis(Date.now() + 48 * 60 * 60 * 1000);
+    const todayStr = formatTodayDDMMYYYY();
     await setDoc(doc(db, "test", docId), {
-      meta: { class: currentDraft.classId, date: docId.split("-").pop(), createdAt: serverTimestamp(), expireAt },
+      meta: { class: currentDraft.classId, date: todayStr, createdAt: serverTimestamp() },
       mcq: currentDraft.mcq,
       listening: currentDraft.listening,
       sentence: currentDraft.sentence,
@@ -786,7 +789,7 @@ saveBtn.addEventListener("click", async () => {
       matching: currentDraft.matching,
       oddOneOut: currentDraft.oddOneOut
     });
-    setStatus(composeStatus, `✅ Đã lưu đề: ${docId}`, "ok");
+    setStatus(composeStatus, `✅ Đã lưu đề: ${docId} (ngày ${todayStr}) — đề cũ đã bị ghi đè`, "ok");
   } catch (e) {
     console.error(e);
     setStatus(composeStatus, "❌ Lỗi khi lưu đề.", "err");
