@@ -293,11 +293,7 @@ async function loadQuestBoard() {
 
 // Docid PHẢI khớp đúng công thức của test.js (makeDocId) để đọc đúng đề đã lưu.
 function makeTestDocId(classId) {
-  const d = new Date();
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  return `test-${classId}-${dd}${mm}${yyyy}`;
+  return `test-${classId}`;
 }
 
 // Nếu lớp có đề kiểm tra hôm nay (đúng docId + đủ dữ liệu hợp lệ) -> hiện 1
@@ -326,8 +322,8 @@ async function loadTestCard() {
     card.style.width = "100%";
     card.innerHTML = `
       <div class="quest-ribbon" style="background:#e3350d;">Bài kiểm tra</div>
-      <div class="quest-daylabel">📝 Hôm nay · Lớp ${realTrainerClass}</div>
-      <div class="quest-title">Bài kiểm tra hôm nay</div>
+      <div class="quest-daylabel">📝 Đề mới nhất · Lớp ${realTrainerClass} · Ngày tạo: ${data.meta?.date || "?"}</div>
+      <div class="quest-title">Bài kiểm tra</div>
       <div class="quest-words">Bấm để vào làm bài</div>
     `;
     card.onclick = () => {
