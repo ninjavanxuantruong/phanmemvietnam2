@@ -1,321 +1,211 @@
-/**
- * ============================================================================
- * all-orchestrator.js — ĐIỀU PHỐI CHÍNH (nhảy module + khoá/mở theo tiến trình
- * + chọn Pokémon đồng hành 1 lần/buổi học)
- * ============================================================================
- * File này CHỈ điều phối. Không chứa logic riêng của module nào.
- *
- * KHOÁ/MỞ MODULE (MỚI):
- *   - Chưa chọn cấp độ  -> khoá cả 5 module (chỉ hiện, không bấm được).
- *   - Đã chọn cấp độ, CHƯA học xong Giới thiệu lần nào trong buổi -> chỉ mở
- *     module Giới thiệu, 4 module còn lại khoá.
- *   - Đã học xong Giới thiệu (ít nhất 1 lần, cờ pkl_intro_ever_done) -> mở
- *     hết cả 5 module, module nào đã học xong hiện ✅, vẫn bấm học lại được.
- *   - Cờ pkl_intro_ever_done KHÔNG bị xoá khi bấm "Học lại" cuối buổi (chỉ
- *     xoá khi kết thúc HẲN buổi học) — để không bị khoá lại vô lý.
- *
- * CHỌN POKÉMON ĐỒNG HÀNH (MỚI): ngay sau khi chọn cấp độ (chỉ 1 lần/buổi,
- * lưu ở localStorage pkl_companion), trước khi vào module Giới thiệu. Xoá
- * cùng lúc với selected_level/selected_instructor_idx khi kết thúc hẳn buổi.
- * ============================================================================
- */
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Học Tập Pokemon</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
 
-import {
-  initTTSVoice, injectSharedStyles, getWordBank, loadSessionData,
-  renderLevelSelect, renderEndOfSessionPrompt, resetInstructionMemory,
-  showTransition, PkmGameNavigating,
-  renderCompanionSelect, getCompanionSprite, clearCompanion,
-} from "./all-shared.js";
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+        }
 
-import { runIntroModule } from "./module-1-intro.js";
-import { runListeningModule } from "./module-2-listening.js";
-import { runSpeakingModule } from "./module-3-speaking.js";
-import { runReadingModule } from "./module-4-reading.js";
-import { runWritingModule } from "./module-5-writing.js";
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
 
-const MODULES = [
-  { id: "intro",     label: "🌸 Giới thiệu", emoji: "🌸", run: runIntroModule },
-  { id: "listening", label: "🎧 Nghe",        emoji: "🎧", run: runListeningModule },
-  { id: "speaking",  label: "🎙️ Nói",         emoji: "🎙️", run: runSpeakingModule },
-  { id: "reading",   label: "📖 Đọc",         emoji: "📖", run: runReadingModule },
-  { id: "writing",   label: "✍️ Viết",        emoji: "✍️", run: runWritingModule },
-];
+        .grid-menu {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
 
-const JUMP_KEY = "pkl_jump_to_module_idx";
-const COMPLETED_KEY = "pkl_completed_modules";
-const CURRENT_IDX_SESSION_KEY = "pkl_current_module_idx"; // sessionStorage
-const INTRO_DONE_KEY = "pkl_intro_ever_done"; // localStorage — sống sót qua "Học lại"
+        button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            background-color: #ffffff;
+            border: 2px solid #e1e4e8;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: bold;
+            color: #444;
+            min-height: 140px;
+        }
 
-// ============================================================================
-// TRẠNG THÁI "ĐÃ HOÀN THÀNH"
-// ============================================================================
+        button:hover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.2);
+            color: #1d4ed8;
+        }
 
-function getCompletedSet() {
-  try { return new Set(JSON.parse(localStorage.getItem(COMPLETED_KEY) || "[]")); }
-  catch (e) { return new Set(); }
-}
-function saveCompletedSet(set) {
-  localStorage.setItem(COMPLETED_KEY, JSON.stringify([...set]));
-}
-function resetCompletedSet() {
-  localStorage.setItem(COMPLETED_KEY, JSON.stringify([]));
-}
+        button img {
+            width: 60px;
+            height: 60px;
+            margin-bottom: 10px;
+        }
 
-// ============================================================================
-// KHOÁ/MỞ MODULE
-// ============================================================================
+        /* Responsive cho điện thoại */
+        @media (max-width: 480px) {
+            .grid-menu {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
 
-function isModuleLocked(moduleId) {
-  if (!localStorage.getItem("selected_level")) return true; // chưa chọn cấp độ -> khoá hết
-  if (localStorage.getItem(INTRO_DONE_KEY) === "1") return false; // đã học Giới thiệu -> mở hết
-  return moduleId !== "intro"; // chưa học Giới thiệu -> chỉ mở Giới thiệu
-}
+<div class="container">
+    <h1>Trung Tâm Hỗ trợ</h1>
 
-// ============================================================================
-// UI: THANH PROGRESS + NHẢY MODULE
-// ============================================================================
+    <div class="grid-menu">
+        <!-- Nhóm các nút điều hướng -->
+       
 
-function setCard(html) {
-  document.getElementById("mainCard").innerHTML = html;
-}
+        <button onclick="startExercise('student-login.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/167.png" alt="Icon">
+            Tổng hợp học sinh
+        </button>
+        <button onclick="startExercise('fight.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/348.png" alt="Icon">
+            Fight - Bắt cặp
+        </button>
 
-/** Vẽ 5 chip module ở trạng thái khoá hoàn toàn — dùng khi CHƯA chọn cấp độ. */
-function renderLockedChipsOnly() {
-  const bar = document.getElementById("progressBar");
-  if (bar) bar.style.width = "0%";
-  const label = document.getElementById("stageLabel");
-  if (label) label.textContent = "🎮 Hãy chọn cấp độ để bắt đầu!";
-  const wrap = document.getElementById("progressSteps");
-  if (wrap) {
-    wrap.innerHTML = MODULES.map(m => {
-      const shortLabel = m.label.replace(/^\S+\s/, "");
-      return `<span class="step-dot locked" title="Hãy chọn cấp độ trước!">🔒 ${shortLabel}</span>`;
-    }).join("");
-  }
-}
+        <button onclick="startExercise('story.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/122.png" alt="Icon">
+            Story- Đọc truyện
+        </button>
 
-function updateProgress(idx) {
-  sessionStorage.setItem(CURRENT_IDX_SESSION_KEY, String(idx));
-  const completed = getCompletedSet();
+        <button onclick="startExercise('document.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/349.png" alt="Icon">
+            Tài liệu học
+        </button>
 
-  const pct = Math.round((completed.size / MODULES.length) * 100);
-  const bar = document.getElementById("progressBar");
-  if (bar) bar.style.width = pct + "%";
+        <button onclick="startExercise('vocabulary-checking.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/144.png" alt="Icon">
+            Kiểm tra từ vựng
+        </button>
 
-  const wrap = document.getElementById("progressSteps");
-  if (wrap) {
-    wrap.innerHTML = MODULES.map((m, i) => {
-      const isDone = completed.has(m.id);
-      const isActive = i === idx;
-      const locked = !isDone && isModuleLocked(m.id);
-      const cls = locked ? "locked" : isDone ? "done" : isActive ? "active" : "";
-      const shortLabel = m.label.replace(/^\S+\s/, "");
-      const icon = locked ? "🔒" : m.emoji;
-      const title = locked ? "Hoàn thành phần Giới thiệu trước nhé!" : `Nhấn để chuyển tới: ${m.label}`;
-      const clickAttr = locked ? "" : `onclick="window.pklJumpToModule(${i})"`;
-      return `<span class="step-dot ${cls}" ${clickAttr} title="${title}">${icon} ${shortLabel}</span>`;
-    }).join("");
-  }
+        <button onclick="startExercise('shadow.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/344.png" alt="Icon">
+            Luyện Shadowing
+        </button>
 
-  const label = document.getElementById("stageLabel");
-  if (label) label.textContent = MODULES[idx]?.label || "✅ Hoàn thành!";
-}
+        <button onclick="startExercise('flashcard.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/224.png" alt="Icon">
+            Flashcard nhanh
+        </button>
 
-window.pklJumpToModule = function (idx) {
-  if (isModuleLocked(MODULES[idx].id) && !getCompletedSet().has(MODULES[idx].id)) return; // vẫn khoá -> không làm gì
-  const current = parseInt(sessionStorage.getItem(CURRENT_IDX_SESSION_KEY) || "0", 10);
-  if (idx === current) return;
-  const target = MODULES[idx];
-  if (confirm(`Bạn muốn chuyển sang phần: ${target.label}?`)) {
-    localStorage.setItem(JUMP_KEY, String(idx));
-    location.reload();
-  }
-};
+        <button onclick="startExercise('imagepara.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/255.png" alt="Icon">
+            Đoạn văn hình ảnh
+        </button>
 
-// ============================================================================
-// BADGE POKÉMON ĐỒNG HÀNH (topBar)
-// ============================================================================
+        <button onclick="startExercise('vocaletter.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/555.png" alt="Icon">
+            Từ vựng chữ cái
+        </button>
 
-function refreshCompanionBadge() {
-  const c = getCompanionSprite();
-  const badge = document.getElementById("companionBadge");
-  const img = document.getElementById("companionBadgeImg");
-  const labelEl = document.getElementById("companionBadgeLabel");
-  if (!badge || !img) return;
-  if (c) {
-    img.src = c.spriteUrl;
-    img.alt = c.name || "";
-    if (labelEl) labelEl.textContent = c.name || "Bạn đồng hành";
-    badge.style.display = "flex";
-  } else {
-    badge.style.display = "none";
-  }
-}
+        <button onclick="window.open('https://banxaydungdangxuangiang.github.io/tinh-fruit/', '_blank')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/566.png" alt="Icon">
+            Chém hoa quả
+        </button>
 
-// ============================================================================
-// CHẠY 5 MODULE, BẮT ĐẦU TỪ startIdx
-// ============================================================================
+        <button onclick="startExercise('keoco.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/777.png" alt="Icon">
+            Kéo co
+        </button>
 
-async function runFromIndex(sessionVocab, poolData, level, startIdx) {
-  resetInstructionMemory();
+        <button onclick="startExercise('mindmap.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/888.png" alt="Icon">
+            Sơ đồ tư duy
+        </button>
 
-  const order = [];
-  for (let k = 0; k < MODULES.length; k++) order.push((startIdx + k) % MODULES.length);
+        <button onclick="startExercise('physical.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/999.png" alt="Icon">
+            Thể dục
+        </button>
 
-  for (let pos = 0; pos < order.length; pos++) {
-    const i = order[pos];
-    const isExplicitTarget = pos === 0;
-    const completed = getCompletedSet();
+        <button onclick="startExercise('tacham.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/998.png" alt="Icon">
+            Tách âm
+        </button>
 
-    if (!isExplicitTarget && completed.has(MODULES[i].id)) continue;
+        <button onclick="startExercise('question.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/222.png" alt="Icon">
+            Đặt câu hỏi
+        </button>
 
-    updateProgress(i);
-    const rootEl = document.getElementById("mainCard");
-    await MODULES[i].run({ sessionVocab, poolData, level, rootEl });
+        <button onclick="startExercise('qanda.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/345.png" alt="Icon">
+            Trả lời câu hỏi 
+        </button>
+        <button onclick="startExercise('hotro_ghepanh.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/348.png" alt="Icon">
+            ghép ảnh 
+        </button>
 
-    completed.add(MODULES[i].id);
-    saveCompletedSet(completed);
+        <button onclick="startExercise('phonics.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/248.png" alt="Icon">
+            Phonics
+        </button>
 
-    // Học xong Giới thiệu lần đầu trong buổi -> mở khoá 4 module còn lại
-    if (MODULES[i].id === "intro") localStorage.setItem(INTRO_DONE_KEY, "1");
+        <button onclick="startExercise('test.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/555.png" alt="Icon">
+            Kiểm tra
+        </button>
 
-    if (completed.size >= MODULES.length) {
-      updateProgress(MODULES.length);
-      return;
+        <button onclick="startExercise('multiple.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/666.png" alt="Icon">
+            Trắc nghiệm từ vựng
+        </button>
+        
+        <button onclick="startExercise('test-tonghop.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/777.png" alt="Icon">
+            Kết quả bài kiểm tra
+        </button>
+
+        
+
+        <button onclick="startExercise('pkm_minigame_test.html')">
+            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/368.png" alt="Icon">
+            test game
+        </button>
+        
+    </div>
+</div>
+
+<script>
+    function startExercise(url) {
+        // Hàm chuyển hướng trang
+        window.location.href = url;
     }
-  }
-  updateProgress(MODULES.length);
-}
+</script>
 
-// ============================================================================
-// MAIN
-// ============================================================================
-
-async function main() {
-  injectSharedStyles();
-  await initTTSVoice();
-  renderLockedChipsOnly();
-
-  const wordBank = getWordBank();
-  if (!wordBank.length) {
-    setCard(`
-      <div style="text-align:center;padding:40px;color:#ff6b6b;">
-        ⚠️ Chưa có danh sách từ vựng (wordBank).<br/>
-        <span style="color:#aaa;font-size:14px;">Hãy chọn từ ở trang danh sách từ trước.</span>
-      </div>`);
-    return;
-  }
-  // ─── MỚI: phát hiện đổi sang bài khác -> reset tiến trình module cũ ───
-  const wbFingerprint = wordBank.slice().sort().join("|");
-  const savedFingerprint = localStorage.getItem("pkl_wordbank_fp");
-  if (savedFingerprint !== wbFingerprint) {
-    resetCompletedSet();
-    localStorage.removeItem(INTRO_DONE_KEY);
-    localStorage.setItem("pkl_wordbank_fp", wbFingerprint);
-  }
-
-  const jumpIdxRaw = localStorage.getItem(JUMP_KEY);
-  const isJumping = jumpIdxRaw !== null;
-  let startIdx = 0;
-  if (isJumping) {
-    startIdx = parseInt(jumpIdxRaw, 10);
-    localStorage.removeItem(JUMP_KEY);
-  }
-
-  // 1. Cấp độ
-  let level;
-  const savedLevel = localStorage.getItem("selected_level");
-  if (savedLevel) {
-    level = savedLevel;
-    if (!isJumping) {
-      startIdx = parseInt(sessionStorage.getItem(CURRENT_IDX_SESSION_KEY) || "0", 10);
-    }
-  } else {
-    setCard(`<div style="text-align:center;padding:20px;color:#aaa;">Đang tải...</div>`);
-    level = await renderLevelSelect(document.getElementById("mainCard"));
-    resetCompletedSet();
-    localStorage.removeItem(INTRO_DONE_KEY); // buổi học mới -> khoá lại 4 module còn lại
-  }
-
-  updateProgress(0); // cập nhật ngay: mở "Giới thiệu", khoá phần còn lại (hoặc mở hết nếu đã từng học)
-
-  // 1.5. Pokémon đồng hành — CHỈ hỏi 1 lần/buổi, ngay sau khi có cấp độ
-  if (!getCompanionSprite()) {
-    const label = document.getElementById("stageLabel");
-    if (label) label.textContent = "🤝 Hãy chọn bạn đồng hành!";
-    setCard(`<div style="text-align:center;padding:20px;color:#aaa;">Đang tải danh sách Pokémon của bạn...</div>`);
-    await renderCompanionSelect(document.getElementById("mainCard"));
-  }
-  refreshCompanionBadge();
-
-  // 2. Tải dữ liệu buổi học
-  setCard(`
-    <div style="text-align:center;padding:40px;">
-      <div style="font-size:48px;animation:bounce 0.8s ease infinite alternate;">📚</div>
-      <p style="color:#aaa;margin-top:16px;">Đang chuẩn bị bài học...</p>
-    </div>`);
-
-  let sessionVocab, poolData;
-  try {
-    ({ sessionVocab, poolData } = await loadSessionData(level));
-  } catch (e) {
-    console.error("Lỗi tải dữ liệu buổi học:", e);
-    setCard(`<div style="text-align:center;padding:40px;color:#ff6b6b;">⚠️ Không tải được dữ liệu. Kiểm tra kết nối mạng.</div>`);
-    return;
-  }
-
-  if (!sessionVocab.length) {
-    setCard(`
-      <div style="text-align:center;padding:40px;color:#ff6b6b;">
-        ⚠️ Không tìm thấy từ vựng phù hợp cho cấp độ này.<br/>
-        <span style="color:#aaa;font-size:14px;">Kiểm tra lại wordBank hoặc phạm vi bài học (SHEET_BAI_HOC).</span>
-      </div>`);
-    return;
-  }
-
-  if (!isJumping) {
-    await showTransition("🎮", "Let's start learning!",
-      `Today you'll learn ${sessionVocab.length} new words through 5 fun activities!`);
-  }
-
-  // 3. Vòng lặp buổi học
-  let keepGoing = true;
-  while (keepGoing) {
-    await runFromIndex(sessionVocab, poolData, level, startIdx);
-    startIdx = 0;
-
-    // ✅ Vừa học xong đủ 5 module -> thưởng cố định +5 EXP +5 DV (học lại
-    // vẫn được thưởng, không cần điều kiện mở khoá bài mới)
-    // ✅ Vừa học xong đủ 5 module -> thưởng cố định +10 EXP +10 DV (học lại
-    // vẫn được thưởng, không cần điều kiện mở khoá bài mới)
-    if (window.PkmScore) window.PkmScore.rewardCompletedSession(10, 10);
-
-    const choice = await renderEndOfSessionPrompt(document.getElementById("mainCard"));
-    keepGoing = choice === "replay";
-    if (keepGoing) resetCompletedSet(); // KHÔNG đụng INTRO_DONE_KEY -> 5 module vẫn mở
-  }
-
-  // 4. Kết thúc hẳn buổi học — dọn mọi lựa chọn của buổi để lần sau hỏi lại từ đầu
-  localStorage.removeItem("selected_instructor_idx");
-  localStorage.removeItem("selected_level");
-  localStorage.removeItem(INTRO_DONE_KEY);
-  clearCompanion();
-  refreshCompanionBadge();
-
-  setCard(`
-    <div style="text-align:center;padding:30px;">
-      <div style="font-size:64px;">🏆</div>
-      <h2 style="color:var(--poke-yellow);">Xuất sắc! Hoàn thành bài học hôm nay!</h2>
-      <p style="color:#aaa;font-size:16px;">Điểm đã được lưu tự động.</p>
-      <a href="pkm_mode_select.html" style="display:inline-block;margin-top:20px;padding:14px 28px;
-        background:var(--poke-yellow);color:#333;font-weight:bold;border-radius:14px;
-        text-decoration:none;font-size:18px;">🎮 Chơi trò chơi khác</a>
-    </div>`);
-  const mini = document.getElementById("miniScore");
-  if (mini) mini.textContent = "🏆 Xong!";
-}
-
-main().catch(e => {
-  if (e?.pkmNavigating) return;
-  console.error("Lỗi không mong muốn trong buổi học:", e);
-});
+</body>
+</html>
