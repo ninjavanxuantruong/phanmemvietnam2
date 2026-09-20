@@ -2,6 +2,13 @@
 // Trắc nghiệm từ vựng: Anh->Việt / Việt->Anh / Hình ảnh->Anh / Hỗn hợp
 // Phạm vi: theo bài / theo chủ đề / theo dãy bài (không giới hạn maxLessonCode)
 // Dùng chung dữ liệu Sheet với global-config.js, imagecache2.js
+//
+// === BỔ SUNG MỚI (theo yêu cầu) ===
+// 1. TTS đọc tiếng Anh: tự đọc câu hỏi khi chuyển câu (nếu câu hỏi là tiếng Anh),
+//    đọc đáp án khi bấm chọn (chỉ khi đáp án là tiếng Anh). Tiếng Việt KHÔNG đọc.
+// 2. Hiệu ứng vui nhộn khi chọn đáp án (bounce/shake + confetti khi đúng).
+// 3. Thông báo đúng/sai, khen ngợi, "The answer is..." bằng giọng Anh
+//    (chỉ áp dụng khi đáp án đang là tiếng Anh, không áp dụng cho tiếng Việt).
 
 // ===== Cột dữ liệu trong Sheet chính (SHEET_URL) =====
 const COL = {
@@ -24,6 +31,22 @@ const QUESTION_PLACEHOLDER_IMG =
   'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f0f0f0"/%3E%3Ccircle cx="50" cy="40" r="15" fill="%23cccccc"/%3E%3Crect x="40" y="60" width="20" height="30" fill="%23cccccc"/%3E%3C/svg%3E';
 
 const QUIZ_TYPES = ["en2vi", "vi2en", "img2en"];
+
+// ===== Câu khen / động viên (tiếng Anh, chỉ đọc khi đáp án là tiếng Anh) =====
+const PRAISE_PHRASES = [
+  "Correct! Great job!",
+  "Excellent! Well done!",
+  "Awesome! That's right!",
+  "Nice work!",
+  "You got it! Fantastic!",
+  "Perfect! Keep it up!"
+];
+const ENCOURAGE_PHRASES = [
+  "Not quite. Try again next time.",
+  "Almost there. Keep practicing.",
+  "That's okay. You'll get it next time.",
+  "Close, but not correct."
+];
 
 // ===== State =====
 let boundedRows = [];    // lọc theo LOWER_BOUND_UNIT..maxLessonCode (dùng cho "theo bài" / "theo chủ đề")
@@ -64,6 +87,8 @@ document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
   bindControls();
+  injectQuizStyles();
+  initTTSVoice();
   status("Đang tải dữ liệu...");
   try {
     await loadAllData();
@@ -111,9 +136,15 @@ function bindControls() {
     }
   };
 
-  quitBtn.onclick = () => showSetup();
+  quitBtn.onclick = () => {
+    stopSpeaking();
+    showSetup();
+  };
   restartBtn.onclick = () => startQuiz();
-  backToSetupBtn.onclick = () => showSetup();
+  backToSetupBtn.onclick = () => {
+    stopSpeaking();
+    showSetup();
+  };
 }
 
 function updateScopeVisibility() {
@@ -231,25 +262,31 @@ function buildQuizQuestions(scopeItems, globalItems, mode) {
     const qType = mode === "mixed" ? pickRandomType() : mode;
     const field = qType === "en2vi" ? "meaning" : "vocab";
 
-    let type, promptText = "", promptImageVocab = null, correct;
+    let type, promptText = "", promptImageVocab = null, correct, promptLang, optionsLang;
 
     if (qType === "en2vi") {
       type = "text";
       promptText = item.vocab;
       correct = item.meaning;
+      promptLang = "en";   // câu hỏi là tiếng Anh -> tự đọc khi hiện câu
+      optionsLang = "vi";  // đáp án là tiếng Việt -> KHÔNG đọc TTS
     } else if (qType === "vi2en") {
       type = "text";
       promptText = item.meaning;
       correct = item.vocab;
+      promptLang = "vi";   // câu hỏi tiếng Việt -> không đọc
+      optionsLang = "en";  // đáp án tiếng Anh -> đọc khi bấm chọn
     } else { // img2en
       type = "image";
       promptImageVocab = item.vocab;
       correct = item.vocab;
+      promptLang = null;   // là hình ảnh, không có chữ để đọc (tránh lộ đáp án)
+      optionsLang = "en";  // đáp án tiếng Anh -> đọc khi bấm chọn
     }
 
     const options = buildOptions(correct, field, scopeItems, globalItems);
 
-    return { item, type, promptText, promptImageVocab, correct, options };
+    return { item, type, promptText, promptImageVocab, correct, options, promptLang, optionsLang };
   });
   return shuffleInPlace(questions);
 }
@@ -286,6 +323,7 @@ function showQuiz() {
   resultArea.style.display = "none";
 }
 function showResult() {
+  stopSpeaking();
   quizArea.style.display = "none";
   resultArea.style.display = "block";
   resultScore.textContent = `${score}/${currentQuestions.length}`;
@@ -296,6 +334,8 @@ async function renderQuestion() {
     showResult();
     return;
   }
+
+  stopSpeaking(); // dừng mọi giọng đọc còn sót lại của câu trước
 
   const q = currentQuestions[currentIndex];
   progressText.textContent = `Câu ${currentIndex + 1}/${currentQuestions.length}`;
@@ -319,6 +359,11 @@ async function renderQuestion() {
     questionImage.style.display = "none";
     questionText.style.display = "block";
     questionText.textContent = q.promptText;
+
+    // Tự đọc câu hỏi nếu là tiếng Anh (khi câu hỏi được chuyển sang)
+    if (q.promptLang === "en") {
+      speakEnglish(q.promptText);
+    }
   }
 
   renderOptions(q);
@@ -339,7 +384,16 @@ function handleAnswer(clickedBtn, chosen, q) {
   const allBtns = optionsGrid.querySelectorAll(".option-btn");
   allBtns.forEach(b => (b.disabled = true));
 
+  stopSpeaking(); // ngắt câu hỏi đang đọc dở (nếu có) trước khi phản hồi đáp án
+
   const isCorrect = chosen === q.correct;
+
+  // ===== Hiệu ứng vui nhộn khi chọn đáp án =====
+  clickedBtn.classList.add(isCorrect ? "option-correct-effect" : "option-wrong-effect");
+  if (isCorrect) {
+    spawnConfetti(clickedBtn);
+  }
+
   if (isCorrect) {
     score++;
     clickedBtn.classList.add("correct");
@@ -352,10 +406,121 @@ function handleAnswer(clickedBtn, chosen, q) {
 
   scoreText.textContent = `Điểm: ${score}`;
 
+  // ===== TTS: đọc đáp án + khen/động viên + đáp án đúng — CHỈ khi đáp án là tiếng Anh =====
+  let delay = 1100;
+  if (q.optionsLang === "en") {
+    speakEnglish(chosen);
+    const praise = isCorrect
+      ? PRAISE_PHRASES[Math.floor(Math.random() * PRAISE_PHRASES.length)]
+      : ENCOURAGE_PHRASES[Math.floor(Math.random() * ENCOURAGE_PHRASES.length)];
+    speakEnglish(praise);
+    if (!isCorrect) {
+      speakEnglish(`The answer is ${q.correct}`);
+      delay = 2800;
+    } else {
+      delay = 1900;
+    }
+  }
+
   setTimeout(() => {
     currentIndex++;
     renderQuestion();
-  }, 1100);
+  }, delay);
+}
+
+// ===== TTS (Text-to-Speech) cho tiếng Anh =====
+let ttsVoiceEN = null;
+
+function initTTSVoice() {
+  if (!("speechSynthesis" in window)) return;
+  const pickVoice = () => {
+    const voices = window.speechSynthesis.getVoices();
+    ttsVoiceEN =
+      voices.find(v => v.lang === "en-US") ||
+      voices.find(v => v.lang && v.lang.toLowerCase().startsWith("en")) ||
+      null;
+  };
+  pickVoice();
+  // Một số trình duyệt (Chrome) load danh sách giọng đọc không đồng bộ
+  window.speechSynthesis.onvoiceschanged = pickVoice;
+}
+
+function speakEnglish(text) {
+  if (!text || !("speechSynthesis" in window)) return;
+  try {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "en-US";
+    if (ttsVoiceEN) utter.voice = ttsVoiceEN;
+    utter.rate = 0.95;
+    utter.pitch = 1;
+    // speechSynthesis.speak() tự xếp hàng (queue) các utterance,
+    // nên gọi nhiều lần liên tiếp sẽ đọc lần lượt, không đè lên nhau.
+    window.speechSynthesis.speak(utter);
+  } catch (e) {
+    console.warn("⚠️ TTS lỗi:", e);
+  }
+}
+
+function stopSpeaking() {
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+// ===== Hiệu ứng vui nhộn (confetti + CSS animation) =====
+function spawnConfetti(anchorEl) {
+  const emojis = ["🎉", "✨", "⭐", "🎊", "👏", "🥳"];
+  const rect = anchorEl.getBoundingClientRect();
+  for (let i = 0; i < 8; i++) {
+    const span = document.createElement("span");
+    span.className = "confetti-piece";
+    span.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    span.style.left = `${rect.left + rect.width / 2 + (Math.random() * 60 - 30)}px`;
+    span.style.top = `${rect.top + rect.height / 2}px`;
+    span.style.setProperty("--dx", `${Math.random() * 140 - 70}px`);
+    span.style.setProperty("--dy", `${-(70 + Math.random() * 70)}px`);
+    document.body.appendChild(span);
+    setTimeout(() => span.remove(), 900);
+  }
+}
+
+function injectQuizStyles() {
+  if (document.getElementById("quizExtraStyles")) return;
+  const style = document.createElement("style");
+  style.id = "quizExtraStyles";
+  style.textContent = `
+    @keyframes optionBounce {
+      0%   { transform: scale(1) rotate(0deg); }
+      30%  { transform: scale(1.15) rotate(-2deg); }
+      60%  { transform: scale(0.96) rotate(2deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+    @keyframes optionShake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+    }
+    .option-correct-effect {
+      animation: optionBounce .5s ease;
+    }
+    .option-wrong-effect {
+      animation: optionShake .4s ease;
+    }
+    .confetti-piece {
+      position: fixed;
+      font-size: 22px;
+      pointer-events: none;
+      z-index: 9999;
+      animation: confettiFly .9s ease-out forwards;
+    }
+    @keyframes confettiFly {
+      0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+      100% { transform: translate(var(--dx), var(--dy)) scale(0.6); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 // ===== GViz / Exec fetch + cache localStorage =====
