@@ -214,6 +214,13 @@ body{ display:flex; flex-direction:column; }
 #submitBottomBar{ flex-shrink:0; padding:12px 14px calc(12px + var(--safe-bottom)); background:var(--bg2); border-top:1px solid var(--rule); }
 #submitBottomBar .btn{ width:100%; max-width:var(--content-max); margin:0 auto; display:block; padding:13px; font-size:15px; }
 </style>
+  <script>
+    function BACK_URL() {
+      return new URLSearchParams(location.search).get('from') === 'hall'
+        ? 'pkm.html'
+        : 'pkm_map.html';
+    }
+  </script>
 </head>
 <body>
 
@@ -226,13 +233,13 @@ body{ display:flex; flex-direction:column; }
   <div class="emoji">📭</div>
   <h2 style="font-family:var(--font-display);color:var(--accent);margin:0;">Chưa có đề</h2>
   <p id="errorMsg">Không tìm thấy bài kiểm tra cho lớp của bạn. Hãy quay lại sau nhé.</p>
-  <button class="btn btn-blue" onclick="location.href='pkm_map.html'">◀ Quay lại bản đồ</button>
+  <button class="btn btn-blue" onclick="location.href=BACK_URL()">◀ Quay lại bản đồ</button>
 </div>
 
 <div id="topBar" style="display:none;">
   <div class="topbar-inner">
     <div class="topbar-row">
-      <button id="backBtn" onclick="location.href='pkm_map.html'">◀ Bản đồ</button>
+      <button id="backBtn" onclick="location.href=BACK_URL()">◀ Bản đồ</button>
       <div class="section-tag" id="sectionTag">—</div>
       <button id="submitTopBtn">✅ Nộp bài</button>
     </div>
@@ -260,7 +267,7 @@ body{ display:flex; flex-direction:column; }
   </div>
   <div id="reviewArea"></div>
   <div id="submitBottomBar">
-    <button class="btn btn-green" onclick="location.href='pkm_map.html'">◀ Quay lại bản đồ</button>
+    <button class="btn btn-green" onclick="location.href=BACK_URL()">◀ Quay lại bản đồ</button>
   </div>
 </div>
 
