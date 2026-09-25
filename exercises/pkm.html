@@ -268,6 +268,8 @@
         const MAP_CONFIG  = { top: '32%', left: '50%', width: '16%' };
         const KEY_CONFIG  = { top: '25%', left: '75%', width: '6%' };
         const GARDEN_CONFIG = { top: '40%', left: '85%', width: '6%' };
+        const TEST_CONFIG   = { top: '55%', left: '40%', width: '7%' };
+        const RANDOM_CONFIG = { top: '55%', left: '60%', width: '7%' };
 
         const TRAINER_URL = name => `https://play.pokemonshowdown.com/sprites/trainers/${name}.png`;
         const POKEMON_URL  = name => `https://play.pokemonshowdown.com/sprites/ani/${name}.gif`;
@@ -404,6 +406,29 @@
                  </svg>`),
             label: 'Farm',
             onClick: () => { window.location.href = 'pkm_garden.html'; }
+        });
+        placeElement({
+            top: TEST_CONFIG.top, left: TEST_CONFIG.left, width: TEST_CONFIG.width,
+            extraClass: 'hs-test',
+            imgSrc: 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="46" fill="#1a2a4a" stroke="#4a90d9" stroke-width="5"/>
+                    <text x="50" y="66" font-size="46" text-anchor="middle">📝</text>
+                 </svg>`),
+            label: 'Kiểm tra',
+            onClick: () => { window.location.href = 'test-student.html?from=hall'; }
+        });
+
+        placeElement({
+            top: RANDOM_CONFIG.top, left: RANDOM_CONFIG.left, width: RANDOM_CONFIG.width,
+            extraClass: 'hs-random',
+            imgSrc: 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="46" fill="#3a2f0d" stroke="#ffcb05" stroke-width="5"/>
+                    <text x="50" y="66" font-size="46" text-anchor="middle">🎲</text>
+                 </svg>`),
+            label: 'Học bài',
+            onClick: () => window.pkmRandomPlay()
         });
 
         const dlgOverlay = document.getElementById('dlg-overlay');
@@ -637,5 +662,7 @@
             }
         };
     </script>
+    <script src="global-config.js"></script>
+    <script src="pkm_random.js"></script>
 </body>
 </html>
