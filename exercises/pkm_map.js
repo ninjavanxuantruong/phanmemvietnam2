@@ -151,30 +151,72 @@ function getMaxNewLessonCode(lichData) {
 // CHƯA hoàn thành (không có trong pkm_passed_maps) và nhỏ hơn mã bài mới nhất
 // — mỗi học sinh nhận bài khác nhau tuỳ lực học, không random chung cả lớp
 // như cách cũ (đã bỏ khỏi schedule.js).
-function pickPersonalizedFillLesson(rows, colID, colWord, lichData, passedMaps) {
+// Đề xuất CÁ NHÂN HOÁ cho 1 ngày trống: chọn ngẫu nhiên 1 bài học sinh này
+// CHƯA hoàn thành (không có trong pkm_passed_maps), nhỏ hơn mã bài mới nhất
+// đã lên lịch (maxCode), và KHÔNG trùng với bài đã chọn cho (các) ô liền kề
+// (excludeIds).
+//
+// Nếu maxCode thuộc "khối lớp" khác với lớp thật của học sinh (ví dụ học
+// sinh lớp 2 nhưng đã học vượt lên bài mã 4041 = lớp 4), thì 50% số lần sẽ
+// ưu tiên rút bài từ khối lớp đó (miễn là còn ứng viên), 50% còn lại rút từ
+// khối lớp gốc của học sinh — giúp học sinh vượt lớp không bị "kéo lùi" về
+// mãi bài lớp cũ nhưng cũng không bỏ hẳn bài nền tảng.
+function pickPersonalizedFillLesson(rows, colID, colWord, lichData, passedMaps, excludeIds = []) {
   const maxCode = getMaxNewLessonCode(lichData);
   if (!maxCode) return null;
 
-  const uniqueIds = [...new Set(
-    rows.map(r => rowsToArr(r)[colID]?.toString().trim())
-        .filter(id => id && id.startsWith(realTrainerClass + "-"))
-  )];
+  const maxClassDigit = String(Math.floor(maxCode / 1000));
 
-  const candidates = uniqueIds.filter(id => {
-    const code = extractCodeFromTitle(id);
-    const n = parseInt(code, 10);
-    return code && !isNaN(n) && n < maxCode && !passedMaps.includes(id);
-  });
+  function idsForClassPrefix(prefix) {
+    return [...new Set(
+      rows.map(r => rowsToArr(r)[colID]?.toString().trim())
+          .filter(id => id && id.startsWith(prefix + "-"))
+    )];
+  }
 
-  const pool = candidates.length > 0 ? candidates : uniqueIds.filter(id => !passedMaps.includes(id));
-  if (pool.length === 0) return null;
+  function buildPool(idsList) {
+    return idsList.filter(id => {
+      const code = extractCodeFromTitle(id);
+      const n = parseInt(code, 10);
+      return code && !isNaN(n) && n < maxCode
+        && !passedMaps.includes(id)
+        && !excludeIds.includes(id);
+    });
+  }
 
-  const pickedId = pool[Math.floor(Math.random() * pool.length)];
+  const isAdvanced = maxClassDigit !== realTrainerClass;
+
+  const ownIds = idsForClassPrefix(realTrainerClass);
+  const poolOwn = buildPool(ownIds);
+
+  const poolMaxBlock = isAdvanced ? buildPool(idsForClassPrefix(maxClassDigit)) : poolOwn;
+
+  let chosenPool;
+  if (isAdvanced && poolMaxBlock.length > 0 && poolOwn.length > 0) {
+    // Cả 2 khối đều có ứng viên -> tung đồng xu 50/50
+    chosenPool = Math.random() < 0.5 ? poolMaxBlock : poolOwn;
+  } else if (poolMaxBlock.length > 0) {
+    chosenPool = poolMaxBlock;
+  } else if (poolOwn.length > 0) {
+    chosenPool = poolOwn;
+  } else {
+    // Không còn ứng viên hợp lệ (đã học hết / trùng ô liền kề) -> nới lỏng
+    // dần: bỏ điều kiện loại trừ ô liền kề trước, rồi mới đến bỏ maxCode.
+    chosenPool = ownIds.filter(id => !passedMaps.includes(id) && !excludeIds.includes(id));
+    if (chosenPool.length === 0) {
+      chosenPool = ownIds.filter(id => !passedMaps.includes(id));
+    }
+  }
+
+  if (chosenPool.length === 0) return null;
+
+  const pickedId = chosenPool[Math.floor(Math.random() * chosenPool.length)];
   const namePart = pickedId.includes(" ") ? pickedId.substring(pickedId.indexOf(" ") + 1) : "";
   const words = rows.filter(r => rowsToArr(r)[colID]?.toString().trim() === pickedId)
                      .map(r => rowsToArr(r)[colWord]).filter(Boolean);
   return { fullId: pickedId, lessonName: namePart.trim() || pickedId, words };
 }
+
 async function loadQuestBoard() {
   const questRow = document.getElementById("questRow");
   if (!questRow) return;
@@ -198,75 +240,70 @@ async function loadQuestBoard() {
 
   const passedMaps = JSON.parse(localStorage.getItem("pkm_passed_maps")) || [];
 
-  questRow.innerHTML = "";
-  slots.forEach(slot => {
+  // ===== BƯỚC 1: xác định trước bài "cố định" (do lịch quyết định) của cả 3 ô =====
+  // resolved[i] = { fullId, ... } nếu đã biết chắc bài; null nếu ô cần random (fill).
+  const slotData = slots.map(slot => {
     const iso = isoDateWithOffset(slot.offset);
     const entry = lichData[iso];
+    let preview = null;
+    let questType = null; // "quest" | "quest_fill"
+    if (entry && entry.code) {
+      preview = buildLessonPreviewByCode(rows, colID, colWord, entry.code);
+      if (preview) questType = "quest";
+    }
+    return { slot, iso, entry, preview, questType };
+  });
+
+  // ===== BƯỚC 2: random các ô còn thiếu, loại trừ bài của ô liền kề đã biết =====
+  slotData.forEach((sd, i) => {
+    if (sd.preview) return; // đã có bài cố định, không cần random
+
+    const neighborIds = [];
+    if (i > 0 && slotData[i - 1].preview) neighborIds.push(slotData[i - 1].preview.fullId);
+    if (i < slotData.length - 1 && slotData[i + 1].preview) neighborIds.push(slotData[i + 1].preview.fullId);
+
+    const fillPreview = pickPersonalizedFillLesson(rows, colID, colWord, lichData, passedMaps, neighborIds);
+    if (fillPreview) {
+      sd.preview = fillPreview;
+      sd.questType = "quest_fill";
+    }
+  });
+
+  // ===== BƯỚC 3: render =====
+  questRow.innerHTML = "";
+  slotData.forEach(sd => {
+    const { slot, iso, entry, preview, questType } = sd;
     const card = document.createElement("div");
     card.className = "quest-card" + (slot.offset === 0 ? " quest-today" : "");
 
-    // mới
-    if (!entry || !entry.code) {
-      const fillPreview = pickPersonalizedFillLesson(rows, colID, colWord, lichData, passedMaps);
-
-      if (!fillPreview) {
-        card.classList.add("quest-empty");
-        card.innerHTML = `
-          <div class="quest-daylabel">${slot.label} · ${formatDateVN(iso)}</div>
-          <div class="quest-emptytext">Chưa có lịch</div>`;
-        questRow.appendChild(card);
-        return;
-      }
-
-      card.innerHTML = `
-        <div class="quest-ribbon" style="background:#7f8c8d;">Ôn tự do</div>
-        <div class="quest-daylabel">${slot.label} · ${formatDateVN(iso)}</div>
-        <div class="quest-title">${fillPreview.lessonName}</div>
-        <div class="quest-words">${fillPreview.words.length} từ${fillPreview.words.length ? ": " + fillPreview.words.slice(0, 3).join(", ") + (fillPreview.words.length > 3 ? "..." : "") : ""}</div>
-      `;
-      card.onclick = () => {
-        localStorage.setItem("selected_lesson_name", fillPreview.lessonName);
-        localStorage.setItem("current_mission", JSON.stringify({
-          id: fillPreview.fullId, type: "quest_fill", class: realTrainerClass
-        }));
-        window.handleNodeClick(fillPreview.lessonName, fillPreview.words, "pkm_mode_select.html");
-      };
-      questRow.appendChild(card);
-      return;
-    }
-
-    const preview = buildLessonPreviewByCode(rows, colID, colWord, entry.code);
-
-    // Lịch có mã bài (entry.code) nhưng KHÔNG khớp được bài nào trong sheet
-    // -> coi như "không đọc được", tự động thay bằng đề xuất cá nhân hoá
-    // giống hệt trường hợp trống lịch ở nhánh trên.
     if (!preview) {
-      const fillPreview = pickPersonalizedFillLesson(rows, colID, colWord, lichData, passedMaps);
-      if (!fillPreview) {
-        card.classList.add("quest-empty");
-        card.innerHTML = `
-          <div class="quest-daylabel">${slot.label} · ${formatDateVN(iso)}</div>
-          <div class="quest-emptytext">Chưa có lịch</div>`;
-        questRow.appendChild(card);
-        return;
-      }
+      card.classList.add("quest-empty");
+      card.innerHTML = `
+        <div class="quest-daylabel">${slot.label} · ${formatDateVN(iso)}</div>
+        <div class="quest-emptytext">Chưa có lịch</div>`;
+      questRow.appendChild(card);
+      return;
+    }
+
+    if (questType === "quest_fill") {
       card.innerHTML = `
         <div class="quest-ribbon" style="background:#7f8c8d;">Ôn tự do</div>
         <div class="quest-daylabel">${slot.label} · ${formatDateVN(iso)}</div>
-        <div class="quest-title">${fillPreview.lessonName}</div>
-        <div class="quest-words">${fillPreview.words.length} từ${fillPreview.words.length ? ": " + fillPreview.words.slice(0, 3).join(", ") + (fillPreview.words.length > 3 ? "..." : "") : ""}</div>
+        <div class="quest-title">${preview.lessonName}</div>
+        <div class="quest-words">${preview.words.length} từ${preview.words.length ? ": " + preview.words.slice(0, 3).join(", ") + (preview.words.length > 3 ? "..." : "") : ""}</div>
       `;
       card.onclick = () => {
-        localStorage.setItem("selected_lesson_name", fillPreview.lessonName);
+        localStorage.setItem("selected_lesson_name", preview.lessonName);
         localStorage.setItem("current_mission", JSON.stringify({
-          id: fillPreview.fullId, type: "quest_fill", class: realTrainerClass
+          id: preview.fullId, type: "quest_fill", class: realTrainerClass
         }));
-        window.handleNodeClick(fillPreview.lessonName, fillPreview.words, "pkm_mode_select.html");
+        window.handleNodeClick(preview.lessonName, preview.words, "pkm_mode_select.html");
       };
       questRow.appendChild(card);
       return;
     }
 
+    // questType === "quest" (bài có lịch thật)
     const typeMeta = QUEST_TYPE_META[entry.type] || { label: entry.type || "", color: "#888" };
     const isDone = passedMaps.includes(preview.fullId);
     const wordSample = preview.words.slice(0, 3).join(", ");
@@ -290,7 +327,6 @@ async function loadQuestBoard() {
     questRow.appendChild(card);
   });
 }
-
 // Docid PHẢI khớp đúng công thức của test.js (makeDocId) để đọc đúng đề đã lưu.
 function makeTestDocId(classId) {
   return `test-${classId}`;
@@ -317,15 +353,41 @@ async function loadTestCard() {
     });
     if (!data.meta || !hasAnySection) return; // dữ liệu hỏng -> im lặng bỏ qua
 
+    // ===== Kiểm tra học sinh này đã làm đề này chưa =====
+    const examDate = data.meta?.date || "";
+    const resultDocId = `${realTrainerClass}_${examDate || "nodate"}`;
+    let doneInfo = null; // null = chưa làm, object = đã làm { score, earned, total }
+    try {
+      const resultSnap = await getDoc(doc(db, "test_results", resultDocId));
+      if (resultSnap.exists()) {
+        const students = resultSnap.data().students || {};
+        if (students[trainerName]) doneInfo = students[trainerName];
+      }
+    } catch (e) {
+      console.warn("⚠️ Không đọc được trạng thái đã làm bài:", e);
+    }
+
     const card = document.createElement("div");
     card.className = "quest-card quest-today";
     card.style.width = "100%";
-    card.innerHTML = `
-      <div class="quest-ribbon" style="background:#e3350d;">Bài kiểm tra</div>
-      <div class="quest-daylabel">📝 Đề mới nhất · Lớp ${realTrainerClass} · Ngày tạo: ${data.meta?.date || "?"}</div>
-      <div class="quest-title">Bài kiểm tra</div>
-      <div class="quest-words">Bấm để vào làm bài</div>
-    `;
+
+    if (doneInfo) {
+      card.classList.add("quest-done-card");
+      card.innerHTML = `
+        <div class="quest-ribbon" style="background:#2ecc71;">✓ Đã làm</div>
+        <div class="quest-daylabel">📝 Đề · Lớp ${realTrainerClass} · Ngày tạo: ${examDate || "?"}</div>
+        <div class="quest-title">Bài kiểm tra</div>
+        <div class="quest-words">Điểm của bạn: ${doneInfo.score}/10 — Bấm để xem/làm lại</div>
+      `;
+    } else {
+      card.innerHTML = `
+        <div class="quest-ribbon" style="background:#e3350d;">Chưa làm</div>
+        <div class="quest-daylabel">📝 Đề mới nhất · Lớp ${realTrainerClass} · Ngày tạo: ${examDate || "?"}</div>
+        <div class="quest-title">Bài kiểm tra</div>
+        <div class="quest-words">Bạn chưa làm bài này</div>
+      `;
+    }
+
     card.onclick = () => {
       localStorage.setItem("pkm_pending_test_docid", docId);
       window.location.href = "test-student.html";
