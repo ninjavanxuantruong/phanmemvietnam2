@@ -1,183 +1,98 @@
 /**
  * ==========================================================
- * PKM BATTLE NET — cầu nối giữa pkm_battle.js và server relay
+ * PKM BATTLE NET v2 — chỉ lo phần TRONG TRẬN
  * ==========================================================
- * File này lo:
- *   - Kết nối socket.io tới server (Render)
- *   - Vào hàng đợi, nhận kết quả ghép trận
- *   - Gửi đội hình, nhận trạng thái trận đấu THẬT từ server
- *   - Vòng lặp hỏi-đáp mỗi lượt: hỏi 1 câu (CHÍNH hoặc PHỤ tuỳ vai trò),
- *     luôn tính KN/DV qua PkmScore.recordAnswer() như chế độ đơn,
- *     nhưng chỉ gửi kết quả lên server nếu mình đang là bên CHÍNH
- *   - Tự động nối lại (rejoin) khi rớt mạng giữa trận
+ * KHÔNG tự mở kết nối riêng nữa — dùng chung 1 socket với
+ * window.PkmPresence (file pkm_presence.js phải include TRƯỚC file này).
+ * Việc ghép trận/thách đấu/hiện diện đã do pkm_presence.js lo trên trang
+ * trước đó; file này chỉ nhận lại state trận đấu và vòng lặp hỏi-đáp.
  *
- * CẦN CÓ TRƯỚC (thêm vào <head> của pkm_battle.html, trước file này):
+ * CẦN CÓ TRƯỚC (trong pkm_battle_online.html):
  *   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+ *   <script src="pkm_presence.js"></script>
  *   <script src="pkm_battle_net.js"></script>
- *
- * CHƯA LÀM Ở FILE NÀY (bước kế tiếp):
- *   - Vẽ animation ra chưởng lên đúng DOM của pkm_battle.js (cần sửa
- *     pkm_battle.js để đọc dữ liệu từ đây thay vì tự tính damage)
- *   - Màn hình chọn đội hình sau khi ghép trận (file .html riêng)
  * ==========================================================
  */
 
 window.PkmBattleNet = (() => {
-  // !!! ĐỔI DÒNG DƯỚI THÀNH DOMAIN RENDER THẬT CỦA BẠN SAU KHI DEPLOY !!!
-  const SERVER_URL = "https://server-battle.onrender.com/";
-
-  let socket = null;
-  let playerId = null;
-  let roomId = null;
+  let roomId = sessionStorage.getItem("pkm_net_room_id") || null;
   let unitsAllowed = 0;
   let opponentId = null;
-  let latestState = null;   // state:update mới nhất từ server
+  let latestState = null;
   let myTeamFinal = null;
   let oppTeamFinal = null;
-  let stopped = false;      // true khi trận đã kết thúc -> ngừng hỏi câu mới
-  let awaitingAnswer = false; // đang hiện 1 câu hỏi, tránh hỏi chồng câu khác
+  let stopped = false;
+  let awaitingAnswer = false;
 
   const listeners = {
-    matchFound: [], queueTimeout: [], matchCancelled: [],
-    battleStart: [], stateUpdate: [], battleEnd: [],
-    opponentDisconnected: [], opponentReconnected: [], answered: [],
-    lobbyUpdate: [], challengeIncoming: [], challengeSent: [],
-    challengeDeclined: [], challengeQueued: [], challengeError: [],
+    matchFound: [], battleStart: [], stateUpdate: [], battleEnd: [],
+    opponentDisconnected: [], opponentReconnected: [], answered: [], needTeamSelect: [],
   };
-  function on(event, cb) { if (listeners[event]) listeners[event].push(cb); }
-  function emit(event, data) { (listeners[event] || []).forEach(cb => cb(data)); }
+  function on(ev, cb) { if (listeners[ev]) listeners[ev].push(cb); }
+  function emit(ev, data) { (listeners[ev] || []).forEach(cb => cb(data)); }
 
-  function ensurePlayerId() {
-    let id = localStorage.getItem("pkm_net_player_id");
-    if (!id) {
-      id = "p_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-      localStorage.setItem("pkm_net_player_id", id);
-    }
-    playerId = id;
-    return id;
-  }
+  function socket() { return window.PkmPresence && window.PkmPresence.getSocket(); }
 
-  function connect() {
-    if (socket) return socket;
-    ensurePlayerId();
-    socket = io(SERVER_URL, { transports: ["websocket", "polling"] });
+  function wire() {
+    const s = socket();
+    if (!s || s._pkmBattleWired) return;
+    s._pkmBattleWired = true;
 
-    socket.on("connect", () => {
-      // Nếu trước đó đang dở 1 trận (roomId đã lưu) -> tự động nối lại
-      const savedRoom = sessionStorage.getItem("pkm_net_room_id");
-      if (savedRoom) {
-        roomId = savedRoom;
-        socket.emit("room:rejoin", { roomId, playerId });
+    s.on("match:found", d => { roomId = d.roomId; unitsAllowed = d.unitsAllowed; opponentId = d.opponentId; emit("matchFound", d); });
+    s.on("battle:start", d => { myTeamFinal = d.myTeam; oppTeamFinal = d.oppTeam; emit("battleStart", d); });
+    s.on("state:update", d => { latestState = d; emit("stateUpdate", d); askNextRoundQuestion(); });
+    s.on("battle:end", d => { stopped = true; sessionStorage.removeItem("pkm_net_room_id"); emit("battleEnd", d); });
+
+    s.on("room:rejoin_ok", d => {
+      unitsAllowed = d.unitsAllowed;
+      if (d.phase === "select") {
+        opponentId = d.opponentId;
+        emit("needTeamSelect", d); // chưa có trận thật -> để trang tự vẽ lại màn chọn đội hình
+        return;
       }
-    });
-
-    socket.on("match:found", (data) => {
-      roomId = data.roomId;
-      unitsAllowed = data.unitsAllowed;
-      opponentId = data.opponentId;
-      sessionStorage.setItem("pkm_net_room_id", roomId);
-      stopped = false;
-      emit("matchFound", data);
-    });
-
-    socket.on("queue:timeout", () => emit("queueTimeout"));
-    socket.on("match:cancelled", (data) => emit("matchCancelled", data));
-
-    socket.on("battle:start", (data) => {
-      myTeamFinal = data.myTeam;
-      oppTeamFinal = data.oppTeam;
-      emit("battleStart", data);
-    });
-
-    socket.on("state:update", (data) => {
-      latestState = data;
-      emit("stateUpdate", data);
+      latestState = d; stopped = false;
+      emit("stateUpdate", d);
       askNextRoundQuestion();
     });
-
-    socket.on("battle:end", (data) => {
-      stopped = true;
-      sessionStorage.removeItem("pkm_net_room_id");
-      emit("battleEnd", data);
-    });
-
-    socket.on("room:rejoin_ok", (data) => {
-      unitsAllowed = data.unitsAllowed;
-      latestState = data;
-      stopped = false;
-      emit("stateUpdate", data); // vẽ lại đúng trạng thái hiện tại ngay khi nối lại
-      askNextRoundQuestion();
-    });
-    socket.on("room:rejoin_failed", () => {
-      sessionStorage.removeItem("pkm_net_room_id");
-      roomId = null;
-    });
-
-    socket.on("opponent:disconnected", () => emit("opponentDisconnected"));
-    socket.on("opponent:reconnected", () => emit("opponentReconnected"));
-
-    // ---------- Khu vực chờ (lobby) + thách đấu ----------
-    socket.on("lobby:update", (data) => emit("lobbyUpdate", data));
-    socket.on("challenge:incoming", (data) => emit("challengeIncoming", data));
-    socket.on("challenge:sent", (data) => emit("challengeSent", data));
-    socket.on("challenge:declined", (data) => emit("challengeDeclined", data));
-    socket.on("challenge:queued", (data) => emit("challengeQueued", data));
-    socket.on("challenge:error", (data) => emit("challengeError", data));
-
-    return socket;
+    s.on("room:rejoin_failed", () => { sessionStorage.removeItem("pkm_net_room_id"); roomId = null; });
+    s.on("opponent:disconnected", () => emit("opponentDisconnected"));
+    s.on("opponent:reconnected", () => emit("opponentReconnected"));
   }
 
-  // Gọi ngay khi vào trang online (trước khi ghép trận) để hiện diện
-  // trong danh sách "ai đang online", cho phép người khác thách đấu.
-  function joinLobby(className, ownedCount) {
-    connect();
-    ensurePlayerId();
-    const name = localStorage.getItem("trainerName") || "Ẩn danh";
-    socket.emit("lobby:join", { playerId, name, className, ownedCount });
+  // Gọi ngay khi trang trận đấu load — dùng socket đã có sẵn từ PkmPresence,
+  // và nếu trang này được mở thẳng (đã có roomId lưu từ trước) thì tự rejoin.
+  function connect() {
+    if (!window.PkmPresence) { console.error("Thiếu pkm_presence.js!"); return null; }
+    const s = window.PkmPresence.connect();
+    wire();
+    if (s.connected) tryRejoinIfNeeded();
+    else s.once("connect", tryRejoinIfNeeded);
+    return s;
+  }
+  function tryRejoinIfNeeded() {
+    const s = socket();
+    const savedRoom = sessionStorage.getItem("pkm_net_room_id");
+    if (s && savedRoom) s.emit("room:rejoin", { roomId: savedRoom, playerId: window.PkmPresence.getPlayerId() });
   }
 
-  function joinQueue(ownedCount) {
-    connect();
-    ensurePlayerId();
-    const name = localStorage.getItem("trainerName") || "Ẩn danh";
-    socket.emit("queue:join", { playerId, ownedCount, name });
-  }
-  function cancelQueue() { if (socket) socket.emit("queue:cancel"); }
-
-  function sendChallenge(toPlayerId, message) {
-    if (!socket) return;
-    socket.emit("challenge:send", { toPlayerId, message });
-  }
-  function acceptChallenge(fromPlayerId) {
-    if (!socket) return;
-    socket.emit("challenge:accept", { fromPlayerId });
-  }
-  function declineChallenge() {
-    if (!socket) return;
-    socket.emit("challenge:decline");
-  }
-
-  // team: [{id, name, type, hp, atk, def, sAtk}, ...] tối đa unitsAllowed con
   function submitTeam(team) {
-    if (!socket || !roomId) return;
-    socket.emit("team:submit", { roomId, team });
+    const s = socket();
+    if (!s || !roomId) return;
+    s.emit("team:submit", { roomId, team });
   }
-
   function submitAnswer(correct) {
-    if (!socket || !roomId || !latestState) return;
-    socket.emit("answer:submit", { roomId, correct, turnCounter: latestState.turnCounter });
+    const s = socket();
+    if (!s || !roomId || !latestState) return;
+    s.emit("answer:submit", { roomId, correct, turnCounter: latestState.turnCounter });
   }
-
   function isMyTurnPrimary() {
-    return !!(latestState && latestState.primaryId === playerId);
+    return !!(latestState && window.PkmPresence && latestState.primaryId === window.PkmPresence.getPlayerId());
   }
-
-  function getMyPlayerId() { return playerId; }
+  function getMyPlayerId() { return window.PkmPresence ? window.PkmPresence.getPlayerId() : null; }
   function getState() { return latestState; }
   function getTeams() { return { myTeam: myTeamFinal, oppTeam: oppTeamFinal }; }
   function getRoomInfo() { return { roomId, unitsAllowed, opponentId }; }
 
-  // ============ VÒNG LẶP HỎI-ĐÁP: CHÍNH ảnh hưởng đòn đánh, PHỤ chỉ luyện tập ============
   function askNextRoundQuestion() {
     if (stopped || awaitingAnswer || !latestState) return;
     if (!window.QuizManager) return;
@@ -194,24 +109,14 @@ window.PkmBattleNet = (() => {
     awaitingAnswer = true;
     window.QuizManager.ask((isCorrect) => {
       awaitingAnswer = false;
-
-      // Luôn tính KN/DV như chế độ đơn, bất kể đang CHÍNH hay PHỤ
       if (window.PkmScore) window.PkmScore.recordAnswer(isCorrect);
-
-      if (primary) {
-        submitAnswer(isCorrect); // gửi lên server -> quyết định đòn đánh lượt này
-      }
-      // Bên PHỤ: không gửi gì cả — chờ state:update kế tiếp (do đối thủ vừa
-      // trả lời xong bên CHÍNH, hoặc do hết 25s timeout) để tự hỏi câu mới.
-
-      emit("answered", { correct: isCorrect, wasPrimary: primary }); // cho pkm_battle_online.js hiển thị tally nếu muốn
+      if (primary) submitAnswer(isCorrect);
+      emit("answered", { correct: isCorrect, wasPrimary: primary });
     });
   }
 
   return {
-    connect, joinLobby, joinQueue, cancelQueue, submitTeam, submitAnswer,
-    sendChallenge, acceptChallenge, declineChallenge,
-    isMyTurnPrimary, getMyPlayerId, getState, getTeams, getRoomInfo,
-    askNextRoundQuestion, on,
+    connect, submitTeam, submitAnswer, isMyTurnPrimary,
+    getMyPlayerId, getState, getTeams, getRoomInfo, askNextRoundQuestion, on,
   };
 })();
