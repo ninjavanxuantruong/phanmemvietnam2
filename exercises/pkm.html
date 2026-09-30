@@ -268,8 +268,9 @@
         const MAP_CONFIG  = { top: '32%', left: '50%', width: '16%' };
         const KEY_CONFIG  = { top: '25%', left: '75%', width: '6%' };
         const GARDEN_CONFIG = { top: '40%', left: '85%', width: '6%' };
-        const TEST_CONFIG   = { top: '55%', left: '40%', width: '7%' };
-        const RANDOM_CONFIG = { top: '55%', left: '60%', width: '7%' };
+        const TEST_CONFIG   = { top: '70%', left: '40%', width: '7%' };
+        const RANDOM_CONFIG = { top: '70%', left: '60%', width: '7%' };
+        const BATTLE_ONLINE_CONFIG = { top: '55%', left: '50%', width: '7%' };
 
         const TRAINER_URL = name => `https://play.pokemonshowdown.com/sprites/trainers/${name}.png`;
         const POKEMON_URL  = name => `https://play.pokemonshowdown.com/sprites/ani/${name}.gif`;
@@ -429,6 +430,24 @@
                  </svg>`),
             label: 'Học bài',
             onClick: () => window.pkmRandomPlay()
+        });
+        placeElement({
+            top: BATTLE_ONLINE_CONFIG.top, left: BATTLE_ONLINE_CONFIG.left, width: BATTLE_ONLINE_CONFIG.width,
+            extraClass: 'hs-battle-online',
+            imgSrc: 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="46" fill="#2a0d3a" stroke="#ff5fd8" stroke-width="5"/>
+                    <text x="50" y="66" font-size="46" text-anchor="middle">⚔️</text>
+                 </svg>`),
+            label: 'Đấu Online',
+            onClick: () => {
+                if (!window.PkmPresence) {
+                    alert('Thiếu pkm_presence.js — không vào được chế độ online!');
+                    return;
+                }
+                window.PkmPresence.joinRandomQueue();
+                window.PkmPresence.openPanel(); // mở luôn bảng để xem đang chờ/ai online
+            }
         });
 
         const dlgOverlay = document.getElementById('dlg-overlay');
@@ -662,6 +681,8 @@
             }
         };
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="pkm_presence.js"></script>
     <script src="global-config.js"></script>
     <script src="pkm_random.js"></script>
 </body>
