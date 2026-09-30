@@ -361,4 +361,9 @@ window.BattleOnlineGame = {
     },
 };
 
-window.BattleOnlineGame.init();
+// KHÔNG tự gọi init() ở đây nữa — trang .html chỉ gọi khi thực sự có 1
+// phòng đang chờ (tránh chạy nhầm khi ai đó mở thẳng trang này mà chưa
+// ghép trận qua pkm_presence.js).
+if (sessionStorage.getItem("pkm_net_room_id")) {
+    window.BattleOnlineGame.init();
+}
