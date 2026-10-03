@@ -78,6 +78,83 @@
       border-radius: 8px;
       font-size: 16px;
     }
+
+    /* ==== Khu vực trắc nghiệm A/B/C/D ==== */
+    .choice-area {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .choice-group {
+      background: #fff8dc;
+      border: 2px solid #ffcb05;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    .choice-label {
+      font-weight: bold;
+      color: #e3350d;
+      margin-bottom: 8px;
+    }
+    .choice-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .choice-btn {
+      background: #fff;
+      border: 2px solid #2a75bb;
+      border-radius: 10px;
+      padding: 10px 8px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #333;
+      cursor: pointer;
+      transition: all .15s ease;
+    }
+    .choice-btn:hover:not(:disabled) {
+      background: #eaf3ff;
+    }
+    .choice-btn.selected {
+      border-color: #2a75bb;
+      background: #d6e9ff;
+    }
+    .choice-btn.choice-correct {
+      background: #dcfce7;
+      border-color: #16a34a;
+      color: #166534;
+    }
+    .choice-btn.choice-wrong {
+      background: #fee2e2;
+      border-color: #dc2626;
+      color: #991b1b;
+    }
+    .choice-btn:disabled {
+      cursor: not-allowed;
+      opacity: .9;
+    }
+
+    /* ==== Đoạn hội thoại ==== */
+    .dialogue-turn {
+      margin-bottom: 10px;
+    }
+    .dialogue-line {
+      margin: 4px 0;
+      padding: 6px 10px;
+      border-radius: 10px;
+      display: block;
+    }
+    .dialogue-line.q {
+      background: #ffe9e5;
+    }
+    .dialogue-line.a {
+      background: #e5f1ff;
+    }
+    .speaker-tag {
+      font-weight: bold;
+      margin-right: 6px;
+    }
+
     .btn {
       padding: 10px 18px;
       border: none;
@@ -112,26 +189,97 @@
       transition: background-color 0.3s ease, color 0.3s ease;
       padding: 2px 4px;
       border-radius: 4px;
-      display: inline; /* Giữ nguyên dạng dòng văn bản */
+      display: inline;
     }
+
+    /* ==== Panel thiết lập ==== */
+    .settings-panel {
+      background: #fff3cd;
+      border: 2px solid #ffcb05;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    .settings-row {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .option-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: flex-start;
+      background: #fffdf0;
+      border: 2px dashed #ffcb05;
+      border-radius: 10px;
+      padding: 8px 12px;
+    }
+    .option-block .option-title {
+      font-weight: bold;
+      color: #e3350d;
+      margin-bottom: 2px;
+    }
+    .option-block label {
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .range-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 8px;
+      transition: opacity .15s ease;
+    }
+    .range-row.disabled-range {
+      opacity: .45;
+      pointer-events: none;
+    }
+    .range-row .range-col span {
+      display: block;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 2px;
+    }
+    .range-row select {
+      padding: 6px;
+      border: 2px solid #2a75bb;
+      border-radius: 8px;
+    }
+    .btn.secondary {
+      background: #6b7280;
+    }
+    .btn.secondary:hover {
+      background: #4b5563;
+    }
+    .btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
     /* Mobile tweaks */
     @media (max-width: 600px) {
       .title { font-size: 22px; }
       .paragraph-box { font-size: 16px; }
       .btn { font-size: 14px; padding: 8px 14px; }
+      .choice-options { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="card">
-      <!-- Thêm vào sau dòng <h2 class="title">...</h2> và trước <div id="scoreBoard"> -->
-      <h2 class="title">🎧 Listening 3: Điền từ còn thiếu</h2>
+      <h2 class="title">🎧 Listening 3: Điền từ / Trắc nghiệm</h2>
 
-      <!-- THÊM DROPDOWN Ở ĐÂY -->
-      <div style="background: #fff3cd; border: 2px solid #ffcb05; border-radius: 12px; padding: 15px; margin-bottom: 15px;">
-        <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; justify-content: center;">
-          <div class="filter-group">
+      <div class="settings-panel">
+        <div class="settings-row">
+          <div>
             <label for="topicSelect">Chủ đề:</label>
             <select id="topicSelect" style="padding:6px; width:180px;">
               <option value="all">-- Tất cả chủ đề --</option>
@@ -140,14 +288,10 @@
           <div>
             <label for="totalSentences" style="font-weight: bold; color: #e3350d; margin-right: 8px;">📚 Tổng số câu:</label>
             <select id="totalSentences" style="padding: 8px 12px; border: 2px solid #2a75bb; border-radius: 8px; font-size: 16px; background: white;">
-              
               <option value="6">6 câu</option>
-              
               <option value="8" selected>8 câu</option>
-              
               <option value="10">10 câu</option>
               <option value="12">12 câu</option>
-              
               <option value="14">14 câu</option>
               <option value="16">16 câu</option>
             </select>
@@ -178,14 +322,45 @@
               <option value="yes" selected>Có (Đổi màu)</option>
             </select>
           </div>
+        </div>
+
+        <div class="settings-row" style="margin-top:14px;">
+          <div class="option-block">
+            <div class="option-title">📂 Phạm vi</div>
+            <label><input type="radio" name="scopeMode" value="hoc" checked> Trong phạm vi đã học</label>
+            <label><input type="radio" name="scopeMode" value="range"> Theo dãy bài</label>
+          </div>
+
+          <div class="option-block">
+            <div class="option-title">📖 Hình thức bài</div>
+            <label><input type="radio" name="contentForm" value="paragraph" checked> Đoạn văn</label>
+            <label><input type="radio" name="contentForm" value="dialogue"> Đoạn hội thoại</label>
+          </div>
+
+          <div class="option-block">
+            <div class="option-title">✍️ Cách làm bài</div>
+            <label><input type="radio" name="answerMode" value="fill" checked> Điền từ</label>
+            <label><input type="radio" name="answerMode" value="choice"> Trắc nghiệm A/B/C/D</label>
+          </div>
 
           <button id="applySettingsBtn" class="btn primary" style="padding: 8px 20px;">🔄 Tạo bài mới</button>
         </div>
+
+        <div class="range-row disabled-range" id="rangeRow">
+          <div class="range-col">
+            <span>Từ bài</span>
+            <select id="rangeStartSelect"></select>
+          </div>
+          <div class="range-col">
+            <span>Đến bài</span>
+            <select id="rangeEndSelect"></select>
+          </div>
+        </div>
+
         <div style="text-align: center; margin-top: 8px; font-size: 14px; color: #666;">
-          <i>⚡ Chọn số câu và số từ cần điền, sau đó nhấn "Tạo bài mới"</i>
+          <i>⚡ Chọn phạm vi, hình thức bài, cách làm bài... rồi nhấn "Tạo bài mới"</i>
         </div>
       </div>
-      <!-- KẾT THÚC DROPDOWN -->
 
       <div id="scoreBoard" class="score-board">🎯 Điểm: 0/0</div>
 
@@ -193,6 +368,8 @@
         <div id="paragraphBox" class="paragraph-box"></div>
         <div class="controls">
           <button id="playParagraphBtn" class="btn primary">▶️ Nghe đoạn văn</button>
+          <button id="pauseResumeBtn" class="btn secondary" disabled>⏸ Tạm dừng</button>
+          <button id="stopSpeakBtn" class="btn secondary" disabled>⏹ Dừng đọc</button>
           <button id="submitL3Btn" class="btn success">✅ Nộp bài</button>
         </div>
         <div id="inputsArea" class="inputs-area"></div>
