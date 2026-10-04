@@ -797,7 +797,7 @@ window.SkillManager = {
         wrap.classList.remove('show');
         setTimeout(() => wrap.remove(), 300);
     },
-    async playSkillSelectPanel(attackerEl, type, chosenMethod, baseMethodName, pool, interactive) {
+        async playSkillSelectPanel(attackerEl, type, chosenMethod, baseMethodName, pool, interactive, labelFn, iconFn) {
         const methods = (pool && pool.length > 0) ? pool : [baseMethodName];
 
         // AI địch: không hiện bảng, tự chọn sau một khoảng "suy nghĩ" ngắn
@@ -843,8 +843,8 @@ window.SkillManager = {
                 const btn = document.createElement('button');
                 btn.className = 'pkm-skillpanel-btn';
                 btn.innerHTML = `
-                    <div class="pkm-skillpanel-icon">${this.getTypeIcon(type)}</div>
-                    <div class="pkm-skillpanel-label">${this.getSkillLabel(type, methodName)}</div>
+                    <div class="pkm-skillpanel-icon">${iconFn ? iconFn(methodName) : this.getTypeIcon(type)}</div>
+                    <div class="pkm-skillpanel-label">${labelFn ? labelFn(methodName) : this.getSkillLabel(type, methodName)}</div>
                 `;
                 btn.addEventListener('click', () => finish(methodName));
                 grid.appendChild(btn);
