@@ -441,12 +441,7 @@
                  </svg>`),
             label: 'Đấu Online',
             onClick: () => {
-                if (!window.PkmPresence) {
-                    alert('Thiếu pkm_presence.js — không vào được chế độ online!');
-                    return;
-                }
-                window.PkmPresence.joinRandomQueue();
-                window.PkmPresence.openPanel(); // mở luôn bảng để xem đang chờ/ai online
+                window.location.href = 'pkm_battle_online.html';
             }
         });
 
