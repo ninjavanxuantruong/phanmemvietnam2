@@ -1,48 +1,31 @@
 /**
  * ==========================================================
- * PKM BATTLE ONLINE — bản PvP, dựa trên pkm_battle.js
+ * PKM BATTLE ONLINE v3 — dựa trên pkm_battle.js, không đụng file gốc
  * ==========================================================
- * KHÔNG động vào pkm_battle.js (giữ nguyên cho chế độ đơn/offline).
- * File này dùng LẠI toàn bộ phần VẼ (renderBattlefield, updateUI,
- * animation qua SkillManager/PkmUnitFX) của pkm_battle.js, nhưng thay
- * hoàn toàn phần "não" tính toán: máu/damage/thắng-thua không tự tính
- * nữa mà LUÔN lấy từ server qua window.PkmBattleNet (xem
- * pkm_battle_net.js) — server là nguồn sự thật duy nhất.
- *
- * CẦN CÓ TRƯỚC (trong pkm_battle_online.html):
- *   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
- *   <script src="pkm_battle_net.js"></script>
- *   <script src="pkm_battle_online.js"></script>
- * và các file dùng chung với bản đơn: pkm_styles.js (PkmStyles),
- * pkm_unit_fx.js (PkmUnitFX), pkm_skill_manager.js (SkillManager),
- * pkm_quiz.js (QuizManager), pkm_score.js (PkmScore).
- *
- * CÁC ĐIỂM ĐÃ LƯỢC BỎ SO VỚI BẢN ĐƠN (xem giải thích trong hội thoại):
- *   - Hệ thống hồi máu buff sau 3 đòn (cosmetic, dễ lệch với máu thật
- *     server đang giữ) -> bỏ hẳn ở bản online.
- *   - Hệ thống checkpoint dừng giữa chừng (MIN/MAX_QUESTIONS) -> PvP có
- *     hồi kết rõ ràng do server quyết (1 đội hết máu), không cần.
- *   - Chọn cấp độ/luồng học từ vựng (VocabularyModule) trước trận -> PvP
- *     ép cứng độ khó "kho" ngay từ màn chọn đội hình (file khác lo).
- *
- * ĐIỂM CHƯA KIỂM CHỨNG BẰNG TRÌNH DUYỆT THẬT (cần bạn test):
- *   - finishMatch() được gọi với allowLessonUnlock:false vì PvP không gắn
- *     với 1 bài học cụ thể (current_mission) — tắt hẳn phần "mở khoá bài
- *     mới" để tránh vô tình mở khoá nhầm bài dựa trên current_mission cũ
- *     còn sót lại trong localStorage từ 1 phiên chơi đơn trước đó.
+ * THAY ĐỔI SO VỚI BẢN TRƯỚC:
+ *   - Trước khi phát animation ra chưởng, LUÔN hiện 1 thông báo ngắn cho
+ *     BIẾT RÕ chuyện gì vừa xảy ra với CHÍNH MÌNH (trả lời đúng/sai, kịp
+ *     giờ hay không, có ra chưởng hay không) — lấy từ sự kiện round:result
+ *     mà server gửi riêng cho từng người.
+ *   - CHỈ hỏi câu hỏi tiếp theo SAU KHI animation ra chưởng phát xong hẳn
+ *     (gọi window.PkmBattleNet.readyForNextQuestion()) — không còn tình
+ *     trạng vừa làm quiz mới vừa thấy chưởng của lượt cũ bay ra.
+ *   - Thêm nút "Rời trận" chủ động: trừ 1 KN + 1 DV (đọc thẳng key
+ *     pkm_global_exp / pkm_global_dv mà pkm_score.js đang dùng, không
+ *     sửa pkm_score.js), rồi báo server kết thúc phòng ngay.
  * ==========================================================
  */
 
 window.BattleOnlineGame = {
-    playerTeam: [],   // đội của TÔI (hiển thị bên "player")
-    enemyTeam: [],    // đội ĐỐI THỦ (hiển thị bên "enemy")
+    playerTeam: [],
+    enemyTeam: [],
     playerActiveIdx: 0,
     enemyActiveIdx: 0,
     myPlayerId: null,
     oppPlayerId: null,
     firstStateReceived: false,
     lastIsAOE: false,
-    lastPrimaryId: null, // ai LÀ chính ở round SẮP DIỄN RA (dùng để suy ra ai vừa đánh khi state mới tới)
+    lastPrimaryId: null,
     isProcessing: false,
 
     async init() {
@@ -57,7 +40,7 @@ window.BattleOnlineGame = {
         await this.setupOnlineQuestionPool();
         window.addEventListener('beforeunload', () => this.restoreQuestionPool());
 
-        window.PkmBattleNet.connect(); // phải gọi TRƯỚC — playerId chỉ được tạo bên trong connect()
+        window.PkmBattleNet.connect();
         this.myPlayerId = window.PkmBattleNet.getMyPlayerId();
 
         window.PkmBattleNet.on('stateUpdate', (state) => this.onServerState(state));
@@ -68,20 +51,18 @@ window.BattleOnlineGame = {
         const quizOverlay = document.getElementById("quiz-overlay");
         if (quizOverlay) quizOverlay.style.display = "flex";
         this.log("⏳ Đang đồng bộ trận đấu...");
+
+        this.wireLeaveButton();
     },
 
     // ============ NGUỒN CÂU HỎI: KHÔNG lấy vocab của 1 bài cố định ============
-    // Ép độ khó "kho" (khó nhất) + chọn NGẪU NHIÊN 1 bài học sinh này CHƯA
-    // vượt qua (và nhỏ hơn bài max đã lên lịch), tái dùng đúng logic đã có
-    // sẵn trong pkm_random.js (window.PkmLessonPicker.pickLesson()) thay vì
-    // viết lại. Không đổi gì ở pkm_map.js/pkm_quiz.js.
     _prevSelectedLevel: undefined,
     async setupOnlineQuestionPool() {
         this._prevSelectedLevel = localStorage.getItem('selected_level');
         localStorage.setItem('selected_level', 'kho');
 
         if (!window.PkmLessonPicker) {
-            console.warn("⚠️ Thiếu pkm_random.js — không chọn được bài ngẫu nhiên, dùng current_mission hiện có (nếu có).");
+            console.warn("⚠️ Thiếu pkm_battle_random.js — không chọn được bài ngẫu nhiên, dùng current_mission hiện có (nếu có).");
             return;
         }
         try {
@@ -98,20 +79,51 @@ window.BattleOnlineGame = {
             console.warn("⚠️ Lỗi khi chọn bài random cho online:", e);
         }
     },
-    // Trả lại độ khó cũ khi rời trận online, tránh ảnh hưởng các chế độ
-    // chơi khác (solo) đang dùng chung key 'selected_level' trong localStorage.
     restoreQuestionPool() {
-        if (this._prevSelectedLevel === undefined) return; // chưa setup thì khỏi khôi phục
+        if (this._prevSelectedLevel === undefined) return;
         if (this._prevSelectedLevel === null) localStorage.removeItem('selected_level');
         else localStorage.setItem('selected_level', this._prevSelectedLevel);
-        this._prevSelectedLevel = undefined; // tránh khôi phục 2 lần
+        this._prevSelectedLevel = undefined;
     },
 
+    // ============ RỜI TRẬN CHỦ ĐỘNG — trừ 1 KN + 1 DV ============
+    wireLeaveButton() {
+        const btn = document.getElementById('btn-leave-battle');
+        if (btn) btn.onclick = () => this.requestLeaveBattle();
+    },
+    requestLeaveBattle() {
+        const ok = confirm("Bạn có chắc muốn rời trận? Bạn sẽ bị trừ 1 KN và 1 DV vì bỏ dở giữa chừng.");
+        if (!ok) return;
+        this.applyLeavePenalty();
+        if (window.PkmBattleNet) window.PkmBattleNet.leaveBattle();
+        this.restoreQuestionPool();
+        window.location.href = 'pkm.html';
+    },
+    applyLeavePenalty() {
+        try {
+            const exp = Math.max(0, (parseInt(localStorage.getItem('pkm_global_exp'), 10) || 0) - 1);
+            const dv = Math.max(0, (parseInt(localStorage.getItem('pkm_global_dv'), 10) || 0) - 1);
+            localStorage.setItem('pkm_global_exp', exp);
+            localStorage.setItem('pkm_global_dv', dv);
+        } catch (e) { console.warn("Không trừ được điểm rời trận:", e); }
+    },
+
+    // ============ THÔNG BÁO KẾT QUẢ LƯỢT (từ round:result) ============
+    buildRoundResultMessage(rr) {
+        if (!rr) return null;
+        if (rr.wasPrimary) {
+            if (!rr.submitted) return "⌛ Quá 30 giây — bạn mất lượt!";
+            return rr.correct ? "✅ Bạn trả lời đúng — RA CHƯỞNG!" : "❌ Bạn trả lời sai — mất lượt.";
+        }
+        if (!rr.submitted) return "📖 Câu phụ: bạn chưa kịp trả lời (không sao, không ảnh hưởng trận).";
+        return rr.correct
+            ? "📖 Câu phụ: bạn trả lời đúng (tính KN/DV) — chưa tới lượt chính nên chưa ra chưởng."
+            : "📖 Câu phụ: bạn trả lời sai (không ảnh hưởng trận vì chưa tới lượt chính).";
+    },
+    sleep(ms) { return new Promise(r => setTimeout(r, ms)); },
+
     // ============ NHẬN TRẠNG THÁI THẬT TỪ SERVER ============
-    // Mỗi lần có state:update: (1) nếu là lần đầu -> dựng đội hình + vẽ
-    // trận; (2) nếu không -> so sánh với snapshot cũ để biết vừa ai đánh
-    // trúng ai, phát animation tương ứng, rồi mới đồng bộ số liệu thật.
-    onServerState(state) {
+    async onServerState(state) {
         this.oppPlayerId = Object.keys(state.teams).find(id => id !== this.myPlayerId) || this.oppPlayerId;
 
         if (!this.firstStateReceived) {
@@ -123,10 +135,16 @@ window.BattleOnlineGame = {
             this.lastPrimaryId = state.primaryId;
             const quizOverlay = document.getElementById("quiz-overlay");
             if (quizOverlay) quizOverlay.style.display = "flex";
+            window.PkmBattleNet.readyForNextQuestion(); // hỏi câu ĐẦU TIÊN
             return;
         }
 
-        // So khớp HP cũ vs HP mới để biết vừa xảy ra chuyện gì
+        // 1) Hiện thông báo kết quả lượt VỪA RỒI cho người chơi đọc trước
+        const rr = window.PkmBattleNet.getLastRoundResult();
+        const msg = this.buildRoundResultMessage(rr);
+        if (msg) { this.log(msg); await this.sleep(1300); }
+
+        // 2) So khớp HP cũ vs HP mới để biết vừa xảy ra chuyện gì, phát animation
         const prevAttackerWasMe = this.lastPrimaryId === this.myPlayerId;
         const attackerSide = prevAttackerWasMe ? 'player' : 'enemy';
         const defenderSide = prevAttackerWasMe ? 'enemy' : 'player';
@@ -145,17 +163,18 @@ window.BattleOnlineGame = {
         const attackerActiveIdx = prevAttackerWasMe ? this.playerActiveIdx : this.enemyActiveIdx;
         const attackerUnit = attackerTeamOld[attackerActiveIdx];
 
-        this.playAttackAnimation({
+        await this.playAttackAnimation({
             attackerSide, defenderSide, attackerUnit, attackerIdx: attackerActiveIdx,
             hits, isAOE: this.lastIsAOE,
-        }).then(() => {
-            // Đồng bộ số liệu THẬT từ server (ghi đè, không tự tính)
-            this.applyServerTeams(state);
-            this.updateUI();
-            this.showTelegraphForUpcoming(state);
-            this.lastIsAOE = state.isAOE;
-            this.lastPrimaryId = state.primaryId;
         });
+
+        // 3) Đồng bộ số liệu THẬT từ server, rồi MỚI hỏi câu tiếp theo
+        this.applyServerTeams(state);
+        this.updateUI();
+        this.showTelegraphForUpcoming(state);
+        this.lastIsAOE = state.isAOE;
+        this.lastPrimaryId = state.primaryId;
+        window.PkmBattleNet.readyForNextQuestion(); // CHỈ gọi SAU KHI animation xong hẳn
     },
 
     buildTeamsFromState(state) {
@@ -167,7 +186,6 @@ window.BattleOnlineGame = {
         this.enemyActiveIdx = state.activeIdx[this.oppPlayerId] || 0;
     },
 
-    // Ghi đè currentHp bằng đúng số liệu server vừa gửi (không cộng/trừ thủ công)
     applyServerTeams(state) {
         const mine = state.teams[this.myPlayerId] || [];
         const opp = state.teams[this.oppPlayerId] || [];
@@ -177,8 +195,6 @@ window.BattleOnlineGame = {
         this.enemyActiveIdx = state.activeIdx[this.oppPlayerId] || 0;
     },
 
-    // Bật FX "sắp bị đánh / sắp ra chưởng" cho round SẮP TỚI, y hệt cảm
-    // giác telegraph của bản đơn — chỉ khác là dữ liệu tới từ server.
     showTelegraphForUpcoming(state) {
         const primaryIsMe = state.primaryId === this.myPlayerId;
         const attackerSide = primaryIsMe ? 'player' : 'enemy';
@@ -192,8 +208,6 @@ window.BattleOnlineGame = {
         }
     },
 
-    // Phát animation đòn đánh vừa xảy ra, dùng ĐÚNG damage server đã tính
-    // (không tự tính lại) — tái dùng SkillManager y hệt bản đơn.
     async playAttackAnimation({ attackerSide, defenderSide, attackerUnit, attackerIdx, hits, isAOE }) {
         window.PkmUnitFX?.setAttacking(attackerSide, attackerIdx, false);
 
@@ -201,7 +215,6 @@ window.BattleOnlineGame = {
         if (attackerUnit.name && window.SkillManager) window.SkillManager.speakName(attackerUnit.name);
 
         if (hits.length === 0) {
-            // Bên chính trả lời sai/không kịp -> đánh hụt
             this.log(`${attackerUnit.name} đánh hụt!`);
             const playInfo = { attackerIndex: attackerIdx, attackerSide, targetSide: defenderSide, missed: true, targets: [] };
             if (window.SkillManager) await window.SkillManager.playNormalAttack(playInfo);
@@ -228,10 +241,10 @@ window.BattleOnlineGame = {
 
     // ============ KẾT THÚC TRẬN — do SERVER báo, không tự tính ============
     onBattleEnd({ winnerId, reason }) {
-        this.restoreQuestionPool(); // xong trận -> trả lại độ khó cũ, không ảnh hưởng chế độ đơn
+        this.restoreQuestionPool();
         if (winnerId === this.myPlayerId) this.victory(reason);
         else if (winnerId === this.oppPlayerId) this.defeat(reason);
-        else this.draw(reason); // hoà (draw) hoặc winnerId null vì 2 bên cùng hết máu
+        else this.draw(reason);
     },
 
     // ============ VẼ TRẬN (TÁI DÙNG NGUYÊN VĂN TỪ pkm_battle.js) ============
@@ -321,7 +334,10 @@ window.BattleOnlineGame = {
 
     // ============ KẾT QUẢ TRẬN ============
     victory(reason) {
-        this.log(reason === 'opponent_disconnected' ? "🏆 ĐỐI THỦ THOÁT TRẬN — BẠN THẮNG!" : "🏆 CHIẾN THẮNG!");
+        const msg = reason === 'opponent_left_voluntarily' ? "🏆 ĐỐI THỦ ĐÃ RỜI TRẬN — BẠN THẮNG!"
+            : reason === 'opponent_disconnected' ? "🏆 ĐỐI THỦ MẤT KẾT NỐI — BẠN THẮNG!"
+            : "🏆 CHIẾN THẮNG!";
+        this.log(msg);
         const result = window.PkmScore ? window.PkmScore.finishMatch({ won: true, minQuestions: 0, allowLessonUnlock: false }) : {};
         this.showResultOverlay(true, result, reason);
     },
