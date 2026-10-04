@@ -53,10 +53,22 @@ export const LEVELS = {
 };
 
 export const LEVEL_META = {
-  [LEVELS.MAM_NON]:    { emoji: "🌱", label: "Mầm non",       sub: "Chưa biết chữ — chơi bằng hình & âm thanh" },
-  [LEVELS.DE]:         { emoji: "🟢", label: "Dễ",             sub: "Mới học từ vựng cơ bản" },
-  [LEVELS.TRUNG_BINH]: { emoji: "🟡", label: "Trung bình",     sub: "Đã quen từ vựng, câu ngắn" },
-  [LEVELS.KHO]:        { emoji: "🔴", label: "Khó",            sub: "Tự tin đọc/nghe/nói đoạn dài" },
+  [LEVELS.MAM_NON]: {
+    emoji: "🌱",
+    label: "Mầm non",
+    sub: "Chưa biết chữ — chơi bằng hình & âm thanh",
+  },
+  [LEVELS.DE]: { emoji: "🟢", label: "Dễ", sub: "Mới học từ vựng cơ bản" },
+  [LEVELS.TRUNG_BINH]: {
+    emoji: "🟡",
+    label: "Trung bình",
+    sub: "Đã quen từ vựng, câu ngắn",
+  },
+  [LEVELS.KHO]: {
+    emoji: "🔴",
+    label: "Khó",
+    sub: "Tự tin đọc/nghe/nói đoạn dài",
+  },
 };
 
 export const MAX_WORDS_PER_SESSION = 7;
@@ -87,8 +99,8 @@ export function normalizeUnitDash(unitStr) {
   if (!unitStr) return 0;
   const parts = unitStr.toString().split("-");
   if (parts.length < 3) return 0;
-  const [cls, lesson, part] = parts.map(v => parseInt(v, 10));
-  if ([cls, lesson, part].some(v => isNaN(v))) return 0;
+  const [cls, lesson, part] = parts.map((v) => parseInt(v, 10));
+  if ([cls, lesson, part].some((v) => isNaN(v))) return 0;
   return cls * 1000 + lesson * 10 + part;
 }
 
@@ -114,12 +126,12 @@ export async function getMaxLessonCode() {
     const res = await fetch(window.SHEET_BAI_HOC);
     const rows = await res.json();
     const list = rows
-      .map(r => {
+      .map((r) => {
         const lop = (r[0] || "").toString().trim();
         const bai = (r[2] || "").toString().trim();
         return lop === trainerClass && bai ? parseInt(bai, 10) : null;
       })
-      .filter(v => typeof v === "number" && !isNaN(v));
+      .filter((v) => typeof v === "number" && !isNaN(v));
     const max = list.length ? Math.max(...list) : 0;
     sessionStorage.setItem(cacheKey, String(max));
     return max;
@@ -147,13 +159,14 @@ const VI_TTS_BASE = "https://googlevoice-tinh.onrender.com";
 const _viAudioCache = new Map();
 let _viAudioCtx = null;
 function _getViAudioCtx() {
-  if (!_viAudioCtx) _viAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!_viAudioCtx)
+    _viAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (_viAudioCtx.state === "suspended") _viAudioCtx.resume();
   return _viAudioCtx;
 }
 // mới
 export function speakVI(text, speed = 0.9) {
-  return new Promise(async resolve => {
+  return new Promise(async (resolve) => {
     if (!text) return resolve();
     try {
       const key = `vi|${speed}|${text}`;
@@ -178,7 +191,8 @@ export function speakVI(text, speed = 0.9) {
       }
       const ctx = _getViAudioCtx();
       const src = ctx.createBufferSource();
-      src.buffer = buf; src.connect(ctx.destination);
+      src.buffer = buf;
+      src.connect(ctx.destination);
       src.onended = resolve;
       src.start();
     } catch (e) {
@@ -200,7 +214,8 @@ export async function getSheetRows() {
 
   // Ưu tiên dùng lại dữ liệu đã tải sẵn ở pkm_map.js (key "allVocabData")
   // trước khi tự fetch lại từ Google Sheet — tránh tải trùng 2 lần.
-  const cached = sessionStorage.getItem(cacheKey) || sessionStorage.getItem("allVocabData");
+  const cached =
+    sessionStorage.getItem(cacheKey) || sessionStorage.getItem("allVocabData");
   if (cached) {
     _sheetRowsCache = JSON.parse(cached);
     return _sheetRowsCache;
@@ -211,16 +226,18 @@ export async function getSheetRows() {
   _sheetRowsCache = data.data || data;
   try {
     sessionStorage.setItem(cacheKey, JSON.stringify(_sheetRowsCache));
-  } catch (e) { /* quota — bỏ qua, vẫn dùng biến trong RAM */ }
+  } catch (e) {
+    /* quota — bỏ qua, vẫn dùng biến trong RAM */
+  }
   return _sheetRowsCache;
 }
 
 // Chuyển 1 dòng sheet thành object item chuẩn dùng chung toàn bộ hệ thống
 function buildRowItem(row) {
   const col = Array.isArray(row) ? row : Object.values(row);
-  const get = idx => (col[idx] != null ? col[idx].toString().trim() : "");
+  const get = (idx) => (col[idx] != null ? col[idx].toString().trim() : "");
   return {
-    lessonId: get(1),              // "3-1-1"
+    lessonId: get(1), // "3-1-1"
     unitNum: normalizeUnitDash(get(1)),
     word: get(2),
     enChunk: get(3),
@@ -228,7 +245,7 @@ function buildRowItem(row) {
     presentSent: get(8),
     question: get(9),
     keywordFix: get(10),
-    answerRaw: get(11),            // = finalAns
+    answerRaw: get(11), // = finalAns
     meaning: get(24),
     noteAH: get(33),
     noteAI: get(34),
@@ -265,17 +282,24 @@ export async function loadSessionData(level) {
     try {
       const cached = JSON.parse(cachedRaw);
       if (cached._fp === fp && cached._level === level) {
-        console.log("🚀 [PokéLearn] Dùng dữ liệu buổi học từ cache (localStorage)");
+        console.log(
+          "🚀 [PokéLearn] Dùng dữ liệu buổi học từ cache (localStorage)",
+        );
         return { sessionVocab: cached.sessionVocab, poolData: cached.poolData };
       }
-    } catch (e) { /* cache hỏng thì bỏ qua, tải lại */ }
+    } catch (e) {
+      /* cache hỏng thì bỏ qua, tải lại */
+    }
   }
 
   console.log("🌐 [PokéLearn] Đang tải dữ liệu buổi học từ Google Sheets...");
-  const [maxLesson, rows] = await Promise.all([getMaxLessonCode(), getSheetRows()]);
+  const [maxLesson, rows] = await Promise.all([
+    getMaxLessonCode(),
+    getSheetRows(),
+  ]);
   const minLesson = getMinLessonCode();
 
-  const allItems = rows.map(buildRowItem).filter(it => it.word);
+  const allItems = rows.map(buildRowItem).filter((it) => it.word);
 
   // Từ vựng buổi học hôm nay: nằm trong wordBank đã chốt, loại trùng
   const seen = new Set();
@@ -291,7 +315,8 @@ export async function loadSessionData(level) {
 
   // Pool nhiễu: mọi từ trong phạm vi bài đã học (không nhất thiết thuộc wordBank)
   const poolData = allItems.filter(
-    it => it.unitNum >= minLesson && (maxLesson === 0 || it.unitNum <= maxLesson)
+    (it) =>
+      it.unitNum >= minLesson && (maxLesson === 0 || it.unitNum <= maxLesson),
   );
 
   const toCache = { _fp: fp, _level: level, sessionVocab, poolData };
@@ -303,17 +328,27 @@ export async function loadSessionData(level) {
 
   // Prefetch ảnh — chỉ 1 lần / theo số lượng wordBank, giữ đúng cơ chế all.js cũ
   const imgFlagKey = IMG_PREFETCH_FLAG_PREFIX + wordBank.length;
-  const keywords = [...new Set(
-    sessionVocab.flatMap(it => [it.imageKeyword, it.word].filter(Boolean).map(k => k.toLowerCase().trim()))
-  )];
+  const keywords = [
+    ...new Set(
+      sessionVocab.flatMap((it) =>
+        [it.imageKeyword, it.word]
+          .filter(Boolean)
+          .map((k) => k.toLowerCase().trim()),
+      ),
+    ),
+  ];
   // Kiểm tra THỰC TẾ xem local đã có ảnh chưa (không chỉ dựa vào cờ sessionStorage) —
   // tránh trường hợp người dùng xoá dữ liệu trình duyệt làm mất ảnh cache nhưng cờ cũ
   // vẫn còn, khiến hệ thống nghĩ "đã có ảnh" và bỏ qua tải lại -> ảnh hiện lỗi.
-  const missingImages = keywords.filter(k => !getImageFromMap(k));
+  const missingImages = keywords.filter((k) => !getImageFromMap(k));
   if (!sessionStorage.getItem(imgFlagKey) || missingImages.length > 0) {
     try {
-      await prefetchImagesBatch(missingImages.length > 0 ? missingImages : keywords);
-    } catch (e) { console.warn("Prefetch ảnh lỗi:", e); }
+      await prefetchImagesBatch(
+        missingImages.length > 0 ? missingImages : keywords,
+      );
+    } catch (e) {
+      console.warn("Prefetch ảnh lỗi:", e);
+    }
     sessionStorage.setItem(imgFlagKey, "1");
   }
 
@@ -333,14 +368,21 @@ let ttsBusy = false;
 const spokenInstructions = new Set(); // mỗi dạng bài chỉ đọc hướng dẫn 1 lần / buổi
 
 export function initTTSVoice() {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     let done = false;
-    const finish = () => { if (done) return; done = true; resolve(); };
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve();
+    };
     const apply = () => {
       const voices = speechSynthesis.getVoices();
       ttsVoice =
-        voices.find(v => v.lang === "en-US" && v.name?.toLowerCase().includes("zira")) ||
-        voices.find(v => v.lang === "en-US") || null;
+        voices.find(
+          (v) => v.lang === "en-US" && v.name?.toLowerCase().includes("zira"),
+        ) ||
+        voices.find((v) => v.lang === "en-US") ||
+        null;
       finish();
     };
     const voices = speechSynthesis.getVoices();
@@ -353,7 +395,7 @@ export function initTTSVoice() {
 /** Đọc 1 câu tiếng Anh, trả Promise khi đọc XONG. Luôn await trước khi cho tương tác tiếp. */
 // mới
 export function speakEN(text, rate = 1) {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     if (!text) return resolve();
     if (ttsBusy) window.speechSynthesis.cancel();
     ttsBusy = true;
@@ -362,13 +404,27 @@ export function speakEN(text, rate = 1) {
     u.voice = ttsVoice;
     u.rate = rate;
     let done_ = false;
-    const done = () => { if (done_) return; done_ = true; ttsBusy = false; resolve(); };
+    const done = () => {
+      if (done_) return;
+      done_ = true;
+      ttsBusy = false;
+      resolve();
+    };
     // Cầu chì an toàn: speechSynthesis đôi lúc KHÔNG BAO GIỜ bắn onend/onerror
     // (lỗi có thật của trình duyệt) — không có cầu chì này thì mọi await
     // speakEN(...) phía sau treo vĩnh viễn, làm cả module đứng hình.
-    const safety = setTimeout(done, Math.max((text.length * 130) / (rate || 1), 4000));
-    u.onend = () => { clearTimeout(safety); done(); };
-    u.onerror = () => { clearTimeout(safety); done(); };
+    const safety = setTimeout(
+      done,
+      Math.max((text.length * 130) / (rate || 1), 4000),
+    );
+    u.onend = () => {
+      clearTimeout(safety);
+      done();
+    };
+    u.onerror = () => {
+      clearTimeout(safety);
+      done();
+    };
     window.speechSynthesis.speak(u);
   });
 }
@@ -409,10 +465,15 @@ export function buildDistractors(target, pool, opts = {}) {
   const preferSameLesson = opts.preferSameLesson || false;
   const correctVal = (target[field] || "").toString().trim().toLowerCase();
 
-  const validVal = it => it[field] && it[field].toString().trim().toLowerCase() !== correctVal;
+  const validVal = (it) =>
+    it[field] && it[field].toString().trim().toLowerCase() !== correctVal;
 
-  const sameLesson = shuffle(pool.filter(it => it.lessonId === target.lessonId && validVal(it)));
-  const otherLesson = shuffle(pool.filter(it => it.lessonId !== target.lessonId && validVal(it)));
+  const sameLesson = shuffle(
+    pool.filter((it) => it.lessonId === target.lessonId && validVal(it)),
+  );
+  const otherLesson = shuffle(
+    pool.filter((it) => it.lessonId !== target.lessonId && validVal(it)),
+  );
 
   const picked = [];
   const usedVals = new Set([correctVal]);
@@ -437,7 +498,8 @@ export function buildDistractors(target, pool, opts = {}) {
     if (picked.length < count) tryAdd(otherLesson);
     if (picked.length < count) tryAdd(sameLesson.slice(1));
   }
-  if (picked.length < count && Array.isArray(opts.extra)) tryAdd(shuffle(opts.extra));
+  if (picked.length < count && Array.isArray(opts.extra))
+    tryAdd(shuffle(opts.extra));
 
   return picked.slice(0, count);
 }
@@ -466,8 +528,14 @@ export function goToNextAttempt(tracker) {
 }
 
 export const POSITIVE_FEEDBACK = [
-  "Great job!", "Well done!", "Awesome!", "You got it!",
-  "Excellent!", "Perfect!", "Fantastic!", "Nice work!",
+  "Great job!",
+  "Well done!",
+  "Awesome!",
+  "You got it!",
+  "Excellent!",
+  "Perfect!",
+  "Fantastic!",
+  "Nice work!",
 ];
 
 export const ENCOURAGE_RETRY = [
@@ -485,16 +553,24 @@ export function randomPick(arr) {
 // ============================================================================
 export function askMCQ(cfg) {
   const {
-    container, instructionKey, instructionText,
-    questionHTML, options, correctValue, speakPromptText, rate = 1,
-    optionLang = "en", promptLang = "en",
+    container,
+    instructionKey,
+    instructionText,
+    questionHTML,
+    options,
+    correctValue,
+    speakPromptText,
+    rate = 1,
+    optionLang = "en",
+    promptLang = "en",
   } = cfg;
 
   const tracker = makeAttemptTracker();
-  const hasImages = options.some(o => o.imageUrl);
-  const speakByLang = (text, lang, r) => (lang === "vi" ? speakVI(text, r) : speakEN(text, r));
+  const hasImages = options.some((o) => o.imageUrl);
+  const speakByLang = (text, lang, r) =>
+    lang === "vi" ? speakVI(text, r) : speakEN(text, r);
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const render = async () => {
       const reveal = shouldRevealAnswer(tracker);
       container.innerHTML = `
@@ -509,10 +585,16 @@ export function askMCQ(cfg) {
       const handlePick = async (value, pickedEl) => {
         if (locked) return;
         locked = true;
-        optWrap.querySelectorAll(".pkl-mcq-btn").forEach(b => b.classList.add("pkl-locked"));
+        optWrap
+          .querySelectorAll(".pkl-mcq-btn")
+          .forEach((b) => b.classList.add("pkl-locked"));
 
-        const opt = options.find(o => o.value === value) || {};
-        await speakByLang(opt.speakText || opt.label || value, optionLang, rate);
+        const opt = options.find((o) => o.value === value) || {};
+        await speakByLang(
+          opt.speakText || opt.label || value,
+          optionLang,
+          rate,
+        );
 
         const isCorrect = value === correctValue;
         if (isCorrect) {
@@ -520,7 +602,7 @@ export function askMCQ(cfg) {
           feedback.textContent = "🎉 " + randomPick(POSITIVE_FEEDBACK);
           feedback.style.color = "#69f0ae";
           const attemptsUsed = tracker.attempt;
-          await new Promise(r => setTimeout(r, 1200));
+          await new Promise((r) => setTimeout(r, 1200));
           resolve(attemptsUsed);
         } else {
           pickedEl?.classList.add("pkl-wrong-flash");
@@ -530,12 +612,15 @@ export function askMCQ(cfg) {
           retryBtn.className = "poke-btn yellow";
           retryBtn.style.marginTop = "10px";
           retryBtn.textContent = "🔄 Try again";
-          retryBtn.onclick = () => { goToNextAttempt(tracker); render(); };
+          retryBtn.onclick = () => {
+            goToNextAttempt(tracker);
+            render();
+          };
           feedback.after(retryBtn);
         }
       };
 
-      options.forEach(opt => {
+      options.forEach((opt) => {
         const btn = document.createElement(opt.imageUrl ? "div" : "button");
         btn.className = "pkl-mcq-btn" + (opt.imageUrl ? " pkl-mcq-img" : "");
         btn.dataset.value = opt.value;
@@ -546,7 +631,8 @@ export function askMCQ(cfg) {
              </div>
              <div class="lbl">${opt.label}</div>`
           : `<span>${opt.label}</span>`;
-        if (reveal && opt.value === correctValue) btn.classList.add("pkl-reveal");
+        if (reveal && opt.value === correctValue)
+          btn.classList.add("pkl-reveal");
 
         btn.onclick = () => handlePick(opt.value, btn);
         optWrap.appendChild(btn);
@@ -561,9 +647,74 @@ export function askMCQ(cfg) {
 
 // ============================================================================
 // 9.6a. GHI ÂM QUA MediaRecorder + GỬI LÊN SERVER WHISPER TỰ HOST
+//       (có DỰ PHÒNG: nếu server lỗi -> dùng nhận dạng giọng nói của trình duyệt)
 // ============================================================================
-// ⚠️ ĐIỀN URL SERVER WHISPER CỦA BẠN SAU KHI DEPLOY LÊN RENDER:
 export const WHISPER_SERVER_URL = "https://ispeak-z9wx.onrender.com";
+
+// Thời gian chờ server Whisper trước khi chuyển sang dự phòng (ms).
+// Server Render free hay "ngủ đông" nên đừng để quá dài.
+const WHISPER_TIMEOUT_MS = 8000;
+
+// blob ghi âm -> Promise<string|null> kết quả nhận dạng của trình duyệt.
+// WeakMap nên blob bị thu gom thì mục này tự mất, không rò bộ nhớ.
+const browserSttByBlob = new WeakMap();
+
+/**
+ * Nhận dạng giọng nói bằng trình duyệt (Web Speech API), chạy SONG SONG lúc ghi âm.
+ * result: Promise<string|null> — null = không hỗ trợ hoặc bị lỗi thật sự.
+ */
+function startBrowserSTT(lang = "en-US") {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return { stop() {}, result: Promise.resolve(null) };
+
+  let finalText = "";
+  let interim = "";
+  let failed = false;
+  let settled = false;
+  let resolveFn;
+  const result = new Promise((r) => (resolveFn = r));
+
+  const done = () => {
+    if (settled) return;
+    settled = true;
+    const text = (finalText + " " + interim).trim();
+    resolveFn(failed && !text ? null : text);
+  };
+
+  let rec;
+  try {
+    rec = new SR();
+    rec.lang = lang;
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onresult = (e) => {
+      interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalText += " " + t;
+        else interim += t;
+      }
+    };
+    rec.onerror = (e) => {
+      // "no-speech" / "aborted" = không nói gì / bị dừng, không phải hỏng
+      if (e.error !== "no-speech" && e.error !== "aborted") failed = true;
+    };
+    rec.onend = done;
+    rec.start();
+  } catch (e) {
+    return { stop() {}, result: Promise.resolve(null) };
+  }
+
+  return {
+    stop() {
+      try { rec.stop(); } catch (e) {}
+      setTimeout(done, 1500); // phòng khi onend không bắn
+    },
+    result,
+  };
+}
 
 /** Ghi âm tối đa maxMs mili-giây, tự dừng khi hết giờ. Trả về { stop, blob(Promise<Blob>) } */
 export async function startRecording(maxMs = 4000) {
@@ -571,35 +722,47 @@ export async function startRecording(maxMs = 4000) {
   const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
   const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
   const chunks = [];
-  rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-  const blob = new Promise(resolve => {
+  const stt = startBrowserSTT("en-US"); // chạy song song để làm dự phòng
+
+  rec.ondataavailable = (e) => {
+    if (e.data.size > 0) chunks.push(e.data);
+  };
+  const blob = new Promise((resolve) => {
     rec.onstop = () => {
-      stream.getTracks().forEach(t => t.stop());
-      resolve(new Blob(chunks, { type: rec.mimeType || "audio/webm" }));
+      stt.stop();
+      stream.getTracks().forEach((t) => t.stop());
+      const b = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+      browserSttByBlob.set(b, stt.result); // gắn kết quả dự phòng vào blob
+      resolve(b);
     };
   });
   rec.start();
-  const safety = setTimeout(() => { if (rec.state !== "inactive") rec.stop(); }, maxMs);
+  const safety = setTimeout(() => {
+    if (rec.state !== "inactive") rec.stop();
+  }, maxMs);
   return {
-    stop: () => { clearTimeout(safety); if (rec.state !== "inactive") rec.stop(); },
+    stop: () => {
+      clearTimeout(safety);
+      if (rec.state !== "inactive") rec.stop();
+    },
     blob,
   };
 }
 
-/** Gửi audio lên server Whisper, trả về chữ nhận dạng được. null = lỗi kỹ thuật (server chưa dậy/mất mạng...) */
-// mới
-export async function transcribeAudio(blob) {
+/** Gửi audio lên server Whisper. Trả về chữ nhận dạng được, null = lỗi kỹ thuật. */
+async function transcribeViaServer(blob) {
   try {
     const form = new FormData();
     form.append("audio", blob, "speech.webm");
-    // Cầu chì mạng: server Whisper cũng chạy trên Render free-tier, cùng nguy
-    // cơ "ngủ đông" như server TTS tiếng Việt — không giới hạn thì có thể treo
-    // rất lâu ở màn "Đang kiểm tra..." khiến phần Nói đứng hình.
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), WHISPER_TIMEOUT_MS);
     let res;
     try {
-      res = await fetch(`${WHISPER_SERVER_URL}/transcribe`, { method: "POST", body: form, signal: controller.signal });
+      res = await fetch(`${WHISPER_SERVER_URL}/transcribe`, {
+        method: "POST",
+        body: form,
+        signal: controller.signal,
+      });
     } finally {
       clearTimeout(timeoutId);
     }
@@ -611,19 +774,37 @@ export async function transcribeAudio(blob) {
     return null;
   }
 }
-// ============================================================================
-// 9.6. askSpeakingAttempt — GHI ÂM 1 LẦN BẮT BUỘC (module Nói + phần "lặp lại"
-// của module Giới thiệu). Không ép retry — chỉ chấm lần thử đầu tiên, nhưng
-// cho phép học sinh TỰ NGUYỆN ghi âm lại (không ảnh hưởng điểm đã chấm).
-// ============================================================================
-// cfg: { container, instructionKey, instructionText, targetText, promptHTML, matchFn }
-// Trả Promise<{ isCorrect, transcript }>
-// ============================================================================
+
+/**
+ * Nhận dạng giọng nói: thử server Whisper trước, lỗi thì dùng của trình duyệt.
+ * Trả về chuỗi chữ ("" = không nghe rõ), hoặc null nếu cả hai cách đều hỏng.
+ * Giữ nguyên chữ ký transcribeAudio(blob) nên các file gọi cũ không cần sửa.
+ */
+export async function transcribeAudio(blob) {
+  const serverText = await transcribeViaServer(blob);
+  if (serverText !== null) return serverText;
+
+  const fallback = browserSttByBlob.get(blob);
+  if (fallback) {
+    const browserText = await fallback;
+    if (browserText !== null) {
+      console.warn("[STT] Server Whisper lỗi -> dùng nhận dạng của trình duyệt");
+      return browserText;
+    }
+  }
+  return null;
+}
 
 export function askSpeakingAttempt(cfg) {
   const {
-    container, instructionKey, instructionText, targetText, promptHTML,
-    matchFn, maxRecordMs = 10000, speakBeforeText,
+    container,
+    instructionKey,
+    instructionText,
+    targetText,
+    promptHTML,
+    matchFn,
+    maxRecordMs = 10000,
+    speakBeforeText,
   } = cfg;
 
   const defaultMatch = (heard, target) => {
@@ -633,7 +814,7 @@ export function askSpeakingAttempt(cfg) {
   };
   const checkMatch = matchFn || defaultMatch;
 
-  return new Promise(async resolve => {
+  return new Promise(async (resolve) => {
     container.innerHTML = `
       <div class="pkl-speak-prompt">${promptHTML}</div>
       <div class="pkl-speak-status" id="pklSpeakStatus">🔊 Listen...</div>
@@ -653,7 +834,9 @@ export function askSpeakingAttempt(cfg) {
     const finishBtn = container.querySelector("#pklFinishBtn");
     const actionsEl = container.querySelector("#pklSpeakActions");
 
-    let firstResultDone = false, finalIsCorrect = false, autoAdvanceTimer = null;
+    let firstResultDone = false,
+      finalIsCorrect = false,
+      autoAdvanceTimer = null;
 
     const doRecord = async () => {
       try {
@@ -670,19 +853,31 @@ export function askSpeakingAttempt(cfg) {
         statusEl.textContent = "⏳ Checking...";
 
         const transcript = await transcribeAudio(blob);
-        actionsEl.style.display = "flex"; actionsEl.style.justifyContent = "center";
+        actionsEl.style.display = "flex";
+        actionsEl.style.justifyContent = "center";
 
         if (transcript === null) {
-          statusEl.textContent = "⚠️ Can't reach the speech server — try again in a moment.";
-          if (!firstResultDone) { firstResultDone = true; finalIsCorrect = false; }
+          statusEl.textContent =
+            "⚠️ Can't reach the speech server — try again in a moment.";
+          if (!firstResultDone) {
+            firstResultDone = true;
+            finalIsCorrect = false;
+          }
           return;
         }
 
         const isCorrect = checkMatch(transcript, targetText);
-        if (!firstResultDone) { firstResultDone = true; finalIsCorrect = isCorrect; }
+        if (!firstResultDone) {
+          firstResultDone = true;
+          finalIsCorrect = isCorrect;
+        }
 
-        resultEl.innerHTML = transcript ? `🗣️ You said: "<b>${transcript}</b>"` : `🗣️ (didn't hear anything clearly)`;
-        statusEl.textContent = isCorrect ? "🎉 Great pronunciation!" : "👍 Nice try!";
+        resultEl.innerHTML = transcript
+          ? `🗣️ You said: "<b>${transcript}</b>"`
+          : `🗣️ (didn't hear anything clearly)`;
+        statusEl.textContent = isCorrect
+          ? "🎉 Great pronunciation!"
+          : "👍 Nice try!";
         await speakEN(isCorrect ? randomPick(POSITIVE_FEEDBACK) : "Good try!");
 
         clearTimeout(autoAdvanceTimer);
@@ -691,21 +886,34 @@ export function askSpeakingAttempt(cfg) {
         micEl.classList.remove("listening");
         finishBtn.style.display = "none";
         statusEl.textContent = "⚠️ Microphone not available.";
-        if (!firstResultDone) { firstResultDone = true; finalIsCorrect = false; }
-        actionsEl.style.display = "flex"; actionsEl.style.justifyContent = "center";
+        if (!firstResultDone) {
+          firstResultDone = true;
+          finalIsCorrect = false;
+        }
+        actionsEl.style.display = "flex";
+        actionsEl.style.justifyContent = "center";
       }
     };
 
-    const finish = () => { clearTimeout(autoAdvanceTimer); resolve({ isCorrect: finalIsCorrect, transcript: "" }); };
+    const finish = () => {
+      clearTimeout(autoAdvanceTimer);
+      resolve({ isCorrect: finalIsCorrect, transcript: "" });
+    };
 
     container.addEventListener("click", (e) => {
-      if (e.target.id === "pklRetrySpeak") { clearTimeout(autoAdvanceTimer); doRecord(); }
+      if (e.target.id === "pklRetrySpeak") {
+        clearTimeout(autoAdvanceTimer);
+        doRecord();
+      }
       if (e.target.id === "pklContinueSpeak") finish();
     });
 
     // BƯỚC 1: đọc hướng dẫn (chỉ lần đầu/buổi), rồi đọc nội dung cần lặp lại
     await speakInstructionOnce(instructionKey, instructionText);
-    if (speakBeforeText) { statusEl.textContent = "🔊 Listen..."; await speakEN(speakBeforeText, 0.9); }
+    if (speakBeforeText) {
+      statusEl.textContent = "🔊 Listen...";
+      await speakEN(speakBeforeText, 0.9);
+    }
 
     // BƯỚC 2: TỰ ĐỘNG bắt đầu ghi âm — không cần chạm mic nữa
     doRecord();
@@ -719,14 +927,23 @@ export function askSpeakingAttempt(cfg) {
 // ============================================================================
 export function askTypedAnswer(cfg) {
   const {
-    container, instructionKey, instructionText, questionHTML,
-    correctValue, placeholder = "Type here...", speakPromptText, normalizeFn, rate = 1,
+    container,
+    instructionKey,
+    instructionText,
+    questionHTML,
+    correctValue,
+    placeholder = "Type here...",
+    speakPromptText,
+    normalizeFn,
+    rate = 1,
   } = cfg;
 
-  const norm = normalizeFn || (s => (s || "").toString().trim().toLowerCase().replace(/\s+/g, " "));
+  const norm =
+    normalizeFn ||
+    ((s) => (s || "").toString().trim().toLowerCase().replace(/\s+/g, " "));
   const tracker = makeAttemptTracker();
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const render = async () => {
       const reveal = shouldRevealAnswer(tracker);
       container.innerHTML = `
@@ -745,12 +962,15 @@ export function askTypedAnswer(cfg) {
       const feedback = container.querySelector("#pklTypedFeedback");
       input.focus();
       if (reveal) input.select();
-      input.onkeydown = e => { if (e.key === "Enter") submitBtn.click(); };
+      input.onkeydown = (e) => {
+        if (e.key === "Enter") submitBtn.click();
+      };
 
       submitBtn.onclick = async () => {
         if (container.dataset.locked === "1") return;
         container.dataset.locked = "1";
-        submitBtn.disabled = true; input.disabled = true;
+        submitBtn.disabled = true;
+        input.disabled = true;
 
         const userVal = input.value;
         if (userVal.trim()) await speakEN(userVal, rate);
@@ -761,16 +981,22 @@ export function askTypedAnswer(cfg) {
           feedback.textContent = "🎉 " + randomPick(POSITIVE_FEEDBACK);
           feedback.style.color = "#69f0ae";
           const attemptsUsed = tracker.attempt;
-          await new Promise(r => setTimeout(r, 1200));
+          await new Promise((r) => setTimeout(r, 1200));
           resolve(attemptsUsed);
         } else {
-          feedback.innerHTML = "💡 " + randomPick(ENCOURAGE_RETRY) + ` (Answer: <b>${correctValue}</b>)`;
+          feedback.innerHTML =
+            "💡 " +
+            randomPick(ENCOURAGE_RETRY) +
+            ` (Answer: <b>${correctValue}</b>)`;
           feedback.style.color = "#ffd54f";
           const retryBtn = document.createElement("button");
           retryBtn.className = "poke-btn yellow";
           retryBtn.style.marginTop = "10px";
           retryBtn.textContent = "🔄 Try again";
-          retryBtn.onclick = () => { goToNextAttempt(tracker); render(); };
+          retryBtn.onclick = () => {
+            goToNextAttempt(tracker);
+            render();
+          };
           feedback.after(retryBtn);
         }
       };
@@ -865,7 +1091,7 @@ export async function isMicrophoneAvailable() {
   try {
     if (!navigator.mediaDevices?.getUserMedia) return false;
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach(t => t.stop());
+    stream.getTracks().forEach((t) => t.stop());
     return true;
   } catch (e) {
     return false;
@@ -887,7 +1113,7 @@ export function noteMicResult(tracker, succeeded) {
  * @returns {Promise<boolean>} true = tiếp tục dùng mic, false = chuyển dạng không cần mic
  */
 export function askIfMicWorking() {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.75);
       z-index:500;display:flex;align-items:center;justify-content:center;`;
@@ -902,8 +1128,14 @@ export function askIfMicWorking() {
         </div>
       </div>`;
     document.body.appendChild(overlay);
-    overlay.querySelector("#mic-yes").onclick = () => { overlay.remove(); resolve(true); };
-    overlay.querySelector("#mic-no").onclick = () => { overlay.remove(); resolve(false); };
+    overlay.querySelector("#mic-yes").onclick = () => {
+      overlay.remove();
+      resolve(true);
+    };
+    overlay.querySelector("#mic-no").onclick = () => {
+      overlay.remove();
+      resolve(false);
+    };
   });
 }
 
@@ -1023,7 +1255,7 @@ export function injectSharedStyles() {
 }
 
 export function showTransition(emoji, title, desc) {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const ts = document.getElementById("transitionScreen");
     document.getElementById("transEmoji").textContent = emoji;
     document.getElementById("transTitle").textContent = title;
@@ -1040,30 +1272,34 @@ export function showTransition(emoji, title, desc) {
 export function renderLevelSelect(container) {
   injectSharedStyles();
   const mamNonOk = isMamNonAllowed();
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     container.innerHTML = `
       <div style="text-align:center;margin-bottom:16px;">
         <div style="font-size:15px;color:#FFCB05;font-weight:700;">🎮 Choose your level!</div>
       </div>
       <div class="pkl-level-grid">
-        ${Object.entries(LEVEL_META).map(([key, meta]) => {
-          const disabled = key === LEVELS.MAM_NON && !mamNonOk;
-          return `
+        ${Object.entries(LEVEL_META)
+          .map(([key, meta]) => {
+            const disabled = key === LEVELS.MAM_NON && !mamNonOk;
+            return `
             <div class="pkl-level-card ${disabled ? "disabled" : ""}" data-level="${key}">
               <div class="emoji">${meta.emoji}</div>
               <div class="label">${meta.label}</div>
               <div class="sub">${meta.sub}</div>
             </div>`;
-        }).join("")}
+          })
+          .join("")}
       </div>
     `;
-    container.querySelectorAll(".pkl-level-card:not(.disabled)").forEach(card => {
-      card.onclick = () => {
-        const level = card.dataset.level;
-        localStorage.setItem("selected_level", level);
-        resolve(level);
-      };
-    });
+    container
+      .querySelectorAll(".pkl-level-card:not(.disabled)")
+      .forEach((card) => {
+        card.onclick = () => {
+          const level = card.dataset.level;
+          localStorage.setItem("selected_level", level);
+          resolve(level);
+        };
+      });
   });
 }
 // ============================================================================
@@ -1085,15 +1321,20 @@ export function pokeAnimatedBackUrl(pkmId) {
 }
 
 export function getInventoryList() {
-  try { return JSON.parse(localStorage.getItem("pkm_inventory")) || []; }
-  catch (e) { return []; }
+  try {
+    return JSON.parse(localStorage.getItem("pkm_inventory")) || [];
+  } catch (e) {
+    return [];
+  }
 }
 
 export function getCompanionSprite() {
   try {
     const raw = localStorage.getItem(COMPANION_KEY);
     return raw ? JSON.parse(raw) : null;
-  } catch (e) { return null; }
+  } catch (e) {
+    return null;
+  }
 }
 
 export function clearCompanion() {
@@ -1103,7 +1344,8 @@ export function clearCompanion() {
 /** Random 1 sprite đối thủ (không cần gọi mạng, build thẳng URL) — dùng cho
  *  race.js để đối thủ khác con với companion (và khác nhau giữa các đối thủ). */
 export function getRandomOpponentSprite(excludeIds = []) {
-  let id, guard = 0;
+  let id,
+    guard = 0;
   do {
     id = Math.floor(Math.random() * 649) + 1;
     guard++;
@@ -1117,7 +1359,7 @@ export function renderCompanionSelect(container) {
   injectSharedStyles();
   const inv = getInventoryList();
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const finishWith = (companion) => {
       localStorage.setItem(COMPANION_KEY, JSON.stringify(companion));
       resolve(companion);
@@ -1125,7 +1367,11 @@ export function renderCompanionSelect(container) {
 
     if (!inv.length) {
       const id = Math.floor(Math.random() * 649) + 1;
-      finishWith({ pkmId: id, name: "Bạn đồng hành", spriteUrl: pokeArtworkUrl(id) });
+      finishWith({
+        pkmId: id,
+        name: "Bạn đồng hành",
+        spriteUrl: pokeArtworkUrl(id),
+      });
       return;
     }
 
@@ -1135,14 +1381,18 @@ export function renderCompanionSelect(container) {
         <div style="font-size:12px;color:#aaa;margin-top:4px;">Bạn ấy sẽ cùng bạn chơi các trò chơi hôm nay</div>
       </div>
       <div class="pkl-companion-grid">
-        ${inv.map(p => `
+        ${inv
+          .map(
+            (p) => `
           <div class="pkl-companion-card" data-id="${p.id}" data-name="${(p.name || "").replace(/"/g, "&quot;")}">
             <img src="${pokeArtworkUrl(p.id)}" alt="${p.name || ""}" onerror="this.style.opacity='0.25';"/>
             <div class="pkl-companion-name">${p.name || "???"}</div>
-          </div>`).join("")}
+          </div>`,
+          )
+          .join("")}
       </div>
     `;
-    container.querySelectorAll(".pkl-companion-card").forEach(card => {
+    container.querySelectorAll(".pkl-companion-card").forEach((card) => {
       card.onclick = () => {
         finishWith({
           pkmId: parseInt(card.dataset.id, 10),
@@ -1156,7 +1406,7 @@ export function renderCompanionSelect(container) {
 /** Hỏi cuối buổi: "Đã thuộc chưa hay muốn học lại?" -> Promise<'replay'|'done'> */
 export function renderEndOfSessionPrompt(container) {
   injectSharedStyles();
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     container.innerHTML = `
       <div class="pkl-end-prompt">
         <div class="emoji">🏆</div>
@@ -1215,19 +1465,30 @@ const PKM_RESULT_KEY = "pkl_game_result";
 const PKM_LAST_GAME_PREFIX = "pkl_last_game_"; // + category, sessionStorage
 
 export class PkmGameNavigating extends Error {
-  constructor() { super("PkmGameNavigating"); this.pkmNavigating = true; }
+  constructor() {
+    super("PkmGameNavigating");
+    this.pkmNavigating = true;
+  }
 }
 // ============================================================================
 // 14. SFX — âm thanh hành động TỰ TỔNG HỢP (Web Audio API, không cần file mp3)
 // ============================================================================
 let _sfxCtx = null;
 function _getSfxCtx() {
-  if (!_sfxCtx) _sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!_sfxCtx)
+    _sfxCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (_sfxCtx.state === "suspended") _sfxCtx.resume();
   return _sfxCtx;
 }
 
-function _tone({ freq = 440, endFreq = null, type = "sine", duration = 0.15, volume = 0.15, delay = 0 }) {
+function _tone({
+  freq = 440,
+  endFreq = null,
+  type = "sine",
+  duration = 0.15,
+  volume = 0.15,
+  delay = 0,
+}) {
   try {
     const ctx = _getSfxCtx();
     const t0 = ctx.currentTime + delay;
@@ -1235,13 +1496,19 @@ function _tone({ freq = 440, endFreq = null, type = "sine", duration = 0.15, vol
     const gain = ctx.createGain();
     osc.type = type;
     osc.frequency.setValueAtTime(freq, t0);
-    if (endFreq !== null) osc.frequency.exponentialRampToValueAtTime(Math.max(endFreq, 1), t0 + duration);
+    if (endFreq !== null)
+      osc.frequency.exponentialRampToValueAtTime(
+        Math.max(endFreq, 1),
+        t0 + duration,
+      );
     gain.gain.setValueAtTime(volume, t0);
     gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
     osc.connect(gain).connect(ctx.destination);
     osc.start(t0);
     osc.stop(t0 + duration + 0.02);
-  } catch (e) { /* im lặng nếu trình duyệt chặn audio */ }
+  } catch (e) {
+    /* im lặng nếu trình duyệt chặn audio */
+  }
 }
 
 function _noiseBurst({ duration = 0.12, volume = 0.14, delay = 0 }) {
@@ -1251,7 +1518,8 @@ function _noiseBurst({ duration = 0.12, volume = 0.14, delay = 0 }) {
     const bufferSize = Math.floor(ctx.sampleRate * duration);
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    for (let i = 0; i < bufferSize; i++)
+      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     const gain = ctx.createGain();
@@ -1259,26 +1527,125 @@ function _noiseBurst({ duration = 0.12, volume = 0.14, delay = 0 }) {
     gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
     src.connect(gain).connect(ctx.destination);
     src.start(t0);
-  } catch (e) { /* im lặng nếu trình duyệt chặn audio */ }
+  } catch (e) {
+    /* im lặng nếu trình duyệt chặn audio */
+  }
 }
 
 // Mỗi hành động 1 "màu âm thanh" riêng — dùng chung cho mọi minigame.
 export const SFX = {
-  move()      { _tone({ freq: 480, endFreq: 620, type: "square", duration: 0.09, volume: 0.08 }); },
-  jump()      { _tone({ freq: 380, endFreq: 700, type: "triangle", duration: 0.14, volume: 0.12 }); },
-  collect()   { _tone({ freq: 880, endFreq: 1320, type: "sine", duration: 0.16, volume: 0.14 }); _tone({ freq: 1320, type: "sine", duration: 0.1, volume: 0.08, delay: 0.06 }); },
-  correct()   { _tone({ freq: 660, type: "sine", duration: 0.12, volume: 0.16 }); _tone({ freq: 880, type: "sine", duration: 0.18, volume: 0.16, delay: 0.1 }); },
-  wrong()     { _tone({ freq: 220, endFreq: 110, type: "sawtooth", duration: 0.28, volume: 0.16 }); },
-  hit()       { _noiseBurst({ duration: 0.14, volume: 0.18 }); _tone({ freq: 140, endFreq: 60, type: "square", duration: 0.18, volume: 0.1, delay: 0.02 }); },
-  dazed()     { _tone({ freq: 300, endFreq: 200, type: "triangle", duration: 0.2, volume: 0.1 }); _tone({ freq: 260, endFreq: 180, type: "triangle", duration: 0.2, volume: 0.08, delay: 0.15 }); },
-  shoot()     { _tone({ freq: 900, endFreq: 200, type: "sawtooth", duration: 0.1, volume: 0.1 }); },
-  catchBall() { _tone({ freq: 700, type: "sine", duration: 0.1, volume: 0.13 }); _tone({ freq: 1000, type: "sine", duration: 0.12, volume: 0.11, delay: 0.05 }); },
+  move() {
+    _tone({
+      freq: 480,
+      endFreq: 620,
+      type: "square",
+      duration: 0.09,
+      volume: 0.08,
+    });
+  },
+  jump() {
+    _tone({
+      freq: 380,
+      endFreq: 700,
+      type: "triangle",
+      duration: 0.14,
+      volume: 0.12,
+    });
+  },
+  collect() {
+    _tone({
+      freq: 880,
+      endFreq: 1320,
+      type: "sine",
+      duration: 0.16,
+      volume: 0.14,
+    });
+    _tone({
+      freq: 1320,
+      type: "sine",
+      duration: 0.1,
+      volume: 0.08,
+      delay: 0.06,
+    });
+  },
+  correct() {
+    _tone({ freq: 660, type: "sine", duration: 0.12, volume: 0.16 });
+    _tone({
+      freq: 880,
+      type: "sine",
+      duration: 0.18,
+      volume: 0.16,
+      delay: 0.1,
+    });
+  },
+  wrong() {
+    _tone({
+      freq: 220,
+      endFreq: 110,
+      type: "sawtooth",
+      duration: 0.28,
+      volume: 0.16,
+    });
+  },
+  hit() {
+    _noiseBurst({ duration: 0.14, volume: 0.18 });
+    _tone({
+      freq: 140,
+      endFreq: 60,
+      type: "square",
+      duration: 0.18,
+      volume: 0.1,
+      delay: 0.02,
+    });
+  },
+  dazed() {
+    _tone({
+      freq: 300,
+      endFreq: 200,
+      type: "triangle",
+      duration: 0.2,
+      volume: 0.1,
+    });
+    _tone({
+      freq: 260,
+      endFreq: 180,
+      type: "triangle",
+      duration: 0.2,
+      volume: 0.08,
+      delay: 0.15,
+    });
+  },
+  shoot() {
+    _tone({
+      freq: 900,
+      endFreq: 200,
+      type: "sawtooth",
+      duration: 0.1,
+      volume: 0.1,
+    });
+  },
+  catchBall() {
+    _tone({ freq: 700, type: "sine", duration: 0.1, volume: 0.13 });
+    _tone({
+      freq: 1000,
+      type: "sine",
+      duration: 0.12,
+      volume: 0.11,
+      delay: 0.05,
+    });
+  },
 };
 export const PkmGameLauncher = {
   // Bảng game theo nhóm — SỬA Ở ĐÂY khi thêm game mới (chỉ cần thêm tên
   // file .html vào đúng mảng, không cần sửa gì khác trong hệ thống).
   GAMES: {
-    answer: ["pkm_minigame_race.html", "pkm_minigame_race_alone.html", "pkm_minigame_shooting.html", "pkm_minigame_fish.html"],
+    answer: [
+      "pkm_minigame_race.html",
+      "pkm_minigame_race_alone.html",
+      "pkm_minigame_shooting.html",
+      "pkm_minigame_fish.html",
+      "pkm_minigame_bigfish.html",
+    ],
     introPresent: ["pkm_minigame_flipbook.html", "pkm_minigame_maze.html"],
     speaking: ["pkm_minigame_ballcatching.html"],
     quickCheck: ["pkm_minigame_balldrop.html"], // sau này thêm game khác cho Stage B thì thêm tên file vào đây
@@ -1294,11 +1661,16 @@ export const PkmGameLauncher = {
 
     const lastKey = PKM_LAST_GAME_PREFIX + category;
     const lastGame = sessionStorage.getItem(lastKey);
-    const pool = games.length > 1 ? games.filter(g => g !== lastGame) : games;
-    const chosen = (pool.length > 0 ? pool : games)[Math.floor(Math.random() * (pool.length > 0 ? pool.length : games.length))];
+    const pool = games.length > 1 ? games.filter((g) => g !== lastGame) : games;
+    const chosen = (pool.length > 0 ? pool : games)[
+      Math.floor(Math.random() * (pool.length > 0 ? pool.length : games.length))
+    ];
     sessionStorage.setItem(lastKey, chosen);
 
-    localStorage.setItem(PKM_LAUNCH_KEY, JSON.stringify({ moduleId, category, rounds }));
+    localStorage.setItem(
+      PKM_LAUNCH_KEY,
+      JSON.stringify({ moduleId, category, rounds }),
+    );
     localStorage.removeItem(PKM_RESULT_KEY); // dọn kết quả cũ (nếu có) trước khi sang game mới
     location.href = chosen;
     throw new PkmGameNavigating();
@@ -1306,8 +1678,11 @@ export const PkmGameLauncher = {
 
   // Gọi bởi TRANG GAME lúc khởi động, để lấy dữ liệu câu hỏi cần chơi.
   getLaunchPayload() {
-    try { return JSON.parse(localStorage.getItem(PKM_LAUNCH_KEY)); }
-    catch (e) { return null; }
+    try {
+      return JSON.parse(localStorage.getItem(PKM_LAUNCH_KEY));
+    } catch (e) {
+      return null;
+    }
   },
 
   // Gọi bởi TRANG GAME khi đã chơi xong hết `rounds`, TRƯỚC khi quay lại.
@@ -1330,6 +1705,8 @@ export const PkmGameLauncher = {
       if (data.moduleId !== moduleId) return null; // kết quả của module khác, bỏ qua
       localStorage.removeItem(PKM_RESULT_KEY);
       return data.results;
-    } catch (e) { return null; }
+    } catch (e) {
+      return null;
+    }
   },
 };
