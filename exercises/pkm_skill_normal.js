@@ -38,6 +38,27 @@
 
     const SM = window.SkillManager;
 
+    // ── POOL KIỂU ĐÁNH THƯỜNG — rút không lặp lại theo từng Pokémon,
+    // hết vòng (4 kiểu) mới trộn lại. Thay cho random thuần trước đây.
+    const normalStylePools = {}; // key: `${side}-${index}` -> mảng còn lại
+
+    function drawNormalStyle(side, index) {
+        const key = `${side}-${index}`;
+        if (!normalStylePools[key] || normalStylePools[key].length === 0) {
+            const styles = ['physical', 'bigOrb', 'stream', 'themed'];
+            for (let i = styles.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [styles[i], styles[j]] = [styles[j], styles[i]];
+            }
+            normalStylePools[key] = styles;
+        }
+        return normalStylePools[key].shift();
+    }
+
+    function resetNormalStylePools() {
+        Object.keys(normalStylePools).forEach(k => delete normalStylePools[k]);
+    }
+
     window.SoundEngine = window.SoundEngine || {
         _ctx: null,
         getCtx() {
@@ -467,88 +488,112 @@
     }
 
     // ═══════ KIỂU 2: TELEPORT CẢ 2 CON RA CHUNG 1 CHỖ HẸN RỒI ĐẤU ═══════
+    // Vệt sáng "xé không gian" khi dịch chuyển tức thời — bắn ra quanh vị trí
+    // HIỆN TẠI của 1 unit (gọi lúc vừa biến mất và lúc vừa hiện lại)
+    function spawnTeleportStreaks(el) {
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const streakCount = 6 + Math.floor(Math.random() * 3); // 6-8 vệt
+
+        for (let i = 0; i < streakCount; i++) {
+            const angle = Math.random() * 360;
+            const length = 40 + Math.random() * 50;
+            const streak = document.createElement('div');
+            streak.style.cssText = `
+                position: fixed; left: ${cx}px; top: ${cy}px;
+                width: 3px; height: ${length}px;
+                background: linear-gradient(to bottom, transparent, #fff 40%, #7ff9ff 60%, transparent);
+                box-shadow: 0 0 6px #fff, 0 0 12px #7ff9ff;
+                transform: translate(-50%,-50%) rotate(${angle}deg) scaleY(0.2);
+                opacity: 0.95;
+                z-index: 10006; pointer-events: none;
+            `;
+            document.body.appendChild(streak);
+            streak.animate([
+                { transform: `translate(-50%,-50%) rotate(${angle}deg) scaleY(0.2)`, opacity: 0.95 },
+                { transform: `translate(-50%,-50%) rotate(${angle}deg) scaleY(1.6)`, opacity: 0 }
+            ], { duration: 180, easing: 'ease-out' }).onfinish = () => streak.remove();
+        }
+    }
     async function missStyleTeleport(attacker, target, targetSide) {
         const arenaEl = document.getElementById('battle-arena');
         const arenaRect = arenaEl
             ? arenaEl.getBoundingClientRect()
             : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
 
-        const rounds = 2 + Math.floor(Math.random() * 2); // 2 hoặc 3 lần hẹn nhau
+        // ĐO 1 LẦN DUY NHẤT lúc bắt đầu — mọi offset sau này đều tính dựa
+        // trên rect GỐC này (không đo lại live giữa chừng), để mỗi lần ghi
+        // đè transform luôn là toạ độ TUYỆT ĐỐI đúng, không bị trôi lệch
+        // qua từng round.
+        const rectA0 = attacker.getBoundingClientRect();
+        const rectT0 = target.getBoundingClientRect();
+
+        const rounds = 2 + Math.floor(Math.random() * 2); // 2 hoặc 3 lần teleport
 
         for (let round = 0; round < rounds; round++) {
-            // ── chọn 1 điểm hẹn CHUNG duy nhất cho cả 2 con ──
             const meetX = arenaRect.left + arenaRect.width  * (0.3 + Math.random() * 0.4);
             const meetY = arenaRect.top  + arenaRect.height * (0.3 + Math.random() * 0.4);
-            const gap = targetSide === 'enemy' ? 36 : -36; // khoảng cách đứng sát đối mặt nhau tại điểm hẹn
+            const gap = targetSide === 'enemy' ? 36 : -36;
 
-            const rectA = attacker.getBoundingClientRect();
-            const rectT = target.getBoundingClientRect();
-            const aDx = (meetX - gap) - (rectA.left + rectA.width / 2);
-            const aDy = meetY - (rectA.top + rectA.height / 2);
-            const tDx = (meetX + gap) - (rectT.left + rectT.width / 2);
-            const tDy = meetY - (rectT.top + rectT.height / 2);
+            // Luôn tính từ rectA0/rectT0 GỐC — không phải rect live vừa đo lại
+            const aDx = (meetX - gap) - (rectA0.left + rectA0.width / 2);
+            const aDy = meetY - (rectA0.top + rectA0.height / 2);
+            const tDx = (meetX + gap) - (rectT0.left + rectT0.width / 2);
+            const tDy = meetY - (rectT0.top + rectT0.height / 2);
 
-            // ── biến mất CÙNG LÚC ──
-            attacker.style.transition = 'opacity 0.2s ease-out';
-            target.style.transition   = 'opacity 0.2s ease-out';
+            spawnTeleportStreaks(attacker);
+            spawnTeleportStreaks(target);
+
+            attacker.style.transition = 'opacity 0.12s ease-out';
+            target.style.transition   = 'opacity 0.12s ease-out';
             attacker.style.opacity = '0';
             target.style.opacity   = '0';
-            await new Promise(r => setTimeout(r, 220));
+            await new Promise(r => setTimeout(r, 130));
 
-            // ── dịch chuyển tức thời tới điểm hẹn CHUNG khi đang vô hình ──
             attacker.style.transition = 'none';
             target.style.transition   = 'none';
             attacker.style.transform  = `translate(calc(-50% + ${aDx}px), calc(-50% + ${aDy}px))`;
             target.style.transform    = `translate(calc(-50% + ${tDx}px), calc(-50% + ${tDy}px))`;
-            void attacker.offsetWidth; // ép reflow để bỏ transition trước khi hiện lại
+            void attacker.offsetWidth;
 
-            // ── hiện lại CÙNG LÚC tại chỗ hẹn, đứng sát đối mặt nhau ──
-            attacker.style.transition = 'opacity 0.2s ease-in';
-            target.style.transition   = 'opacity 0.2s ease-in';
+            attacker.style.transition = 'opacity 0.12s ease-in';
+            target.style.transition   = 'opacity 0.12s ease-in';
             attacker.style.opacity = '1';
             target.style.opacity   = '1';
-            await new Promise(r => setTimeout(r, 260));
+            spawnTeleportStreaks(attacker);
+            spawnTeleportStreaks(target);
+            await new Promise(r => setTimeout(r, 150));
 
-            // ── DỪNG lại 1 nhịp để người xem thấy rõ cả 2 đã "hẹn" ở đây ──
-            await new Promise(r => setTimeout(r, 300));
+            await new Promise(r => setTimeout(r, 200));
 
-            // ── combo 2-3 cú đấm hụt ngay tại điểm hẹn ──
-            const hits = 2 + Math.floor(Math.random() * 2);
-            for (let i = 0; i < hits; i++) {
-                const rA = attacker.getBoundingClientRect();
-                const rT = target.getBoundingClientRect();
-                const dx = rT.left - rA.left;
-                const dy = rT.top - rA.top;
-                const curX = (meetX - gap) - (rA.left + rA.width / 2) === aDx ? aDx : aDx; // giữ nguyên gốc điểm hẹn hiện tại
+            // CHỈ 1 cú đánh hụt duy nhất — vẫn cộng thêm dist2() lên trên nền aDx/aDy vừa teleport tới
+            attacker.style.transition = 'all 0.15s ease-in';
+            attacker.style.transform = `translate(calc(-50% + ${aDx + dist2(targetSide)}px), calc(-50% + ${aDy}px))`;
+            await new Promise(r => setTimeout(r, 160));
 
-                attacker.style.transition = 'all 0.15s ease-in';
-                attacker.style.transform = `translate(calc(-50% + ${aDx + (dist2(targetSide))}px), calc(-50% + ${aDy}px))`;
-                await new Promise(r => setTimeout(r, 160));
+            attacker.style.transition = 'all 0.15s ease-out';
+            attacker.style.transform = `translate(calc(-50% + ${aDx}px), calc(-50% + ${aDy}px))`;
+            await new Promise(r => setTimeout(r, 140));
 
-                attacker.style.transition = 'all 0.15s ease-out';
-                attacker.style.transform = `translate(calc(-50% + ${aDx}px), calc(-50% + ${aDy}px))`;
-                await new Promise(r => setTimeout(r, 140));
+            this.showStatusText(target, 'MISSED', '#feca57');
+            target.classList.add('shake');
+            playLightSfx.call(this);
+            await new Promise(r => setTimeout(r, 220));
+            target.classList.remove('shake');
 
-                this.showStatusText(target, 'MISSED', '#feca57');
-                target.classList.add('shake');
-                playLightSfx.call(this);
-                await new Promise(r => setTimeout(r, 220));
-                target.classList.remove('shake');
-
-                await new Promise(r => setTimeout(r, 150));
-            }
-
-            // nghỉ giữa các lần hẹn cho rõ nhịp trước khi teleport tiếp
-            await new Promise(r => setTimeout(r, 250));
+            await new Promise(r => setTimeout(r, 200));
         }
 
-        // ── QUAN TRỌNG: trả cả 2 con về ĐÚNG vị trí gốc (left/top% trong pkm_styles.js).
-        //    transform chỉ là offset tạm thời nên reset translate(-50%,-50%) là đủ. ──
-        attacker.style.transition = 'opacity 0.15s, transform 0.35s ease-out';
-        target.style.transition   = 'opacity 0.15s, transform 0.35s ease-out';
+        // Hết các round mới teleport về ĐÚNG vị trí gốc — translate(-50%,-50%)
+        // luôn đúng 100% vì đó chính là rect gốc (rectA0/rectT0) ban đầu.
+        spawnTeleportStreaks(attacker);
+        spawnTeleportStreaks(target);
+        attacker.style.transition = 'opacity 0.12s ease-out';
+        target.style.transition   = 'opacity 0.12s ease-out';
         attacker.style.opacity = '0';
         target.style.opacity   = '0';
-        await new Promise(r => setTimeout(r, 160));
+        await new Promise(r => setTimeout(r, 130));
 
         attacker.style.transition = 'none';
         target.style.transition   = 'none';
@@ -556,11 +601,13 @@
         target.style.transform   = 'translate(-50%,-50%)';
         void attacker.offsetWidth;
 
-        attacker.style.transition = 'opacity 0.25s ease-in';
-        target.style.transition   = 'opacity 0.25s ease-in';
+        attacker.style.transition = 'opacity 0.2s ease-in';
+        target.style.transition   = 'opacity 0.2s ease-in';
         attacker.style.opacity = '1';
         target.style.opacity   = '1';
-        await new Promise(r => setTimeout(r, 260));
+        spawnTeleportStreaks(attacker);
+        spawnTeleportStreaks(target);
+        await new Promise(r => setTimeout(r, 220));
 
         attacker.style.transition = '';
         target.style.transition = '';
@@ -2459,6 +2506,8 @@
             const flowDuration = 480;
             let flowActive = true;
             let firstHitDone = false;
+            let hitTickCounter = 0;
+            const hitEvery = 12; // cứ mỗi 12 hạt trúng đích thì rút 1 chunk damage (≈ mỗi ~215ms có 1 số hiện lên)
             let persistentImpact = null;
 
             const spawnHitSpark = () => {
@@ -2511,6 +2560,12 @@
                         impactEls.push(persistentImpact.el);
                     } else if (persistentImpact) {
                         persistentImpact.bump();
+                    }
+
+                    // Damage ăn theo hạt THẬT SỰ chạm đích — cứ mỗi hitEvery hạt thì rút 1 chunk
+                    hitTickCounter++;
+                    if (hitTickCounter % hitEvery === 0) {
+                        this.consumeHit();
                     }
                 };
             };
@@ -2614,7 +2669,136 @@
     // ─────────────────────────────────────────────
     // ĐIỀU PHỐI CHUNG (Pokémon đứng yên tại chỗ ra chiêu)
     // ─────────────────────────────────────────────
-        async function executeThemedNormal(attacker, target, info) {
+    // Damage text RIÊNG cho hệ normal — không có combo "Brutal Hit/Critical..."
+    // như this.createDamageText (dùng chung bên AOE), size nhỏ gọn hơn vì đây
+    // là 1 đòn nhỏ trong 1 chuỗi nhiều đòn, không phải cú đánh to duy nhất.
+    // 3 kiểu hiệu ứng "bụp" khác nhau — random mỗi lần trúng, KHÁC HẲN kiểu
+    // "nổ to dần + combo chữ vàng" của this.createDamageText bên AOE.
+    const normalHitStyles = [
+        // 1. Nảy bụp lên — cam, lắc nhẹ 2 chiều
+        {
+            color: '#ffb347', stroke: '#3a1d00', size: 24,
+            build() { return [
+                { transform: 'translate(-50%,-40%) scale(0.2) rotate(-8deg)', opacity: 0 },
+                { transform: 'translate(-50%,-95%) scale(1.25) rotate(4deg)', opacity: 1, offset: 0.35 },
+                { transform: 'translate(-50%,-80%) scale(0.95) rotate(-2deg)', opacity: 1, offset: 0.55 },
+                { transform: 'translate(-50%,-120%) scale(0.85) rotate(0deg)', opacity: 0 }
+            ]; }
+        },
+        // 2. Bật ngang kiểu "chém" — đỏ cam, vọt sang ngang rồi rơi thẳng
+        {
+            color: '#ff5c4d', stroke: '#3a0000', size: 22,
+            build() {
+                const dir = Math.random() < 0.5 ? -1 : 1;
+                return [
+                    { transform: `translate(calc(-50% + ${-dir * 14}px), -30%) scale(0.3) skewX(${dir * 12}deg)`, opacity: 0 },
+                    { transform: `translate(calc(-50% + ${dir * 10}px), -70%) scale(1.15) skewX(${-dir * 6}deg)`, opacity: 1, offset: 0.3 },
+                    { transform: `translate(-50%, -95%) scale(1) skewX(0deg)`, opacity: 1, offset: 0.6 },
+                    { transform: `translate(-50%, -125%) scale(0.85) skewX(0deg)`, opacity: 0 }
+                ];
+            }
+        },
+        // 3. Xoay bật vào — xanh lá, spin nhẹ từ nhỏ vào to
+        {
+            color: '#6bff6b', stroke: '#003300', size: 23,
+            build() { return [
+                { transform: 'translate(-50%,-50%) scale(0.1) rotate(60deg)', opacity: 0 },
+                { transform: 'translate(-50%,-85%) scale(1.2) rotate(-8deg)', opacity: 1, offset: 0.4 },
+                { transform: 'translate(-50%,-95%) scale(1) rotate(0deg)', opacity: 1, offset: 0.6 },
+                { transform: 'translate(-50%,-125%) scale(0.9) rotate(0deg)', opacity: 0 }
+            ]; }
+        }
+    ];
+
+    function createNormalDamageText(targetEl, damage) {
+        const rect = targetEl.getBoundingClientRect();
+        const jitterX = (Math.random() - 0.5) * 24;
+        const startX = rect.left + rect.width / 2 + jitterX;
+        const startY = rect.top;
+
+        const style = normalHitStyles[Math.floor(Math.random() * normalHitStyles.length)];
+
+        const numEl = document.createElement('div');
+        numEl.innerText = damage.toLocaleString('en-US');
+        numEl.style.cssText = `
+            position: fixed; left:${startX}px; top:${startY}px;
+            font-size: ${style.size}px; font-weight: 900; font-family: 'Arial Black', Arial, sans-serif;
+            color: ${style.color}; -webkit-text-stroke: 1px ${style.stroke};
+            text-shadow: -1px -1px 0 ${style.stroke}, 1px -1px 0 ${style.stroke}, -1px 1px 0 ${style.stroke}, 1px 1px 0 ${style.stroke};
+            z-index: 10005; pointer-events: none; white-space: nowrap;
+        `;
+        document.body.appendChild(numEl);
+        numEl.animate(style.build(), { duration: 480, easing: 'ease-out' }).onfinish = () => numEl.remove();
+
+        // đốm sáng "bụp" nhỏ đi kèm — thay cho vùng glow to của AOE
+        const pop = document.createElement('div');
+        pop.style.cssText = `
+            position: fixed; left:${startX}px; top:${startY}px;
+            width:20px; height:20px; border-radius:50%;
+            background: radial-gradient(circle, #fff 0%, ${style.color}88 60%, transparent 80%);
+            transform: translate(-50%,-50%) scale(0.3);
+            z-index: 10004; pointer-events: none; opacity: 0.9;
+        `;
+        document.body.appendChild(pop);
+        pop.animate([
+            { transform: 'translate(-50%,-50%) scale(0.3)', opacity: 0.9 },
+            { transform: 'translate(-50%,-50%) scale(1.6)', opacity: 0 }
+        ], { duration: 260, easing: 'ease-out' }).onfinish = () => pop.remove();
+    }
+
+    // Chia damage tổng thành `count` đòn nhỏ, hiện lần lượt theo thời gian
+    // ước lượng khớp với nhịp bắn hạt trong các spawnXxx (đa số dùng
+    // interval = min(200, 2000/count) và mất ~600ms bay tới đích).
+    function playMultiHitDamage(target, totalDamage, count, opts = {}) {
+        const self = this;
+        const n = Math.max(1, count);
+        const base = Math.floor(totalDamage / n);
+        const remainder = totalDamage - base * n; // dồn phần dư vào đòn cuối để tổng luôn khớp số máu thật
+
+        const interval = opts.interval !== undefined ? opts.interval : (n > 1 ? Math.min(200, 2000 / n) : 0);
+        const startDelay = opts.startDelay !== undefined ? opts.startDelay : 600;
+
+        for (let i = 0; i < n; i++) {
+            const chunk = base + (i === n - 1 ? remainder : 0);
+            const delay = startDelay + i * interval;
+            setTimeout(() => {
+                self.createNormalDamageText(target, chunk);
+                target.classList.add('shake');
+                setTimeout(() => target.classList.remove('shake'), 90);
+            }, delay);
+        }
+    }
+    // Chia damage tổng thành N chunk, dồn phần dư vào chunk cuối để tổng luôn khớp
+    function splitDamage(totalDamage, n) {
+        const count = Math.max(1, n);
+        const base = Math.floor(totalDamage / count);
+        const remainder = totalDamage - base * count;
+        const arr = new Array(count).fill(base);
+        arr[count - 1] += remainder;
+        return arr;
+    }
+
+    // Gọi hàm này NGAY TẠI ĐIỂM VA CHẠM thật sự của từng hạt/quả bên trong
+    // các spawnXxx — rút 1 chunk từ hàng đợi và hiện số máu NGAY LÚC ĐÓ,
+    // không còn đoán thời gian trước nữa.
+    function consumeHit() {
+        if (!this._hitQueue || this._hitQueue.length === 0 || !this._currentHitTarget) return;
+        const chunk = this._hitQueue.shift();
+        const target = this._currentHitTarget;
+        this.createNormalDamageText(target, chunk);
+        target.classList.add('shake');
+        setTimeout(() => target.classList.remove('shake'), 90);
+    }
+
+    // Xả nốt phần damage còn dư thành 1 lần hiện cuối — phòng trường hợp 1 vài
+    // hệ có số hạt hiển thị KHÔNG khớp với count (xem ghi chú Bug/Fairy/Dragon bên dưới)
+    function flushHitQueue() {
+        if (!this._hitQueue || this._hitQueue.length === 0 || !this._currentHitTarget) return;
+        const remain = this._hitQueue.reduce((a, b) => a + b, 0);
+        this._hitQueue = [];
+        if (remain > 0) this.createNormalDamageText(this._currentHitTarget, remain);
+    }
+    async function executeThemedNormal(attacker, target, info) {
             const type = info.type || 'normal';
             const scale = parseFloat(attacker.dataset.scale) || 1;
             const cfg = this.durationConfig.normal;
@@ -2644,12 +2828,15 @@
             await playAttackerMotion_Projectile.call(this, attacker, scale);
         }
 
+    this._hitQueue = splitDamage(info.damage, count);
+        this._currentHitTarget = target;
+
         if (typeof currentSpawnAction === 'function') {
             await currentSpawnAction.call(SM.normalSkills, attacker, target, count, scale, info);
         }
 
         this.applyGlobalShake(scale * 0.5);
-        this.createDamageText(target, info.damage);
+        this.flushHitQueue(); // phòng khi số hạt thực tế bắn ra không khớp count (bug/fairy/dragon — xem ghi chú)
         target.classList.add('shake');
         await new Promise(r => setTimeout(r, cfg.shake));
         target.classList.remove('shake');
@@ -2668,7 +2855,7 @@
         await SM.normalSkills.spawnBigOrb.call(SM.normalSkills, attacker, target, 1, scale, info);
 
         this.applyGlobalShake(scale * 0.7);
-        this.createDamageText(target, info.damage);
+        this.createNormalDamageText(target, info.damage);
         target.classList.add('shake');
         await new Promise(r => setTimeout(r, cfg.shake));
         target.classList.remove('shake');
@@ -2683,15 +2870,30 @@
 
         await playAttackerMotion_Projectile.call(this, attacker, scale);
 
+    // Damage giờ ăn theo ĐÚNG lúc hạt trong dòng chảy thật sự chạm mục tiêu
+        // (this.consumeHit() gọi ngay trong onfinish của từng hạt bên trong
+        // spawnBeamStream, cứ mỗi 12 hạt trúng mới rút 1 chunk cho đỡ vụn số).
+        const beamHits = 4 + Math.floor(Math.random() * 3); // 4-6 chunk damage
+        this._hitQueue = splitDamage(info.damage, beamHits);
+        this._currentHitTarget = target;
+
         await SM.normalSkills.spawnBeamStream.call(SM.normalSkills, attacker, target, 1, scale, info);
 
         this.applyGlobalShake(scale * 0.6);
-        this.createDamageText(target, info.damage);
-        target.classList.add('shake');
-        await new Promise(r => setTimeout(r, cfg.shake));
-        target.classList.remove('shake');
+        this.flushHitQueue(); // xả nốt phần dư nếu số hạt trúng thực tế ít hơn dự kiến
     }
 
+    const NORMAL_STYLES = ['physical', 'bigOrb', 'stream', 'themed'];
+
+    function normalStyleLabel(style, type) {
+        switch (style) {
+            case 'physical': return 'Tackle';
+            case 'bigOrb':   return (bigOrbTypeConfig[type] || bigOrbTypeConfig.normal).label;
+            case 'stream':   return 'Beam Stream';
+            case 'themed':   return skillMetaNormal[type] || 'Tấn công';
+        }
+    }
+    const NORMAL_STYLE_ICON = { physical: '👊', bigOrb: '🔮', stream: '🌊', themed: '✨' };
     async function playNormalAttack(info) {
         console.log('[SKILL] playNormalAttack nhận info:', JSON.parse(JSON.stringify(info)));
         const attackerSide = info.attackerSide;
@@ -2714,29 +2916,45 @@
         }
         if (!attacker || !target) return;
 
-        const cfg = this.durationConfig.normal;
-        const roll = Math.random();
-
-        if (roll < cfg.physicalStyleChance) {
-            window.PkmUnitFX?.showSkillName(attackerSide, attackerIndex, 'Tackle');
-            await executePhysicalAttack.call(this, attacker, target, info.damage);
-        } else if (roll < cfg.physicalStyleChance + cfg.bigOrbChance) {
-            await executeBigOrbSkill.call(this, attacker, target, info);
-        } else if (roll < cfg.physicalStyleChance + cfg.bigOrbChance + cfg.streamChance) {
-            await executeStreamSkill.call(this, attacker, target, info);   // ← MỚI
+        let style;
+        if (attackerSide === 'player') {
+            const type = info.type || 'normal';
+            style = await SM.playSkillSelectPanel(
+                attacker, type, null, 'normalStyle', NORMAL_STYLES.slice(), true,
+                s => normalStyleLabel(s, type),
+                s => NORMAL_STYLE_ICON[s]
+            );
         } else {
-            await executeThemedNormal.call(this, attacker, target, info);
+            style = drawNormalStyle(attackerSide, attackerIndex); // AI địch giữ random
         }
+
+            if (style === 'physical') {
+                window.PkmUnitFX?.showSkillName(attackerSide, attackerIndex, 'Tackle');
+                await executePhysicalAttack.call(this, attacker, target, info.damage);
+            } else if (style === 'bigOrb') {
+                await executeBigOrbSkill.call(this, attacker, target, info);
+            } else if (style === 'stream') {
+                await executeStreamSkill.call(this, attacker, target, info);
+            } else {
+                await executeThemedNormal.call(this, attacker, target, info);
+            }
+        
     }
 
-    Object.assign(SM, {
-        skillMetaNormal,
-        bigOrbTypeConfig,
+ Object.assign(SM, {
+     skillMetaNormal,
+     bigOrbTypeConfig,
+     resetNormalStylePools,
         playLightSfx,
         playAttackerMotion_Projectile,
         playAttackerMotion_Summon,
         executePhysicalAttack,
         executeMissedNormal,
+        createNormalDamageText,
+            playMultiHitDamage,
+        splitDamage,
+            consumeHit,
+            flushHitQueue,
         executeThemedNormal,
         executeBigOrbSkill,
         executeStreamSkill,   // ← MỚI
