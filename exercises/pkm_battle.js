@@ -18,10 +18,10 @@ window.BattleGame = {
     wrongCount: 0,
     totalCount: 0,
         // 🆕 THÊM 2 DÒNG NÀY
-        MIN_QUESTIONS: 12,
+        MIN_QUESTIONS: 10,
         MAX_QUESTIONS: 24,
 
-
+    const canStop = this.totalCount >= this.MIN_QUESTIONS;
         async init() {
         console.log("⚔️ [DEBUG] BattleGame.init() started");
             if (window.ArenaReady) await window.ArenaReady;
@@ -465,7 +465,7 @@ window.BattleGame = {
         window.PkmScore.showCheckpointPopup({
             title: `🎁 Đã trả lời ${this.totalCount} câu!`,
             breakdownHTML: messages.map(m => `<div>${m}</div>`).join('') || '<div>Chưa có thưởng mới ở mốc này.</div>',
-            stopHint: canStop ? '' : 'Dừng trước câu 20 sẽ KHÔNG được xét mở khoá bài mới.',
+            stopHint: canStop ? '' : `Dừng trước câu ${this.MIN_QUESTIONS} sẽ KHÔNG được xét mở khoá bài mới.`,
             onContinue: () => { setTimeout(() => this.askAndResolve(), 400); },
             onStop: () => {
                 if (canStop) {
