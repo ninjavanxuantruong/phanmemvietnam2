@@ -70,9 +70,11 @@ window.PkmScore = {
     SKILL_ORDER: ["listening", "speaking", "reading", "writing"],
 
     // Ngưỡng checkpoint dùng chung — sửa số 1 chỗ này là áp dụng cho MỌI game.
-    CHECKPOINT_INTERVAL: 8,
+    CHECKPOINT_INTERVAL: 5,
     shouldCheckpoint(totalAnswered) {
-        return totalAnswered > 0 && totalAnswered % this.CHECKPOINT_INTERVAL === 0;
+        return (
+            totalAnswered > 0 && totalAnswered % this.CHECKPOINT_INTERVAL === 0
+        );
     },
 
     // ==========================================
@@ -182,9 +184,16 @@ window.PkmScore = {
 
     // Suy ra kỹ năng của câu VỪA hỏi từ skillCycleIndex của QuizManager.
     getSkillJustAsked() {
-        if (!window.QuizManager || typeof window.QuizManager.skillCycleIndex !== "number") return null;
+        if (
+            !window.QuizManager ||
+            typeof window.QuizManager.skillCycleIndex !== "number"
+        )
+            return null;
         const order = this.SKILL_ORDER;
-        const idx = ((window.QuizManager.skillCycleIndex - 1) % order.length + order.length) % order.length;
+        const idx =
+            (((window.QuizManager.skillCycleIndex - 1) % order.length) +
+                order.length) %
+            order.length;
         return order[idx];
     },
 
@@ -198,7 +207,8 @@ window.PkmScore = {
 
         const skillName = this.getSkillJustAsked();
         this.session.totalCount++;
-        if (isCorrect) this.session.correctCount++; else this.session.wrongCount++;
+        if (isCorrect) this.session.correctCount++;
+        else this.session.wrongCount++;
         if (skillName && this.session.skillStats[skillName]) {
             this.session.skillStats[skillName].total++;
             if (isCorrect) this.session.skillStats[skillName].correct++;
@@ -212,7 +222,9 @@ window.PkmScore = {
     // ghi điểm kỹ năng mà không cần luồng thưởng EXP/DV chuẩn.
     commitSession() {
         try {
-            const prevTotal = JSON.parse(localStorage.getItem("result_battle")) || { score: 0, total: 0 };
+            const prevTotal = JSON.parse(
+                localStorage.getItem("result_battle"),
+            ) || { score: 0, total: 0 };
             const updatedTotal = {
                 score: (prevTotal.score || 0) + this.session.correctCount,
                 total: (prevTotal.total || 0) + this.session.totalCount,
@@ -226,19 +238,30 @@ window.PkmScore = {
                 reading: { correct: 0, total: 0 },
                 writing: { correct: 0, total: 0 },
             });
-            const prevSkills = JSON.parse(localStorage.getItem("pkm_skill_scores")) || defaultSkills();
-            Object.keys(this.session.skillStats).forEach(skill => {
-                if (!prevSkills[skill]) prevSkills[skill] = { correct: 0, total: 0 };
-                prevSkills[skill].correct += this.session.skillStats[skill].correct;
+            const prevSkills =
+                JSON.parse(localStorage.getItem("pkm_skill_scores")) ||
+                defaultSkills();
+            Object.keys(this.session.skillStats).forEach((skill) => {
+                if (!prevSkills[skill])
+                    prevSkills[skill] = { correct: 0, total: 0 };
+                prevSkills[skill].correct +=
+                    this.session.skillStats[skill].correct;
                 prevSkills[skill].total += this.session.skillStats[skill].total;
             });
-            localStorage.setItem("pkm_skill_scores", JSON.stringify(prevSkills));
+            localStorage.setItem(
+                "pkm_skill_scores",
+                JSON.stringify(prevSkills),
+            );
 
             if (!localStorage.getItem("startTime_global")) {
                 localStorage.setItem("startTime_global", Date.now().toString());
             }
 
-            console.log("📊 [PkmScore] Đã ghi cộng dồn:", updatedTotal, prevSkills);
+            console.log(
+                "📊 [PkmScore] Đã ghi cộng dồn:",
+                updatedTotal,
+                prevSkills,
+            );
         } catch (e) {
             console.error("❌ [PkmScore] Lỗi lưu kết quả:", e);
         }
@@ -272,7 +295,9 @@ window.PkmScore = {
         if (lastPlay === today) {
             // đã chơi hôm nay rồi -> giữ nguyên
         } else {
-            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+            const yesterday = new Date(Date.now() - 86400000)
+                .toISOString()
+                .slice(0, 10);
             if (lastPlay === yesterday) streak++;
             else streak = 1;
             localStorage.setItem("pkm_last_play_date", today);
@@ -294,7 +319,7 @@ window.PkmScore = {
             loseFlatExp = 2,
             loseFlatDv = 2,
             allowLessonUnlock = true, // false = chốt điểm GIỮA CHỪNG (checkpoint),
-                                       // KHÔNG cho mở khoá bài mới dù accuracy đủ cao
+            // KHÔNG cho mở khoá bài mới dù accuracy đủ cao
         } = opts;
 
         const totalCount = this.session.totalCount;
@@ -305,8 +330,11 @@ window.PkmScore = {
             // chỉnh: không ghi điểm kỹ năng, không thưởng gì cả.
             return {
                 skipped: true,
-                won, totalCount, minQuestions,
-                bonusEXP: 0, bonusDV: 0,
+                won,
+                totalCount,
+                minQuestions,
+                bonusEXP: 0,
+                bonusDV: 0,
                 breakdown: [],
             };
         }
@@ -317,12 +345,16 @@ window.PkmScore = {
 
         const missionData = localStorage.getItem("current_mission");
         const currentLessonId = missionData ? JSON.parse(missionData).id : null;
-        let passedMaps = JSON.parse(localStorage.getItem("pkm_passed_maps")) || [];
-        const currentEXP = parseInt(localStorage.getItem("pkm_global_exp")) || 0;
+        let passedMaps =
+            JSON.parse(localStorage.getItem("pkm_passed_maps")) || [];
+        const currentEXP =
+            parseInt(localStorage.getItem("pkm_global_exp")) || 0;
         const currentDV = parseInt(localStorage.getItem("pkm_global_dv")) || 0;
-        const accuracy = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+        const accuracy =
+            totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
 
-        let bonusEXP = 0, bonusDV = 0;
+        let bonusEXP = 0,
+            bonusDV = 0;
         let isNewLesson = false;
         let newLessonUnlocked = false;
         let streak = parseInt(localStorage.getItem("pkm_streak_days")) || 0;
@@ -334,16 +366,31 @@ window.PkmScore = {
             // điều kiện "qua màn" thật sự) truyền allowLessonUnlock=false để
             // KHÔNG được thưởng phần này dù accuracy có đủ cao.
             if (allowLessonUnlock) {
-                isNewLesson = !!(currentLessonId && !passedMaps.includes(currentLessonId));
+                isNewLesson = !!(
+                    currentLessonId && !passedMaps.includes(currentLessonId)
+                );
                 if (isNewLesson) {
                     if (accuracy >= unlockThreshold) {
-                        bonusEXP += 5; bonusDV += 5;
+                        bonusEXP += 5;
+                        bonusDV += 5;
                         passedMaps.push(currentLessonId);
-                        localStorage.setItem("pkm_passed_maps", JSON.stringify(passedMaps));
+                        localStorage.setItem(
+                            "pkm_passed_maps",
+                            JSON.stringify(passedMaps),
+                        );
                         newLessonUnlocked = true;
-                        breakdown.push({ type: "new_lesson", exp: 5, dv: 5, accuracy });
+                        breakdown.push({
+                            type: "new_lesson",
+                            exp: 5,
+                            dv: 5,
+                            accuracy,
+                        });
                     } else {
-                        breakdown.push({ type: "new_lesson_failed", accuracy, requiredAccuracy: unlockThreshold });
+                        breakdown.push({
+                            type: "new_lesson_failed",
+                            accuracy,
+                            requiredAccuracy: unlockThreshold,
+                        });
                     }
                 }
             }
@@ -351,8 +398,15 @@ window.PkmScore = {
             // Thưởng 2: số câu đúng chia đôi (hoặc theo divisor tuỳ game)
             const reward2 = Math.round(correctCount / answerBonusDivisor);
             if (reward2 > 0) {
-                bonusEXP += reward2; bonusDV += reward2;
-                breakdown.push({ type: "correct_answers", correctCount, divisor: answerBonusDivisor, exp: reward2, dv: reward2 });
+                bonusEXP += reward2;
+                bonusDV += reward2;
+                breakdown.push({
+                    type: "correct_answers",
+                    correctCount,
+                    divisor: answerBonusDivisor,
+                    exp: reward2,
+                    dv: reward2,
+                });
             }
 
             // Thưởng 3: chuyên cần (chuỗi ngày liên tục) — chỉ cập nhật/thưởng khi THẮNG
@@ -361,13 +415,25 @@ window.PkmScore = {
             if (streak >= 30) streakBonus = 3;
             else if (streak >= 10) streakBonus = 2;
             else if (streak >= 4) streakBonus = 1;
-            if (streakBonus > 0) { bonusEXP += streakBonus; bonusDV += streakBonus; }
-            breakdown.push({ type: "streak", streak, exp: streakBonus, dv: streakBonus });
+            if (streakBonus > 0) {
+                bonusEXP += streakBonus;
+                bonusDV += streakBonus;
+            }
+            breakdown.push({
+                type: "streak",
+                streak,
+                exp: streakBonus,
+                dv: streakBonus,
+            });
         } else {
             // Thua: thưởng an ủi cố định, không tính bài mới, không tính streak
             bonusEXP += loseFlatExp;
             bonusDV += loseFlatDv;
-            breakdown.push({ type: "consolation", exp: loseFlatExp, dv: loseFlatDv });
+            breakdown.push({
+                type: "consolation",
+                exp: loseFlatExp,
+                dv: loseFlatDv,
+            });
         }
 
         const newEXP = currentEXP + bonusEXP;
@@ -381,13 +447,30 @@ window.PkmScore = {
         this.matchTotals.bonusEXP += bonusEXP;
         this.matchTotals.bonusDV += bonusDV;
 
-        console.log("🎁 [PkmScore] finishMatch:", { won, accuracy, bonusEXP, bonusDV, newEXP, newDV, allowLessonUnlock, breakdown });
+        console.log("🎁 [PkmScore] finishMatch:", {
+            won,
+            accuracy,
+            bonusEXP,
+            bonusDV,
+            newEXP,
+            newDV,
+            allowLessonUnlock,
+            breakdown,
+        });
 
         return {
             skipped: false,
-            won, accuracy, correctCount, totalCount,
-            bonusEXP, bonusDV, newEXP, newDV,
-            isNewLesson, newLessonUnlocked, streak,
+            won,
+            accuracy,
+            correctCount,
+            totalCount,
+            bonusEXP,
+            bonusDV,
+            newEXP,
+            newDV,
+            isNewLesson,
+            newLessonUnlocked,
+            streak,
             breakdown,
         };
     },
@@ -401,7 +484,8 @@ window.PkmScore = {
     // ==========================================
     finishStudySession(opts = {}) {
         const {
-            correctCount, totalCount,
+            correctCount,
+            totalCount,
             unlockThreshold = 80,
             answerBonusDivisor = 2,
             fixedGameScore = 10,
@@ -412,41 +496,69 @@ window.PkmScore = {
         }
 
         try {
-            const prevGame = JSON.parse(localStorage.getItem("result_game")) || { score: 0, total: 0 };
-            localStorage.setItem("result_game", JSON.stringify({
-                score: (prevGame.score || 0) + fixedGameScore,
-                total: (prevGame.total || 0) + fixedGameScore,
-            }));
-        } catch (e) { console.error("❌ [PkmScore] Lỗi ghi result_game:", e); }
+            const prevGame = JSON.parse(
+                localStorage.getItem("result_game"),
+            ) || { score: 0, total: 0 };
+            localStorage.setItem(
+                "result_game",
+                JSON.stringify({
+                    score: (prevGame.score || 0) + fixedGameScore,
+                    total: (prevGame.total || 0) + fixedGameScore,
+                }),
+            );
+        } catch (e) {
+            console.error("❌ [PkmScore] Lỗi ghi result_game:", e);
+        }
 
         const missionData = localStorage.getItem("current_mission");
         const currentLessonId = missionData ? JSON.parse(missionData).id : null;
-        let passedMaps = JSON.parse(localStorage.getItem("pkm_passed_maps")) || [];
-        const currentEXP = parseInt(localStorage.getItem("pkm_global_exp")) || 0;
+        let passedMaps =
+            JSON.parse(localStorage.getItem("pkm_passed_maps")) || [];
+        const currentEXP =
+            parseInt(localStorage.getItem("pkm_global_exp")) || 0;
         const currentDV = parseInt(localStorage.getItem("pkm_global_dv")) || 0;
         const accuracy = Math.round((correctCount / totalCount) * 100);
 
-        let bonusEXP = 0, bonusDV = 0;
-        let isNewLesson = false, newLessonUnlocked = false;
+        let bonusEXP = 0,
+            bonusDV = 0;
+        let isNewLesson = false,
+            newLessonUnlocked = false;
         const breakdown = [];
 
-        isNewLesson = !!(currentLessonId && !passedMaps.includes(currentLessonId));
+        isNewLesson = !!(
+            currentLessonId && !passedMaps.includes(currentLessonId)
+        );
         if (isNewLesson) {
             if (accuracy >= unlockThreshold) {
-                bonusEXP += 5; bonusDV += 5;
+                bonusEXP += 5;
+                bonusDV += 5;
                 passedMaps.push(currentLessonId);
-                localStorage.setItem("pkm_passed_maps", JSON.stringify(passedMaps));
+                localStorage.setItem(
+                    "pkm_passed_maps",
+                    JSON.stringify(passedMaps),
+                );
                 newLessonUnlocked = true;
                 breakdown.push({ type: "new_lesson", exp: 5, dv: 5, accuracy });
             } else {
-                breakdown.push({ type: "new_lesson_failed", accuracy, requiredAccuracy: unlockThreshold });
+                breakdown.push({
+                    type: "new_lesson_failed",
+                    accuracy,
+                    requiredAccuracy: unlockThreshold,
+                });
             }
         }
 
         const reward2 = Math.round(correctCount / answerBonusDivisor);
         if (reward2 > 0) {
-            bonusEXP += reward2; bonusDV += reward2;
-            breakdown.push({ type: "correct_answers", correctCount, divisor: answerBonusDivisor, exp: reward2, dv: reward2 });
+            bonusEXP += reward2;
+            bonusDV += reward2;
+            breakdown.push({
+                type: "correct_answers",
+                correctCount,
+                divisor: answerBonusDivisor,
+                exp: reward2,
+                dv: reward2,
+            });
         }
 
         const streak = this.updateStreak();
@@ -454,38 +566,66 @@ window.PkmScore = {
         if (streak >= 30) streakBonus = 3;
         else if (streak >= 10) streakBonus = 2;
         else if (streak >= 4) streakBonus = 1;
-        if (streakBonus > 0) { bonusEXP += streakBonus; bonusDV += streakBonus; }
-        breakdown.push({ type: "streak", streak, exp: streakBonus, dv: streakBonus });
+        if (streakBonus > 0) {
+            bonusEXP += streakBonus;
+            bonusDV += streakBonus;
+        }
+        breakdown.push({
+            type: "streak",
+            streak,
+            exp: streakBonus,
+            dv: streakBonus,
+        });
 
         const newEXP = currentEXP + bonusEXP;
         const newDV = currentDV + bonusDV;
         localStorage.setItem("pkm_global_exp", newEXP);
         localStorage.setItem("pkm_global_dv", newDV);
 
-        console.log("🎓 [PkmScore] finishStudySession:", { accuracy, bonusEXP, bonusDV, newEXP, newDV, breakdown });
+        console.log("🎓 [PkmScore] finishStudySession:", {
+            accuracy,
+            bonusEXP,
+            bonusDV,
+            newEXP,
+            newDV,
+            breakdown,
+        });
 
-return {
-    skipped: false,
-    accuracy, correctCount, totalCount,
-    bonusEXP, bonusDV, newEXP, newDV,
-    isNewLesson, newLessonUnlocked, streak,
-    breakdown,
-};
-},
+        return {
+            skipped: false,
+            accuracy,
+            correctCount,
+            totalCount,
+            bonusEXP,
+            bonusDV,
+            newEXP,
+            newDV,
+            isNewLesson,
+            newLessonUnlocked,
+            streak,
+            breakdown,
+        };
+    },
 
-// ==========================================
-// THƯỞNG CỐ ĐỊNH khi hoàn thành đủ 5 module (all-shared) — KHÔNG xét
-// mở khoá bài mới/streak/số câu đúng như finishStudySession(), chỉ cần
-// học xong hết module là +5 EXP +5 DV, học lại vẫn được thưởng như cũ.
-// ==========================================
-rewardCompletedSession(exp = 5, dv = 5) {
-const currentEXP = parseInt(localStorage.getItem("pkm_global_exp")) || 0;
-const currentDV = parseInt(localStorage.getItem("pkm_global_dv")) || 0;
-const newEXP = currentEXP + exp;
-const newDV = currentDV + dv;
-localStorage.setItem("pkm_global_exp", newEXP);
-localStorage.setItem("pkm_global_dv", newDV);
-console.log("🎓 [PkmScore] rewardCompletedSession:", { exp, dv, newEXP, newDV });
-return { bonusEXP: exp, bonusDV: dv, newEXP, newDV };
-},
+    // ==========================================
+    // THƯỞNG CỐ ĐỊNH khi hoàn thành đủ 5 module (all-shared) — KHÔNG xét
+    // mở khoá bài mới/streak/số câu đúng như finishStudySession(), chỉ cần
+    // học xong hết module là +5 EXP +5 DV, học lại vẫn được thưởng như cũ.
+    // ==========================================
+    rewardCompletedSession(exp = 5, dv = 5) {
+        const currentEXP =
+            parseInt(localStorage.getItem("pkm_global_exp")) || 0;
+        const currentDV = parseInt(localStorage.getItem("pkm_global_dv")) || 0;
+        const newEXP = currentEXP + exp;
+        const newDV = currentDV + dv;
+        localStorage.setItem("pkm_global_exp", newEXP);
+        localStorage.setItem("pkm_global_dv", newDV);
+        console.log("🎓 [PkmScore] rewardCompletedSession:", {
+            exp,
+            dv,
+            newEXP,
+            newDV,
+        });
+        return { bonusEXP: exp, bonusDV: dv, newEXP, newDV };
+    },
 };
