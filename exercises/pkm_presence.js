@@ -349,7 +349,7 @@ window.PkmFriends = (() => {
     else P.closePanel();
   };
 
-  function refreshOnlineList() { P.listOnline("class", data => { userMap = new Map(data.users.map(u => [u.playerId, u])); onlinePage = 0; doRenderOnline(); }); }
+  function refreshOnlineList() { P.listOnline("all", data => { userMap = new Map(data.users.map(u => [u.playerId, u])); onlinePage = 0; doRenderOnline(); }); }
 
   function statusLabel(status) {
     if (status === "idle") return { text: "Rảnh", cls: "idle" };
@@ -361,7 +361,7 @@ window.PkmFriends = (() => {
 
   /* ---------- TAB ONLINE: sắp bạn bè > cùng lớp > khác, phân trang 10/trang ---------- */
   function doRenderOnline() {
-    const others = [...userMap.values()].filter(u => u.playerId !== myId);
+    const others = [...userMap.values()].filter(u => u.playerId !== myId && u.status === "idle");
     const listEl = document.getElementById("pkmp-list");
     const pagerEl = document.getElementById("pkmp-pager");
     if (others.length === 0) { listEl.innerHTML = '<div id="pkmp-empty">Chưa có ai khác online.</div>'; pagerEl.style.display = "none"; return; }
