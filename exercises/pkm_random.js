@@ -208,4 +208,8 @@
 
   // Xuất thêm để kiểm thử nếu cần (ví dụ xem thử lần gieo)
   window.pkmRollDestination = rollDestination;
+
+  // Xuất pickLesson() để nơi khác (ví dụ pkm_battle_online.js) tái dùng
+  // đúng logic "chọn bài chưa học, nhỏ hơn bài max" mà không cần viết lại.
+  window.PkmLessonPicker = { pickLesson };
 })();
