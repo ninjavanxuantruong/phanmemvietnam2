@@ -199,6 +199,14 @@
                 </div>
             </div>
 
+            <div class="mode-card skills" id="pickSimple">
+                <div class="mode-icon">🎓</div>
+                <div class="mode-info">
+                    <h3>Học Đơn giản</h3>
+                    <p>Làm bài nhanh</p>
+                </div>
+            </div>
+
             <div class="mode-card block" id="pickBlock">
                 <div class="mode-icon">🧱</div>
                 <div class="mode-info">
@@ -305,6 +313,10 @@
             };
             document.getElementById('pickSkills').onclick = () => {
                 window.location.href = 'all-shared.html';
+            };
+
+            document.getElementById('pickSimple').onclick = () => {
+                window.location.href = 'pkm_simple.html';
             };
         })();
     </script>
