@@ -154,10 +154,10 @@
   }
 
   // ===== GIEO CHẾ ĐỘ =====
-  function rollDestination() {
-    if (Math.random() < RANDOM_SKILL_RATE) return SKILL_PAGE;
-    return RANDOM_GAME_PAGES[Math.floor(Math.random() * RANDOM_GAME_PAGES.length)];
-  }
+  // ===== GIEO CHẾ ĐỘ =====
+function rollDestination() {
+  return "pkm_simple.html";
+}
 
   // ===== HIỂN THỊ TRẠNG THÁI =====
   function setStatus(msg, show = true) {
