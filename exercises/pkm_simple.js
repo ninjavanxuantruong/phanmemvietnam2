@@ -33,12 +33,14 @@
     WORDS_PER_SET: 5,          // số từ mỗi lượt chơi
     MIN_Q_FOR_SCORE: 10,       // chơi ít hơn số câu này thì không tính điểm
     MAX_TYPE_TRIES: 3,         // số lần được gõ sai trước khi hiện đáp án
+    SPEAK_REPS: 3,             // câu Nói: nói từ liền mấy lần ("one one one")
+    MAX_SPEAK_TRIES: 3,        // số lượt được nói lại trước khi hiện đáp án
     BACK_URL: "pkm_mode_select.html",
     MAP_URL: "pkm_map.html",
     LEVELS: {
-      de:  { label: "Dễ",         options: 3, hint: "full",   hidden: 0.3, decoys: 2, speakTol: 0.45 },
-      tb:  { label: "Trung bình", options: 4, hint: "blanks", hidden: 0.5, decoys: 3, speakTol: 0.34 },
-      kho: { label: "Khó",        options: 4, hint: "none",   hidden: 0.7, decoys: 4, speakTol: 0.25 },
+      de:  { label: "Dễ",         options: 3, hint: "full",   hidden: 0.3, decoys: 2, speakTol: 0.45, speakForm: "word", repNeed: 2, sentThreshold: 40 },
+      tb:  { label: "Trung bình", options: 4, hint: "blanks", hidden: 0.5, decoys: 3, speakTol: 0.34, speakForm: "sentence", repNeed: 2, sentThreshold: 50 },
+      kho: { label: "Khó",        options: 4, hint: "none",   hidden: 0.7, decoys: 4, speakTol: 0.25, speakForm: "sentence", repNeed: 3, sentThreshold: 65 },
     },
   };
 
@@ -52,14 +54,14 @@
       skill: "reading", types: ["picWord", "meaningWord"] },
     { emoji: "🧩", title: "Ghép chữ cái", desc: "Sắp xếp hoặc điền chữ cái để thành từ.", cue: "Let's spell!",
       skill: "writing", types: ["unscramble", "missing"] },
-    { emoji: "🎤", title: "Nói to nào!", desc: "Nhìn hình và nói từ tiếng Anh vào micro.", cue: "Let's speak!",
+    { emoji: "🎤", title: "Nói to nào!", desc: "Nói từ 3 lần liền (mức Trung bình, Khó: đọc thêm câu có từ đó).", cue: "Let's speak!",
       skill: "speaking", types: ["sayWord"] },
     { emoji: "🚀", title: "Nghe và đọc nâng cao", desc: "Ít gợi ý hơn — dựa vào tai và mắt của bạn!", cue: "Level up!", offset: 0,
       mixed: [
         { skill: "listening", types: ["listenWord"] },
         { skill: "reading", types: ["spelling", "wordMeaning"] },
       ] },
-    { emoji: "🏆", title: "Thử thách cuối", desc: "Gõ từ và nhắc lại thật chuẩn nhé!", cue: "Final challenge!", offset: 1,
+    { emoji: "🏆", title: "Thử thách cuối", desc: "Gõ từ, rồi nghe và nhắc lại thật chuẩn nhé!", cue: "Final challenge!", offset: 1,
       mixed: [
         { skill: "writing", types: ["typePic", "dictation"] },
         { skill: "speaking", types: ["repeat"] },
@@ -114,11 +116,11 @@
   };
 
   const DEMO_WORDS = [
-    { word: "apple", meaning: "quả táo", emoji: "🍎" },
-    { word: "banana", meaning: "quả chuối", emoji: "🍌" },
-    { word: "boat", meaning: "con thuyền", emoji: "⛵" },
-    { word: "cat", meaning: "con mèo", emoji: "🐱" },
-    { word: "dog", meaning: "con chó", emoji: "🐶" },
+    { word: "apple", meaning: "quả táo", emoji: "🍎", sentence: "I like to eat a red apple." },
+    { word: "banana", meaning: "quả chuối", emoji: "🍌", sentence: "The monkey eats a yellow banana." },
+    { word: "boat", meaning: "con thuyền", emoji: "⛵", sentence: "The boat is on the blue sea." },
+    { word: "cat", meaning: "con mèo", emoji: "🐱", sentence: "My cat is sleeping on the sofa." },
+    { word: "dog", meaning: "con chó", emoji: "🐶", sentence: "The dog can run very fast." },
   ];
 
   /* ==========================================================================
@@ -170,7 +172,7 @@
   /* ==========================================================================
    * 3. DỮ LIỆU BÀI HỌC (giống QuizManager.prepareData)
    * ========================================================================== */
-  const COL = Object.assign({ LESSON_NAME: 1, WORD: 2, MEANING: 24 }, window.COLS_VOCAB || {});
+  const COL = Object.assign({ LESSON_NAME: 1, WORD: 2, MEANING: 24, PRESENT_SENT: 8 }, window.COLS_VOCAB || {});
 
   function normalizeUnit(unitStr) {
     if (!unitStr) return 0;
@@ -229,7 +231,7 @@
         const lessonId = String(r[COL.LESSON_NAME] || "").trim();
         const word = String(r[COL.WORD] || "").trim();
         if (!word) return;
-        const item = { word, meaning: String(r[COL.MEANING] || "").trim(), lessonId };
+        const item = { word, meaning: String(r[COL.MEANING] || "").trim(), lessonId, sentence: String(r[COL.PRESENT_SENT] || "").trim() };
         const isCur = isBoss ? bossKeys.has(`${lessonId}|||${word}`) : lessonId === mission.id;
         const k = norm(word);
         if (isCur) { if (!seenL.has(k)) { seenL.add(k); lesson.push(item); } }
@@ -468,16 +470,46 @@
       try { rec.start(); } catch (e) { reject(e); }
     });
   }
-  function heardMatches(heard, target, tol) {
-    const t = norm(target);
-    return String(heard || "").split("|").some((alt) => {
-      const h = norm(alt);
-      if (!h) return false;
-      if (h.includes(t)) return true;
-      const allow = Math.floor(t.length * tol);
-      if (lev(h, t) <= allow) return true;
-      return h.split(" ").some((tok) => lev(tok, t) <= allow);
+  /* --- Chấm câu Nói: 1 lần ghi âm = từ ×3 (+ câu thuyết trình cột I) ---
+   * Whisper hay viết số bằng chữ số ("1 1 1") nên đổi 0–20 về chữ trước khi so. */
+  const NUMW = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
+    "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];
+  function speechTokens(s) {
+    return String(s || "").toLowerCase().replace(/['’]/g, "").replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/).filter(Boolean).map((t) => (/^\d+$/.test(t) && +t <= 20 ? NUMW[+t] : t));
+  }
+  // từ ngắn (<3 chữ) phải khớp tuyệt đối để "on" không bị nhận nhầm là "one"
+  const tokEq = (a, b, tol) => a === b || (Math.min(a.length, b.length) >= 3 && lev(a, b) <= Math.floor(Math.max(a.length, b.length) * tol));
+  function countPhrase(tokens, phrase, tol) { // đếm số lần cụm từ xuất hiện (không chồng nhau)
+    let n = 0, i = 0;
+    while (i + phrase.length <= tokens.length) {
+      if (phrase.every((p, j) => tokEq(tokens[i + j], p, tol))) { n++; i += phrase.length; } else i++;
+    }
+    return n;
+  }
+  // → { reps: số lần nghe được từ (0–3), acc: % khớp cả đoạn, ok }
+  function scoreSpeech(heard, word, sentence) {
+    const tol = S.cfg.speakTol, wt = speechTokens(word), st = speechTokens(sentence);
+    const occInSentence = st.length ? countPhrase(st, wt, tol) : 0;
+    const target = [...Array(CFG.SPEAK_REPS).fill(wt).flat(), ...st];
+    const isWordTok = new Set(wt);
+    let best = { reps: 0, acc: 0, ok: false };
+    String(heard || "").split("|").forEach((alt) => {
+      const ht = speechTokens(alt); if (!ht.length) return;
+      const count = countPhrase(ht, wt, tol);
+      const pool = [...ht]; let hit = 0;
+      target.forEach((t) => {
+        const k = pool.findIndex((h) => (isWordTok.has(t) ? tokEq(h, t, tol) : h === t));
+        if (k >= 0) { pool.splice(k, 1); hit++; }
+      });
+      const acc = Math.round((hit / target.length) * 100);
+      // chỉ trừ số lần "từ" nằm trong câu khi bé thật sự đã đọc câu (acc đủ cao)
+      const sentSpoken = st.length && acc >= S.cfg.sentThreshold;
+      const reps = Math.max(0, Math.min(CFG.SPEAK_REPS, count - (sentSpoken ? occInSentence : 0)));
+      const ok = count >= S.cfg.repNeed + occInSentence && (!st.length || acc >= S.cfg.sentThreshold);
+      if ((ok && !best.ok) || (ok === best.ok && (reps > best.reps || (reps === best.reps && acc > best.acc)))) best = { reps, acc, ok };
     });
+    return best;
   }
 
   /* ==========================================================================
@@ -842,23 +874,63 @@
     return result;
   }
 
-  function micHTML(extra = "") {
+  function micHTML() {
     return `<div class="mic-wrap">
-      ${extra}
       <button class="mic" id="mic" type="button" aria-label="Bấm để nói">🎤</button>
-      <div class="micstatus" id="micStatus" aria-live="polite">Chạm vào micro rồi nói to nhé!</div>
+      <div class="micstatus" id="micStatus" aria-live="polite"></div>
       <div class="heard" id="heard"></div>
       <button class="btn ghost" id="skipMic" type="button" hidden>Bỏ qua</button>
     </div>`;
   }
-  function runSpeak(w) {
+  const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  function sentenceHTML(sentence, word) {
+    const re = new RegExp(`\\b(${escRe(word)}\\w*)`, "ig");
+    return esc(sentence).replace(re, "<mark>$1</mark>");
+  }
+  // Hình thức nói theo cấp độ: Dễ = từ ×3 ; Trung bình/Khó = từ ×3 + câu thuyết trình (nếu sheet có)
+  const speakSentence = (w) => (S.cfg.speakForm === "sentence" && w.sentence ? w.sentence : "");
+  const speakModel = (w, sentence) => `${Array(CFG.SPEAK_REPS).fill(w.word).join(", ")}${sentence ? ". " + sentence : ""}`;
+
+  // Khung hướng dẫn: ba chấm = 3 lần nói từ, chấm thứ tư (nếu có) = câu
+  function speakPanelHTML(w, sentence) {
+    const dots = Array.from({ length: CFG.SPEAK_REPS }, () => "<i></i>").join("") + (sentence ? '<i class="sent"></i>' : "");
+    return `<div class="series">
+      <div class="steplabel">${sentence ? "Nói từ này 3 lần, rồi đọc cả câu" : "Nói từ này 3 lần liền"}</div>
+      <div class="reps" id="reps">${dots}</div>
+      ${sentence
+        ? `<div class="sentbox">${sentenceHTML(sentence, w.word)}</div>`
+        : `<div class="secret" id="secret">${esc(maskWord(w.word, 0))}</div><button class="btn ghost" id="peek" type="button">👁 Xem chữ</button>`}
+    </div>`;
+  }
+
+  /* 1 lần ghi âm cho cả "one one one" hoặc "one one one I'm one year old".
+   * Trả về true/false (đúng ngay lần đầu hay không), hoặc null nếu micro không dùng được. */
+  function runSpeak(w, sentence, { modelAuto = false } = {}) {
     const mic = $("#mic"), st = $("#micStatus"), heardEl = $("#heard"), skip = $("#skipMic");
+    const dots = $$("#reps i"), peek = $("#peek");
+    if (peek) peek.onclick = () => { $("#secret").textContent = w.word; peek.hidden = true; };
+    const model = speakModel(w, sentence);
+    const readyMsg = sentence ? "Chạm micro, nói từ 3 lần rồi đọc cả câu nhé!" : "Chạm micro rồi nói từ này 3 lần liền nhé!";
+
     return new Promise((resolve) => {
       let tries = 0, techFails = 0, busy = false, done = false, errored = false;
+      // Máy đọc mẫu "one, one, one. I'm one year old." — khóa micro tới khi đọc xong
+      // để micro không thu nhầm giọng máy.
+      const playModel = async () => {
+        newAudio(); mic.disabled = true; st.textContent = "🔊 Nghe mẫu trước nhé...";
+        await speakEN(model, 0.8);
+        if (done || !mic.isConnected) return;
+        mic.disabled = false; st.textContent = readyMsg;
+      };
+      S.replay = () => { if (!busy && !done) playModel(); };
       const markErrored = (msg) => {
         errored = true; st.textContent = msg;
         skip.textContent = "Bỏ qua câu này (không tính điểm)"; skip.hidden = false;
       };
+      const paintDots = (r) => dots.forEach((d, i) => {
+        const isSent = d.classList.contains("sent");
+        d.classList.toggle("ok", isSent ? r.acc >= S.cfg.sentThreshold : i < r.reps);
+      });
       mic.onclick = async () => {
         if (done) return;
         if (busy) { if (activeStop) activeStop(); return; }
@@ -866,10 +938,10 @@
         busy = true; mic.classList.add("live"); sfx("tap");
         st.textContent = "🎙️ Đang nghe... nói thật to nhé! (chạm lần nữa để dừng)";
         let text = null, err = null;
-        try { text = await listenOnce(5000); } catch (e) { err = e; }
+        try { text = await listenOnce(sentence ? 14000 : 6500); } catch (e) { err = e; }
         mic.classList.remove("live"); busy = false;
         if (err) {
-          const denied = err.name === "NotAllowedError" || err.name === "PermissionDeniedError" || err.name === "NotSupported" || err.name === "NotFoundError";
+          const denied = ["NotAllowedError", "PermissionDeniedError", "NotSupported", "NotFoundError"].includes(err.name);
           techFails++;
           if (denied || techFails >= 2) markErrored(denied ? "Chưa dùng được micro. Hãy cho phép micro trong trình duyệt nhé." : "Máy chưa nghe rõ được. Bạn thử lại hoặc bỏ qua nhé.");
           else st.textContent = "Chưa nhận được giọng nói, bạn thử lại nhé!";
@@ -877,24 +949,28 @@
         }
         if (!norm(text)) { st.textContent = "Mình chưa nghe thấy gì — nói to hơn nhé! 🔊"; return; }
         tries++;
+        const r = scoreSpeech(text, w.word, sentence);
+        paintDots(r);
         heardEl.textContent = `Mình nghe là: “${String(text).split("|")[0].trim()}”`;
-        if (heardMatches(text, w.word, S.cfg.speakTol)) {
+        if (r.ok) {
           done = true; mic.disabled = true; skip.hidden = true; mic.classList.add("ok");
           resolve(await celebrate(tries === 1, w, mic));
-        } else if (tries >= 3) {
+        } else if (tries >= CFG.MAX_SPEAK_TRIES) {
           done = true; mic.disabled = true; skip.hidden = true; sfx("bad");
           await missed(w); resolve(false);
         } else {
-          sfx("bad"); st.textContent = "Chưa giống lắm — nghe lại rồi thử nữa nhé!"; oops();
-          skip.textContent = "Bỏ qua"; skip.hidden = false;
-          speakEN(w.word, 0.75);
+          sfx("bad");
+          st.textContent = `Mình nghe được ${r.reps}/${CFG.SPEAK_REPS} lần${sentence ? `, câu khớp ${r.acc}%` : ""}. Nghe mẫu rồi thử lại nhé!`;
+          oops(); skip.textContent = "Bỏ qua"; skip.hidden = false;
+          const msg = st.textContent; await playModel(); if (!done) st.textContent = msg;
         }
       };
       skip.onclick = async () => {
-        if (done) return; done = true; mic.disabled = true; skip.hidden = true;
+        if (done || busy) return; done = true; mic.disabled = true; skip.hidden = true;
         if (tries === 0 && errored) { showChip(w); resolve(null); return; }
         await missed(w); resolve(false);
       };
+      if (modelAuto) playModel(); else st.textContent = readyMsg;
     });
   }
 
@@ -1024,25 +1100,17 @@
 
   // ---- NÓI ----
   T.sayWord = async (r) => {
-    const w = r.word;
-    render(`${qHead("Say the word.", "Nhìn hình và nói to từ tiếng Anh")}${hasPic(w) ? heroPic(w) : ""}${hasMeaning(w) ? `<div class="meaning-tag">${esc(w.meaning)}</div>` : ""}${micHTML()}`);
-    S.replay = () => speakEN(w.word, 0.8);
-    say("Bấm micro và nói to từ này nhé! 🎤");
-    if (hasMeaning(w)) { speakVI(w.meaning); }
-    return { firstTry: await runSpeak(w) };
+    const w = r.word, sentence = speakSentence(w);
+    render(`${qHead(sentence ? "Say the word 3 times, then the sentence." : "Say the word 3 times.", sentence ? "Nhìn hình, nói từ 3 lần rồi đọc câu" : "Nhìn hình và nói từ 3 lần liền")}${hasPic(w) ? heroPic(w) : ""}${hasMeaning(w) ? `<div class="meaning-tag">${esc(w.meaning)}</div>` : ""}${speakPanelHTML(w, sentence)}${micHTML()}`);
+    say("Nghe mẫu trước, rồi bấm micro và nói to nhé! 🎤");
+    return { firstTry: await runSpeak(w, sentence, { modelAuto: true }) };
   };
 
   T.repeat = async (r) => {
-    const w = r.word;
-    render(`${spkBtn()}${qHead("Listen and repeat.", "Nghe rồi nhắc lại thật chuẩn")}
-      <div class="secret" id="secret">${esc(maskWord(w.word, 0))}</div>
-      <button class="btn ghost" id="peek" type="button">👁 Xem chữ</button>${micHTML()}`);
-    $("#peek").onclick = () => { $("#secret").textContent = w.word; $("#peek").hidden = true; };
-    S.replay = () => speakEN(w.word, 0.75);
+    const w = r.word, sentence = speakSentence(w);
+    render(`${spkBtn()}${qHead("Listen and repeat.", sentence ? "Nghe rồi nhắc lại: từ 3 lần + câu" : "Nghe rồi nhắc lại 3 lần")}${speakPanelHTML(w, sentence)}${micHTML()}`);
     say("Nghe xong thì nhắc lại giống hệt nhé! 🗣️");
-    const alive = newAudio();
-    (async () => { await speakEN(w.word, 0.8); if (!alive()) return; await sleep(400); if (!alive()) return; await speakEN(w.word, 0.65); })();
-    return { firstTry: await runSpeak(w) };
+    return { firstTry: await runSpeak(w, sentence, { modelAuto: true }) };
   };
 
   /* ==========================================================================
@@ -1276,6 +1344,6 @@
     showStart();
   }
 
-  window.PkmSimple = { S, T, STAGES, CFG, buildPlan, resolveType, distractors, misspellings, heardMatches, lev, norm };
+  window.PkmSimple = { S, T, STAGES, CFG, buildPlan, resolveType, distractors, misspellings, scoreSpeech, lev, norm };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
